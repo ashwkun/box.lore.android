@@ -68,6 +68,7 @@ smooth-corner-rect = { group = "com.github.racra", name = "smooth-corner-rect-an
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 google-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 # Media

@@ -1,0 +1,52 @@
+name: \ud83d\ude80 Manual Notification
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 'Notification Title'
+        required: true
+        default: 'BoxCast Update'
+      body:
+        description: 'Notification Body'
+        required: true
+        default: 'Check out the new features!'
+      type:
+        description: 'Where to show this message?'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+        - push
+        - in-app
+        - both
+      route:
+        description: 'Deep Link Route (Optional - e.g. podcast/123 or https://link)'
+        required: false
+
+jobs:
+  send-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install firebase-admin
+          
+      - name: Send Notification
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          python .github/scripts/manual_dispatch.py \
+            --title "${{ inputs.title }}" \
+            --body "${{ inputs.body }}" \
+            --type "${{ inputs.type }}" \
+            --route "${{ inputs.route }}"

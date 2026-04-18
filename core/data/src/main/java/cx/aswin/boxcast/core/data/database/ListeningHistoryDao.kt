@@ -15,6 +15,10 @@ interface ListeningHistoryDao {
     // Fetch Top 7 items for the new Split UI (1st is Hero, 2-7 are Grid)
     @Query("SELECT * FROM listening_history WHERE isCompleted = 0 AND progressMs > 0 ORDER BY lastPlayedAt DESC LIMIT 7")
     fun getResumeItems(): Flow<List<ListeningHistoryEntity>>
+
+    // Suspend version for Android Auto browse tree (non-Flow, one-shot)
+    @Query("SELECT * FROM listening_history WHERE isCompleted = 0 AND progressMs > 0 ORDER BY lastPlayedAt DESC LIMIT 20")
+    suspend fun getResumeItemsList(): List<ListeningHistoryEntity>
     
     @Query("SELECT * FROM listening_history ORDER BY lastPlayedAt DESC")
     fun getAllHistory(): Flow<List<ListeningHistoryEntity>>
@@ -47,6 +51,9 @@ interface ListeningHistoryDao {
 
     @Query("UPDATE listening_history SET isLiked = :isLiked WHERE episodeId = :episodeId")
     suspend fun setLikeStatus(episodeId: String, isLiked: Boolean)
+
+    @Query("UPDATE listening_history SET progressMs = :progressMs, durationMs = :durationMs, lastPlayedAt = :lastPlayedAt, isDirty = 1 WHERE episodeId = :episodeId")
+    suspend fun updateProgress(episodeId: String, progressMs: Long, durationMs: Long, lastPlayedAt: Long)
 
     @Query("UPDATE listening_history SET isCompleted = :isCompleted WHERE episodeId = :episodeId")
     suspend fun setCompletionStatus(episodeId: String, isCompleted: Boolean)

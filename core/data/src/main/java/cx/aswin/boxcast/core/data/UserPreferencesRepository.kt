@@ -142,6 +142,55 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[AnalyticsKeys.HAS_LOGGED_FIRST_PLAY] = true }
     }
     
+    // --- ANNOUNCEMENT PREFERENCES ---
+    private object AnnouncementKeys {
+        val TITLE = stringPreferencesKey("announcement_title")
+        val BODY = stringPreferencesKey("announcement_body")
+        val ROUTE = stringPreferencesKey("announcement_route")
+        val TIMESTAMP = androidx.datastore.preferences.core.longPreferencesKey("announcement_timestamp")
+    }
+    
+    data class Announcement(val title: String, val body: String, val route: String?, val timestamp: Long)
+    
+    val activeAnnouncementStream: Flow<Announcement?> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { pref ->
+            val title = pref[AnnouncementKeys.TITLE]
+            val body = pref[AnnouncementKeys.BODY]
+            if (!title.isNullOrBlank() && !body.isNullOrBlank()) {
+                Announcement(
+                    title = title,
+                    body = body,
+                    route = pref[AnnouncementKeys.ROUTE],
+                    timestamp = pref[AnnouncementKeys.TIMESTAMP] ?: 0L
+                )
+            } else {
+                null
+            }
+        }
+        
+    suspend fun setAnnouncement(title: String, body: String, route: String?, timestamp: Long) {
+        dataStore.edit { pref ->
+            pref[AnnouncementKeys.TITLE] = title
+            pref[AnnouncementKeys.BODY] = body
+            if (route != null) {
+                pref[AnnouncementKeys.ROUTE] = route
+            } else {
+                pref.remove(AnnouncementKeys.ROUTE)
+            }
+            pref[AnnouncementKeys.TIMESTAMP] = timestamp
+        }
+    }
+    
+    suspend fun clearAnnouncement() {
+        dataStore.edit { pref ->
+            pref.remove(AnnouncementKeys.TITLE)
+            pref.remove(AnnouncementKeys.BODY)
+            pref.remove(AnnouncementKeys.ROUTE)
+            pref.remove(AnnouncementKeys.TIMESTAMP)
+        }
+    }
+    
     // --- APP REVIEW LOGIC ---
     val reviewHasReviewed: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }

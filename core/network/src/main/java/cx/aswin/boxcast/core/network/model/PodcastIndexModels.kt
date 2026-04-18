@@ -156,6 +156,9 @@ data class EpisodeItem(
     @SerialName("feedImage")
     val feedImage: String? = null,
     
+    @SerialName("feedId")
+    val feedId: Long? = null,
+    
     @SerialName("chaptersUrl")
     val chaptersUrl: String? = null,
     

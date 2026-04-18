@@ -130,6 +130,8 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.messaging)
+    
     
     // Play Core
     implementation("com.google.android.play:review:2.0.2")

@@ -332,6 +332,7 @@ class PodcastRepository(
             audioUrl = audioUrl,
             imageUrl = (item.image?.takeIf { it.isNotBlank() } ?: item.feedImage?.takeIf { it.isNotBlank() }).toHttps(),
             podcastImageUrl = item.feedImage?.takeIf { it.isNotBlank() }?.let { it.toHttps() },
+            podcastId = item.feedId?.toString(),
             duration = item.duration ?: 0,
             publishedDate = item.datePublished ?: 0L,
             // Podcast 2.0

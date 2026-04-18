@@ -14,6 +14,10 @@ interface PodcastDao {
     
     @Query("SELECT * FROM podcasts WHERE isSubscribed = 1 ORDER BY title ASC")
     fun getSubscribedPodcasts(): Flow<List<PodcastEntity>>
+
+    // Suspend version for Android Auto browse tree (non-Flow, one-shot)
+    @Query("SELECT * FROM podcasts WHERE isSubscribed = 1 ORDER BY title ASC")
+    suspend fun getSubscribedPodcastsList(): List<PodcastEntity>
     
     @Query("SELECT * FROM podcasts WHERE podcastId = :id")
     suspend fun getPodcast(id: String): PodcastEntity?

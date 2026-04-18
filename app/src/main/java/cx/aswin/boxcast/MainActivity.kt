@@ -40,6 +40,7 @@ import java.net.URLEncoder
 import java.net.URLDecoder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -158,6 +159,7 @@ class MainActivity : ComponentActivity() {
             val themeBrand by userPrefs.themeBrandStream.collectAsState(initial = "violet")
             val hasSeenMarkPlayedTip by userPrefs.hasSeenMarkPlayedTip.collectAsState(initial = true)
             val hasLoggedFirstPlay by userPrefs.hasLoggedFirstPlay.collectAsState(initial = true)
+            val activeAnnouncement by userPrefs.activeAnnouncementStream.collectAsState(initial = null)
             val playerState by playbackRepository.playerState.collectAsState()
             
             val darkTheme = when(themeConfig) {
@@ -200,7 +202,45 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = useDynamicColor,
                 themeBrand = themeBrand
             ) {
-
+                // Show Announcement Dialog if onboarding is completed
+                if (onboardingCompleted && activeAnnouncement != null) {
+                    val announcement = activeAnnouncement!!
+                    val context = LocalContext.current
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { 
+                            scope.launch { userPrefs.clearAnnouncement() }
+                        },
+                        title = { Text(text = announcement.title) },
+                        text = { Text(text = announcement.body) },
+                        confirmButton = {
+                            if (!announcement.route.isNullOrBlank()) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        scope.launch { userPrefs.clearAnnouncement() }
+                                        try {
+                                            val intent = android.content.Intent(
+                                                android.content.Intent.ACTION_VIEW,
+                                                android.net.Uri.parse(announcement.route)
+                                            )
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("Announcement", "Failed to open route", e)
+                                        }
+                                    }
+                                ) {
+                                    Text("View")
+                                }
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { scope.launch { userPrefs.clearAnnouncement() } }
+                            ) {
+                                Text("Dismiss")
+                            }
+                        }
+                    )
+                }
 
                 androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     Scaffold(
