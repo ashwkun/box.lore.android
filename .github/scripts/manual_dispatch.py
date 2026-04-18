@@ -16,9 +16,12 @@ def send_notification(args):
     
     # We send a Data payload so the app's FirebaseMessagingService has full control
     # over whether it displays as a system push notification, in-app banner, or both.
+    # Decode encoded newlines from Web payload
+    decoded_body = args.body.replace('\\n', '\n')
+
     data_payload = {
         'title': args.title,
-        'body': args.body,
+        'body': decoded_body,
         'type': args.type
     }
     
