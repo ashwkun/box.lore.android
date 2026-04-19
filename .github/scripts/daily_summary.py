@@ -282,7 +282,7 @@ def write_summary_to_rtdb(date_str, summary, model_id):
 def send_email_via_proxy(date_str, summary, model_id):
     """Send the summary email via the Cloudflare Worker proxy."""
     proxy_url = os.environ.get("PROXY_URL", "https://api.aswin.cx")
-    app_key = os.environ.get("APP_SECRET_KEY")
+    app_key = os.environ.get("APP_SECRET_KEY", "").strip()
     if not app_key:
         print("⚠️ APP_SECRET_KEY not set, skipping email")
         return
