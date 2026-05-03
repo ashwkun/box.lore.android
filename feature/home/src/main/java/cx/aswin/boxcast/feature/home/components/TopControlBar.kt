@@ -57,8 +57,6 @@ private const val TAG = "StylizedLogo"
 @Composable
 fun TopControlBar(
     scrollFraction: Float = 0f,
-    isRadioMode: Boolean = false,
-    onToggleRadioMode: () -> Unit = {},
     modifier: Modifier = Modifier,
     onFeedbackClick: () -> Unit = {},
     onFeedbackLongClick: () -> Unit = {},
@@ -118,59 +116,7 @@ fun TopControlBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // App Mode Toggle
-            Surface(
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.height(40.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(4.dp)
-                ) {
-                    val podcastBg by animateColorAsState(if (!isRadioMode) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent, label = "podcastBg")
-                    val podcastTint by animateColorAsState(if (!isRadioMode) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, label = "podcastTint")
-                    
-                    val radioBg by animateColorAsState(if (isRadioMode) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent, label = "radioBg")
-                    val radioTint by animateColorAsState(if (isRadioMode) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, label = "radioTint")
 
-                    // Podcast Mode Button
-                    Box(
-                        modifier = Modifier
-                            .width(44.dp)
-                            .height(32.dp)
-                            .background(color = podcastBg, shape = androidx.compose.foundation.shape.RoundedCornerShape(50))
-                            .combinedClickable(onClick = { if(isRadioMode) onToggleRadioMode() }),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Podcasts,
-                            contentDescription = "Podcast Mode",
-                            modifier = Modifier.size(18.dp),
-                            tint = podcastTint
-                        )
-                    }
-                    
-                    // Radio Mode Button
-                    Box(
-                        modifier = Modifier
-                            .width(44.dp)
-                            .height(32.dp)
-                            .background(color = radioBg, shape = androidx.compose.foundation.shape.RoundedCornerShape(50))
-                            .combinedClickable(onClick = { if(!isRadioMode) onToggleRadioMode() }),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Radio,
-                            contentDescription = "Radio Mode",
-                            modifier = Modifier.size(18.dp),
-                            tint = radioTint
-                        )
-                    }
-                }
-            }
-            
-            // Icons (Feedback + Settings)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Feedback
             Surface(

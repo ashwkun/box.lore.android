@@ -61,8 +61,6 @@ import cx.aswin.boxcast.feature.home.components.TimeBlockSection
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.feature.home.components.TopControlBar
 import cx.aswin.boxcast.feature.home.components.YourShowsSection
-import cx.aswin.boxcast.feature.home.components.RadioFeed
-import cx.aswin.boxcast.feature.home.components.ModeSwitchOverlay
 
 import cx.aswin.boxcast.feature.home.components.DebugDbInspectorDialog
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
@@ -98,17 +96,11 @@ fun HomeRoute(
     val playerState by viewModel.playerState.collectAsState()
     val debugHistory by viewModel.debugHistory.collectAsState(initial = emptyList())
     val debugPodcasts by viewModel.debugPodcasts.collectAsState(initial = emptyList())
-    val isRadioMode by viewModel.isRadioMode.collectAsState()
-    
+
     val showReviewPrompt by viewModel.showReviewPrompt.collectAsState()
     val showPostReview by viewModel.showPostReview.collectAsState()
     val showFeedback by viewModel.showFeedback.collectAsState()
     
-    val activeRadioStation by viewModel.activeRadioStation.collectAsState()
-    val isRadioPlaying by viewModel.isRadioPlaying.collectAsState()
-    val isRadioLoading by viewModel.isRadioLoading.collectAsState()
-    val showRadioPlayerModal by viewModel.showRadioPlayerModal.collectAsState()
-    val followedStationIds by viewModel.followedStationIds.collectAsState()
 
     
     HomeScreen(
@@ -147,18 +139,7 @@ fun HomeRoute(
         },
         onSubmitFeedback = onSubmitFeedback,
         onResetFeatureFlag = viewModel::resetFeatureFlag,
-        isRadioMode = isRadioMode,
-        onToggleRadioMode = viewModel::toggleRadioMode,
-        podcastRepository = viewModel.podcastRepository,
-        activeRadioStation = activeRadioStation,
-        isRadioPlaying = isRadioPlaying,
-        isRadioLoading = isRadioLoading,
-        showRadioPlayerModal = showRadioPlayerModal,
-        onPlayRadioStation = viewModel::playRadioStation,
-        onCloseRadioPlayer = viewModel::closeRadioPlayer,
-        onHideRadioPlayerModal = viewModel::hideRadioPlayerModal,
-        followedStationIds = followedStationIds,
-        onToggleFollowStation = viewModel::toggleFollowStation,
+
         modifier = modifier
     )
 }
@@ -195,46 +176,23 @@ fun HomeScreen(
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
     onResetFeatureFlag: () -> Unit = {},
-    isRadioMode: Boolean = false,
-    onToggleRadioMode: () -> Unit = {},
-    podcastRepository: cx.aswin.boxcast.core.data.PodcastRepository,
-    activeRadioStation: cx.aswin.boxcast.feature.home.components.RadioStation? = null,
-    isRadioPlaying: Boolean = false,
-    isRadioLoading: Boolean = false,
-    showRadioPlayerModal: Boolean = false,
-    onPlayRadioStation: (cx.aswin.boxcast.feature.home.components.RadioStation) -> Unit = {},
-    onCloseRadioPlayer: () -> Unit = {},
-    onHideRadioPlayerModal: () -> Unit = {},
-    followedStationIds: Set<String> = emptySet(),
-    onToggleFollowStation: (cx.aswin.boxcast.feature.home.components.RadioStation) -> Unit = {},
+
     modifier: Modifier = Modifier
 ) {
     // Track scroll state for collapsing top bar
     val gridState = rememberLazyStaggeredGridState()
-    val radioGridState = rememberLazyStaggeredGridState()
     var showDebugDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
     
     // Calculate scroll fraction: 0 = at top (expanded), 1 = scrolled (collapsed)
-    val scrollFraction by remember(isRadioMode) {
+    val scrollFraction by remember {
         derivedStateOf {
-            if (isRadioMode) {
-                val firstVisibleItem = radioGridState.firstVisibleItemIndex
-                val firstVisibleOffset = radioGridState.firstVisibleItemScrollOffset
-                val collapseThreshold = 100f
-                if (firstVisibleItem == 0) {
-                    (firstVisibleOffset / collapseThreshold).coerceIn(0f, 1f)
-                } else {
-                    1f
-                }
+            val firstVisibleItem = gridState.firstVisibleItemIndex
+            val firstVisibleOffset = gridState.firstVisibleItemScrollOffset
+            val collapseThreshold = 100f
+            if (firstVisibleItem == 0) {
+                (firstVisibleOffset / collapseThreshold).coerceIn(0f, 1f)
             } else {
-                val firstVisibleItem = gridState.firstVisibleItemIndex
-                val firstVisibleOffset = gridState.firstVisibleItemScrollOffset
-                val collapseThreshold = 100f
-                if (firstVisibleItem == 0) {
-                    (firstVisibleOffset / collapseThreshold).coerceIn(0f, 1f)
-                } else {
-                    1f
-                }
+                1f
             }
         }
     }
@@ -249,43 +207,21 @@ fun HomeScreen(
         )
     }
 
-    // Track mode-switch animation state
-    var isSwitching by remember { androidx.compose.runtime.mutableStateOf(false) }
-    // The "pending" mode — what we're switching TO
-    var pendingRadioMode by remember { androidx.compose.runtime.mutableStateOf(isRadioMode) }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         // Main content underneath
         Column(modifier = Modifier.fillMaxSize()) {
             TopControlBar(
                 scrollFraction = scrollFraction,
-                isRadioMode = isRadioMode,
-                onToggleRadioMode = {
-                    // Start the switch animation
-                    pendingRadioMode = !isRadioMode
-                    isSwitching = true
-                    ModeSwitchState.start()
-                },
+
                 onFeedbackClick = onFeedbackClick,
                 onFeedbackLongClick = onForceReviewPrompt,
                 onAvatarClick = { onNavigateToSettings?.invoke() },
                 onAvatarLongClick = { showDebugDialog = true }
             )
             
-            // Content area — immediate swap (overlay hides the transition)
-            if (isRadioMode) {
-                RadioFeed(
-                    gridState = radioGridState, 
-                    modifier = Modifier.fillMaxSize(), 
-                    podcastRepository = podcastRepository,
-                    playingStationId = activeRadioStation?.id,
-                    isRadioPlaying = isRadioPlaying,
-                    onPlayStation = onPlayRadioStation,
-                    followedStationIds = followedStationIds,
-                    onToggleFollow = onToggleFollowStation
-                )
-            } else {
-                Box(modifier = Modifier.fillMaxSize()) {
+            // Content area
+            Box(modifier = Modifier.fillMaxSize()) {
                     if (uiState.isError) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Error loading content", color = MaterialTheme.colorScheme.error)
@@ -315,38 +251,9 @@ fun HomeScreen(
                             gridState = gridState
                         )
                     }
-                }
-            }
         }
-        
-        // Full-screen branded overlay
-        ModeSwitchOverlay(
-            isVisible = isSwitching,
-            isRadioMode = pendingRadioMode,
-            onAnimationComplete = {
-                // Actually perform the mode switch now
-                onToggleRadioMode()
-                // Dismiss the overlay
-                isSwitching = false
-                ModeSwitchState.finish()
-            }
-        )
-        
-        // Overlays
-        if (showRadioPlayerModal && activeRadioStation != null) {
-            cx.aswin.boxcast.feature.home.components.RadioPlayerModal(
-                station = activeRadioStation,
-                isPlaying = isRadioPlaying,
-                isLoading = isRadioLoading,
-                onClose = onCloseRadioPlayer,
-                onTogglePlayPause = { onPlayRadioStation(activeRadioStation) },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-
     }
-    
+    }
     // --- Bottom Sheets outside the scrollable area ---
     if (showReviewPrompt) {
         cx.aswin.boxcast.feature.home.components.ReviewPromptSheet(

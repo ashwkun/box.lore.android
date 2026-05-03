@@ -131,82 +131,6 @@ class HomeViewModel(
     // Playback state to UI
     val playerState = playbackRepository.playerState
     
-    // Radio Mode state
-    val isRadioMode: StateFlow<Boolean> = userPrefs.isRadioModeStream
-        .onStart { emit(false) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    
-    // True while the mode-switch overlay animation is playing
-    private val _isModeSwitching = MutableStateFlow(false)
-    val isModeSwitching: StateFlow<Boolean> = _isModeSwitching.asStateFlow()
-    
-    // --- RADIO PLAYER (Completely separated from Podcast queue) ---
-    val radioPlayer = androidx.media3.exoplayer.ExoPlayer.Builder(application)
-        .setAudioAttributes(
-            androidx.media3.common.AudioAttributes.Builder()
-                .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
-                .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-                .build(),
-            true // Handle audio focus automatically (will pause if podcast starts, and vice-versa)
-        )
-        .build()
-
-    private val _activeRadioStation = MutableStateFlow<cx.aswin.boxcast.feature.home.components.RadioStation?>(null)
-    val activeRadioStation: StateFlow<cx.aswin.boxcast.feature.home.components.RadioStation?> = _activeRadioStation.asStateFlow()
-    
-    private val _isRadioPlaying = MutableStateFlow(false)
-    val isRadioPlaying: StateFlow<Boolean> = _isRadioPlaying.asStateFlow()
-    
-    private val _isRadioLoading = MutableStateFlow(false)
-    val isRadioLoading: StateFlow<Boolean> = _isRadioLoading.asStateFlow()
-    
-    private val _showRadioPlayerModal = MutableStateFlow(false)
-    val showRadioPlayerModal: StateFlow<Boolean> = _showRadioPlayerModal.asStateFlow()
-
-    // --- RADIO FOLLOW SYSTEM (separate database) ---
-    private val radioDb = cx.aswin.boxcast.core.data.database.radio.RadioDatabase.getDatabase(application)
-    private val followedStationDao = radioDb.followedStationDao()
-    
-    val followedStationIds: StateFlow<Set<String>> = followedStationDao.getFollowedIds()
-        .map { it.toSet() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
-
-    fun toggleFollowStation(station: cx.aswin.boxcast.feature.home.components.RadioStation) {
-        viewModelScope.launch {
-            val isCurrentlyFollowed = followedStationDao.isFollowed(station.id)
-            if (isCurrentlyFollowed) {
-                followedStationDao.delete(station.id)
-            } else {
-                followedStationDao.insert(
-                    cx.aswin.boxcast.core.data.database.radio.FollowedStationEntity(
-                        id = station.id,
-                        name = station.name,
-                        genre = station.genre,
-                        imageUrl = station.imageUrl,
-                        streamUrl = station.streamUrl,
-                        country = station.country,
-                        language = station.language
-                    )
-                )
-            }
-        }
-    }    
-    
-    fun startModeSwitching() {
-        _isModeSwitching.value = true
-    }
-    
-    fun finishModeSwitching() {
-        _isModeSwitching.value = false
-    }
-    
-    fun toggleRadioMode() {
-        viewModelScope.launch {
-            val current = isRadioMode.value
-            userPrefs.setRadioMode(!current)
-        }
-    }
-    
     // Cached base data (For You)
     private var cachedForYouTrending: List<Podcast> = emptyList()
     private var cachedHeroItems: List<SmartHeroItem> = emptyList()
@@ -217,54 +141,8 @@ class HomeViewModel(
     private var activeRegion = "us"
 
     init {
-        radioPlayer.addListener(object : androidx.media3.common.Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                _isRadioPlaying.value = isPlaying
-            }
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                _isRadioLoading.value = playbackState == androidx.media3.common.Player.STATE_BUFFERING
-            }
-            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-                // Currently unused — will be needed for floating radio player
-            }
-        })
-        
         loadData()
         startBackgroundSync()
-    }
-
-    fun playRadioStation(station: cx.aswin.boxcast.feature.home.components.RadioStation) {
-        if (_activeRadioStation.value?.id == station.id) {
-            if (radioPlayer.isPlaying) {
-                radioPlayer.pause()
-            } else {
-                radioPlayer.play()
-            }
-            _showRadioPlayerModal.value = true
-            return
-        }
-        
-        // Stop any running podcast!
-        playbackRepository.pause()
-
-        radioPlayer.stop()
-        radioPlayer.clearMediaItems()
-        
-        _activeRadioStation.value = station
-        _showRadioPlayerModal.value = true
-        val mediaItem = androidx.media3.common.MediaItem.fromUri(station.streamUrl)
-        radioPlayer.setMediaItem(mediaItem)
-        radioPlayer.prepare()
-        radioPlayer.play()
-    }
-
-    fun closeRadioPlayer() {
-        radioPlayer.pause()
-        _showRadioPlayerModal.value = false
-    }
-
-    fun hideRadioPlayerModal() {
-        _showRadioPlayerModal.value = false
     }
 
 
@@ -856,6 +734,5 @@ class HomeViewModel(
     
     override fun onCleared() {
         super.onCleared()
-        radioPlayer.release()
     }
 }
