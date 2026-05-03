@@ -23,7 +23,7 @@ jobs:
       - name: Download Podcast Index Database
         run: |
           echo "Downloading PI database dump..."
-          curl -L -o podcastindex_feeds.db.tgz https://public.podcastindex.org/podcastindex_feeds.db.tgz
+          curl -L -f -A "BoxCast/1.0 (github.com/ashwkun/box.cast.android)" -o podcastindex_feeds.db.tgz https://public.podcastindex.org/podcastindex_feeds.db.tgz
           echo "Extracting..."
           tar -xzf podcastindex_feeds.db.tgz
           ls -la *.db
