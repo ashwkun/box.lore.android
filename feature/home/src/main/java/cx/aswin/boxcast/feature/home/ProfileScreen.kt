@@ -218,15 +218,15 @@ fun AppearanceSection(
     Column {
         Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val modes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
             modes.forEach { (mode, label) ->
                 FilterChip(
                     selected = currentThemeConfig == mode,
                     onClick = { onSetThemeConfig(mode) },
                     label = { Text(label) },
-                    leadingIcon = { if (currentThemeConfig == mode) Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) },
-                    modifier = Modifier.weight(1f)
+                    leadingIcon = { if (currentThemeConfig == mode) Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
                 )
             }
         }
@@ -479,8 +479,24 @@ fun PrivacySection(
                     Text("Copy Prompt", style = MaterialTheme.typography.labelMedium)
                 }
             }
+        }
         
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // Privacy Policy Link
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = { Text("Read Privacy Policy") },
+            leadingContent = {
+                Icon(Icons.Rounded.Policy, null, tint = MaterialTheme.colorScheme.onSurface)
+            },
+            modifier = Modifier.clickable {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aswin.cx/boxcast/privacy"))
+                try { context.startActivity(intent) } catch (_: Exception) {}
+            }
+        )
+        
+        Spacer(Modifier.height(16.dp))
         
         // DANGER ZONE INTEGRATED
         Surface(
@@ -490,7 +506,7 @@ fun PrivacySection(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "Danger Zone", 
+                    "Data Management", 
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold,
@@ -587,7 +603,6 @@ fun PrivacySection(
         }
     }
 }
-}
 
 @Composable
 fun CommunitySection(context: android.content.Context) {
@@ -624,18 +639,6 @@ fun CommunitySection(context: android.content.Context) {
             }
         )
         HorizontalDivider()
-
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = { Text("Privacy Policy") },
-            leadingContent = {
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurface)
-            },
-            modifier = Modifier.clickable {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aswin.cx/boxcast/privacy"))
-                try { context.startActivity(intent) } catch (_: Exception) {}
-            }
-        )
 
         Spacer(Modifier.height(16.dp))
         
