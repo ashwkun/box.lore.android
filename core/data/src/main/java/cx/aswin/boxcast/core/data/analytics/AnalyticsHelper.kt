@@ -65,18 +65,15 @@ class AnalyticsHelper(
     }
 
     // ══════════════════════════════════════════════════════════
-    //  FUNNEL: Onboarding (pre-consent, always tracked)
+    //  FUNNEL: Onboarding (always tracked, pre-activation)
     // ══════════════════════════════════════════════════════════
 
     /**
      * Tracks onboarding funnel steps with rich context.
-     * Steps: consent_shown → consent_accepted/declined → genres_selected → search_shown → completed/skipped
+     * Steps: genres_selected → search_shown → completed/skipped
      */
     fun logOnboardingStep(step: String, additionalParams: Map<String, String>? = null) {
         when (step) {
-            "consent_shown" -> trackUngated("funnel_consent_shown")
-            "consent_accepted" -> trackUngated("funnel_consent_accepted")
-            "consent_declined" -> trackUngated("funnel_consent_declined")
             "genres_selected" -> {
                 trackUngated("funnel_onboarding_genres_picked")
                 val count = additionalParams?.get("genre_count")?.toIntOrNull() ?: 0
