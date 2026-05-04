@@ -9,6 +9,16 @@ on:
       date_override:
         description: 'Override date (YYYY-MM-DD in IST). Leave empty for yesterday.'
         required: false
+      target_model:
+        description: 'AI Model to use for summary'
+        required: false
+        default: 'gpt-4o'
+        type: choice
+        options:
+          - gpt-4o
+          - DeepSeek-R1
+          - Meta-Llama-3.1-405B-Instruct
+          - gpt-4o-mini
 
 permissions:
   contents: read
@@ -39,4 +49,6 @@ jobs:
           PROXY_URL: https://api.aswin.cx
           APP_SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
           DATE_OVERRIDE: ${{ inputs.date_override }}
+          TARGET_MODEL: ${{ inputs.target_model }}
+          TELEMETRY_API_KEY: ${{ secrets.TELEMETRY_API_KEY }}
         run: python .github/scripts/daily_summary.py
