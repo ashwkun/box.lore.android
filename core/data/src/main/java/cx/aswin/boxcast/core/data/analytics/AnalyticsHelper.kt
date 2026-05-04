@@ -141,6 +141,61 @@ class AnalyticsHelper(
     }
 
     // ══════════════════════════════════════════════════════════
+    //  CURATED: Time-block section engagement
+    // ══════════════════════════════════════════════════════════
+
+    /** Curated time-block displayed on home screen (impression). */
+    fun logCuratedBlockImpression(blockTitle: String, vibeCount: Int, totalPodcasts: Int) {
+        if (!isUsageConsented) return
+        track("curated_block_impression")
+        val safeTitle = blockTitle.lowercase().replace(Regex("[^a-z0-9]"), "_").take(30)
+        track("curated_block_$safeTitle")
+        track("curated_vibes_shown", vibeCount)
+        track("curated_pods_shown", totalPodcasts)
+    }
+
+    /** Curated vibe rail scrolled into view (per-vibe impression). */
+    fun logCuratedVibeImpression(vibeId: String, podcastCount: Int) {
+        if (!isUsageConsented) return
+        val safeVibe = vibeId.lowercase().replace(Regex("[^a-z0-9]"), "_").take(30)
+        track("curated_vibe_impression_$safeVibe")
+        track("curated_vibe_pods_$safeVibe", podcastCount)
+    }
+
+    /** User tapped a podcast card in the curated section. */
+    fun logCuratedCardTapped(vibeId: String, podcastId: String, position: Int) {
+        if (!isUsageConsented) return
+        track("curated_card_tapped")
+        val safeVibe = vibeId.lowercase().replace(Regex("[^a-z0-9]"), "_").take(30)
+        track("curated_tap_vibe_$safeVibe")
+        // Track position buckets to understand if users scroll deep
+        val posBucket = when {
+            position < 3 -> "pos_0_2"
+            position < 6 -> "pos_3_5"
+            else -> "pos_6_plus"
+        }
+        track("curated_tap_$posBucket")
+        // Track per-podcast interest via podcast intelligence
+        SessionAggregator.incrementPodcastMetric(podcastId, "curated_taps")
+    }
+
+    /** Episode play initiated from the curated section. */
+    fun logCuratedEpisodePlayed(vibeId: String, podcastId: String, position: Int) {
+        if (!isUsageConsented) return
+        track("curated_episode_played")
+        val safeVibe = vibeId.lowercase().replace(Regex("[^a-z0-9]"), "_").take(30)
+        track("curated_play_vibe_$safeVibe")
+        val posBucket = when {
+            position < 3 -> "pos_0_2"
+            position < 6 -> "pos_3_5"
+            else -> "pos_6_plus"
+        }
+        track("curated_play_$posBucket")
+        // Track per-podcast curated plays
+        SessionAggregator.incrementPodcastMetric(podcastId, "curated_plays")
+    }
+
+    // ══════════════════════════════════════════════════════════
     //  PLAYBACK: Engagement depth and quality
     // ══════════════════════════════════════════════════════════
 

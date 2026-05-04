@@ -15,14 +15,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
+import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxcast.core.data.privacy.ConsentManager
 
 @Composable
 fun TimeBlockSection(
@@ -30,6 +34,17 @@ fun TimeBlockSection(
     onEpisodeClick: (Episode, Podcast) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val analyticsHelper = androidx.compose.runtime.remember {
+        AnalyticsHelper(context, ConsentManager(context))
+    }
+
+    // Track block impression once when this composable enters composition
+    LaunchedEffect(data.title) {
+        val totalPods = data.sections.sumOf { it.podcasts.size }
+        analyticsHelper.logCuratedBlockImpression(data.title, data.sections.size, totalPods)
+    }
+
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
@@ -67,6 +82,11 @@ fun TimeBlockSection(
 
             // --- Genre Rails ---
             data.sections.forEachIndexed { index, section ->
+                // Track per-vibe impression
+                LaunchedEffect(section.category) {
+                    analyticsHelper.logCuratedVibeImpression(section.category, section.podcasts.size)
+                }
+
                 Column {
                     Text(
                         text = section.title,
@@ -89,7 +109,12 @@ fun TimeBlockSection(
                                 CuratedEpisodeCard(
                                     podcast = podcast,
                                     episode = episode,
-                                    onClick = { onEpisodeClick(episode, podcast) }
+                                    onClick = {
+                                        // Track curated card tap + episode play
+                                        analyticsHelper.logCuratedCardTapped(section.category, podcast.id, i)
+                                        analyticsHelper.logCuratedEpisodePlayed(section.category, podcast.id, i)
+                                        onEpisodeClick(episode, podcast)
+                                    }
                                 )
                             }
                         }
