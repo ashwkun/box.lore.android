@@ -104,7 +104,8 @@ def fetch_metrics(target_date):
         lt_metrics[row['metric_key'].replace('prod_', '')] = row['v']
         
     # Raw un-aggregated logs (Leveraging Gemini's large context window)
-    raw_logs_res = query_turso(f"SELECT event_type, event_payload, created_at FROM raw_events WHERE date(created_at) = '{target_date}' ORDER BY created_at DESC LIMIT 5000")
+    # We sample 5000 random events from the day to avoid "end-of-day" time bias, then sort them chronologically so the LLM can still follow user journeys.
+    raw_logs_res = query_turso(f"SELECT * FROM (SELECT event_type, event_payload, created_at FROM raw_events WHERE date(created_at) = '{target_date}' ORDER BY RANDOM() LIMIT 5000) ORDER BY created_at ASC")
     
     return {
         "date": target_date,
