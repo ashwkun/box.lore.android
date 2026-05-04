@@ -27,6 +27,7 @@ permissions:
 jobs:
   generate-summary:
     runs-on: ubuntu-latest
+    if: github.repository == 'ashwkun/box.cast.android'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,8 +45,7 @@ jobs:
       - name: Generate and send daily summary
         env:
           FIREBASE_CREDENTIALS: ${{ secrets.FCM_SERVICE_ACCOUNT_KEY }}
-          GH_MODELS_TOKEN: ${{ secrets.GH_MODELS_TOKEN }}
-          GITHUB_TOKEN_FALLBACK: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PROXY_URL: https://api.aswin.cx
           APP_SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
           DATE_OVERRIDE: ${{ inputs.date_override }}

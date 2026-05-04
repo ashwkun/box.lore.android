@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 # --- Constants ---
 TELEMETRY_API_URL = "https://boxcast-telemetry.boxboxcric.workers.dev/query"
-GH_MODELS_ENDPOINT = "https://models.inference.ai.azure.com/chat/completions"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # Model fallback chain
@@ -201,44 +201,47 @@ Lifetime Aggregates: {json.dumps(today['lt_metrics'])}
 Please generate the summary."""
     return system_prompt, user_prompt
 
-def call_github_models(system_prompt, user_prompt):
-    token = os.environ.get("GH_MODELS_TOKEN") or os.environ.get("GITHUB_TOKEN_FALLBACK") or os.environ.get("GITHUB_TOKEN")
-    if not token:
-        print("ERROR: No GitHub token available")
+def call_gemini(system_prompt, user_prompt):
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key:
+        print("ERROR: No Gemini token available")
         sys.exit(1)
 
-    target_model = os.environ.get("TARGET_MODEL", "gpt-4o").strip()
+    target_model = os.environ.get("TARGET_MODEL", "gemini-2.5-flash").strip()
+    # If the workflow provides a gpt model, fallback to gemini-2.5-flash
+    if target_model.startswith("gpt") or target_model.startswith("DeepSeek") or target_model.startswith("Meta"):
+        target_model = "gemini-2.5-flash"
     
-    # Put target_model first, then fallback to others
-    models_to_try = [m for m in MODELS if m["id"] == target_model]
-    models_to_try += [m for m in MODELS if m["id"] != target_model]
-
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
-    for model in models_to_try:
-        model_id = model["id"]
-        print(f"Trying model: {model_id}...")
-        try:
-            payload = {
-                "model": model_id,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.7,
-                "max_tokens": 2000,
+    print(f"Trying model: {target_model}...")
+    
+    url = GEMINI_API_URL.format(model=target_model, key=key)
+    
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": system_prompt}]
+        },
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": user_prompt}]
             }
-            resp = requests.post(GH_MODELS_ENDPOINT, headers=headers, json=payload, timeout=60)
-            if resp.status_code == 200:
-                summary = resp.json()["choices"][0]["message"]["content"]
-                print(f"✅ Success with {model_id}")
-                return summary, model_id
-            else:
-                print(f"⚠️ {model_id} returned {resp.status_code}: {resp.text[:200]}")
-        except Exception as e:
-            print(f"⚠️ {model_id} failed: {e}")
+        ]
+    }
+    
+    try:
+        resp = requests.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=60)
+        if resp.status_code == 200:
+            data = resp.json()
+            if "candidates" in data and len(data["candidates"]) > 0:
+                summary = data["candidates"][0]["content"]["parts"][0]["text"]
+                print(f"✅ Success with {target_model}")
+                return summary, target_model
+        
+        print(f"⚠️ {target_model} returned {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        print(f"⚠️ {target_model} failed: {e}")
 
-    print("ERROR: All models failed")
+    print("ERROR: Gemini call failed")
     sys.exit(1)
 
 def save_summary_turso(date_str, summary, model_id):
@@ -293,7 +296,8 @@ def main():
 
     print("🤖 Generating AI summary...")
     sys_prompt, user_prompt = build_prompt(today_data, prev_data)
-    summary, model_id = call_github_models(sys_prompt, user_prompt)
+    print("Calling Gemini...")
+    summary, model_id = call_gemini(sys_prompt, user_prompt)
 
     print(f"\n{'='*40}\n{summary}\n{'='*40}\n")
 
