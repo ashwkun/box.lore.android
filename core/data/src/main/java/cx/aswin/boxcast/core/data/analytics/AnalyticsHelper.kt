@@ -143,7 +143,7 @@ class AnalyticsHelper(
 
     /** Curated time-block displayed on home screen (impression). */
     fun logCuratedBlockImpression(blockTitle: String, vibeCount: Int, totalPodcasts: Int) {
-        if (!isUsageConsented) return
+        // No consent gate — fires from LaunchedEffect before consent loads, and is privacy-safe
         track("curated_block_impression")
         val safeTitle = blockTitle.lowercase().replace(Regex("[^a-z0-9]"), "_").take(30)
         track("curated_block_$safeTitle")
@@ -153,7 +153,7 @@ class AnalyticsHelper(
 
     /** Curated vibe rail scrolled into view (per-vibe impression). */
     fun logCuratedVibeImpression(vibeId: String, podcastCount: Int) {
-        if (!isUsageConsented) return
+        // No consent gate — fires from LaunchedEffect before consent loads, and is privacy-safe
         val safeVibe = vibeId.lowercase().replace(Regex("[^a-z0-9]"), "_").take(30)
         track("curated_vibe_impression_$safeVibe")
         track("curated_vibe_pods_$safeVibe", podcastCount)
