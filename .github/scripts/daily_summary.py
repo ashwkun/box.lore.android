@@ -102,6 +102,9 @@ def fetch_metrics(target_date):
     lt_metrics = {}
     for row in lt_res:
         lt_metrics[row['metric_key'].replace('prod_', '')] = row['v']
+        
+    # Raw un-aggregated logs (Leveraging Gemini's large context window)
+    raw_logs_res = query_turso(f"SELECT event_name, event_data, timestamp FROM telemetry_logs WHERE date(timestamp) = '{target_date}' ORDER BY timestamp DESC LIMIT 5000")
     
     return {
         "date": target_date,
@@ -120,7 +123,8 @@ def fetch_metrics(target_date):
         "funnel": funnel,
         "curated": curated,
         "metrics_7d": metrics_7d,
-        "lt_metrics": lt_metrics
+        "lt_metrics": lt_metrics,
+        "raw_logs": raw_logs_res
     }
 
 def build_prompt(today, prev):
@@ -189,6 +193,10 @@ Aggregates (7d): {json.dumps(today['metrics_7d'])}
 === LIFETIME DATA ===
 Total Registered Devices: {today['total_installs']}
 Lifetime Aggregates: {json.dumps(today['lt_metrics'])}
+
+=== RAW EVENT LOGS (Up to 5000 events) ===
+(Use these raw, un-aggregated events to find specific user journey drop-offs, hidden correlations, sequential patterns, or exact feature usage behaviors that are lost in the aggregates above)
+{json.dumps(today.get('raw_logs', []), separators=(',', ':'))}
 
 Please generate the summary."""
     return system_prompt, user_prompt
