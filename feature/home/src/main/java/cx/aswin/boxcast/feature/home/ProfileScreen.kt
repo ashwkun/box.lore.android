@@ -545,7 +545,7 @@ fun PrivacySection() {
         Spacer(Modifier.height(12.dp))
 
         // AI Prompt block
-        val aiPrompt = "Read the code at this GitHub URL: https://github.com/ashwkun/box.cast.android\n\nDoes this Android app collect any Personally Identifiable Information (PII) or sell data?"
+        val aiPrompt = "Analyze the source code of this Android app at https://github.com/ashwkun/box.cast.android.\n\nDoes it collect any Personally Identifiable Information (PII), track device identifiers, or contain any third-party advertising SDKs?"
         
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
