@@ -90,7 +90,7 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {
@@ -115,8 +115,15 @@ fun ProfileScreen(
             }
 
             item {
-                SectionCard("The Anti-Tracker", Icons.Rounded.Security) {
-                    PrivacySection()
+                SectionCard("Data & Privacy", Icons.Rounded.Security) {
+                    PrivacySection(
+                        appInstanceId = appInstanceId,
+                        onResetAnalytics = onResetAnalytics,
+                        showResetDialog = showResetDialog,
+                        onShowResetDialogChange = { showResetDialog = it },
+                        isDeletionExpanded = isDeletionExpanded,
+                        onDeletionExpandedChange = { isDeletionExpanded = it }
+                    )
                 }
             }
 
@@ -124,116 +131,6 @@ fun ProfileScreen(
                 SectionCard("Community", Icons.Rounded.Public) {
                     CommunitySection(context)
                 }
-            }
-
-            item {
-                // PERSISTENT FOOTER (Data Management)
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(24.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            "Danger Zone", 
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
-                        )
-                        
-                        // Reset Identity
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Reset Identity") },
-                            supportingContent = { Text("Generate new anonymous ID.") },
-                            leadingContent = {
-                                Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                            },
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showResetDialog = true }
-                        )
-                        
-                        // Request Deletion
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { Text("Request Immediate Deletion", color = MaterialTheme.colorScheme.error) },
-                            supportingContent = { Text("Permanently erase your server data.", color = MaterialTheme.colorScheme.error.copy(alpha=0.8f)) },
-                            leadingContent = {
-                                Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                            },
-                            trailingContent = {
-                                Icon(
-                                    if (isDeletionExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { isDeletionExpanded = !isDeletionExpanded }
-                        )
-
-                        // Expanded Deletion UI
-                        AnimatedVisibility(visible = isDeletionExpanded) {
-                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp, top = 8.dp)) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            appInstanceId?.let {
-                                                clipboardManager.setText(AnnotatedString(it))
-                                                Toast.makeText(context, "ID Copied", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                ) {
-                                    Row(
-                                        Modifier.padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = appInstanceId ?: "Generating ID...",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontFamily = FontFamily.Monospace,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                            data = Uri.parse("mailto:")
-                                            putExtra(Intent.EXTRA_EMAIL, arrayOf("privacy@aswin.cx"))
-                                            putExtra(Intent.EXTRA_SUBJECT, "Data Deletion Request")
-                                            putExtra(Intent.EXTRA_TEXT, "Please delete data associated with Instance ID: ${appInstanceId ?: "UNKNOWN"}")
-                                        }
-                                        try { context.startActivity(intent) } catch(_: Exception) {
-                                            Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(Icons.Rounded.Email, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Email privacy@aswin.cx")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            item {
-                Spacer(Modifier.height(32.dp))
             }
         }
     }
@@ -444,7 +341,14 @@ fun ContentLibrarySection(
 }
 
 @Composable
-fun PrivacySection() {
+fun PrivacySection(
+    appInstanceId: String?,
+    onResetAnalytics: () -> Unit,
+    showResetDialog: Boolean,
+    onShowResetDialogChange: (Boolean) -> Unit,
+    isDeletionExpanded: Boolean,
+    onDeletionExpandedChange: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     
@@ -575,8 +479,114 @@ fun PrivacySection() {
                     Text("Copy Prompt", style = MaterialTheme.typography.labelMedium)
                 }
             }
+        
+        Spacer(Modifier.height(32.dp))
+        
+        // DANGER ZONE INTEGRATED
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Danger Zone", 
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+                )
+                
+                // Reset Identity
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = { Text("Reset Identity") },
+                    supportingContent = { Text("Generate new anonymous ID.") },
+                    leadingContent = {
+                        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onShowResetDialogChange(true) }
+                )
+                
+                // Request Deletion
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = { Text("Request Immediate Deletion", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Permanently erase your server data.", color = MaterialTheme.colorScheme.error.copy(alpha=0.8f)) },
+                    leadingContent = {
+                        Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    },
+                    trailingContent = {
+                        Icon(
+                            if (isDeletionExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onDeletionExpandedChange(!isDeletionExpanded) }
+                )
+
+                // Expanded Deletion UI
+                AnimatedVisibility(visible = isDeletionExpanded) {
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp, top = 8.dp)) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    appInstanceId?.let {
+                                        clipboardManager.setText(AnnotatedString(it))
+                                        Toast.makeText(context, "ID Copied", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                        ) {
+                            Row(
+                                Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = appInstanceId ?: "Generating ID...",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:")
+                                    putExtra(Intent.EXTRA_EMAIL, arrayOf("privacy@aswin.cx"))
+                                    putExtra(Intent.EXTRA_SUBJECT, "Data Deletion Request")
+                                    putExtra(Intent.EXTRA_TEXT, "Please delete data associated with Instance ID: ${appInstanceId ?: "UNKNOWN"}")
+                                }
+                                try { context.startActivity(intent) } catch(_: Exception) {
+                                    Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Rounded.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Email privacy@aswin.cx")
+                        }
+                    }
+                }
+            }
         }
     }
+}
 }
 
 @Composable
