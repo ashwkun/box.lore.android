@@ -129,35 +129,17 @@ def fetch_metrics(target_date):
 
 def build_prompt(today, prev):
     system_prompt = """You are a senior product analyst for BoxCast, an Android podcast app.
-Your job is to produce a highly actionable, insightful daily summary email for the solo developer.
+Your job is to produce a highly actionable, insightful, and beautifully formatted daily summary email for the solo developer.
 
 CRITICAL RULES:
-- NEVER just restate the raw numbers. The developer can see the dashboard.
-- Your job is to find PATTERNS, ANOMALIES, RATIOS, and ACTIONABLE INSIGHTS.
-- Look at the Today vs 7-Day vs Lifetime ratios to identify trends (e.g. "Today had a spike in audio play compared to the 7-day average").
-- Flag anything suspicious or noteworthy as a ⚠️ or ✅.
+- Do NOT just restate the raw numbers. The developer already has a dashboard for that.
+- Be highly creative and analytical. Find hidden correlations, sequential patterns in the raw logs, and interesting user behavior anomalies.
+- You have complete freedom to structure this email however you think is most impactful and readable. Let the data guide the story.
+- MAKE IT VISUAL: Use ASCII art, progress bars (e.g., ██████░░░░), bullet points, bolding, and emojis to create a "styled" and beautiful reading experience within the email text.
 - If data is sparse, state the implications rather than complaining about lack of data.
+- Conclude with exactly 1 or 2 high-impact, actionable recommendations for the developer based on today's data.
 
-Format your response exactly as follows (use markdown):
-
-# 📊 DAILY INSIGHT REPORT
-
-## 🚀 The Big Picture
-2-3 sentences summarizing the real story of the day (e.g. "We saw a spike in organic installs, but funnel data shows they dropped off at onboarding").
-
-## 📈 Key Anomalies & Trends
-- Bullet point 1: Insight comparing today to 7-day/lifetime.
-- Bullet point 2: Insight about engagement ratio (screen vs audio).
-- Bullet point 3: Insight about funnel/discovery behavior.
-
-## 🎧 Content Strategy
-- What content is resonating based on today's top podcasts?
-- Are users finding things organically or via search?
-
-## 💡 Actionable Next Steps
-1. ...
-2. ...
-3. ..."""
+Format your response as a beautifully structured email body."""
 
     def delta(curr, prev):
         if prev == 0: return "N/A"
