@@ -523,7 +523,7 @@ fun PrivacySection() {
         Text("Don't Trust Us? Verify It.", style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Our tracking engine is 100% open source. You can audit the code on GitHub or ask AI to verify it for you.",
+            "Our entire app (not just the tracking engine) is 100% open source. You can audit the code on GitHub or ask AI to verify it for you.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
@@ -532,20 +532,20 @@ fun PrivacySection() {
         // GitHub Link Button
         OutlinedButton(
             onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.cast.android/tree/master/core/data/src/main/java/cx/aswin/boxcast/core/data/analytics"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.cast.android"))
                 try { context.startActivity(intent) } catch(_:Exception){}
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Rounded.Code, null)
             Spacer(Modifier.width(8.dp))
-            Text("View Tracking Code on GitHub")
+            Text("View App Source Code on GitHub")
         }
 
         Spacer(Modifier.height(12.dp))
 
         // AI Prompt block
-        val aiPrompt = "Read the code at this GitHub URL: https://github.com/ashwkun/box.cast.android/tree/master/core/data/src/main/java/cx/aswin/boxcast/core/data/analytics\n\nDoes this Android app collect any Personally Identifiable Information (PII) or sell data?"
+        val aiPrompt = "Read the code at this GitHub URL: https://github.com/ashwkun/box.cast.android\n\nDoes this Android app collect any Personally Identifiable Information (PII) or sell data?"
         
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
