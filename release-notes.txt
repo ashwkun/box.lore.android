@@ -1,4 +1,0 @@
-📦 What's New in v1.3.2
-- **Data Portability**: Full integration for importing BoxCast Backups (.json) and Other App Backups (.opml) directly into your library from Settings and Onboarding.
-- **Edge-to-Edge Support**: Fixed edge-to-edge UI rendering issues and updated system window token handling for modern devices.
-- **Background Processes**: Restored broken automated background data syncing triggers and squashed playback instability warnings.

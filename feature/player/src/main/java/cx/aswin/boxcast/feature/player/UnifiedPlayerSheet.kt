@@ -80,7 +80,6 @@ enum class PlayerSheetState { COLLAPSED, EXPANDED }
 fun UnifiedPlayerSheet(
     playbackRepository: PlaybackRepository,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    analyticsHelper: cx.aswin.boxcast.core.data.analytics.AnalyticsHelper? = null,
     userPrefs: UserPreferencesRepository,
     sheetCollapsedTargetY: Float,
     containerHeight: Dp,
@@ -505,7 +504,6 @@ fun UnifiedPlayerSheet(
                             FullPlayerContent(
                                 playbackRepository = playbackRepository,
                                 downloadRepository = downloadRepository,
-                                analyticsHelper = analyticsHelper,
                                 isDarkTheme = isDarkTheme,
                                 colorScheme = scheme,
                                 onCollapse = {

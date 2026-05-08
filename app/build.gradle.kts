@@ -23,8 +23,8 @@ android {
         applicationId = "cx.aswin.boxcast"
         minSdk = 31
         targetSdk = 36
-        versionCode = 29
-        versionName = "1.4.1"
+        versionCode = 30
+        versionName = "1.4.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -33,8 +33,9 @@ android {
         
         buildConfigField("String", "BOXCAST_API_BASE_URL", "\"${localProps.getProperty("BOXCAST_API_BASE_URL", "")}\"")
         buildConfigField("String", "BOXCAST_PUBLIC_KEY", "\"${localProps.getProperty("BOXCAST_PUBLIC_KEY", "")}\"")
-        buildConfigField("String", "TELEMETRY_API_URL", "\"${localProps.getProperty("TELEMETRY_API_URL", "https://boxcast-telemetry.boxboxcric.workers.dev")}\"")
-        buildConfigField("String", "TELEMETRY_API_KEY", "\"${localProps.getProperty("TELEMETRY_API_KEY", "REDACTED_TELEMETRY_KEY")}\"")
+        buildConfigField("String", "POSTHOG_API_KEY", "\"${localProps.getProperty("posthog.apiKey", "")}\"")
+        buildConfigField("String", "POSTHOG_HOST", "\"${localProps.getProperty("posthog.host", "")}\"")
+
     }
 
     signingConfigs {
@@ -88,6 +89,15 @@ android {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:1.9.24")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24")
+    }
+}
+
 dependencies {
     // Core Modules
     implementation(projects.core.designsystem)
@@ -130,12 +140,15 @@ dependencies {
     
     // Firebase
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
+
     implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.database)
     
     
+    // PostHog
+    implementation("com.posthog:posthog-android:3.8.2")
+
     // Play Core
     implementation("com.google.android.play:review:2.0.2")
     implementation("com.google.android.play:review-ktx:2.0.2")

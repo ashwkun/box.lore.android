@@ -25,8 +25,7 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
-import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
-import cx.aswin.boxcast.core.data.privacy.ConsentManager
+
 
 @Composable
 fun TimeBlockSection(
@@ -35,15 +34,6 @@ fun TimeBlockSection(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val analyticsHelper = androidx.compose.runtime.remember {
-        AnalyticsHelper(context, ConsentManager(context))
-    }
-
-    // Track block impression once when this composable enters composition
-    LaunchedEffect(data.title) {
-        val totalPods = data.sections.sumOf { it.podcasts.size }
-        analyticsHelper.logCuratedBlockImpression(data.title, data.sections.size, totalPods)
-    }
 
     Column(
         modifier = modifier.fillMaxWidth()
@@ -82,10 +72,6 @@ fun TimeBlockSection(
 
             // --- Genre Rails ---
             data.sections.forEachIndexed { index, section ->
-                // Track per-vibe impression
-                LaunchedEffect(section.category) {
-                    analyticsHelper.logCuratedVibeImpression(section.category, section.podcasts.size)
-                }
 
                 Column {
                     Text(
@@ -110,9 +96,6 @@ fun TimeBlockSection(
                                     podcast = podcast,
                                     episode = episode,
                                     onClick = {
-                                        // Track curated card tap + episode play
-                                        analyticsHelper.logCuratedCardTapped(section.category, podcast.title, i)
-                                        analyticsHelper.logCuratedEpisodePlayed(section.category, podcast.title, i)
                                         onEpisodeClick(episode, podcast)
                                     }
                                 )

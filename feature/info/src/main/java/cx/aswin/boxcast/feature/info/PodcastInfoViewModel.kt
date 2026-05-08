@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
@@ -42,7 +43,6 @@ class PodcastInfoViewModel(
     application: Application,
     private val apiBaseUrl: String,
     private val publicKey: String,
-    private val analyticsHelper: cx.aswin.boxcast.core.data.analytics.AnalyticsHelper,
     private val playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
     private val queueManager: cx.aswin.boxcast.core.data.QueueManager
@@ -54,8 +54,7 @@ class PodcastInfoViewModel(
         context = application
     )
     private val database = cx.aswin.boxcast.core.data.database.BoxCastDatabase.getDatabase(application)
-    // Removed local playbackRepository instantiation
-    private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao(), analyticsHelper)
+    private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
 
     private val _uiState = MutableStateFlow<PodcastInfoUiState>(PodcastInfoUiState.Loading)
     val uiState: StateFlow<PodcastInfoUiState> = _uiState.asStateFlow()
@@ -297,13 +296,14 @@ class PodcastInfoViewModel(
         val currentState = _uiState.value
         if (currentState is PodcastInfoUiState.Success) {
             viewModelScope.launch {
+                val wasSubscribed = currentState.isSubscribed
                 subscriptionRepository.toggleSubscription(currentState.podcast)
                 // Refresh state
                 val isSubscribed = subscriptionRepository.isSubscribed(currentState.podcast.id)
-                analyticsHelper.logSubscribeAction(isSubscribed, source = "podcast_page")
                 _uiState.value = currentState.copy(isSubscribed = isSubscribed)
-                
-                if (isSubscribed) {
+
+                if (isSubscribed && !wasSubscribed) {
+
                     launch(kotlinx.coroutines.Dispatchers.IO) {
                         try {
                             val synced = repository.syncSubscriptions(listOf(currentState.podcast.id))
@@ -314,6 +314,8 @@ class PodcastInfoViewModel(
                             e.printStackTrace()
                         }
                     }
+                } else if (!isSubscribed && wasSubscribed) {
+
                 }
             }
         }
@@ -397,12 +399,12 @@ class PodcastInfoViewModel(
     
     fun onPlayClick(episode: Episode) {
         val currentState = _uiState.value as? PodcastInfoUiState.Success ?: return
-        
+
         viewModelScope.launch {
             if (playbackRepository.playerState.value.currentEpisode?.id == episode.id) {
                 playbackRepository.togglePlayPause()
             } else {
-                analyticsHelper.logEpisodeStarted("podcast_page", false)
+
                 // Pass the current UI sort order to the QueueManager logic
                 val sortOrder = if (currentState.currentSort == EpisodeSort.OLDEST) "oldest" else "newest"
                 queueManager.playEpisode(episode, currentState.podcast, sortOrder)

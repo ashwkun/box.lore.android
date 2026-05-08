@@ -104,8 +104,7 @@ class HomeViewModel(
     
     val podcastRepository = PodcastRepository(baseUrl = apiBaseUrl, publicKey = publicKey, context = application)
     private val database = cx.aswin.boxcast.core.data.database.BoxCastDatabase.getDatabase(application)
-    private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao(), cx.aswin.boxcast.core.data.analytics.AnalyticsHelper(application, cx.aswin.boxcast.core.data.privacy.ConsentManager(application))) // This might be complex to reconstruct.
-    // Actually, SubscriptionRepository takes dao and analytcs.
+    private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
     // Let's leave SubscriptionRepository as is for now, it's less critical for playback state.
     // But `playbackRepository` MUST be injected.
 
@@ -484,11 +483,7 @@ class HomeViewModel(
                             isError = false
                         )
                         
-                        // Time-To-First-Value (New User Retention) Tracking
-                        if (trendingList.isNotEmpty() && heroList.isEmpty() && subs.isEmpty()) {
-                            val analyticsHelper = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper(getApplication(), cx.aswin.boxcast.core.data.privacy.ConsentManager(getApplication()))
-                            analyticsHelper.logEmptyStateSeen("home")
-                        }
+
                 }
             }
         }
@@ -569,10 +564,8 @@ class HomeViewModel(
                 ?: state.heroItems.find { it.podcast.id == podcastId }?.podcast
             
             if (podcast != null) {
-                val analyticsHelper = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper(getApplication(), cx.aswin.boxcast.core.data.privacy.ConsentManager(getApplication()))
                 subscriptionRepository.toggleSubscription(podcast)
                 val isSubscribed = subscriptionRepository.isSubscribed(podcast.id)
-                analyticsHelper.logSubscribeAction(isSubscribed, source = "home_feed")
                 
                 if (isSubscribed) {
                     // Fetch latest episodes for the newly subscribed podcast so UI updates immediately

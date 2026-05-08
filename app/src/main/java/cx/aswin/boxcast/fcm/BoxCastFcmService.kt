@@ -103,7 +103,7 @@ class BoxCastFcmService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("notification_push_received")
+
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_notification) 

@@ -50,3 +50,7 @@ API_GUIDE.md
 # Sub-projects
 admin-panel/
 telemetry-worker/
+
+# Local reference and scratch files
+playstore_changelogs.md
+telemetry_events.md

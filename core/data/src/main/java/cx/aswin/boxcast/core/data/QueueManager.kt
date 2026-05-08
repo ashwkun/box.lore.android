@@ -12,8 +12,7 @@ class QueueManager @Inject constructor(
     private val queueRepository: QueueRepository,
     private val smartQueueEngine: SmartQueueEngine,
     private val playbackRepository: PlaybackRepository,
-    private val podcastRepository: PodcastRepository,
-    private val analyticsHelper: cx.aswin.boxcast.core.data.analytics.AnalyticsHelper? = null
+    private val podcastRepository: PodcastRepository
 ) {
     private val TAG = "QueueManager"
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -108,7 +107,6 @@ class QueueManager @Inject constructor(
                 // Add to Player
                 val domainEpisode = episode.toDomain(podcast)
                 playbackRepository.addToQueue(domainEpisode, podcast)
-                analyticsHelper?.logFeatureUsed("queue_add")
                 android.util.Log.d(TAG, "addToQueue: Complete. Current queue size: ${playbackRepository.playerState.value.queue.size}")
             } else {
                 android.util.Log.e(TAG, "addToQueue: Podcast is null, ignoring!")

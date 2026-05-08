@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+
 import cx.aswin.boxcast.core.model.Episode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -101,6 +102,7 @@ class EpisodeInfoViewModel(
     fun onToggleLike(episode: Episode) {
         val currentState = uiState.value
         if (currentState is EpisodeInfoUiState.Success) {
+            val wasLiked = likedEpisodeIds.value.contains(episode.id)
             viewModelScope.launch {
                 playbackRepository.toggleLike(
                     episode = episode,
@@ -108,6 +110,7 @@ class EpisodeInfoViewModel(
                     podcastTitle = currentState.podcastTitle,
                     podcastImageUrl = currentState.episode.podcastImageUrl
                 )
+
             }
         }
     }
@@ -247,6 +250,7 @@ class EpisodeInfoViewModel(
                         genre = currentState.podcastGenre
                     )
                     downloadRepository.addDownload(episode, podcast)
+
                 }
             }
         }
@@ -270,6 +274,7 @@ class EpisodeInfoViewModel(
                 playbackRepository.togglePlayPause()
             } else {
                 // Different episode: Start Playback
+
                 viewModelScope.launch {
                     val pod = cx.aswin.boxcast.core.model.Podcast(
                         id = currentState.podcastId,
@@ -279,8 +284,6 @@ class EpisodeInfoViewModel(
                         description = "",
                         genre = currentState.podcastGenre
                     )
-                    val analyticsHelper = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper(getApplication(), cx.aswin.boxcast.core.data.privacy.ConsentManager(getApplication()))
-                    analyticsHelper.logEpisodeStarted("episode_page", false)
                     queueManager.playEpisode(currentState.episode, pod)
                 }
             }
@@ -306,6 +309,7 @@ class EpisodeInfoViewModel(
                     )
                     // User requested "Add to Queue" -> Insert as NEXT item
                     playbackRepository.addToQueueNext(currentState.episode, pod)
+
                 }
             }
         }

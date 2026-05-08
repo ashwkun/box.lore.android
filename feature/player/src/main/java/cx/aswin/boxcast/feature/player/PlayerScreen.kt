@@ -95,14 +95,13 @@ fun PlayerRoute(
     val application = LocalContext.current.applicationContext as android.app.Application
     val database = androidx.compose.runtime.remember { cx.aswin.boxcast.core.data.database.BoxCastDatabase.getDatabase(application) }
     val downloadRepository = androidx.compose.runtime.remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
-    val consentManager = androidx.compose.runtime.remember { cx.aswin.boxcast.core.data.privacy.ConsentManager(application) }
-    val analyticsHelper = androidx.compose.runtime.remember { cx.aswin.boxcast.core.data.analytics.AnalyticsHelper(application, consentManager) }
+
     
     val viewModel: PlayerViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return PlayerViewModel(application, apiBaseUrl, publicKey, analyticsHelper, downloadRepository, playbackRepository) as T
+                return PlayerViewModel(application, apiBaseUrl, publicKey, downloadRepository, playbackRepository) as T
             }
         }
     )

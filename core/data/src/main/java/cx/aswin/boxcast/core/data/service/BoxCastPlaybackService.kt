@@ -45,21 +45,10 @@ class BoxCastPlaybackService : MediaLibraryService() {
         )
     }
     private var isRefilling = false
-    // Lazy-init health reporter for service-level playback tracking
-    private val healthReporter by lazy {
-        val prefs = getSharedPreferences("boxcast_api_config", MODE_PRIVATE)
-        val telemetryUrl = prefs.getString("telemetry_url", null) ?: "https://boxcast-telemetry.boxboxcric.workers.dev/ingest"
-        val telemetryKey = prefs.getString("telemetry_key", null) ?: "REDACTED_TELEMETRY_KEY"
-        cx.aswin.boxcast.core.data.analytics.AppHealthReporter(this, telemetryUrl, telemetryKey)
-    }
     
     // Pending seek position for resume playback (set in onAddMediaItems, consumed in onIsPlayingChanged)
     @Volatile
     private var pendingSeekMs: Long = 0L
-    
-    // Playback session time tracking
-    private var sessionStartTimeMs: Long = 0L
-    private var lastTrackedEpisodeId: String? = null
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun onCreate() {
@@ -137,7 +126,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 val remaining = player.mediaItemCount - player.currentMediaItemIndex - 1
                 android.util.Log.d("AutoQueue", "onMediaItemTransition: remaining=$remaining, reason=$reason")
-                
+
                 if (remaining <= 2 && !isRefilling && player.mediaItemCount > 0) {
                     isRefilling = true
                     serviceScope.launch {
@@ -157,54 +146,6 @@ class BoxCastPlaybackService : MediaLibraryService() {
         var progressSaverJob: kotlinx.coroutines.Job? = null
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                // Service-level playback tracking (survives Activity kill)
-                if (isPlaying) {
-                    healthReporter.onPlaybackStarted()
-                    sessionStartTimeMs = android.os.SystemClock.elapsedRealtime()
-                    
-                    // Podcast-level intelligence: track which podcast is being played
-                    val currentItem = player.currentMediaItem
-                    val podcastId = currentItem?.mediaMetadata?.subtitle?.toString()
-                        ?: currentItem?.mediaMetadata?.artist?.toString()
-                        ?: "unknown"
-                    val episodeId = currentItem?.mediaId ?: "unknown"
-                    
-                    // Only count as a "play" if it's a NEW episode we are starting, 
-                    // this prevents buffering/resumes from artificially inflating the play counter.
-                    if (podcastId != "unknown" && episodeId != lastTrackedEpisodeId) {
-                        cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementPodcastMetric(
-                            podcastId, "podcast_plays", 1
-                        )
-                        lastTrackedEpisodeId = episodeId
-                    }
-                } else {
-                    healthReporter.onPlaybackStopped()
-                    
-                    // Track sum of playback time
-                    if (sessionStartTimeMs > 0) {
-                        val durationMs = android.os.SystemClock.elapsedRealtime() - sessionStartTimeMs
-                        val durationSec = (durationMs / 1000).toInt()
-                        if (durationSec > 0) {
-                            val currentItem = player.currentMediaItem
-                            val podcastId = currentItem?.mediaMetadata?.subtitle?.toString()
-                                ?: currentItem?.mediaMetadata?.artist?.toString()
-                                ?: "unknown"
-                            val episodeTitle = currentItem?.mediaMetadata?.title?.toString()
-                                ?: currentItem?.mediaMetadata?.displayTitle?.toString()
-                                ?: "unknown_episode"
-                                
-                            // Only track meaningful playback segments (> 1 second)
-                            if (podcastId != "unknown") {
-                                val safeEpisodeTitle = episodeTitle.replace("|", "-")
-                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementPodcastMetric(
-                                    podcastId, "play_time_sec|$safeEpisodeTitle", durationSec
-                                )
-                            }
-                        }
-                        sessionStartTimeMs = 0L // Reset for next play segment
-                    }
-                }
-                
                 if (isPlaying) {
                     // Apply any pending resume-seek BEFORE starting progress saver
                     val seekTo = pendingSeekMs
@@ -324,30 +265,6 @@ class BoxCastPlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
-        // Track sum of playback time if destroyed while playing
-        if (sessionStartTimeMs > 0) {
-            val durationMs = android.os.SystemClock.elapsedRealtime() - sessionStartTimeMs
-            val durationSec = (durationMs / 1000).toInt()
-            if (durationSec > 0) {
-                val currentItem = mediaSession?.player?.currentMediaItem
-                val podcastId = currentItem?.mediaMetadata?.subtitle?.toString()
-                    ?: currentItem?.mediaMetadata?.artist?.toString()
-                    ?: "unknown"
-                val episodeTitle = currentItem?.mediaMetadata?.title?.toString()
-                    ?: currentItem?.mediaMetadata?.displayTitle?.toString()
-                    ?: "unknown_episode"
-                if (podcastId != "unknown") {
-                    val safeEpisodeTitle = episodeTitle.replace("|", "-")
-                    cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementPodcastMetric(
-                        podcastId, "play_time_sec|$safeEpisodeTitle", durationSec
-                    )
-                }
-            }
-            sessionStartTimeMs = 0L
-        }
-
-        // Flush any tracked playback time before shutting down
-        healthReporter.onPlaybackStopped()
         mediaSession?.run {
             player.release()
             release()

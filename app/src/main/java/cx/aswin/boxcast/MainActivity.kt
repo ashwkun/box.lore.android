@@ -94,8 +94,7 @@ class MainActivity : ComponentActivity() {
     // State for Player Expansion (Notification handling)
     private var expandPlayerTrigger by androidx.compose.runtime.mutableLongStateOf(0L)
     
-    // First-party health analytics (privacy-respecting, no PII)
-    private lateinit var healthReporter: cx.aswin.boxcast.core.data.analytics.AppHealthReporter
+
 
     // Google Play In-App Updates
     private val appUpdateManager by lazy { com.google.android.play.core.appupdate.AppUpdateManagerFactory.create(this) }
@@ -122,14 +121,12 @@ class MainActivity : ComponentActivity() {
         }
 
         if (intent.getBooleanExtra("from_push", false)) {
-            cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("notification_push_tapped")
             intent.removeExtra("from_push")
         }
     }
     
     override fun onResume() {
         super.onResume()
-        if (::healthReporter.isInitialized) healthReporter.onAppForeground()
         
         // Check for in-progress updates
         try {
@@ -156,7 +153,6 @@ class MainActivity : ComponentActivity() {
     
     override fun onPause() {
         super.onPause()
-        if (::healthReporter.isInitialized) healthReporter.onAppBackground()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -164,12 +160,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize health reporter
-        healthReporter = cx.aswin.boxcast.core.data.analytics.AppHealthReporter(
-            context = applicationContext,
-            telemetryUrl = BuildConfig.TELEMETRY_API_URL,
-            telemetryKey = BuildConfig.TELEMETRY_API_KEY
-        )
+
         
         // Handle initial launch intent
         handlePlayerIntent(intent)
@@ -210,8 +201,6 @@ class MainActivity : ComponentActivity() {
             // API config from BuildConfig
             val apiBaseUrl = BuildConfig.BOXCAST_API_BASE_URL
             val publicKey = BuildConfig.BOXCAST_PUBLIC_KEY
-            val telemetryUrl = BuildConfig.TELEMETRY_API_URL
-            val telemetryKey = BuildConfig.TELEMETRY_API_KEY
             
             LaunchedEffect(Unit) {
                 // Save to SharedPreferences so the background Service can access them
@@ -219,8 +208,6 @@ class MainActivity : ComponentActivity() {
                 prefs.edit()
                     .putString("base_url", apiBaseUrl)
                     .putString("public_key", publicKey)
-                    .putString("telemetry_url", telemetryUrl)
-                    .putString("telemetry_key", telemetryKey)
                     .apply()
             }
             
@@ -246,15 +233,14 @@ class MainActivity : ComponentActivity() {
             val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
             
             // 4. Subscription Repository
-            val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao(), analyticsHelper = null) }
+            val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao()) }
             
-            // Privacy & Analytics & Preferences
+            // Privacy & Preferences
             val consentManager = remember { cx.aswin.boxcast.core.data.privacy.ConsentManager(application) }
-            val analyticsHelper = remember { cx.aswin.boxcast.core.data.analytics.AnalyticsHelper(application, consentManager) }
             
             // 6. Onboarding ViewModel
             val onboardingViewModel = remember {
-                cx.aswin.boxcast.feature.onboarding.OnboardingViewModel(application, podcastRepository, subscriptionRepository, analyticsHelper)
+                cx.aswin.boxcast.feature.onboarding.OnboardingViewModel(application, podcastRepository, subscriptionRepository)
             }
             val onboardingCompleted = remember { onboardingViewModel.isOnboardingCompleted() }
             
@@ -263,7 +249,7 @@ class MainActivity : ComponentActivity() {
             
             // QueueManager (Singleton-ish) - Needs to be provided to ViewModels/Screens
             val queueManager = remember { 
-                cx.aswin.boxcast.core.data.QueueManager(queueRepository, smartQueueEngine, playbackRepository, podcastRepository, analyticsHelper)
+                cx.aswin.boxcast.core.data.QueueManager(queueRepository, smartQueueEngine, playbackRepository, podcastRepository)
             }
 
             val userPrefs = remember { cx.aswin.boxcast.core.data.UserPreferencesRepository(application) }
@@ -273,7 +259,7 @@ class MainActivity : ComponentActivity() {
             // If user hasn't set consent, this will become false shortly and show dialog.
             val hasUserSetConsent by consentManager.hasUserSetConsent.collectAsState(initial = true)
 
-            val analyticsConsent by consentManager.isUsageAnalyticsConsented.collectAsState(initial = false)
+
             val crashlyticsConsent by consentManager.isCrashReportingConsented.collectAsState(initial = false)
             val currentRegion by userPrefs.regionStream.collectAsState(initial = "us")
             
@@ -299,19 +285,10 @@ class MainActivity : ComponentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission()
             ) { isGranted ->
-                if (isGranted) {
-                    cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("notification_permission_granted")
-                } else {
-                    cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("notification_permission_denied")
-                }
             }
             
             LaunchedEffect(Unit) {
-                try {
-                    com.google.firebase.analytics.FirebaseAnalytics.getInstance(application).appInstanceId.addOnSuccessListener { 
-                        appInstanceId = it
-                    }
-                } catch(e: Exception) { /* Ignore if missing */ }
+                // Firebase Analytics removed for PostHog migration
                 
                 try {
                     // Subscribe to FCM topic for global announcements
@@ -337,25 +314,10 @@ class MainActivity : ComponentActivity() {
                 playbackRepository.restoreLastSession()
             }
 
-            // Global Screen View Tracking
-            LaunchedEffect(currentRoute) {
-                analyticsHelper.logScreenView(currentRoute)
-            }
-            
             // Activation Tracking (first_episode_played)
             LaunchedEffect(playerState.isPlaying, hasLoggedFirstPlay) {
                 if (playerState.isPlaying && !hasLoggedFirstPlay) {
-                    analyticsHelper.logFirstEpisodePlayed("organic")
                     userPrefs.markFirstPlayLogged()
-                }
-            }
-            
-            // Health Reporter: Track playback time (includes background listening)
-            LaunchedEffect(playerState.isPlaying) {
-                if (playerState.isPlaying) {
-                    healthReporter.onPlaybackStarted()
-                } else {
-                    healthReporter.onPlaybackStopped()
                 }
             }
 
@@ -374,9 +336,7 @@ class MainActivity : ComponentActivity() {
                         },
                         title = { Text(text = announcement.title) },
                         text = { 
-                            LaunchedEffect(announcement) {
-                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("notification_inapp_seen")
-                            }
+
                             androidx.compose.foundation.layout.Column {
                                 if (!announcement.imageUrl.isNullOrBlank()) {
                                     coil.compose.AsyncImage(
@@ -420,7 +380,6 @@ class MainActivity : ComponentActivity() {
                             if (!announcement.route.isNullOrBlank()) {
                                 androidx.compose.material3.TextButton(
                                     onClick = {
-                                        cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("notification_inapp_tapped")
                                         scope.launch { userPrefs.clearAnnouncement() }
                                         try {
                                             val intent = android.content.Intent(
@@ -567,13 +526,11 @@ class MainActivity : ComponentActivity() {
                                 
                                 androidx.compose.material3.FilledTonalButton(
                                     onClick = {
-                                        healthReporter.logFeatureAnnouncementSeen(featureAnnouncementId)
                                         scope.launch { userPrefs.dismissFeatureAnnouncement(featureAnnouncementId) }
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth(0.6f)
                                         .expressiveClickable {
-                                            healthReporter.logFeatureAnnouncementSeen(featureAnnouncementId)
                                             scope.launch { userPrefs.dismissFeatureAnnouncement(featureAnnouncementId) }
                                         }
                                 ) {
@@ -691,11 +648,10 @@ class MainActivity : ComponentActivity() {
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing JSON...", android.widget.Toast.LENGTH_SHORT).show() }
                                                 val jsonStr = application.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: return@launch
                                                 val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_json")
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_subs_total", count)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
                                                     android.widget.Toast.makeText(application, "Imported $count items", android.widget.Toast.LENGTH_SHORT).show()
-                                                    onboardingViewModel.skipOnboarding {
+                                                    onboardingViewModel.trackImportSuccess("json", count)
+                                                    onboardingViewModel.skipOnboarding(method = "import") {
                                                         navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                                                     }
                                                 }
@@ -710,11 +666,10 @@ class MainActivity : ComponentActivity() {
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing OPML (This may take a minute)...", android.widget.Toast.LENGTH_SHORT).show() }
                                                 val inputStream = application.contentResolver.openInputStream(uri) ?: return@launch
                                                 val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importFromOpml(inputStream)
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_opml")
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_subs_total", count)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
                                                     android.widget.Toast.makeText(application, "Found & Subscribed to $count podcasts", android.widget.Toast.LENGTH_LONG).show()
-                                                    onboardingViewModel.skipOnboarding {
+                                                    onboardingViewModel.trackImportSuccess("opml", count)
+                                                    onboardingViewModel.skipOnboarding(method = "import") {
                                                         navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                                                     }
                                                 }
@@ -754,7 +709,6 @@ class MainActivity : ComponentActivity() {
                                         // Do not navigate, just play. Mini player appears.
                                     },
                                     onHeroArrowClick = { heroItem ->
-                                        analyticsHelper.logHeroCardTapped(heroItem.type.name, 0)
                                         val ep = heroItem.podcast.latestEpisode
                                         if (ep != null) {
                                             fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
@@ -863,7 +817,8 @@ class MainActivity : ComponentActivity() {
                                     onResetAnalytics = {
                                         scope.launch {
                                             try {
-                                                com.google.firebase.analytics.FirebaseAnalytics.getInstance(application).resetAnalyticsData()
+                                                // FirebaseAnalytics removed
+
                                                 consentManager.clearConsent()
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Settings", "Failed to reset analytics", e)
@@ -883,7 +838,6 @@ class MainActivity : ComponentActivity() {
                                             try {
                                                 val backupJson = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).exportLibraryAsJson()
                                                 application.contentResolver.openOutputStream(uri)?.use { it.write(backupJson.toByteArray()) }
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_export_json")
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Library Exported Successfully", android.widget.Toast.LENGTH_SHORT).show() }
                                             } catch(e: Exception){
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
@@ -896,8 +850,6 @@ class MainActivity : ComponentActivity() {
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing JSON...", android.widget.Toast.LENGTH_SHORT).show() }
                                                 val jsonStr = application.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: return@launch
                                                 val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_json")
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_subs_total", count)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Imported $count items", android.widget.Toast.LENGTH_SHORT).show() }
                                             } catch(e: Exception) {
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Import Failed", android.widget.Toast.LENGTH_SHORT).show() }
@@ -910,8 +862,6 @@ class MainActivity : ComponentActivity() {
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing OPML (This may take a minute)...", android.widget.Toast.LENGTH_SHORT).show() }
                                                 val inputStream = application.contentResolver.openInputStream(uri) ?: return@launch
                                                 val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importFromOpml(inputStream)
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_opml")
-                                                cx.aswin.boxcast.core.data.analytics.SessionAggregator.incrementAggregate("action_import_subs_total", count)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Found & Subscribed to $count podcasts", android.widget.Toast.LENGTH_LONG).show() }
                                             } catch(e: Exception){
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "OPML Import Failed", android.widget.Toast.LENGTH_SHORT).show() }
@@ -932,7 +882,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             ) { backStackEntry -> 
                                 val podcastDao = remember { database.podcastDao() }
-                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao, analyticsHelper) }
+                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao) }
                                 val podcastRepository = remember { cx.aswin.boxcast.core.data.PodcastRepository(apiBaseUrl, publicKey, application) }
                                 
                                 // Handle Argument
@@ -946,7 +896,6 @@ class MainActivity : ComponentActivity() {
                                                 application,
                                                 podcastRepository,
                                                 subscriptionRepository, // Updated to take repo
-                                                analyticsHelper,
                                                 initialCategory = category 
                                             ) as T
                                         }
@@ -963,7 +912,7 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("library") { 
                                 val podcastDao = remember { database.podcastDao() }
-                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao, analyticsHelper) }
+                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao) }
                                 val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
                                 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.library.LibraryViewModel>(
@@ -1024,7 +973,7 @@ class MainActivity : ComponentActivity() {
                             
                             composable("library/liked") {
                                 val podcastDao = remember { database.podcastDao() }
-                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao, analyticsHelper) }
+                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao) }
                                 val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
                                 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.library.LibraryViewModel>(
@@ -1073,7 +1022,7 @@ class MainActivity : ComponentActivity() {
                             ) { backStackEntry ->
                                 val initialTab = backStackEntry.arguments?.getInt("tab") ?: 0
                                 val podcastDao = remember { database.podcastDao() }
-                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao, analyticsHelper) }
+                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao) }
                                 val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
                                 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.library.LibraryViewModel>(
@@ -1120,7 +1069,7 @@ class MainActivity : ComponentActivity() {
 
                             composable("library/downloads") {
                                 val podcastDao = remember { database.podcastDao() }
-                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao, analyticsHelper) }
+                                val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao) }
                                 val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
                                 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.library.LibraryViewModel>(
@@ -1172,7 +1121,6 @@ class MainActivity : ComponentActivity() {
                                                 application, 
                                                 apiBaseUrl, 
                                                 publicKey, 
-                                                analyticsHelper,
                                                 playbackRepository, // Pass Shared Instance
                                                 downloadRepository,
                                                 queueManager
@@ -1366,7 +1314,6 @@ class MainActivity : ComponentActivity() {
                     cx.aswin.boxcast.feature.player.UnifiedPlayerSheet(
                         playbackRepository = playbackRepository,
                         downloadRepository = downloadRepository,
-                        analyticsHelper = analyticsHelper,
                         userPrefs = userPrefs,
                         sheetCollapsedTargetY = collapsedTargetY,
                         containerHeight = containerHeight,

@@ -35,7 +35,6 @@ class PlayerViewModel(
     application: Application,
     private val apiBaseUrl: String,
     private val publicKey: String,
-    private val analyticsHelper: cx.aswin.boxcast.core.data.analytics.AnalyticsHelper,
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
     private val playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository
 ) : AndroidViewModel(application) {
@@ -64,19 +63,6 @@ class PlayerViewModel(
                      // Note: We might want to trust the Repository's current episode if it matches the podcast context
                      val syncedEpisode = playerState.currentEpisode ?: currentUi.currentEpisode
                      
-                     // Analytics: Track listening session start/end
-                     if (playerState.isPlaying && !currentUi.isPlaying) {
-                         analyticsHelper.startListeningSession()
-                     } else if (!playerState.isPlaying && currentUi.isPlaying) {
-                         analyticsHelper.endListeningSession()
-                     }
-                     
-                     // Analytics: Episode progress milestones (scrub-safe)
-                     if (playerState.isPlaying && playerState.duration > 0) {
-                         val episodeKey = playerState.currentEpisode?.id ?: ""
-                         val percent = ((playerState.position.toFloat() / playerState.duration.toFloat()) * 100).toInt()
-                         analyticsHelper.logEpisodeProgress(episodeKey, percent)
-                     }
                      
                      _uiState.value = currentUi.copy(
                          currentEpisode = syncedEpisode,
@@ -163,12 +149,10 @@ class PlayerViewModel(
                      }
                 } else {
                     _uiState.value = PlayerUiState.Error
-                    analyticsHelper.logPlaybackError("load_failed")
                 }
             } catch (e: Exception) {
                 _uiState.value = PlayerUiState.Error
                 e.printStackTrace()
-                analyticsHelper.logPlaybackError("load_failed")
             }
         }
     }
@@ -177,7 +161,6 @@ class PlayerViewModel(
         val currentState = _uiState.value
         if (currentState is PlayerUiState.Success) {
             viewModelScope.launch {
-                analyticsHelper.logEpisodeStarted(source ?: initialSource, false)
                 
                 // Smart Skip: Check if episode is already in the active queue
                 val currentQueue = playbackRepository.playerState.value.queue

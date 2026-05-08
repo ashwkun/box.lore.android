@@ -2,6 +2,7 @@ package cx.aswin.boxcast.feature.explore
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.SubscriptionRepository
 import cx.aswin.boxcast.core.model.Podcast
@@ -41,7 +42,6 @@ class ExploreViewModel(
     application: android.app.Application,
     private val podcastRepository: PodcastRepository,
     private val subscriptionRepository: SubscriptionRepository,
-    private val analyticsHelper: cx.aswin.boxcast.core.data.analytics.AnalyticsHelper,
     initialCategory: String? = null // New param
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
@@ -167,12 +167,12 @@ class ExploreViewModel(
     }
     
     fun onVibeSelected(vibeId: String, vibeName: String) {
-        _searchQuery.value = "" 
+        _searchQuery.value = ""
         _currentVibe.value = vibeName
         _isLoading.value = true
         _searchResults.value = emptyList()
-        analyticsHelper.logExploreVibeSelected(vibeName)
-        
+
+
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             try {
@@ -219,16 +219,15 @@ class ExploreViewModel(
 
     private fun performSearch(query: String) {
         if (_currentVibe.value != null) return // Safety check
-        
+
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             _isLoading.value = true
             _searchResults.value = emptyList() // Clear previous results to force Skeleton
             try {
-                // Log Search Event (privacy-safe: no query text)
                 val results = podcastRepository.searchPodcasts(query)
                 _searchResults.value = results
-                analyticsHelper.logSearchPerformed(results.isNotEmpty())
+
             } catch (e: Exception) {
                 // Handle error silently for search
                 _searchResults.value = emptyList()

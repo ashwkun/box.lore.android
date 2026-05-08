@@ -48,4 +48,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.smooth.corner.rect)
+    implementation("com.posthog:posthog-android:3.+")
 }

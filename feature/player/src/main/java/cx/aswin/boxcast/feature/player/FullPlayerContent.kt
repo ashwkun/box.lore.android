@@ -53,7 +53,6 @@ import kotlinx.coroutines.launch
 fun FullPlayerContent(
     playbackRepository: PlaybackRepository,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    analyticsHelper: cx.aswin.boxcast.core.data.analytics.AnalyticsHelper? = null,
     isDarkTheme: Boolean,
     colorScheme: ColorScheme,
     onCollapse: () -> Unit,
@@ -183,12 +182,12 @@ fun FullPlayerContent(
                 if (state.isPlaying) playbackRepository.pause() else playbackRepository.resume()
             },
             onSeek = { playbackRepository.seekTo(it) },
-            onPrevious = { playbackRepository.skipBackward(); analyticsHelper?.logFeatureUsed("skip_backward") },
-            onNext = { playbackRepository.skipForward(); analyticsHelper?.logFeatureUsed("skip_forward") },
+            onPrevious = { playbackRepository.skipBackward() },
+            onNext = { playbackRepository.skipForward() },
             onSkipPreviousEpisode = { playbackRepository.skipToPreviousEpisode() },
             onSkipNextEpisode = { playbackRepository.skipToNextEpisode() },
-            onSetSpeed = { playbackRepository.setPlaybackSpeed(it); analyticsHelper?.logFeatureUsed("playback_speed") },
-            onSetSleepTimer = { playbackRepository.setSleepTimer(it); analyticsHelper?.logFeatureUsed("sleep_timer") },
+            onSetSpeed = { playbackRepository.setPlaybackSpeed(it) },
+            onSetSleepTimer = { playbackRepository.setSleepTimer(it) },
             onLikeClick = { scope.launch { playbackRepository.toggleLike() } },
             onDownloadClick = { 
                 scope.launch {
@@ -196,7 +195,6 @@ fun FullPlayerContent(
                         downloadRepository.removeDownload(episode.id)
                     } else {
                         downloadRepository.addDownload(episode, podcast)
-                        analyticsHelper?.logFeatureUsed("download")
                     }
                 }
             },
