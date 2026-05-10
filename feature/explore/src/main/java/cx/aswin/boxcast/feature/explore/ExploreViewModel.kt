@@ -62,6 +62,15 @@ class ExploreViewModel(
     // Search Job to cancel previous searches
     private var searchJob: Job? = null
 
+    // Telemetry State
+    private var sessionStartTime = System.currentTimeMillis()
+    private var categoriesClickedCount = 0
+    private var vibesClickedCount = 0
+    private var searchesPerformedCount = 0
+    private var podcastsClickedCount = 0
+    private var maxScrollDepth = 0
+    private var hasTrackedExit = false
+
     init {
         // Observe Subscriptions for Badging
         viewModelScope.launch {
@@ -158,6 +167,7 @@ class ExploreViewModel(
 
     fun onCategorySelected(category: String) {
         if (_currentCategory.value == category) return
+        categoriesClickedCount++
         _currentCategory.value = category
         clearVibe()
         // Clear Search when switching category to browse
@@ -167,6 +177,7 @@ class ExploreViewModel(
     }
     
     fun onVibeSelected(vibeId: String, vibeName: String) {
+        vibesClickedCount++
         _searchQuery.value = ""
         _currentVibe.value = vibeName
         _isLoading.value = true
@@ -220,6 +231,7 @@ class ExploreViewModel(
     private fun performSearch(query: String) {
         if (_currentVibe.value != null) return // Safety check
 
+        searchesPerformedCount++
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             _isLoading.value = true
@@ -235,5 +247,43 @@ class ExploreViewModel(
                 _isLoading.value = false
             }
         }
+    }
+
+    fun trackPodcastClicked(index: Int) {
+        podcastsClickedCount++
+        if (index > maxScrollDepth) {
+            maxScrollDepth = index
+        }
+    }
+
+    fun onScreenResume() {
+        if (hasTrackedExit) {
+            // User came back from background or backstack. Restart the session timer.
+            // Note: We don't reset the click counts, so it truly acts as one contiguous session.
+            sessionStartTime = System.currentTimeMillis()
+            hasTrackedExit = false
+        }
+    }
+
+    fun trackScreenExit() {
+        if (hasTrackedExit) return
+        hasTrackedExit = true
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreScreenSession(
+            timeSpentSeconds = timeSpent,
+            categoriesClickedCount = categoriesClickedCount,
+            vibesClickedCount = vibesClickedCount,
+            searchesPerformedCount = searchesPerformedCount,
+            podcastsClickedCount = podcastsClickedCount,
+            maxScrollDepth = maxScrollDepth,
+            finalCategoryState = _currentCategory.value,
+            finalVibeState = _currentVibe.value,
+            finalSearchQuery = _searchQuery.value.takeIf { it.isNotBlank() }
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        trackScreenExit()
     }
 }

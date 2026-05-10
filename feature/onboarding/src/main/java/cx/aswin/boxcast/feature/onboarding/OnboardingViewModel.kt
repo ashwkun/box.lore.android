@@ -6,8 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.SubscriptionRepository
+import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
 import cx.aswin.boxcast.core.model.Podcast
-import com.posthog.PostHog
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,215 +26,88 @@ data class OnboardingUiState(
     val searchQuery: String = "",
     val searchResults: List<Podcast> = emptyList(),
     val isSearching: Boolean = false,
-    val isCompleting: Boolean = false,
-    val searchSource: String = "none",
-    val initialSuggestionCount: Int = 0,
-    val genreTimeSpent: Long = 0,
-    val suggestionTimeSpent: Long = 0,
-    val genreMaxScroll: Float = 0f
+    val isCompleting: Boolean = false
 )
 
 enum class OnboardingStep {
-    GENRES,
-    PODCASTS,
-    SEARCH
+    GENRES, PODCASTS, SEARCH
 }
 
-@HiltViewModel
-class OnboardingViewModel @Inject constructor(
+class OnboardingViewModel(
+    application: Application,
     private val podcastRepository: PodcastRepository,
-    private val subscriptionRepository: SubscriptionRepository,
-    private val prefs: android.content.SharedPreferences
-) : ViewModel() {
+    private val subscriptionRepository: SubscriptionRepository
+) : AndroidViewModel(application) {
 
+    private val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+    
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
-
-    private var stepStartTime: Long = System.currentTimeMillis()
-
-    private fun getAndResetDuration(): Long {
-        val now = System.currentTimeMillis()
-        val duration = (now - stepStartTime) / 1000 // In seconds
-        stepStartTime = now
-        return duration
-    }
-    
-    fun completeOnboarding(method: String, maxScroll: Float, onDone: () -> Unit) {
-        _uiState.update { it.copy(isCompleting = true) }
-        val suggestionDuration = getAndResetDuration()
-        
-        viewModelScope.launch {
-            val state = _uiState.value
-            val podcastsToSubscribe = state.recommendedPodcasts.filter { it.id in state.subscribedPodcastIds }
-            for (podcast in podcastsToSubscribe) {
-                subscriptionRepository.subscribe(podcast)
-            }
-            
-            prefs.edit().putBoolean("onboarding_completed", true).apply()
-
-            // Calculate Behavioral Persona
-            val totalTime = state.genreTimeSpent + suggestionDuration
-            val behavior = when {
-                state.searchSource == "bypass" -> "The Power User"
-                totalTime > 60 && (state.genreMaxScroll > 0.7f || maxScroll > 0.7f) -> "The Researcher"
-                totalTime < 20 -> "The Decisive"
-                else -> "The Casual"
-            }
-
-            val initialCount = state.initialSuggestionCount
-            val finalCountFromSuggestions = podcastsToSubscribe.count { pod -> 
-                state.recommendedPodcasts.any { it.id == pod.id } 
-            }
-            
-            val suggestionScore = when {
-                initialCount == 0 -> "n/a"
-                finalCountFromSuggestions == initialCount -> "perfect_match"
-                finalCountFromSuggestions > 0 -> "selective"
-                else -> "rejected"
-            }
-
-            // Set Profile Traits
-            PostHog.setPersonProperties(mapOf(
-                "onboarding_behavior" to behavior,
-                "onboarding_completion_method" to method,
-                "suggestion_engagement" to suggestionScore
-            ))
-
-            PostHog.capture(
-                event = "onboarding_completed",
-                properties = mapOf(
-                    "method" to method,
-                    "behavior" to behavior,
-                    "total_time_sec" to totalTime,
-                    "suggestion_time_sec" to suggestionDuration,
-                    "suggestion_max_scroll" to (maxScroll * 100).toInt(),
-                    "genre_count" to state.selectedGenres.size,
-                    "podcast_count" to podcastsToSubscribe.size,
-                    "suggestion_score" to suggestionScore,
-                    "assigned_persona" to (PostHog.getPersonProperties()["primary_interests"] ?: "none")
-                )
-            )
-
-            prefs.edit().putStringSet("user_genres", state.selectedGenres).apply()
-            onDone()
-        }
-    }
     
     private var searchJob: Job? = null
+
+    // ── Analytics Timing & Counters ────────────────────────────────
+    private var onboardingStartMs: Long = 0L
+    private var genreScreenStartMs: Long = 0L
+    private var podcastScreenStartMs: Long = 0L
+    private var searchScreenStartMs: Long = 0L
+    private var searchesPerformedCount: Int = 0
+    private var podcastsSubscribedInSearchCount: Int = 0
+    private var searchEntryPoint: String = "genre_screen"
+    private var onboardingStartedFired: Boolean = false
+    private var didScrollSuggestions: Boolean = false
     
+    /** Total time since the onboarding flow began */
+    fun getTotalOnboardingTime(): Float {
+        if (onboardingStartMs == 0L) return 0f
+        return (System.currentTimeMillis() - onboardingStartMs) / 1000f
+    }
+    
+    /** Time spent on the genre screen in seconds */
+    fun getGenreScreenTimeSpent(): Float {
+        if (genreScreenStartMs == 0L) return 0f
+        return (System.currentTimeMillis() - genreScreenStartMs) / 1000f
+    }
+
+    /** Time spent on the podcast screen in seconds */
+    private fun getPodcastScreenTimeSpent(): Float {
+        if (podcastScreenStartMs == 0L) return 0f
+        return (System.currentTimeMillis() - podcastScreenStartMs) / 1000f
+    }
+
+    /** Time spent on the search screen in seconds */
+    private fun getSearchScreenTimeSpent(): Float {
+        if (searchScreenStartMs == 0L) return 0f
+        return (System.currentTimeMillis() - searchScreenStartMs) / 1000f
+    }
+
+    /** Called when the genre screen composable first loads */
+    fun onGenreScreenViewed() {
+        if (!onboardingStartedFired) {
+            onboardingStartMs = System.currentTimeMillis()
+            genreScreenStartMs = System.currentTimeMillis()
+            AnalyticsHelper.trackOnboardingStarted()
+            onboardingStartedFired = true
+        }
+    }
+
+    /** Called when the podcast screen composable first loads */
+    fun onPodcastScreenViewed() {
+        if (podcastScreenStartMs == 0L) {
+            podcastScreenStartMs = System.currentTimeMillis()
+        }
+    }
+
+    fun onPodcastScreenScrolled() {
+        didScrollSuggestions = true
+    }
+
     fun isOnboardingCompleted(): Boolean {
         return prefs.getBoolean("onboarding_completed", false)
     }
     
-    private var hasTrackedStart = false
-
-    fun trackOnboardingStarted(isInternal: Boolean) {
-        if (hasTrackedStart) return
-        hasTrackedStart = true
-
-        // 1. Set one-time person properties
-        val properties = mutableMapOf<String, Any>(
-            "first_seen" to java.time.Instant.now().toString(),
-            "initial_version" to "1.0.0",
-            "is_internal" to isInternal
-        )
-        PostHog.setPersonProperties(properties)
-
-        // 2. Start the funnel
-        PostHog.capture("onboarding_started")
-        
-        // 3. Log the initial screen
-        trackScreenView("Onboarding - Genres")
-    }
-
-    fun trackScreenView(screenName: String) {
-        PostHog.screen(screenName)
-    }
-
-    fun trackImportClicked() {
-        PostHog.capture("onboarding_import_clicked")
-    }
-
-    fun trackImportTypeSelected(type: String) {
-        PostHog.capture(
-            event = "onboarding_import_type_selected",
-            properties = mapOf("type" to type)
-        )
-    }
-
-    fun trackImportSuccess(type: String, count: Int) {
-        PostHog.capture(
-            event = "onboarding_import_success",
-            properties = mapOf(
-                "type" to type,
-                "import_count" to count
-            )
-        )
-    }
-
-    fun trackGenresConfirmed(selectedGenres: Set<String>) {
-        val genres = selectedGenres.toList()
-        
-        // Persona Mapping Logic
-        val mapping = mapOf(
-            "The Scholar" to listOf("Technology", "Science", "History", "Education"),
-            "The Professional" to listOf("Business", "News", "Government"),
-            "The Storyteller" to listOf("True Crime", "Fiction", "Arts"),
-            "The Socialite" to listOf("Comedy", "TV & Film", "Society & Culture"),
-            "The Lifestyle" to listOf("Health", "Religion & Spirituality", "Kids & Family", "Music"),
-            "The Leisure" to listOf("Sports", "Leisure")
-        )
-
-        val hits = mutableMapOf<String, Int>()
-        mapping.forEach { (persona, matchGenres) ->
-            hits[persona] = genres.count { it in matchGenres }
-        }
-
-        val allPersonas = hits.filter { it.value > 0 }.keys.toList()
-        val primaryPersona = if (genres.size >= 5 && allPersonas.size >= 3) {
-            "The Polymath"
-        } else {
-            hits.maxByOrNull { it.value }?.key ?: "The Explorer"
-        }
-
-        // 1. Update Person Profile
-        PostHog.setPersonProperties(mapOf(
-            "preferred_genres" to genres,
-            "primary_persona" to primaryPersona,
-            "all_personas" to allPersonas
-        ))
-
-        // 2. Capture the Event
-        PostHog.capture(
-            event = "onboarding_genres_confirmed",
-            properties = mapOf(
-                "genres" to genres,
-                "count" to genres.size,
-                "persona" to primaryPersona
-            )
-        )
-    }
-
-    fun trackSearchBypass() {
-        _uiState.update { it.copy(searchSource = "bypass") }
-        PostHog.capture("onboarding_search_bypass_clicked")
-    }
-
-    fun trackSearchBack() {
-        val source = _uiState.value.searchSource
-        PostHog.capture("onboarding_search_back_clicked", properties = mapOf("source" to source))
-        
-        _uiState.update { state ->
-            val backStep = if (state.selectedGenres.isNotEmpty()) OnboardingStep.PODCASTS else OnboardingStep.GENRES
-            state.copy(
-                currentStep = backStep,
-                searchQuery = "",
-                searchResults = emptyList(),
-                searchSource = "none"
-            )
-        }
-    }
-
+    
+    
     fun toggleGenre(genre: String) {
         _uiState.update { state ->
             val newGenres = if (genre in state.selectedGenres) {
@@ -246,29 +119,44 @@ class OnboardingViewModel @Inject constructor(
         }
     }
     
-    fun navigateToRecommendations() {
-        val genres = _uiState.value.selectedGenres
-        if (genres.isNotEmpty()) {
-            loadRecommendations(genres)
-        }
-        _uiState.update { it.copy(currentStep = OnboardingStep.PODCASTS) }
-    }
+    fun continueToRecommendations() {
+        // Analytics: Track genres submitted with time spent
+        val selectedGenres = _uiState.value.selectedGenres
+        AnalyticsHelper.trackGenresSubmitted(selectedGenres, getGenreScreenTimeSpent())
 
-    private fun loadRecommendations(genres: Set<String>) {
-        _uiState.update { it.copy(isLoadingPodcasts = true) }
+        val selectedCount = _uiState.value.selectedGenres.size
+        _uiState.update { it.copy(currentStep = OnboardingStep.PODCASTS, isLoadingPodcasts = true) }
         viewModelScope.launch {
-            try {
-                val recommendations = podcastRepository.getTrendingPodcasts(genres.toList().first(), 10)
-                _uiState.update { state ->
-                    state.copy(
-                        recommendedPodcasts = recommendations,
-                        subscribedPodcastIds = recommendations.map { it.id }.toSet(),
-                        initialSuggestionCount = recommendations.size,
-                        isLoadingPodcasts = false
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoadingPodcasts = false) }
+            val genresList = _uiState.value.selectedGenres.toList()
+            val allPodcasts = mutableListOf<Podcast>()
+            
+            // Fetch trending podcasts for each selected genre
+            val perGenreLimit = when {
+                genresList.size <= 2 -> 5
+                genresList.size <= 4 -> 3
+                else -> 2
+            }
+            
+            for (genre in genresList) {
+                val trending = podcastRepository.getTrendingPodcasts(
+                    category = genre,
+                    limit = perGenreLimit
+                )
+                allPodcasts.addAll(trending)
+            }
+            
+            // Deduplicate and limit to 10
+            val uniquePodcasts = allPodcasts
+                .distinctBy { it.id }
+                .shuffled()
+                .take(10)
+            
+            _uiState.update {
+                it.copy(
+                    recommendedPodcasts = uniquePodcasts,
+                    subscribedPodcastIds = uniquePodcasts.map { p -> p.id }.toSet(), // Pre-select all
+                    isLoadingPodcasts = false
+                )
             }
         }
     }
@@ -285,15 +173,49 @@ class OnboardingViewModel @Inject constructor(
     }
     
     fun navigateToSearch() {
-        _uiState.update { state ->
-            val newSource = if (state.searchSource == "none") "supplement" else state.searchSource
-            state.copy(currentStep = OnboardingStep.SEARCH, searchSource = newSource)
+        // Determine entry point based on current step
+        searchEntryPoint = when (_uiState.value.currentStep) {
+            OnboardingStep.GENRES -> "genre_screen"
+            OnboardingStep.PODCASTS -> "podcast_screen"
+            else -> "genre_screen"
         }
+
+        // Analytics: Track search opened
+        val genreTime = if (searchEntryPoint == "genre_screen") getGenreScreenTimeSpent() else null
+        AnalyticsHelper.trackSearchOpened(searchEntryPoint, genreTime)
+
+        // Reset search counters for this session
+        searchesPerformedCount = 0
+        podcastsSubscribedInSearchCount = 0
+        searchScreenStartMs = System.currentTimeMillis()
+
+        _uiState.update { it.copy(currentStep = OnboardingStep.SEARCH) }
+    }
+    
+    fun navigateBackFromPodcasts() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.GENRES) }
+    }
+    
+    fun navigateBackFromSearch() {
+        val state = _uiState.value
+        val exitDestination = if (state.selectedGenres.isNotEmpty()) "podcast_screen" else "genre_screen"
+
+        // Analytics: Track search exit
+        AnalyticsHelper.trackSearchExited(
+            exitDestination = exitDestination,
+            searchesPerformed = searchesPerformedCount,
+            podcastsSubscribedInSearch = podcastsSubscribedInSearchCount,
+            timeSpentOnSearchSeconds = getSearchScreenTimeSpent()
+        )
+
+        val backStep = if (state.selectedGenres.isNotEmpty()) OnboardingStep.PODCASTS else OnboardingStep.GENRES
+        _uiState.update { it.copy(currentStep = backStep, searchQuery = "", searchResults = emptyList()) }
     }
     
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         
+        // Debounce search
         searchJob?.cancel()
         val cleaned = query.trim()
         if (cleaned.length < 2) {
@@ -303,42 +225,102 @@ class OnboardingViewModel @Inject constructor(
         
         searchJob = viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true) }
-            delay(400)
+            delay(400) // Debounce
             val results = podcastRepository.searchPodcasts(cleaned)
             _uiState.update { it.copy(searchResults = results, isSearching = false) }
+
+            // Analytics: Track search performed
+            searchesPerformedCount++
+            AnalyticsHelper.trackSearchPerformed(cleaned, results.size)
         }
     }
     
     fun subscribeFromSearch(podcast: Podcast) {
-        val source = _uiState.value.searchSource
-        PostHog.capture(
-            event = "onboarding_search_result_selected",
-            properties = mapOf(
-                "podcast_title" to podcast.title,
-                "podcast_id" to podcast.id,
-                "source" to source
-            )
-        )
         _uiState.update { state ->
+            // Add to subscribed IDs
             val newSubs = state.subscribedPodcastIds + podcast.id
+            
+            // Allow this podcast to appear in the main recommendation list too
             val newRecommendations = if (state.recommendedPodcasts.any { it.id == podcast.id }) {
                 state.recommendedPodcasts
             } else {
                 state.recommendedPodcasts + podcast
             }
+            
             state.copy(
+                subscribedPodcastIds = newSubs,
+                recommendedPodcasts = newRecommendations
+            )
+        }
+
+        // Analytics: Track podcast subscribed in search
+        podcastsSubscribedInSearchCount++
+        AnalyticsHelper.trackSearchPodcastSubscribed(
+            podcastName = podcast.title,
+            podcastId = podcast.id,
+            totalSubscribedCount = _uiState.value.subscribedPodcastIds.size
+        )
+
+        // Metadata is already captured in the podcast object added to recommendations.
+        // Actual DB write will happen in completeOnboarding to avoid double-toggling issues.
     }
     
-    fun skipOnboarding(method: String = "skipped", onDone: () -> Unit) {
+    fun completeOnboarding(onDone: () -> Unit) {
+        _uiState.update { it.copy(isCompleting = true) }
+        viewModelScope.launch {
+            val state = _uiState.value
+            // Subscribe to all selected podcasts from recommendations (which now includes search selections)
+            val podcastsToSubscribe = state.recommendedPodcasts.filter { it.id in state.subscribedPodcastIds }
+            for (podcast in podcastsToSubscribe) {
+                // Use idempotent subscribe to avoid toggling off existing subs
+                subscriptionRepository.subscribe(podcast)
+            }
+            
+            // Mark onboarding as completed
+            prefs.edit().putBoolean("onboarding_completed", true).apply()
+
+            // Analytics: If completing from search screen, fire search_done variant
+            if (state.currentStep == OnboardingStep.SEARCH) {
+                AnalyticsHelper.trackOnboardingSearchDone(
+                    entryPoint = searchEntryPoint,
+                    totalSubscribedCount = state.subscribedPodcastIds.size,
+                    searchesPerformed = searchesPerformedCount,
+                    timeSpentOnSearchSeconds = getSearchScreenTimeSpent(),
+                    timeSpentOnGenreScreenSeconds = getGenreScreenTimeSpent(),
+                    totalOnboardingTimeSeconds = getTotalOnboardingTime(),
+                    selectedGenres = state.selectedGenres
+                )
+            } else if (state.currentStep == OnboardingStep.PODCASTS) {
+                val removedCount = state.recommendedPodcasts.count { it.id !in state.subscribedPodcastIds }
+                AnalyticsHelper.trackOnboardingSuggestionsDone(
+                    totalSubscribedCount = state.subscribedPodcastIds.size,
+                    removedSuggestionsCount = removedCount,
+                    addedFromSearchCount = podcastsSubscribedInSearchCount,
+                    didScrollSuggestions = didScrollSuggestions,
+                    timeSpentOnPodcastScreenSeconds = getPodcastScreenTimeSpent(),
+                    timeSpentOnGenreScreenSeconds = getGenreScreenTimeSpent(),
+                    totalOnboardingTimeSeconds = getTotalOnboardingTime()
+                )
+            }
+
+            // Save selected genres for future personalization
+            prefs.edit().putStringSet("user_genres", state.selectedGenres).apply()
+
+            onDone()
+        }
+    }
+    
+    fun skipOnboarding(onDone: () -> Unit) {
+        // Analytics: Track skip
+        val currentScreen = when (_uiState.value.currentStep) {
+            OnboardingStep.GENRES -> "genre_screen"
+            OnboardingStep.PODCASTS -> "podcast_screen"
+            OnboardingStep.SEARCH -> "search_screen"
+        }
+        val podcastTime = if (_uiState.value.currentStep == OnboardingStep.PODCASTS) getPodcastScreenTimeSpent() else null
+        AnalyticsHelper.trackOnboardingSkipped(currentScreen, getGenreScreenTimeSpent(), getTotalOnboardingTime(), podcastTime)
+
         prefs.edit().putBoolean("onboarding_completed", true).apply()
-        
-        PostHog.capture(
-            event = "onboarding_completed",
-            properties = mapOf(
-                "method" to method,
-                "suggestion_score" to "skipped"
-            )
-        )
 
         onDone()
     }

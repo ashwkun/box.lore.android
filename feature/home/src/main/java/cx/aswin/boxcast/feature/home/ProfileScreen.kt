@@ -66,6 +66,10 @@ fun ProfileScreen(
         onResult = { uri -> uri?.let { onImportOpml(it) } }
     )
 
+    LaunchedEffect(Unit) {
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsScreenViewed("home_top_bar")
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -96,9 +100,21 @@ fun ProfileScreen(
             item {
                 SectionCard("Appearance", Icons.Rounded.Palette) {
                     AppearanceSection(
-                        currentThemeConfig, onSetThemeConfig, 
-                        isDynamicColorEnabled, onToggleDynamicColor, 
-                        currentThemeBrand, onSetThemeBrand
+                        currentThemeConfig, 
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("theme_mode_changed", it)
+                            onSetThemeConfig(it) 
+                        }, 
+                        isDynamicColorEnabled, 
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("dynamic_color_toggled", it.toString())
+                            onToggleDynamicColor(it) 
+                        }, 
+                        currentThemeBrand, 
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("theme_brand_changed", it)
+                            onSetThemeBrand(it) 
+                        }
                     )
                 }
             }
@@ -106,10 +122,23 @@ fun ProfileScreen(
             item {
                 SectionCard("Library & Content", Icons.Rounded.LibraryBooks) {
                     ContentLibrarySection(
-                        currentRegion, onSetRegion,
-                        { exportJsonLauncher.launch("boxcast_backup_${System.currentTimeMillis()}.json") },
-                        { importJsonLauncher.launch(arrayOf("application/json")) },
-                        { importOpmlLauncher.launch(arrayOf("*/*")) }
+                        currentRegion, 
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("content_region_changed", it)
+                            onSetRegion(it) 
+                        },
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("library_export")
+                            exportJsonLauncher.launch("boxcast_backup_${System.currentTimeMillis()}.json") 
+                        },
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("library_import_json")
+                            importJsonLauncher.launch(arrayOf("application/json")) 
+                        },
+                        { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("library_import_opml")
+                            importOpmlLauncher.launch(arrayOf("*/*")) 
+                        }
                     )
                 }
             }
@@ -167,6 +196,7 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("analytics_reset")
                         onResetAnalytics()
                         showResetDialog = false
                     },
@@ -436,6 +466,7 @@ fun PrivacySection(
         // GitHub Link Button
         OutlinedButton(
             onClick = {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("github_repo_clicked")
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.cast.android"))
                 try { context.startActivity(intent) } catch(_:Exception){}
             },
@@ -491,6 +522,7 @@ fun PrivacySection(
                 Icon(Icons.Rounded.Policy, null, tint = MaterialTheme.colorScheme.onSurface)
             },
             modifier = Modifier.clickable {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("privacy_policy_clicked")
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aswin.cx/boxcast/privacy"))
                 try { context.startActivity(intent) } catch (_: Exception) {}
             }
@@ -543,7 +575,10 @@ fun PrivacySection(
                     },
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { onDeletionExpandedChange(!isDeletionExpanded) }
+                        .clickable { 
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("delete_account_requested")
+                            onDeletionExpandedChange(!isDeletionExpanded) 
+                        }
                 )
 
                 // Expanded Deletion UI
@@ -556,6 +591,7 @@ fun PrivacySection(
                                 .fillMaxWidth()
                                 .clickable {
                                     appInstanceId?.let {
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("delete_id_copied")
                                         clipboardManager.setText(AnnotatedString(it))
                                         Toast.makeText(context, "ID Copied", Toast.LENGTH_SHORT).show()
                                     }
@@ -580,6 +616,7 @@ fun PrivacySection(
                         Spacer(Modifier.height(8.dp))
                         Button(
                             onClick = {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("delete_email_clicked")
                                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                                     data = Uri.parse("mailto:")
                                     putExtra(Intent.EXTRA_EMAIL, arrayOf("privacy@aswin.cx"))
@@ -620,6 +657,7 @@ fun CommunitySection(context: android.content.Context) {
                 )
             },
             modifier = Modifier.clickable {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("github_repo_clicked")
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.cast.android"))
                 try { context.startActivity(intent) } catch(_:Exception){}
             }
@@ -634,6 +672,7 @@ fun CommunitySection(context: android.content.Context) {
                 Icon(Icons.Rounded.Search, contentDescription = null, tint = Color(0xFFE22828))
             },
             modifier = Modifier.clickable {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("podcast_index_clicked")
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://podcastindex.org"))
                 try { context.startActivity(intent) } catch(_:Exception){}
             }

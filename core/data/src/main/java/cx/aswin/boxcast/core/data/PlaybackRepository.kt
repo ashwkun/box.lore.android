@@ -410,7 +410,7 @@ class PlaybackRepository(
         }
     }
 
-    suspend fun playQueue(episodes: List<Episode>, podcast: Podcast, startIndex: Int = 0) {
+    suspend fun playQueue(episodes: List<Episode>, podcast: Podcast, startIndex: Int = 0, entryPointContext: android.os.Bundle? = null) {
         Log.d("PlaybackRepo", "playQueue() called: count=${episodes.size}, start=$startIndex, podcastGenre='${podcast.genre}'")
         
         prefs.edit().putBoolean(KEY_PLAYER_DISMISSED, false).apply()
@@ -434,6 +434,8 @@ class PlaybackRepository(
                     ))
                     .setDisplayTitle(episode.title) // Required for notification
                     .setSubtitle(episode.podcastTitle ?: podcast.title)
+                    .setGenre(episode.podcastGenre ?: podcast.genre)
+                    .setExtras(entryPointContext)
                     .build()
            
                  MediaItem.Builder()
@@ -479,6 +481,23 @@ class PlaybackRepository(
             
             controller.setMediaItems(mediaItems, startIndex, startPosMs)
             controller.prepare()
+            
+            // Set entry point context via static holder (IPC-safe)
+            if (entryPointContext != null) {
+                val map = mutableMapOf<String, Any>()
+                entryPointContext.keySet().forEach { key ->
+                    @Suppress("DEPRECATION")
+                    val value = entryPointContext.get(key)
+                    if (value != null) {
+                        map[key] = value
+                    }
+                }
+                if (map.isNotEmpty()) {
+                    cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
+                }
+            } else {
+            }
+            
             controller.play()
             
             // Sync queue to DB for restart recovery
@@ -515,6 +534,7 @@ class PlaybackRepository(
                 .setArtworkUri(android.net.Uri.parse(episode.imageUrl?.takeIf { it.isNotBlank() } ?: podcast.imageUrl))
                 .setDisplayTitle(episode.title)
                 .setSubtitle(podcast.title)
+                .setGenre(episode.podcastGenre ?: podcast.genre)
                 .build()
        
              val mediaItem = MediaItem.Builder()
@@ -546,6 +566,7 @@ class PlaybackRepository(
                 .setArtworkUri(android.net.Uri.parse(episode.imageUrl?.takeIf { it.isNotBlank() } ?: podcast.imageUrl))
                 .setDisplayTitle(episode.title)
                 .setSubtitle(podcast.title)
+                .setGenre(episode.podcastGenre ?: podcast.genre)
                 .build()
        
              val mediaItem = MediaItem.Builder()
@@ -609,8 +630,8 @@ class PlaybackRepository(
         }
     }
 
-    suspend fun playEpisode(episode: Episode, podcast: Podcast) {
-        playQueue(listOf(episode), podcast, 0)
+    suspend fun playEpisode(episode: Episode, podcast: Podcast, entryPointContext: android.os.Bundle? = null) {
+        playQueue(listOf(episode), podcast, 0, entryPointContext)
     }
     
     /**
@@ -715,13 +736,16 @@ class PlaybackRepository(
         prefs.edit().putBoolean(KEY_PLAYER_DISMISSED, true).apply()
     }
     
-    fun togglePlayPause() {
+    fun togglePlayPause(entryPointContext: android.os.Bundle? = null) {
         val controller = mediaController ?: return
         if (controller.isPlaying) {
+            // Need to set extras for pausing if we want them? 
+            // Actually pause just acts on current item. We can't change extras easily on pause via controller.
+            // But we can trigger pause.
             controller.pause()
         } else {
              // Use our robust resume() which handles state restoration
-             resume()
+             resume(entryPointContext)
         }
     }
 
@@ -729,7 +753,7 @@ class PlaybackRepository(
         mediaController?.pause()
     }
     
-    fun resume() {
+    fun resume(entryPointContext: android.os.Bundle? = null) {
         val controller = mediaController ?: return
         
         Log.d("PlaybackRepo", "resume() called: mediaItemCount=${controller.mediaItemCount}, statePos=${_playerState.value.position}")
@@ -760,6 +784,8 @@ class PlaybackRepository(
                             ))
                             .setDisplayTitle(episode.title)
                             .setSubtitle(episode.podcastTitle ?: podcast.title)
+                            .setGenre(episode.podcastGenre ?: podcast.genre)
+                            .setExtras(entryPointContext)
                             .build()
                         
                         MediaItem.Builder()
@@ -782,6 +808,8 @@ class PlaybackRepository(
                         .setArtworkUri(android.net.Uri.parse(currentEpisode.imageUrl?.takeIf { it.isNotBlank() } ?: podcast?.imageUrl ?: ""))
                         .setDisplayTitle(currentEpisode.title)
                         .setSubtitle(podcast?.title ?: "")
+                        .setGenre(currentEpisode.podcastGenre ?: podcast?.genre ?: "Podcast")
+                        .setExtras(entryPointContext)
                         .build()
                     
                     val mediaItem = MediaItem.Builder()
@@ -818,7 +846,7 @@ class PlaybackRepository(
         seekTo((_playerState.value.position - 10000).coerceAtLeast(0))
     }
 
-    fun skipToEpisode(index: Int) {
+    fun skipToEpisode(index: Int, entryPointContext: android.os.Bundle? = null) {
         val controller = mediaController
         android.util.Log.d("PlaybackRepo", "skipToEpisode: index=$index, controller=${controller != null}, mediaItemCount=${controller?.mediaItemCount ?: -1}")
         
@@ -835,7 +863,7 @@ class PlaybackRepository(
              
              if (index in queue.indices && podcast != null) {
                  repositoryScope.launch {
-                     playQueue(queue, podcast, index)
+                     playQueue(queue, podcast, index, entryPointContext)
                  }
                  return
              }
@@ -847,6 +875,19 @@ class PlaybackRepository(
             for (i in 0 until controller.mediaItemCount) {
                 if (controller.getMediaItemAt(i).mediaId == targetEpisode.id) {
                     android.util.Log.d("PlaybackRepo", "skipToEpisode: Found mediaId=${targetEpisode.id} at Media3 index $i")
+                    
+                    // Set entry point context via static holder (IPC-safe)
+                    if (entryPointContext != null) {
+                        val map = mutableMapOf<String, Any>()
+                        entryPointContext.keySet().forEach { key ->
+                            entryPointContext.get(key)?.let { map[key] = it }
+                        }
+                        if (map.isNotEmpty()) {
+                            cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
+                        }
+                    } else {
+                    }
+                    
                     controller.seekToDefaultPosition(i)
                     controller.play()
                     return

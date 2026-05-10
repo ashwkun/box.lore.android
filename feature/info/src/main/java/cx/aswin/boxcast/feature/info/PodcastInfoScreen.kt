@@ -145,7 +145,7 @@ fun PodcastInfoScreen(
     podcastId: String,
     viewModel: PodcastInfoViewModel,
     onBack: () -> Unit,
-    onEpisodeClick: (Episode) -> Unit,
+    onEpisodeClick: (Episode, String, Int?) -> Unit,
     onPlayEpisode: (Episode) -> Unit,
     bottomContentPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
@@ -166,6 +166,22 @@ fun PodcastInfoScreen(
     BackHandler(enabled = isSearchActive) {
         isSearchActive = false
         viewModel.searchEpisodes("") // Optional: Clear search on close? Or keep it? Let's clear for now.
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
+                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.trackScreenExit()
+        }
     }
 
     LaunchedEffect(podcastId) {
@@ -444,7 +460,10 @@ fun PodcastInfoScreen(
                             isDownloading = isDownloading,
                             isQueued = queuedEpisodeIds.contains(episode.id),
                             isCompleted = isCompleted,
-                            onClick = { onEpisodeClick(episode) },
+                            onClick = { 
+                                viewModel.recordEpisodeClick(episode.id)
+                                onEpisodeClick(episode, "podcast_info_episodes_list", index) 
+                            },
                             onPlayClick = { viewModel.onPlayClick(episode) },
                             onToggleLike = { viewModel.onToggleLike(episode) },
                             onQueueClick = { viewModel.toggleQueue(episode) },
@@ -548,7 +567,10 @@ fun PodcastInfoScreen(
                         },
                         results = state.searchResults,
                         allEpisodes = state.episodes,
-                        onEpisodeClick = onEpisodeClick,
+                        onEpisodeClick = { episode, index -> 
+                            viewModel.recordEpisodeClick(episode.id)
+                            onEpisodeClick(episode, "podcast_info_search_results", index) 
+                        },
                         onPlayClick = { viewModel.onPlayClick(it) },
                         onToggleLike = { viewModel.onToggleLike(it) },
                         onQueueClick = { viewModel.toggleQueue(it) },
@@ -1013,7 +1035,7 @@ fun PodcastInfoSearchOverlay(
     onClose: () -> Unit,
     results: List<Episode>?,
     allEpisodes: List<Episode>,
-    onEpisodeClick: (Episode) -> Unit,
+    onEpisodeClick: (Episode, Int) -> Unit,
     onPlayClick: (Episode) -> Unit,
     onToggleLike: (Episode) -> Unit,
     onQueueClick: (Episode) -> Unit,
@@ -1143,7 +1165,7 @@ fun PodcastInfoSearchOverlay(
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    itemsIndexed(displayList, key = { _, ep -> ep.id }) { _, episode ->
+                    itemsIndexed(displayList, key = { _, ep -> ep.id }) { index, episode ->
                         val playState = episodePlaybackState[episode.id]
                         val isDownloaded by isDownloadedFlow(episode.id).collectAsState(initial = false)
                         val isDownloading by isDownloadingFlow(episode.id).collectAsState(initial = false)
@@ -1163,7 +1185,7 @@ fun PodcastInfoSearchOverlay(
                             isQueued = queuedEpisodeIds.contains(episode.id),
                             isCompleted = isCompleted,
                             onClick = { 
-                                onEpisodeClick(episode)
+                                onEpisodeClick(episode, index)
                                 onClose() // Close search on nav
                             },
                             onPlayClick = { onPlayClick(episode) },

@@ -106,7 +106,10 @@ fun FullPlayerContent(
                     .size(42.dp)
                     .clip(CircleShape)
                     .background(colorScheme.onSurface.copy(alpha = 0.1f))
-                    .clickable(onClick = onCollapse),
+                    .clickable(onClick = { 
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("collapsed", podcast.id, episode.id)
+                        onCollapse() 
+                    }),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -179,17 +182,43 @@ fun FullPlayerContent(
             isLiked = state.isLiked,
             colorScheme = colorScheme,
             onPlayPause = {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("play_pause", podcast.id, episode.id)
                 if (state.isPlaying) playbackRepository.pause() else playbackRepository.resume()
             },
-            onSeek = { playbackRepository.seekTo(it) },
-            onPrevious = { playbackRepository.skipBackward() },
-            onNext = { playbackRepository.skipForward() },
-            onSkipPreviousEpisode = { playbackRepository.skipToPreviousEpisode() },
-            onSkipNextEpisode = { playbackRepository.skipToNextEpisode() },
-            onSetSpeed = { playbackRepository.setPlaybackSpeed(it) },
-            onSetSleepTimer = { playbackRepository.setSleepTimer(it) },
-            onLikeClick = { scope.launch { playbackRepository.toggleLike() } },
+            onSeek = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("seek", podcast.id, episode.id)
+                playbackRepository.seekTo(it) 
+            },
+            onPrevious = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("previous", podcast.id, episode.id)
+                playbackRepository.skipBackward() 
+            },
+            onNext = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("next", podcast.id, episode.id)
+                playbackRepository.skipForward() 
+            },
+            onSkipPreviousEpisode = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("skip_previous_episode", podcast.id, episode.id)
+                playbackRepository.skipToPreviousEpisode() 
+            },
+            onSkipNextEpisode = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("skip_next_episode", podcast.id, episode.id)
+                playbackRepository.skipToNextEpisode() 
+            },
+            onSetSpeed = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("speed_change", podcast.id, episode.id, value = it.toString())
+                playbackRepository.setPlaybackSpeed(it) 
+            },
+            onSetSleepTimer = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("sleep_timer", podcast.id, episode.id, value = it?.toString() ?: "off")
+                playbackRepository.setSleepTimer(it) 
+            },
+            onLikeClick = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("like", podcast.id, episode.id)
+                scope.launch { playbackRepository.toggleLike() } 
+            },
             onDownloadClick = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("download", podcast.id, episode.id)
                 scope.launch {
                     if (isDownloaded || isDownloading) {
                         downloadRepository.removeDownload(episode.id)
@@ -200,12 +229,17 @@ fun FullPlayerContent(
             },
             isDownloaded = isDownloaded,
             isDownloading = isDownloading,
-            onQueueClick = { showQueueSheet = true },
+            onQueueClick = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("queue", podcast.id, episode.id)
+                showQueueSheet = true 
+            },
             onEpisodeInfoClick = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("episode_info", podcast.id, episode.id)
                 onCollapse()
                 onEpisodeInfoClick(episode) 
             },
             onPodcastInfoClick = { 
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFullPlayerInteraction("podcast_info", podcast.id, episode.id)
                 onCollapse()
                 onPodcastInfoClick(podcast) 
             },

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -71,13 +72,14 @@ fun HomeRoute(
     apiBaseUrl: String,
     publicKey: String,
     playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository,
-    onPodcastClick: (Podcast) -> Unit,
-    onHeroArrowClick: (SmartHeroItem) -> Unit,
-    onEpisodeClick: ((Episode, Podcast) -> Unit)? = null, // Navigate to EpisodeInfo
-    onPlayClick: ((Podcast) -> Unit)? = null, // Navigate directly to Player (Resume)
+    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null, // Navigate to EpisodeInfo
+    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)? = null,
+    onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)? = null, // Navigate directly to Player (Resume)
     onNavigateToLibrary: (() -> Unit)? = null,
     onNavigateToLatestEpisodes: (() -> Unit)? = null,
-    onNavigateToExplore: ((String?) -> Unit)? = null,
+    onNavigateToExplore: ((String?, String) -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
@@ -112,6 +114,8 @@ fun HomeRoute(
         onPodcastClick = onPodcastClick,
         onHeroArrowClick = onHeroArrowClick,
         onEpisodeClick = onEpisodeClick,
+        onCuratedEpisodeClick = onCuratedEpisodeClick,
+        onCuratedImpression = viewModel::trackCuratedImpressionOnce,
         onPlayClick = onPlayClick,
         onNavigateToLibrary = onNavigateToLibrary,
         onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
@@ -152,15 +156,17 @@ fun HomeScreen(
     isPlaying: Boolean,
     debugHistory: List<ListeningHistoryEntity>,
     debugPodcasts: List<PodcastEntity>,
-    onPodcastClick: (Podcast) -> Unit,
-    onHeroArrowClick: (SmartHeroItem) -> Unit,
-    onEpisodeClick: ((Episode, Podcast) -> Unit)?,
-    onPlayClick: ((Podcast) -> Unit)?,
+    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
+    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
+    onCuratedImpression: (String, List<String>) -> Unit = { _, _ -> },
+    onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     onNavigateToLibrary: (() -> Unit)?,
     onNavigateToLatestEpisodes: (() -> Unit)?,
-    onNavigateToExplore: ((String?) -> Unit)?,
+    onNavigateToExplore: ((String?, String) -> Unit)?,
     onToggleSubscription: (String) -> Unit,
-    onTogglePlayback: () -> Unit,
+    onTogglePlayback: (android.os.Bundle?) -> Unit,
     onSelectCategory: (String?) -> Unit,
 
     onDeleteHistoryItem: (String) -> Unit,
@@ -214,10 +220,22 @@ fun HomeScreen(
             TopControlBar(
                 scrollFraction = scrollFraction,
 
-                onFeedbackClick = onFeedbackClick,
-                onFeedbackLongClick = onForceReviewPrompt,
-                onAvatarClick = { onNavigateToSettings?.invoke() },
-                onAvatarLongClick = { showDebugDialog = true }
+                onFeedbackClick = {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("feedback_clicked", "home")
+                    onFeedbackClick()
+                },
+                onFeedbackLongClick = {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("feedback_long_clicked", "home")
+                    onForceReviewPrompt()
+                },
+                onAvatarClick = {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("settings_clicked", "home")
+                    onNavigateToSettings?.invoke()
+                },
+                onAvatarLongClick = {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("avatar_long_clicked", "home")
+                    showDebugDialog = true
+                }
             )
             
             // Content area
@@ -241,7 +259,9 @@ fun HomeScreen(
                             onPodcastClick = onPodcastClick,
                             onHeroArrowClick = onHeroArrowClick,
                             onEpisodeClick = onEpisodeClick,
-                            onPlayClick = onPlayClick,
+                            onCuratedEpisodeClick = onCuratedEpisodeClick,
+                            onCuratedImpression = onCuratedImpression,
+                            onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
                             onNavigateToLibrary = onNavigateToLibrary,
                             onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
                             onNavigateToExplore = onNavigateToExplore,
@@ -315,15 +335,17 @@ private fun PodcastFeed(
     currentPlayingPodcastId: String?,
     isPlaying: Boolean,
     isFilterLoading: Boolean,
-    onPodcastClick: (Podcast) -> Unit,
-    onHeroArrowClick: (SmartHeroItem) -> Unit,
-    onEpisodeClick: ((Episode, Podcast) -> Unit)?,
-    onPlayClick: ((Podcast) -> Unit)?,
+    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
+    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
+    onCuratedImpression: (String, List<String>) -> Unit = { _, _ -> },
+    onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     onNavigateToLibrary: (() -> Unit)?,
     onNavigateToLatestEpisodes: (() -> Unit)?,
-    onNavigateToExplore: ((String?) -> Unit)?,
+    onNavigateToExplore: ((String?, String) -> Unit)?,
     onToggleSubscription: (String) -> Unit,
-    onTogglePlayback: () -> Unit,
+    onTogglePlayback: (android.os.Bundle?) -> Unit,
     onSelectCategory: (String?) -> Unit,
     gridState: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
     modifier: Modifier = Modifier
@@ -344,13 +366,13 @@ private fun PodcastFeed(
                     heroItems = heroItems,
                     currentPlayingPodcastId = currentPlayingPodcastId,
                     isPlaying = isPlaying,
-                    onPlayClick = { podcast -> onPlayClick?.invoke(podcast) },
+                    onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
                     onDetailsClick = { podcast ->
                         val ep = podcast.latestEpisode
                         if (ep != null) {
-                            onEpisodeClick?.invoke(ep, podcast)
+                            onEpisodeClick?.invoke(ep, podcast, "home_hero_card")
                         } else {
-                            onPodcastClick(podcast)
+                            onPodcastClick(podcast, "home_hero_card", null, null)
                         }
                     },
                     onArrowClick = onHeroArrowClick,
@@ -370,9 +392,9 @@ private fun PodcastFeed(
                     subscribedPodcasts = subscribedItems,
                     latestEpisodes = latestItems,
                     unplayedEpisodeCount = unplayedEpisodeCount,
-                    onPodcastClick = onPodcastClick,
+                    onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
                     onEpisodeClick = { episode, podcast ->
-                        onEpisodeClick?.invoke(episode, podcast)
+                        onEpisodeClick?.invoke(episode, podcast, "home_new_episodes")
                     },
                     onViewLibrary = { onNavigateToLibrary?.invoke() },
                     onViewAllLatest = onNavigateToLatestEpisodes
@@ -385,7 +407,8 @@ private fun PodcastFeed(
             item(span = StaggeredGridItemSpan.FullLine) {
                 TimeBlockSection(
                     data = timeBlock,
-                    onEpisodeClick = { episode, podcast -> onEpisodeClick?.invoke(episode, podcast) }
+                    onCuratedEpisodeClick = { episode, podcast, vibeId, pos -> onCuratedEpisodeClick?.invoke(episode, podcast, vibeId, pos) },
+                    onImpression = onCuratedImpression
                 )
             }
         }
@@ -395,7 +418,7 @@ private fun PodcastFeed(
             cx.aswin.boxcast.feature.home.components.DiscoverSection(
                 selectedCategory = selectedCategory,
                 onCategorySelected = onSelectCategory,
-                onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All") }
+                onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header") }
             )
         }
 
@@ -403,13 +426,13 @@ private fun PodcastFeed(
         if (!isFilterLoading && gridItems.isNotEmpty()) {
             val limitedItems = gridItems.take(6)
             val showGenreChip = selectedCategory == null // Only show chips for "For You" tab
-            items(limitedItems, key = { it.id }) { podcast ->
+            itemsIndexed(limitedItems, key = { _, p -> p.id }) { index, podcast ->
                 val isTall = podcast.id.hashCode() % 3 == 0
                 PodcastCard(
                     podcast = podcast,
                     isTall = isTall,
                     showGenreChip = showGenreChip,
-                    onClick = { onPodcastClick(podcast) }
+                    onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, index) }
                 )
             }
             
@@ -422,7 +445,7 @@ private fun PodcastFeed(
                     contentAlignment = Alignment.Center
                 ) {
                     androidx.compose.material3.FilledTonalButton(
-                        onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All") }
+                        onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button") }
                     ) {
                             Text("View more in ${selectedCategory ?: "Explore"}")
                             Spacer(modifier = Modifier.width(8.dp))

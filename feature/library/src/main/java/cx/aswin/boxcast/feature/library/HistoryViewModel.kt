@@ -123,11 +123,40 @@ class HistoryViewModel(
         viewModelScope.launch {
             playbackRepository.removeHistoryItem(episodeId)
         }
+        itemsDeletedCount++
     }
 
     fun clearAllHistory() {
         viewModelScope.launch {
             playbackRepository.clearHistory()
         }
+        itemsDeletedCount++ // count as 1 major action
+    }
+
+    // ── Telemetry State & Lifecycle ──
+
+    var sessionStartTime: Long = 0L
+    private var hasTrackedExit = false
+
+    var episodesClickedCount = 0
+    var itemsDeletedCount = 0
+
+    fun onScreenResume() {
+        if (sessionStartTime == 0L) {
+            sessionStartTime = System.currentTimeMillis()
+            hasTrackedExit = false
+        }
+    }
+
+    fun trackScreenExit() {
+        if (sessionStartTime == 0L || hasTrackedExit) return
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryHistorySession(
+            timeSpentSeconds = timeSpent,
+            episodesClickedCount = episodesClickedCount,
+            itemsDeletedCount = itemsDeletedCount
+        )
+        hasTrackedExit = true
+        sessionStartTime = 0L
     }
 }

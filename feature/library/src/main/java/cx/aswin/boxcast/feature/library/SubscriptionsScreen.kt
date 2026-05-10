@@ -101,7 +101,7 @@ fun SubscriptionsScreen(
     onPodcastClick: (String) -> Unit,
     onExploreClick: () -> Unit,
     onPlayEpisode: ((Episode, Podcast) -> Unit)? = null,
-    onEpisodeClick: ((Episode, Podcast) -> Unit)? = null,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null,
     initialTab: Int = 0
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -131,6 +131,40 @@ fun SubscriptionsScreen(
     }
 
     val isScrolled = scrollBehavior.state.overlappedFraction > 0.01f || scrollBehavior.state.collapsedFraction > 0.01f
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                if (isSearchActive) {
+                    viewModel.subDidSearch = true
+                    viewModel.subFinalSearchQuery = searchQuery
+                }
+                viewModel.trackSubscriptionsExit()
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                viewModel.onScreenResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val initialTabName = if (initialTab == 0) "shows" else "latest"
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsViewed(
+            sourceEntryPoint = "library_hub_card", // From main Library screen
+            initialTab = initialTabName
+        )
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != initialTab) {
+            viewModel.subTabSwitchesCount++
+        }
+    }
     val headerBgColor by animateColorAsState(
         targetValue = if (isScrolled) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
@@ -260,13 +294,19 @@ fun SubscriptionsScreen(
                             0 -> ShowsTabContent(
                                 podcasts = podcasts,
                                 onExploreClick = onExploreClick,
-                                onPodcastClick = onPodcastClick,
+                                onPodcastClick = {
+                                    viewModel.subPodcastsClickedCount++
+                                    onPodcastClick(it)
+                                },
                                 onPlayEpisode = onPlayEpisode
                             )
                             1 -> LatestTabContent(
                                 podcasts = podcasts,
                                 onExploreClick = onExploreClick,
-                                onEpisodeClick = onEpisodeClick,
+                                onEpisodeClick = { ep, pod, entry ->
+                                    viewModel.subEpisodesClickedCount++
+                                    onEpisodeClick?.invoke(ep, pod, entry)
+                                },
                                 onPlayEpisode = onPlayEpisode
                             )
                         }
@@ -406,7 +446,7 @@ private fun ShowsTabContent(
 private fun LatestTabContent(
     podcasts: List<Podcast>,
     onExploreClick: () -> Unit,
-    onEpisodeClick: ((Episode, Podcast) -> Unit)?,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
     onPlayEpisode: ((Episode, Podcast) -> Unit)?
 ) {
     val episodePodcasts = podcasts
@@ -438,7 +478,7 @@ private fun LatestTabContent(
                 LatestEpisodeRow(
                     episode = episode,
                     podcast = podcast,
-                    onClick = { onEpisodeClick?.invoke(episode, podcast) },
+                    onClick = { onEpisodeClick?.invoke(episode, podcast, "library_latest_episodes") },
                     onPlay = if (onPlayEpisode != null) {
                         { onPlayEpisode(episode, podcast) }
                     } else null

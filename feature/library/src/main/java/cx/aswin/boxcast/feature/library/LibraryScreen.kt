@@ -68,19 +68,51 @@ import cx.aswin.boxcast.core.model.Podcast
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
+    entryPoint: String = "bottom_nav",
     onNavigateToLiked: () -> Unit,
     onNavigateToSubscriptions: () -> Unit,
     onNavigateToDownloads: () -> Unit,
     onNavigateToHistory: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                viewModel.trackHubExit()
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                viewModel.onScreenResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryHubViewed(entryPoint)
+    }
 
     LibraryContent(
         uiState = uiState,
-        onNavigateToLiked = onNavigateToLiked,
-        onNavigateToSubscriptions = onNavigateToSubscriptions,
-        onNavigateToDownloads = onNavigateToDownloads,
-        onNavigateToHistory = onNavigateToHistory
+        onNavigateToLiked = {
+            viewModel.hubNavigatedTo = "liked"
+            onNavigateToLiked()
+        },
+        onNavigateToSubscriptions = {
+            viewModel.hubNavigatedTo = "subscriptions"
+            onNavigateToSubscriptions()
+        },
+        onNavigateToDownloads = {
+            viewModel.hubNavigatedTo = "downloads"
+            onNavigateToDownloads()
+        },
+        onNavigateToHistory = {
+            viewModel.hubNavigatedTo = "history"
+            onNavigateToHistory()
+        }
     )
 }
 

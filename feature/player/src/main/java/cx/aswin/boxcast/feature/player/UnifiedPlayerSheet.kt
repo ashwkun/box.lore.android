@@ -387,6 +387,9 @@ fun UnifiedPlayerSheet(
                                 
                                 scope.launch {
                                     if (targetState == PlayerSheetState.EXPANDED) {
+                                        if (currentSheetContentState != PlayerSheetState.EXPANDED) {
+                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("expanded", podcast?.id, episode?.id)
+                                        }
                                         launch { animatePlayerSheet(targetExpanded = true) }
                                         currentSheetContentState = PlayerSheetState.EXPANDED
                                     } else {
@@ -431,6 +434,7 @@ fun UnifiedPlayerSheet(
                         scope.launch {
                             if (currentSheetContentState == PlayerSheetState.COLLAPSED) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("expanded", podcast?.id, episode?.id)
                                 launch { animatePlayerSheet(targetExpanded = true) }
                                 currentSheetContentState = PlayerSheetState.EXPANDED
                             } else {
@@ -462,7 +466,10 @@ fun UnifiedPlayerSheet(
                         // MINI PLAYER with swipe-to-dismiss
                         SwipeableMiniPlayer(
                             isPlaying = state.isPlaying,
-                            onDismiss = { playbackRepository.clearSession() },
+                            onDismiss = { 
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("dismissed", podcast?.id, episode?.id)
+                                playbackRepository.clearSession() 
+                            },
                             backgroundColor = scheme.primaryContainer,
                             showSwipeTip = !hasSeenSwipeDismissTip && !state.isPlaying,
                             onSwipeTipDismissed = { scope.launch { userPrefs.markSwipeDismissTipSeen() } },
@@ -481,11 +488,18 @@ fun UnifiedPlayerSheet(
                                 duration = state.duration,
                                 colorScheme = scheme,
                                 onPlayPause = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("play_pause", podcast?.id, episode?.id)
                                     if (state.isPlaying) playbackRepository.pause()
                                     else playbackRepository.resume()
                                 },
-                                onPrevious = { playbackRepository.skipBackward() },
-                                onNext = { playbackRepository.skipForward() },
+                                onPrevious = { 
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("previous", podcast?.id, episode?.id)
+                                    playbackRepository.skipBackward() 
+                                },
+                                onNext = { 
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("next", podcast?.id, episode?.id)
+                                    playbackRepository.skipForward() 
+                                },
                                 modifier = Modifier.fillMaxSize()
                             )
                         }

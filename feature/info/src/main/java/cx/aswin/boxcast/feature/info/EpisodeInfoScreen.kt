@@ -55,6 +55,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -117,6 +118,7 @@ fun EpisodeInfoScreen(
     onPodcastClick: (String) -> Unit,
     onEpisodeClick: (cx.aswin.boxcast.core.model.Episode) -> Unit,
     onPlay: () -> Unit,
+    entryPointContext: android.os.Bundle? = null,
     showMarkPlayedTip: Boolean = false,
     onMarkPlayedTipDismissed: () -> Unit = {},
     bottomContentPadding: Dp = 0.dp,
@@ -138,6 +140,22 @@ fun EpisodeInfoScreen(
         label = "accent_color"
     )
 
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
+                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.trackScreenExit() // Fallback if disposed directly
+        }
+    }
+
     LaunchedEffect(episodeId) {
         viewModel.loadEpisode(
             episodeId = episodeId,
@@ -147,7 +165,8 @@ fun EpisodeInfoScreen(
             episodeAudioUrl = episodeAudioUrl,
             episodeDuration = episodeDuration,
             podcastId = podcastId,
-            podcastTitle = podcastTitle
+            podcastTitle = podcastTitle,
+            entryPointContext = entryPointContext
         )
     }
 
@@ -299,7 +318,10 @@ fun EpisodeInfoScreen(
                                     color = accentColor,
                                     fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.expressiveClickable { onPodcastClick(state.podcastId) }
+                                    modifier = Modifier.expressiveClickable { 
+                                        viewModel.onPodcastLinkClicked()
+                                        onPodcastClick(state.podcastId) 
+                                    }
                                 )
 
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -362,7 +384,7 @@ fun EpisodeInfoScreen(
                                 val isPlaying = state.isPlaying
                                 
                                 cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
-                                    onClick = { viewModel.onMainActionClick() },
+                                    onClick = { viewModel.onMainActionClick(entryPointContext) },
                                     isPlaying = isPlaying, 
                                     isResume = state.resumePositionMs > 0,
                                     accentColor = MaterialTheme.colorScheme.primary,
@@ -483,7 +505,10 @@ fun EpisodeInfoScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .expressiveClickable { onPodcastClick(state.podcastId) }
+                                        .expressiveClickable { 
+                                            viewModel.onPodcastLinkClicked()
+                                            onPodcastClick(state.podcastId) 
+                                        }
                                         .padding(bottom = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -504,7 +529,14 @@ fun EpisodeInfoScreen(
                                 }
                                 
                                 // Horizontal episodes row
+                                val relatedListState = rememberLazyListState()
+                                LaunchedEffect(relatedListState.isScrollInProgress) {
+                                    if (relatedListState.isScrollInProgress) {
+                                        viewModel.onRelatedEpisodesScrolled()
+                                    }
+                                }
                                 LazyRow(
+                                    state = relatedListState,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     if (state.relatedEpisodesLoading) {
@@ -558,7 +590,10 @@ fun EpisodeInfoScreen(
                                                 ),
                                                 modifier = Modifier
                                                     .width(140.dp)
-                                                    .expressiveClickable { onEpisodeClick(episode) }
+                                                    .expressiveClickable { 
+                                                        viewModel.onRelatedEpisodeClicked()
+                                                        onEpisodeClick(episode) 
+                                                    }
                                             ) {
                                                 Column {
                                                     // Episode Artwork

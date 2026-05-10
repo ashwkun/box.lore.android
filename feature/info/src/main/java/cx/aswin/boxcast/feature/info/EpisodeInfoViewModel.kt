@@ -62,7 +62,22 @@ class EpisodeInfoViewModel(
             initialValue = emptySet()
         )
 
+    // --- Tracking State ---
+    private var sessionStartTime = System.currentTimeMillis()
+    private var didPlay = false
+    private var didLike = false
+    private var didDownload = false
+    private var didAddToQueue = false
+    private var didMarkPlayed = false
+    private var didViewPodcast = false
+    private var didViewRelatedEpisode = false
+    private var didScrollRelatedEpisodes = false
+    private var relatedEpisodesShownCount = 0
+    private var sourceEntryPoint: String? = null
+    private var hasTrackedExit = false
+
     fun onToggleCompletion() {
+        didMarkPlayed = true
         val currentState = uiState.value
         if (currentState is EpisodeInfoUiState.Success) {
             viewModelScope.launch {
@@ -100,6 +115,7 @@ class EpisodeInfoViewModel(
     }
 
     fun onToggleLike(episode: Episode) {
+        didLike = true
         val currentState = uiState.value
         if (currentState is EpisodeInfoUiState.Success) {
             val wasLiked = likedEpisodeIds.value.contains(episode.id)
@@ -124,7 +140,8 @@ class EpisodeInfoViewModel(
         episodeAudioUrl: String,
         episodeDuration: Int,
         podcastId: String,
-        podcastTitle: String
+        podcastTitle: String,
+        entryPointContext: android.os.Bundle? = null
     ) {
         val currentState = _uiState.value
         // If we already have this episode loaded, don't reload
@@ -158,6 +175,20 @@ class EpisodeInfoViewModel(
                     resumePositionMs = resumeMs,
                     durationMs = durationMs
                 )
+                
+                // Track Screen View
+                val props = mutableMapOf<String, Any>().apply {
+                    put("podcast_id", podcastId)
+                    put("episode_id", episodeId)
+                    put("is_partially_played", resumeMs > 0)
+                    if (entryPointContext != null) {
+                        entryPointContext.getString("entry_point")?.let {
+                            sourceEntryPoint = it
+                            put("source_entry_point", it)
+                        }
+                    }
+                }
+                com.posthog.PostHog.capture("episode_info_screen_viewed", properties = props)
                 
                 // 2. Fetch full details (description, etc.)
                 // Only if description is empty or we suspect it's partial? Always fetch to be safe.
@@ -211,10 +242,10 @@ class EpisodeInfoViewModel(
                     .filter { it.id != episodeId }
                     .take(10)
                 
-                // Update state with related episodes and genre (only if we're in Success state)
-                val currentSuccess = _uiState.value as? EpisodeInfoUiState.Success
-                if (currentSuccess != null && currentSuccess.episode.id == episodeId) {
-                    _uiState.value = currentSuccess.copy(
+                    val currentSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                    if (currentSuccess != null && currentSuccess.episode.id == episodeId) {
+                        relatedEpisodesShownCount = relatedEps.size
+                        _uiState.value = currentSuccess.copy(
                         relatedEpisodes = relatedEps,
                         relatedEpisodesLoading = false,
                         podcastGenre = genre.ifEmpty { currentSuccess.podcastGenre }
@@ -233,6 +264,7 @@ class EpisodeInfoViewModel(
     }
 
     fun toggleDownload(episode: Episode) {
+        didDownload = true
         val currentState = _uiState.value
         if (currentState is EpisodeInfoUiState.Success) {
             viewModelScope.launch {
@@ -264,13 +296,35 @@ class EpisodeInfoViewModel(
         return downloadRepository.isDownloading(episodeId)
     }
 
-    fun onMainActionClick() {
+    fun onMainActionClick(entryPointContext: android.os.Bundle? = null) {
+        didPlay = true
         val currentState = _uiState.value
         if (currentState is EpisodeInfoUiState.Success) {
             val globalState = playbackRepository.playerState.value
             
+            // Rewrite the bundle so that the immediate entry point is the episode screen
+            val finalBundle = android.os.Bundle().apply {
+                if (entryPointContext != null) {
+                    putAll(entryPointContext)
+                    val originalEntryPoint = entryPointContext.getString("entry_point")
+                    if (originalEntryPoint != null) {
+                        putString("source_entry_point", originalEntryPoint)
+                    }
+                }
+                putString("entry_point", "episode_info_screen")
+            }
+
             if (globalState.currentEpisode?.id == currentState.episode.id) {
                 // Same episode: Toggle Play/Pause
+                if (!globalState.isPlaying) {
+                    val map = mutableMapOf<String, Any>()
+                    finalBundle.keySet().forEach { key ->
+                        finalBundle.get(key)?.let { map[key] = it }
+                    }
+                    if (map.isNotEmpty()) {
+                        cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
+                    }
+                }
                 playbackRepository.togglePlayPause()
             } else {
                 // Different episode: Start Playback
@@ -284,7 +338,7 @@ class EpisodeInfoViewModel(
                         description = "",
                         genre = currentState.podcastGenre
                     )
-                    queueManager.playEpisode(currentState.episode, pod)
+                    queueManager.playEpisode(currentState.episode, pod, entryPointContext = finalBundle)
                 }
             }
         }
@@ -292,6 +346,7 @@ class EpisodeInfoViewModel(
 
 
     fun toggleQueue() {
+        didAddToQueue = true
         val currentState = _uiState.value
         if (currentState is EpisodeInfoUiState.Success) {
             viewModelScope.launch {
@@ -323,4 +378,52 @@ class EpisodeInfoViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptySet()
         )
+        
+    fun onPodcastLinkClicked() {
+        didViewPodcast = true
+    }
+    
+    fun onRelatedEpisodeClicked() {
+        didViewRelatedEpisode = true
+    }
+    
+    fun onRelatedEpisodesScrolled() {
+        didScrollRelatedEpisodes = true
+    }
+
+    fun onScreenResume() {
+        if (hasTrackedExit) {
+            // User came back from background or backstack. Restart the session timer.
+            sessionStartTime = System.currentTimeMillis()
+            hasTrackedExit = false
+        }
+    }
+
+    fun trackScreenExit() {
+        if (hasTrackedExit) return
+        hasTrackedExit = true
+        
+        val currentState = _uiState.value as? EpisodeInfoUiState.Success ?: return
+        val timeSpentSeconds = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        
+        val props = mutableMapOf<String, Any>().apply {
+            put("podcast_id", currentState.podcastId)
+            put("episode_id", currentState.episode.id)
+            put("time_spent_seconds", timeSpentSeconds)
+            put("did_play", didPlay)
+            put("did_like", didLike)
+            put("did_download", didDownload)
+            put("did_add_to_queue", didAddToQueue)
+            put("did_mark_played", didMarkPlayed)
+            put("did_view_podcast", didViewPodcast)
+            put("did_view_related_episode", didViewRelatedEpisode)
+            put("related_episodes_shown_count", relatedEpisodesShownCount)
+            put("did_scroll_related_episodes", didScrollRelatedEpisodes)
+            
+            if (sourceEntryPoint != null) {
+                put("source_entry_point", sourceEntryPoint!!)
+            }
+        }
+        com.posthog.PostHog.capture("episode_info_screen_session", properties = props)
+    }
 }

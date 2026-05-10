@@ -136,6 +136,15 @@ class HomeViewModel(
     private var cachedTimeBlock: CuratedTimeBlock? = null
     private var cachedLatestEpisodes: List<Podcast> = emptyList()
     
+    // Curated impression dedup — prevents LazyGrid recomposition from re-firing
+    private var hasFiredCuratedImpression = false
+    
+    fun trackCuratedImpressionOnce(blockTitle: String, vibeIds: List<String>) {
+        if (hasFiredCuratedImpression) return
+        hasFiredCuratedImpression = true
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackCuratedBlockImpression(blockTitle, vibeIds)
+    }
+    
     // Store current region for use in other scopes
     private var activeRegion = "us"
 
@@ -584,8 +593,8 @@ class HomeViewModel(
         }
     }
 
-    fun togglePlayback() {
-        playbackRepository.togglePlayPause()
+    fun togglePlayback(entryPointContext: android.os.Bundle? = null) {
+        playbackRepository.togglePlayPause(entryPointContext)
     }
 
     fun deleteHistoryItem(episodeId: String) {

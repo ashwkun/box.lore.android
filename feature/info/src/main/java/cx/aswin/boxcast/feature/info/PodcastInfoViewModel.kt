@@ -45,7 +45,11 @@ class PodcastInfoViewModel(
     private val publicKey: String,
     private val playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    private val queueManager: cx.aswin.boxcast.core.data.QueueManager
+    private val queueManager: cx.aswin.boxcast.core.data.QueueManager,
+    private val entryPoint: String?,
+    private val genreFilter: String?,
+    private val scrollDepth: Int?,
+    private val searchQuery: String?
 ) : AndroidViewModel(application) {
 
     private val repository = PodcastRepository(
@@ -62,6 +66,17 @@ class PodcastInfoViewModel(
     private var currentPodcastId: String = ""
     private var currentOffset: Int = 0
     private var searchJob: Job? = null
+
+    // --- Tracking State ---
+    private var sessionStartTime = System.currentTimeMillis()
+    private var wasSubscribedAtStart: Boolean? = null
+    private var didSubscribe = false
+    private var didUnsubscribe = false
+    private var didSearch = false
+    private var didSortEpisodes = false
+    private val playedEpisodes = mutableSetOf<String>()
+    private val clickedEpisodes = mutableSetOf<String>()
+    private var hasTrackedExit = false
 
     // Observe liked episodes
     private val likedEpisodeIds = playbackRepository.likedEpisodes
@@ -163,6 +178,16 @@ class PodcastInfoViewModel(
         if (currentPodcastId == podcastId && (_uiState.value is PodcastInfoUiState.Success || _uiState.value is PodcastInfoUiState.Error)) {
             return
         }
+        
+        // Track screen viewed
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenViewed(
+            podcastId = podcastId,
+            entryPoint = entryPoint,
+            genreFilter = genreFilter,
+            scrollDepth = scrollDepth,
+            searchQuery = searchQuery
+        )
+
         currentPodcastId = podcastId
         currentOffset = 0
         viewModelScope.launch {
@@ -172,6 +197,11 @@ class PodcastInfoViewModel(
                 if (podcast != null) {
                     val page = repository.getEpisodesPaginated(podcastId, PAGE_SIZE, 0, "newest")
                     val isSubscribed = subscriptionRepository.isSubscribed(podcastId)
+                    
+                    if (wasSubscribedAtStart == null) {
+                        wasSubscribedAtStart = isSubscribed
+                    }
+
                     currentOffset = page.episodes.size
                     _uiState.value = PodcastInfoUiState.Success(
                         podcast = podcast,
@@ -215,6 +245,7 @@ class PodcastInfoViewModel(
     }
 
     fun toggleSort() {
+        didSortEpisodes = true
         val currentState = _uiState.value
         if (currentState !is PodcastInfoUiState.Success) return
 
@@ -250,6 +281,7 @@ class PodcastInfoViewModel(
     }
 
     fun searchEpisodes(query: String) {
+        if (query.isNotBlank()) didSearch = true
         val currentState = _uiState.value
         if (currentState !is PodcastInfoUiState.Success) return
 
@@ -297,6 +329,11 @@ class PodcastInfoViewModel(
         if (currentState is PodcastInfoUiState.Success) {
             viewModelScope.launch {
                 val wasSubscribed = currentState.isSubscribed
+                if (wasSubscribed) {
+                    didUnsubscribe = true
+                } else {
+                    didSubscribe = true
+                }
                 subscriptionRepository.toggleSubscription(currentState.podcast)
                 // Refresh state
                 val isSubscribed = subscriptionRepository.isSubscribed(currentState.podcast.id)
@@ -398,6 +435,7 @@ class PodcastInfoViewModel(
     )
     
     fun onPlayClick(episode: Episode) {
+        playedEpisodes.add(episode.id)
         val currentState = _uiState.value as? PodcastInfoUiState.Success ?: return
 
         viewModelScope.launch {
@@ -420,4 +458,38 @@ class PodcastInfoViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptySet()
         )
+
+    fun recordEpisodeClick(episodeId: String) {
+        clickedEpisodes.add(episodeId)
+    }
+
+    fun onScreenResume() {
+        if (hasTrackedExit) {
+            // Restart the session timer when coming back from background
+            sessionStartTime = System.currentTimeMillis()
+            hasTrackedExit = false
+        }
+    }
+
+    fun trackScreenExit() {
+        if (hasTrackedExit || currentPodcastId.isEmpty()) return
+        hasTrackedExit = true
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenSession(
+            podcastId = currentPodcastId,
+            timeSpentSeconds = timeSpent,
+            wasSubscribed = wasSubscribedAtStart ?: false,
+            didSubscribe = didSubscribe,
+            didUnsubscribe = didUnsubscribe,
+            didSearch = didSearch,
+            didSortEpisodes = didSortEpisodes,
+            episodesPlayedCount = playedEpisodes.size,
+            episodesClickedCount = clickedEpisodes.size
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        trackScreenExit()
+    }
 }
