@@ -14,7 +14,7 @@ class BoxCastApplication : Application() {
             apiKey = BuildConfig.POSTHOG_API_KEY,
             host = BuildConfig.POSTHOG_HOST
         ).apply {
-            captureApplicationLifecycleEvents = false
+            captureApplicationLifecycleEvents = true
             captureScreenViews = false
             captureDeepLinks = false
             debug = BuildConfig.DEBUG

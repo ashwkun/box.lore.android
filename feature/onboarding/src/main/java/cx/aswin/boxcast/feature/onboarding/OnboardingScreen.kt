@@ -81,20 +81,6 @@ fun OnboardingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
-    // Track start on first launch
-    LaunchedEffect(Unit) {
-        viewModel.trackOnboardingStarted()
-    }
-
-    // Track screen changes
-    LaunchedEffect(uiState.currentStep) {
-        val screenName = when(uiState.currentStep) {
-            OnboardingStep.GENRES -> "Onboarding - Genres"
-            OnboardingStep.PODCASTS -> "Onboarding - Recommendations"
-            OnboardingStep.SEARCH -> "Onboarding - Search"
-        }
-        viewModel.trackScreenView(screenName)
-    }
     // Main content with animated transitions
     AnimatedContent(
         targetState = uiState.currentStep,
@@ -106,56 +92,45 @@ fun OnboardingScreen(
     ) { step ->
         when (step) {
             OnboardingStep.GENRES -> {
-                val scrollState = rememberScrollState()
-                val maxScroll = remember { mutableStateOf(0f) }
-                LaunchedEffect(scrollState.value) {
-                    val current = if (scrollState.maxValue > 0) scrollState.value.toFloat() / scrollState.maxValue else 0f
-                    if (current > maxScroll.value) maxScroll.value = current
-                }
-
+                // Analytics: Fire onboarding_started when genre screen loads
+                LaunchedEffect(Unit) { viewModel.onGenreScreenViewed() }
                 GenrePickerScreen(
                     selectedGenres = uiState.selectedGenres,
-                    scrollState = scrollState,
-                    onGenreClick = viewModel::toggleGenre,
+                    onToggleGenre = viewModel::toggleGenre,
+                    onContinue = viewModel::continueToRecommendations,
+                    onSearch = viewModel::navigateToSearch,
+                    onSkip = { viewModel.skipOnboarding(onComplete) },
                     onImportJson = onImportJson,
                     onImportOpml = onImportOpml,
-                    onContinue = { viewModel.trackGenresConfirmed(uiState.selectedGenres, maxScroll.value); viewModel.navigateToRecommendations() },
-                    onSearch = viewModel::trackSearchBypass,
-                    onSkip = { viewModel.skipOnboarding("skipped_genres", onComplete) }
+                    onImportSheetOpened = { cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackImportSheetOpened(viewModel.getGenreScreenTimeSpent()) }
                 )
             }
             OnboardingStep.PODCASTS -> {
-                val gridState = rememberLazyGridState()
-                val maxScroll = remember { mutableStateOf(0f) }
-                LaunchedEffect(gridState.firstVisibleItemIndex) {
-                    val total = uiState.recommendedPodcasts.size
-                    val current = if (total > 0) (gridState.firstVisibleItemIndex + gridState.layoutInfo.visibleItemsInfo.size).toFloat() / total else 0f
-                    if (current > maxScroll.value) maxScroll.value = current
+                LaunchedEffect(Unit) {
+                    viewModel.onPodcastScreenViewed()
                 }
-
                 PodcastPicksScreen(
                     podcasts = uiState.recommendedPodcasts,
-                    gridState = gridState,
                     subscribedIds = uiState.subscribedPodcastIds,
-                    onTogglePodcast = viewModel::togglePodcastSubscription,
+                    isLoading = uiState.isLoadingPodcasts,
+                    onToggleSubscription = viewModel::togglePodcastSubscription,
                     onSearch = viewModel::navigateToSearch,
-                    onDone = { viewModel.completeOnboarding("manual_genres", maxScroll.value, onComplete) },
-                    onSkip = { viewModel.skipOnboarding("skipped_suggestions", onComplete) }
+                    onBack = viewModel::navigateBackFromPodcasts,
+                    onDone = { viewModel.completeOnboarding(onComplete) },
+                    onSkip = { viewModel.skipOnboarding(onComplete) },
+                    onDidScroll = viewModel::onPodcastScreenScrolled
                 )
             }
             OnboardingStep.SEARCH -> {
                 OnboardingSearchScreen(
                     query = uiState.searchQuery,
-                    onQueryChange = viewModel::onSearchQueryChange,
                     results = uiState.searchResults,
                     isSearching = uiState.isSearching,
-                    onSubscribe = viewModel::subscribeFromSearch,
                     subscribedIds = uiState.subscribedPodcastIds,
-                    onBack = { viewModel.trackSearchBack(); viewModel.onNavigateBack() },
-                    onDone = { 
-                        val method = if (uiState.searchSource == "bypass") "manual_search_bypass" else "manual_search_supplement"
-                        viewModel.completeOnboarding(method, 0f, onDone = onComplete) // 0f for search scroll for now
-                    }
+                    onQueryChange = viewModel::updateSearchQuery,
+                    onSubscribe = viewModel::subscribeFromSearch,
+                    onBack = viewModel::navigateBackFromSearch,
+                    onDone = { viewModel.completeOnboarding(onComplete) }
                 )
             }
         }
@@ -171,7 +146,8 @@ private fun GenrePickerScreen(
     onSearch: () -> Unit,
     onSkip: () -> Unit,
     onImportJson: (android.net.Uri) -> Unit = {},
-    onImportOpml: (android.net.Uri) -> Unit = {}
+    onImportOpml: (android.net.Uri) -> Unit = {},
+    onImportSheetOpened: () -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -185,6 +161,11 @@ private fun GenrePickerScreen(
     )
     
     var showImportBottomSheet by remember { mutableStateOf(false) }
+
+    // Analytics: Track when import bottom sheet is opened
+    LaunchedEffect(showImportBottomSheet) {
+        if (showImportBottomSheet) onImportSheetOpened()
+    }
 
     if (showImportBottomSheet) {
         ModalBottomSheet(
@@ -209,7 +190,6 @@ private fun GenrePickerScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     onClick = {
                         showImportBottomSheet = false
-                        viewModel.trackImportTypeSelected("json")
                         importJsonLauncher.launch(arrayOf("application/json"))
                     }
                 ) {
@@ -226,7 +206,6 @@ private fun GenrePickerScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     onClick = {
                         showImportBottomSheet = false
-                        viewModel.trackImportTypeSelected("opml")
                         importOpmlLauncher.launch(arrayOf("*/*"))
                     }
                 ) {
@@ -276,10 +255,7 @@ private fun GenrePickerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Button(
-                        onClick = {
-                            viewModel.trackGenresConfirmed(selectedGenres)
-                            onContinue()
-                        },
+                        onClick = onContinue,
                         enabled = selectedGenres.isNotEmpty(),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -297,10 +273,7 @@ private fun GenrePickerScreen(
                     Spacer(modifier = Modifier.height(12.dp))
     
                     TextButton(
-                        onClick = {
-                            viewModel.trackSearchBypass()
-                            onSearch()
-                        },
+                        onClick = onSearch,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
@@ -348,10 +321,7 @@ private fun GenrePickerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.large)
-                    .expressiveClickable { 
-                        viewModel.trackImportClicked()
-                        showImportBottomSheet = true 
-                    }
+                    .expressiveClickable { showImportBottomSheet = true }
             ) {
                 Row(
                     modifier = Modifier
@@ -427,9 +397,17 @@ private fun PodcastPicksScreen(
     onSearch: () -> Unit,
     onBack: () -> Unit,
     onDone: () -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    onDidScroll: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+
+    LaunchedEffect(gridState.isScrollInProgress) {
+        if (gridState.isScrollInProgress) {
+            onDidScroll()
+        }
+    }
 
     Scaffold(
         modifier = Modifier
@@ -531,6 +509,7 @@ private fun PodcastPicksScreen(
             }
         } else {
             LazyVerticalGrid(
+                state = gridState,
                 columns = GridCells.Fixed(2),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),

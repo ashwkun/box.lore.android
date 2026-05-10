@@ -50,6 +50,18 @@ class BoxCastPlaybackService : MediaLibraryService() {
     @Volatile
     private var pendingSeekMs: Long = 0L
 
+    // Playback Telemetry State
+    private var playbackSessionStartTimeMs: Long = 0L
+    private var playbackSessionEpisodeId: String? = null
+    private var playbackSessionEpisodeTitle: String? = null
+    private var playbackSessionPodcastId: String? = null
+    private var playbackSessionPodcastName: String? = null
+    private var playbackSessionPodcastGenre: String? = null
+    private var playbackSessionTotalDurationMs: Long = 0L
+    private var playbackSessionIsRepeating: Boolean = false
+    private var playbackSessionEntryPoint: String? = null
+    private var playbackSessionEntryPointContext: Map<String, Any>? = null
+
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
@@ -124,6 +136,15 @@ class BoxCastPlaybackService : MediaLibraryService() {
         // SmartQueue auto-refill: when queue runs low, fetch more episodes
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                // Telemetry: Transition implies the previous item stopped
+                val wasAutoCompleted = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
+                endPlaybackSession(forceCompleted = wasAutoCompleted)
+                
+                if (player.isPlaying) {
+                    val episodeId = mediaItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
+                    if (episodeId != null) startPlaybackSession(episodeId, mediaItem)
+                }
+
                 val remaining = player.mediaItemCount - player.currentMediaItemIndex - 1
                 android.util.Log.d("AutoQueue", "onMediaItemTransition: remaining=$remaining, reason=$reason")
 
@@ -142,11 +163,17 @@ class BoxCastPlaybackService : MediaLibraryService() {
             }
         })
         
-        // Progress saver + resume-seek: periodically save playback position to DB
+        // Progress saver + resume-seek + Telemetry
         var progressSaverJob: kotlinx.coroutines.Job? = null
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val currentItem = player.currentMediaItem
+                val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
+                
                 if (isPlaying) {
+                    // Telemetry: Started playing
+                    if (episodeId != null) startPlaybackSession(episodeId, currentItem)
+
                     // Apply any pending resume-seek BEFORE starting progress saver
                     val seekTo = pendingSeekMs
                     pendingSeekMs = 0L
@@ -167,6 +194,16 @@ class BoxCastPlaybackService : MediaLibraryService() {
                         }
                     }
                 } else {
+                    // Telemetry: Paused playing 
+                    // Only end session if explicitly paused or stopped. Ignore buffering/seeking.
+                    val shouldEndSession = !player.playWhenReady || 
+                                           player.playbackState == Player.STATE_ENDED ||
+                                           player.playbackState == Player.STATE_IDLE
+                    
+                    if (shouldEndSession) {
+                        endPlaybackSession(forceCompleted = false)
+                    }
+
                     // Save one final time on pause
                     progressSaverJob?.cancel()
                     progressSaverJob = null
@@ -260,11 +297,146 @@ class BoxCastPlaybackService : MediaLibraryService() {
         }
     }
 
+    private fun startPlaybackSession(episodeId: String, currentItem: MediaItem?) {
+        if (playbackSessionStartTimeMs > 0 && playbackSessionEpisodeId == episodeId) return
+        
+        endPlaybackSession(forceCompleted = false) // Flush any outgoing session
+        
+        playbackSessionStartTimeMs = System.currentTimeMillis()
+        playbackSessionEpisodeId = episodeId
+        
+        val title = currentItem?.mediaMetadata?.title?.toString()
+        val artist = currentItem?.mediaMetadata?.artist?.toString() ?: currentItem?.mediaMetadata?.subtitle?.toString()
+        val genre = currentItem?.mediaMetadata?.genre?.toString()
+        playbackSessionEpisodeTitle = title
+        playbackSessionPodcastName = artist
+        playbackSessionPodcastGenre = genre
+        
+        val extras = currentItem?.mediaMetadata?.extras
+        val bundleMap = mutableMapOf<String, Any>()
+        
+        // Primary: Check static holder (bypasses IPC serialization issues)
+        val pendingEntryPoint = cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.consume()
+        if (pendingEntryPoint != null) {
+            playbackSessionEntryPoint = pendingEntryPoint["entry_point"] as? String
+            val contextMap = pendingEntryPoint.filterKeys { it != "entry_point" }
+            playbackSessionEntryPointContext = contextMap.ifEmpty { null }
+        } else {
+            // Fallback: Read from MediaMetadata extras (may not survive IPC)
+            extras?.keySet()?.forEach { key ->
+                @Suppress("DEPRECATION")
+                val value = extras.get(key)
+                if (value != null && key != "entry_point") {
+                    bundleMap[key] = value
+                }
+            }
+            playbackSessionEntryPoint = extras?.getString("entry_point")
+            playbackSessionEntryPointContext = if (bundleMap.isNotEmpty()) bundleMap else null
+        }
+        
+        serviceScope.launch {
+            val podcastId = findPodcastIdForEpisode(episodeId)
+            playbackSessionPodcastId = podcastId
+            
+            // Resolve genre race condition
+            var actualGenre = genre
+            if ((actualGenre == null || actualGenre == "Podcast") && podcastId != null) {
+                try {
+                    val podcast = database.podcastDao().getPodcast(podcastId)
+                    if (podcast != null && !podcast.genre.isNullOrBlank() && podcast.genre != "Podcast") {
+                        actualGenre = podcast.genre
+                        playbackSessionPodcastGenre = actualGenre
+                    }
+                } catch (e: Exception) { /* ignore */ }
+            }
+            
+            // Check if repeating
+            val history = database.listeningHistoryDao().getHistoryItem(episodeId)
+            playbackSessionIsRepeating = history?.isCompleted == true
+            
+            var durationMs = currentItem?.mediaMetadata?.extras?.getLong("durationMs", 0L) ?: 0L
+            val exoDuration = kotlinx.coroutines.withContext(Dispatchers.Main) { 
+                mediaSession?.player?.duration ?: 0L 
+            }
+            if (exoDuration > 0) durationMs = exoDuration
+            playbackSessionTotalDurationMs = durationMs
+            
+            val startPositionMs = kotlinx.coroutines.withContext(Dispatchers.Main) { 
+                mediaSession?.player?.currentPosition ?: 0L 
+            }
+            
+            
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackStarted(
+                podcastId = podcastId,
+                podcastName = artist,
+                podcastGenre = actualGenre,
+                episodeId = episodeId,
+                episodeTitle = title,
+                startPositionSeconds = startPositionMs / 1000f,
+                totalDurationSeconds = durationMs / 1000f,
+                isRepeating = playbackSessionIsRepeating,
+                entryPoint = playbackSessionEntryPoint,
+                entryPointContext = playbackSessionEntryPointContext
+            )
+        }
+    }
+
+    private fun endPlaybackSession(forceCompleted: Boolean = false) {
+        if (playbackSessionStartTimeMs > 0 && playbackSessionEpisodeId != null) {
+            val durationPlayedMs = System.currentTimeMillis() - playbackSessionStartTimeMs
+            val durationPlayedSeconds = durationPlayedMs / 1000f
+            
+            val currentEpisodeId = playbackSessionEpisodeId!!
+            val currentPodcastId = playbackSessionPodcastId
+            val currentPodcastName = playbackSessionPodcastName
+            val currentPodcastGenre = playbackSessionPodcastGenre
+            val currentEpisodeTitle = playbackSessionEpisodeTitle
+            val totalDurationMs = playbackSessionTotalDurationMs
+            val entryPoint = playbackSessionEntryPoint
+            val entryPointContext = playbackSessionEntryPointContext
+            
+            var isCompleted = forceCompleted
+            if (!isCompleted) {
+                try {
+                    val pos = mediaSession?.player?.currentPosition ?: 0L
+                    if (totalDurationMs > 0 && pos >= totalDurationMs - 5000) {
+                        isCompleted = true // within 5 seconds of end
+                    }
+                } catch (e: Exception) {}
+            }
+            
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackPaused(
+                podcastId = currentPodcastId,
+                podcastName = currentPodcastName,
+                podcastGenre = currentPodcastGenre,
+                episodeId = currentEpisodeId,
+                episodeTitle = currentEpisodeTitle,
+                durationPlayedSeconds = durationPlayedSeconds,
+                totalDurationSeconds = totalDurationMs / 1000f,
+                isCompleted = isCompleted,
+                entryPoint = entryPoint,
+                entryPointContext = entryPointContext
+            )
+            
+            // Reset
+            playbackSessionStartTimeMs = 0L
+            playbackSessionEpisodeId = null
+            playbackSessionEpisodeTitle = null
+            playbackSessionPodcastId = null
+            playbackSessionPodcastName = null
+            playbackSessionTotalDurationMs = 0L
+            playbackSessionIsRepeating = false
+            playbackSessionEntryPoint = null
+            playbackSessionEntryPointContext = null
+        }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
         return mediaSession
     }
 
     override fun onDestroy() {
+        endPlaybackSession(forceCompleted = false)
         mediaSession?.run {
             player.release()
             release()
@@ -280,7 +452,6 @@ class BoxCastPlaybackService : MediaLibraryService() {
      * Works independently of the app UI being open.
      */
     private suspend fun refillQueue(player: ExoPlayer) {
-        val currentIndex = player.currentMediaItemIndex
         val currentItem = player.currentMediaItem ?: return
         
         // Extract episode info from the current MediaItem
@@ -624,16 +795,16 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     val subs = database.podcastDao().getSubscribedPodcastsList()
                     subs.filter {
                         it.title.lowercase().contains(lowerQuery) ||
-                        (it.author?.lowercase()?.contains(lowerQuery) == true)
+                        (it.author.lowercase().contains(lowerQuery))
                     }.take(5).forEach { pod ->
-                        val artworkUri = pod.imageUrl?.let { android.net.Uri.parse(it) }
+                        val artworkUri = android.net.Uri.parse(pod.imageUrl)
                         results.add(
                             MediaItem.Builder()
                                 .setMediaId("$SUBSCRIPTION_PREFIX${pod.podcastId}")
                                 .setMediaMetadata(
                                     MediaMetadata.Builder()
                                         .setTitle(pod.title)
-                                        .setArtist(pod.author ?: "")
+                                        .setArtist(pod.author)
                                         .setArtworkUri(artworkUri)
                                         .setIsPlayable(false)
                                         .setIsBrowsable(true)
@@ -649,7 +820,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                         try {
                             val apiResults = podcastRepository.searchPodcasts(query)
                             apiResults.take(10).forEach { podcast ->
-                                val artworkUri = podcast.imageUrl?.let { android.net.Uri.parse(it) }
+                                val artworkUri = android.net.Uri.parse(podcast.imageUrl)
                                 results.add(
                                     MediaItem.Builder()
                                         .setMediaId("$SUBSCRIPTION_PREFIX${podcast.id}")
@@ -766,7 +937,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                         val episodes = podcastRepository.getEpisodes(matchedPod.podcastId)
                         val ep = episodes.firstOrNull()
                         if (ep != null) {
-                            val artworkUri = (ep.imageUrl ?: matchedPod.imageUrl)?.let { android.net.Uri.parse(it) }
+                            val artworkUri = android.net.Uri.parse(ep.imageUrl ?: matchedPod.imageUrl)
                             return@future mutableListOf(
                                 MediaItem.Builder()
                                     .setMediaId("episode:${ep.id}")
@@ -794,7 +965,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                             val episodes = podcastRepository.getEpisodes(firstPod.id)
                             val ep = episodes.firstOrNull()
                             if (ep != null) {
-                                val artworkUri = (ep.imageUrl ?: firstPod.imageUrl)?.let { android.net.Uri.parse(it) }
+                                val artworkUri = android.net.Uri.parse(ep.imageUrl ?: firstPod.imageUrl)
                                 return@future mutableListOf(
                                     MediaItem.Builder()
                                         .setMediaId("episode:${ep.id}")
@@ -848,7 +1019,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                         .take(20)
                     
                     val playableItems = newEpisodes.map { (ep, pod) ->
-                        val artworkUri = (ep.imageUrl ?: pod.imageUrl)?.let { android.net.Uri.parse(it) }
+                        val artworkUri = android.net.Uri.parse(ep.imageUrl ?: pod.imageUrl)
                         
                         MediaItem.Builder()
                             .setMediaId("episode:${ep.id}")
@@ -857,7 +1028,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                                 MediaMetadata.Builder()
                                     .setTitle(ep.title)
                                     .setSubtitle(pod.title)
-                                    .setArtist(pod.author ?: "")
+                                    .setArtist(pod.author)
                                     .setArtworkUri(artworkUri)
                                     .setIsPlayable(true)
                                     .setIsBrowsable(false)
@@ -1084,7 +1255,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             android.util.Log.d("AutoBrowse", "Subscriptions: ${subscriptions.size} podcasts")
             
             return subscriptions.map { entity ->
-                val artworkUri = entity.imageUrl?.let { android.net.Uri.parse(it) }
+                val artworkUri = android.net.Uri.parse(entity.imageUrl)
                 
                 MediaItem.Builder()
                     .setMediaId("$SUBSCRIPTION_PREFIX${entity.podcastId}")
@@ -1113,29 +1284,9 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 putInt(CONTENT_STYLE_PLAYABLE_KEY, CONTENT_STYLE_LIST)
             }
 
-            // Query local DB for dynamic subtitle counts
-            val resumeCount = try {
-                database.listeningHistoryDao().getResumeItemsList().size
-            } catch (e: Exception) { 0 }
-            
-            val subsCount = try {
-                database.podcastDao().getSubscribedPodcastsList().size
-            } catch (e: Exception) { 0 }
-            
             val newEpCount = try {
                 database.podcastDao().getSubscribedPodcastsList().count { it.latestEpisode != null }
             } catch (e: Exception) { 0 }
-
-            val resumeSubtitle = when {
-                resumeCount == 0 -> "Nothing yet - start listening!"
-                resumeCount == 1 -> "1 episode in progress"
-                else -> "$resumeCount episodes in progress"
-            }
-            val subsSubtitle = when {
-                subsCount == 0 -> "No subscriptions yet"
-                subsCount == 1 -> "1 podcast"
-                else -> "$subsCount podcasts"
-            }
             val newEpSubtitle = when {
                 newEpCount == 0 -> "Subscribe to podcasts to see new drops"
                 newEpCount == 1 -> "1 new from your subscriptions"
@@ -1295,7 +1446,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             
             items.addAll(
                 newEpisodes.map { (ep, pod) ->
-                    val artworkUri = (ep.imageUrl ?: pod.imageUrl)?.let { android.net.Uri.parse(it) }
+                    val artworkUri = android.net.Uri.parse(ep.imageUrl ?: pod.imageUrl)
                     
                     MediaItem.Builder()
                         .setMediaId("episode:${ep.id}")
@@ -1304,7 +1455,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                             MediaMetadata.Builder()
                                 .setTitle(ep.title)
                                 .setSubtitle(pod.title)
-                                .setArtist(pod.author ?: "")
+                                .setArtist(pod.author)
                                 .setArtworkUri(artworkUri)
                                 .setIsPlayable(true)
                                 .setIsBrowsable(false)
@@ -1323,7 +1474,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             android.util.Log.d("AutoBrowse", "Curated $vibeId: ${curatedPodcasts.size} podcasts")
             
             return curatedPodcasts.map { podcast ->
-                val artworkUri = podcast.imageUrl?.let { android.net.Uri.parse(it) }
+                val artworkUri = android.net.Uri.parse(podcast.imageUrl)
                 
                 MediaItem.Builder()
                     .setMediaId("$SUBSCRIPTION_PREFIX${podcast.id}")

@@ -45,5 +45,5 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
-    implementation("com.posthog:posthog-android:3.+")
+    implementation("com.posthog:posthog-android:3.8.2")
 }

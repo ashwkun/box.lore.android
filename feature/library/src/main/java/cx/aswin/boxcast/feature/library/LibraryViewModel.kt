@@ -83,4 +83,78 @@ class LibraryViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = LibraryUiState.Loading
         )
+
+    // ── Telemetry State & Lifecycle ──
+
+    // Shared session timer (since distinct ViewModel instances are created per route)
+    var sessionStartTime: Long = 0L
+    private var hasTrackedExit = false
+
+    // Hub State
+    var hubNavigatedTo: String? = null
+
+    // Subscriptions State
+    var subTabSwitchesCount = 0
+    var subDidSearch = false
+    var subFinalSearchQuery: String? = null
+    var subPodcastsClickedCount = 0
+    var subEpisodesClickedCount = 0
+
+    // Liked / Downloads State
+    var genericEpisodesClickedCount = 0
+    var genericItemsRemovedCount = 0
+
+    fun onScreenResume() {
+        if (sessionStartTime == 0L) {
+            sessionStartTime = System.currentTimeMillis()
+            hasTrackedExit = false
+        }
+    }
+
+    fun trackHubExit() {
+        if (sessionStartTime == 0L || hasTrackedExit) return
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryHubSession(timeSpent, hubNavigatedTo)
+        hasTrackedExit = true
+        sessionStartTime = 0L
+    }
+
+    fun trackSubscriptionsExit() {
+        if (sessionStartTime == 0L || hasTrackedExit) return
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSession(
+            timeSpentSeconds = timeSpent,
+            tabSwitchesCount = subTabSwitchesCount,
+            didSearch = subDidSearch,
+            finalSearchQuery = subFinalSearchQuery,
+            podcastsClickedCount = subPodcastsClickedCount,
+            episodesClickedCount = subEpisodesClickedCount
+        )
+        hasTrackedExit = true
+        sessionStartTime = 0L
+    }
+
+    fun trackLikedExit() {
+        if (sessionStartTime == 0L || hasTrackedExit) return
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryLikedSession(
+            timeSpentSeconds = timeSpent,
+            episodesClickedCount = genericEpisodesClickedCount,
+            episodesUnlikedCount = genericItemsRemovedCount
+        )
+        hasTrackedExit = true
+        sessionStartTime = 0L
+    }
+
+    fun trackDownloadsExit() {
+        if (sessionStartTime == 0L || hasTrackedExit) return
+        val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryDownloadsSession(
+            timeSpentSeconds = timeSpent,
+            episodesClickedCount = genericEpisodesClickedCount,
+            episodesDeletedCount = genericItemsRemovedCount
+        )
+        hasTrackedExit = true
+        sessionStartTime = 0L
+    }
 }

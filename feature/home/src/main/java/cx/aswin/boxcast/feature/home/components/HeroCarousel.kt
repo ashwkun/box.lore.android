@@ -19,11 +19,11 @@ import cx.aswin.boxcast.core.model.Podcast
 @Composable
 fun HeroCarousel(
     heroItems: List<SmartHeroItem>,
-    onPlayClick: (Podcast) -> Unit,
+    onPlayClick: (Podcast, android.os.Bundle?) -> Unit,
     onDetailsClick: (Podcast) -> Unit,
-    onArrowClick: (SmartHeroItem) -> Unit,
+    onArrowClick: (SmartHeroItem, Int) -> Unit,
     onToggleSubscription: (String) -> Unit,
-    onTogglePlayback: () -> Unit,
+    onTogglePlayback: (android.os.Bundle?) -> Unit,
     currentPlayingPodcastId: String? = null,
     isPlaying: Boolean = false,
     modifier: Modifier = Modifier
@@ -31,6 +31,19 @@ fun HeroCarousel(
     if (heroItems.isEmpty()) return
 
     val carouselState = rememberCarouselState { heroItems.size }
+    
+    // Telemetry: Track Max Swipe Depth
+    val maxScrolledIndex = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    
+    androidx.compose.runtime.LaunchedEffect(maxScrolledIndex.intValue) {
+        if (maxScrolledIndex.intValue > 0) {
+            kotlinx.coroutines.delay(3000) // 3s debounce
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeHeroCarouselSwiped(
+                maxCardIndexViewed = maxScrolledIndex.intValue,
+                totalCardsAvailable = heroItems.size
+            )
+        }
+    }
     
     HorizontalMultiBrowseCarousel(
         state = carouselState,
@@ -43,11 +56,26 @@ fun HeroCarousel(
     ) { i ->
         val item = heroItems[i]
         
+        androidx.compose.runtime.DisposableEffect(i) {
+            if (i > maxScrolledIndex.intValue) {
+                maxScrolledIndex.intValue = i
+            }
+            onDispose {}
+        }
+        
         if (item.type == cx.aswin.boxcast.feature.home.HeroType.RESUME_GRID) {
             HeroGridCard(
                 items = item.gridItems,
                 title = "JUMP BACK IN",
-                onPlayClick = { onPlayClick(it) },
+                onPlayClick = { podcast -> 
+                    val bundle = android.os.Bundle().apply {
+                        putString("entry_point", "home_hero_resume_grid")
+                        putInt("ep_carousel_position", i)
+                        putString("ep_layout_type", "grid_card")
+                        putBoolean("ep_is_subscribed", true) // Assuming RESUME grid items are subscribed
+                    }
+                    onPlayClick(podcast, bundle) 
+                },
                 onDetailsClick = { podcast ->
                     // For grid items, we want Episode Details. 
                     // We need to pass this action up.
@@ -62,7 +90,15 @@ fun HeroCarousel(
              HeroGridCard(
                 items = item.gridItems,
                 title = "NEW EPISODES",
-                onPlayClick = { onPlayClick(it) },
+                onPlayClick = { podcast -> 
+                    val bundle = android.os.Bundle().apply {
+                        putString("entry_point", "home_hero_new_episodes_grid")
+                        putInt("ep_carousel_position", i)
+                        putString("ep_layout_type", "grid_card")
+                        putBoolean("ep_is_subscribed", true)
+                    }
+                    onPlayClick(podcast, bundle) 
+                },
                 onDetailsClick = { podcast ->
                     // Same details logic
                     onDetailsClick(podcast)
@@ -75,13 +111,18 @@ fun HeroCarousel(
             HeroCard(
                 item = item,
                 onClick = { 
+                    val bundle = android.os.Bundle().apply {
+                        putString("entry_point", "home_hero_${item.type.name.lowercase()}")
+                        putInt("ep_carousel_position", i)
+                        putString("ep_layout_type", "full_card")
+                    }
                     if (currentPlayingPodcastId == item.podcast.id && isPlaying) {
-                        onTogglePlayback()
+                        onTogglePlayback(bundle)
                     } else {
-                        onPlayClick(item.podcast) 
+                        onPlayClick(item.podcast, bundle) 
                     }
                 }, // Primary "Play" or "Pause" button action
-                onArrowClick = { onArrowClick(item) },
+                onArrowClick = { onArrowClick(item, i) },
                 onToggleSubscription = { onToggleSubscription(item.podcast.id) },
                 currentPlayingPodcastId = currentPlayingPodcastId,
                 isPlaying = isPlaying,

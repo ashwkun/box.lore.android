@@ -75,7 +75,7 @@ class QueueManager @Inject constructor(
         }
     }
 
-    fun playEpisode(episode: EpisodeItem, podcast: cx.aswin.boxcast.core.model.Podcast?, preferredSort: String? = null) {
+    fun playEpisode(episode: EpisodeItem, podcast: cx.aswin.boxcast.core.model.Podcast?, preferredSort: String? = null, entryPointContext: android.os.Bundle? = null) {
         scope.launch {
             android.util.Log.d(TAG, "playEpisode called: ${episode.title}, sort=$preferredSort")
             
@@ -89,8 +89,7 @@ class QueueManager @Inject constructor(
                 // 3. Start playback IMMEDIATELY with just the current episode
                 // The queueRefillCallback will auto-fill more episodes when queue runs low
                 val domainEpisode = episode.toDomain(podcast)
-                android.util.Log.d(TAG, "Starting playback immediately for: ${domainEpisode.title}")
-                playbackRepository.playQueue(listOf(domainEpisode), podcast, 0)
+                playbackRepository.playQueue(listOf(domainEpisode), podcast, 0, entryPointContext)
             } else {
                  android.util.Log.e(TAG, "Podcast is null!")
             }
@@ -115,22 +114,22 @@ class QueueManager @Inject constructor(
     }
     
     // Overload for Domain Objects (UI)
-    fun playEpisode(episode: cx.aswin.boxcast.core.model.Episode, podcast: cx.aswin.boxcast.core.model.Podcast?, preferredSort: String? = null) {
+    fun playEpisode(episode: cx.aswin.boxcast.core.model.Episode, podcast: cx.aswin.boxcast.core.model.Podcast?, preferredSort: String? = null, entryPointContext: android.os.Bundle? = null) {
         val currentQueue = playbackRepository.playerState.value.queue
         val currentPodcast = playbackRepository.playerState.value.currentPodcast
+
 
         // Check if we can just skip to the episode in the existing queue
         if (podcast != null && currentPodcast?.id == podcast.id) {
              val index = currentQueue.indexOfFirst { it.id == episode.id }
              if (index != -1) {
-                 android.util.Log.d(TAG, "Episode found in existing queue at index $index. Skipping to it.")
-                 playbackRepository.skipToEpisode(index)
+                 playbackRepository.skipToEpisode(index, entryPointContext)
                  return
              }
         }
 
         val item = episode.toEpisodeItem(podcast)
-        playEpisode(item, podcast, preferredSort)
+        playEpisode(item, podcast, preferredSort, entryPointContext)
     }
 
     private fun cx.aswin.boxcast.core.model.Episode.toEpisodeItem(podcast: cx.aswin.boxcast.core.model.Podcast?): EpisodeItem {

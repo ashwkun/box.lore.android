@@ -30,7 +30,8 @@ import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 @Composable
 fun TimeBlockSection(
     data: CuratedTimeBlock,
-    onEpisodeClick: (Episode, Podcast) -> Unit,
+    onCuratedEpisodeClick: (Episode, Podcast, String, Int) -> Unit,
+    onImpression: (String, List<String>) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -38,6 +39,10 @@ fun TimeBlockSection(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
+        LaunchedEffect(data.title) {
+            onImpression(data.title, data.sections.map { it.title })
+        }
+
         // --- Master Header ---
         Column(
             modifier = Modifier.padding(vertical = 8.dp)
@@ -96,7 +101,12 @@ fun TimeBlockSection(
                                     podcast = podcast,
                                     episode = episode,
                                     onClick = {
-                                        onEpisodeClick(episode, podcast)
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackCuratedCardTapped(
+                                            podcastId = podcast.id,
+                                            vibeId = section.title,
+                                            positionIndex = i
+                                        )
+                                        onCuratedEpisodeClick(episode, podcast, section.title, i)
                                     }
                                 )
                             }

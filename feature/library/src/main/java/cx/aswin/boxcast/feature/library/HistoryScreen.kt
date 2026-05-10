@@ -66,6 +66,25 @@ fun HistoryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showClearDialog by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                viewModel.trackScreenExit()
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                viewModel.onScreenResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryHistoryViewed("library_hub_card")
+    }
 
     Scaffold(
         modifier = Modifier
@@ -176,7 +195,10 @@ fun HistoryScreen(
                                                 SwipeToDeleteHistoryItem(
                                                     entity = entity,
                                                     onDelete = { viewModel.removeHistoryItem(entity.episodeId) },
-                                                    onClick = { onEpisodeClick(entity) }
+                                                    onClick = {
+                                                        viewModel.episodesClickedCount++
+                                                        onEpisodeClick(entity)
+                                                    }
                                                 )
                                             }
                                         }

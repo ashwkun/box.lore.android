@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
@@ -99,14 +100,39 @@ import cx.aswin.boxcast.feature.explore.components.exploreSkeletonGridItems
 @Composable
 fun ExploreScreen(
     viewModel: ExploreViewModel,
-    onPodcastClick: (String) -> Unit
+    entryPoint: String = "bottom_nav",
+    onPodcastClick: (String, String, String?, Int?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreScreenViewed(entryPoint)
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
+                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.trackScreenExit()
+        }
+    }
+
     ExploreContent(
         uiState = uiState,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onCategorySelected = viewModel::onCategorySelected,
-        onPodcastClick = onPodcastClick,
+        onPodcastClick = { id, entryPoint, filter, index ->
+            viewModel.trackPodcastClicked(index ?: 0)
+            onPodcastClick(id, entryPoint, filter, index)
+        },
         onVibeSelected = viewModel::onVibeSelected,
         onClearVibe = viewModel::clearVibe
     )
@@ -118,7 +144,7 @@ fun ExploreContent(
     uiState: ExploreUiState,
     onSearchQueryChanged: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
-    onPodcastClick: (String) -> Unit,
+    onPodcastClick: (String, String, String?, Int?) -> Unit,
     onVibeSelected: (String, String) -> Unit,
     onClearVibe: () -> Unit
 ) {
@@ -281,7 +307,7 @@ fun ExploreContent(
                     item(span = StaggeredGridItemSpan.FullLine) {
                         ExploreHeroCard(
                             podcast = displayList[0],
-                            onClick = { onPodcastClick(displayList[0].id) },
+                            onClick = { onPodcastClick(displayList[0].id, "explore_hero", state.currentCategory, 0) },
                             showGenreChip = state.currentCategory == "All"
                         )
                     }
@@ -297,7 +323,7 @@ fun ExploreContent(
                 } else {
                     val gridItems = if (!state.isSearching && displayList.isNotEmpty() && state.currentVibe == null) displayList.drop(1) else displayList
                     val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
-                    items(gridItems, key = { "${gridItems.indexOf(it)}_${it.id}" }) { podcast ->
+                    itemsIndexed(gridItems, key = { _, it -> "${gridItems.indexOf(it)}_${it.id}" }) { index, podcast ->
                         val heightVariant = podcast.id.hashCode() % 3
                         val cardHeight = when (heightVariant) {
                             0 -> 260.dp
@@ -305,11 +331,20 @@ fun ExploreContent(
                             else -> 160.dp
                         }
                         
+                        val entryPointStr = when {
+                            state.currentVibe != null -> "explore_vibe"
+                            state.isSearching -> "explore_search"
+                            else -> "explore_grid"
+                        }
+                        
+                        // Offset index by 1 if there is a hero card (not searching, no vibe)
+                        val actualIndex = if (!state.isSearching && state.currentVibe == null) index + 1 else index
+                        
                         ExplorePodcastCard(
                             podcast = podcast,
                             cardHeight = cardHeight,
                             showGenreChip = showGenreChip,
-                            onClick = { onPodcastClick(podcast.id) }
+                            onClick = { onPodcastClick(podcast.id, entryPointStr, state.currentCategory, actualIndex) }
                         )
                     }
                 }

@@ -1,0 +1,82 @@
+Type-safe project accessors is an incubating feature.
+> Task :core:data:clean
+> Task :core:data:checkKotlinGradlePluginConfigurationErrors
+> Task :core:data:preBuild UP-TO-DATE
+> Task :core:data:preDebugBuild UP-TO-DATE
+> Task :core:data:generateDebugResValues
+> Task :core:data:generateDebugResources
+> Task :core:data:packageDebugResources
+> Task :core:designsystem:checkKotlinGradlePluginConfigurationErrors
+> Task :core:designsystem:preBuild UP-TO-DATE
+> Task :core:designsystem:preDebugBuild UP-TO-DATE
+> Task :core:designsystem:generateDebugResValues UP-TO-DATE
+> Task :core:designsystem:generateDebugResources UP-TO-DATE
+> Task :core:designsystem:packageDebugResources UP-TO-DATE
+> Task :core:designsystem:parseDebugLocalResources UP-TO-DATE
+> Task :core:designsystem:generateDebugRFile UP-TO-DATE
+> Task :core:data:parseDebugLocalResources
+> Task :core:designsystem:compileDebugKotlin UP-TO-DATE
+> Task :core:designsystem:javaPreCompileDebug UP-TO-DATE
+> Task :core:designsystem:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:designsystem:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors
+> Task :core:model:preBuild UP-TO-DATE
+> Task :core:model:preDebugBuild UP-TO-DATE
+> Task :core:model:generateDebugResValues UP-TO-DATE
+> Task :core:model:generateDebugResources UP-TO-DATE
+> Task :core:model:packageDebugResources UP-TO-DATE
+> Task :core:data:generateDebugRFile
+> Task :core:model:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:generateDebugRFile UP-TO-DATE
+> Task :core:model:compileDebugKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:model:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:network:checkKotlinGradlePluginConfigurationErrors
+> Task :core:network:preBuild UP-TO-DATE
+> Task :core:network:preDebugBuild UP-TO-DATE
+> Task :core:network:generateDebugBuildConfig UP-TO-DATE
+> Task :core:network:generateDebugResValues UP-TO-DATE
+> Task :core:network:generateDebugResources UP-TO-DATE
+> Task :core:network:packageDebugResources UP-TO-DATE
+> Task :core:network:parseDebugLocalResources UP-TO-DATE
+> Task :core:network:generateDebugRFile UP-TO-DATE
+> Task :core:network:compileDebugKotlin UP-TO-DATE
+> Task :core:network:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:network:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:data:kspDebugKotlin
+
+> Task :core:data:compileDebugKotlin
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/ChapterRepository.kt:31:48 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/ChapterRepository.kt:32:48 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/PlaybackRepository.kt:883:47 'get(String!): Any?' is deprecated. Deprecated in Java
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:122:38 Elvis operator (?:) always returns the left operand of non-nullable type Int
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:156:50 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:157:48 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:158:50 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:170:19 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:184:50 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/QueueRepository.kt:190:30 Parameter 'items' is never used
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/SubscriptionRepository.kt:26:44 Elvis operator (?:) always returns the left operand of non-nullable type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/SubscriptionRepository.kt:27:48 Elvis operator (?:) always returns the left operand of non-nullable type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/privacy/ConsentManager.kt:56:16 Parameter 'preferences' is never used, could be renamed to _
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/AutoCollageGenerator.kt:76:9 Parameter 'context' is never used
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:455:13 Variable 'currentIndex' is never used
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:799:35 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:801:54 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:808:63 Elvis operator (?:) always returns the left operand of non-nullable type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:824:66 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:941:82 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:969:84 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1023:71 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1032:59 Elvis operator (?:) always returns the left operand of non-nullable type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1259:49 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1301:17 Variable 'resumeSubtitle' is never used
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1306:17 Variable 'subsSubtitle' is never used
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1470:67 Unnecessary safe call on a non-null receiver of type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1479:55 Elvis operator (?:) always returns the left operand of non-nullable type String
+w: file:///Users/aswinc/Projects/box.cast/core/data/src/main/java/cx/aswin/boxcast/core/data/service/BoxCastPlaybackService.kt:1498:50 Unnecessary safe call on a non-null receiver of type String
+
+BUILD SUCCESSFUL in 4s
+38 actionable tasks: 12 executed, 26 up-to-date

@@ -94,6 +94,9 @@ class MainActivity : ComponentActivity() {
     // State for Player Expansion (Notification handling)
     private var expandPlayerTrigger by androidx.compose.runtime.mutableLongStateOf(0L)
     
+    // Analytics: Deduplicate cold vs warm starts
+    private var isFirstResumeAfterLaunch = true
+    
 
 
     // Google Play In-App Updates
@@ -128,6 +131,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         
+        // Analytics: Track warm resumes (skip the first one since onCreate handles cold starts)
+        // Native PostHog session tracking handles warm resumes now
+        isFirstResumeAfterLaunch = false
+        
+        // Register the local time of day as a Super Property so it attaches to ALL events
+        com.posthog.PostHog.register("local_time_of_day", java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY))
+        
         // Check for in-progress updates
         try {
             appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
@@ -160,7 +170,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-
+        // Analytics: Track cold start
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFirstLaunchIfNecessary(this)
         
         // Handle initial launch intent
         handlePlayerIntent(intent)
@@ -285,6 +296,7 @@ class MainActivity : ComponentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission()
             ) { isGranted ->
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackNotificationPermissionDecided(isGranted)
             }
             
             LaunchedEffect(Unit) {
@@ -406,21 +418,30 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // --- One-time Feature Announcement (Android Auto - v1.3.6) ---
-                // This constant controls which version triggers this specific announcement.
-                // Change it only when you want to show a NEW feature announcement for a future release.
-                val featureAnnouncementId = "android_auto_1.3.6"
-                val showFeatureDialog = currentRoute == "home" && dismissedFeatureVersion != featureAnnouncementId && activeAnnouncement == null
+                // Currently bundled feature announcements in this app version
+                val featureAnnouncementId = "android_auto_1_3_6"
                 
-                // DEBUG: trace all conditions
-                LaunchedEffect(onboardingCompleted, dismissedFeatureVersion, activeAnnouncement) {
-                    android.util.Log.w("FeatureDialog", "=== Feature Dialog Debug ===")
-                    android.util.Log.w("FeatureDialog", "onboardingCompleted=$onboardingCompleted")
-                    android.util.Log.w("FeatureDialog", "dismissedFeatureVersion='$dismissedFeatureVersion'")
-                    android.util.Log.w("FeatureDialog", "featureAnnouncementId='$featureAnnouncementId'")
-                    android.util.Log.w("FeatureDialog", "activeAnnouncement=$activeAnnouncement")
-                    android.util.Log.w("FeatureDialog", "showFeatureDialog=$showFeatureDialog")
+                // We now check PostHog for the currently active feature announcement flag.
+                // It should return a string matching one of our bundled features.
+                var activeFeatureFlag by remember { mutableStateOf<String?>(null) }
+                
+                LaunchedEffect(dismissedFeatureVersion) {
+                    // Only fetch the flag (and consume an event) if the user hasn't already dismissed it
+                    if (dismissedFeatureVersion != featureAnnouncementId && dismissedFeatureVersion != "android_auto_1.3.6") {
+                        activeFeatureFlag = com.posthog.PostHog.getFeatureFlag("active_feature_announcement") as? String
+                        com.posthog.PostHog.reloadFeatureFlags {
+                            activeFeatureFlag = com.posthog.PostHog.getFeatureFlag("active_feature_announcement") as? String
+                        }
+                    }
                 }
+                
+                val showFeatureDialog = currentRoute == "home" && 
+                                        activeFeatureFlag == featureAnnouncementId && 
+                                        dismissedFeatureVersion != featureAnnouncementId && 
+                                        dismissedFeatureVersion != "android_auto_1.3.6" && // Prevent redisplay for users on older builds
+                                        activeAnnouncement == null
+                
+
                 
                 if (showFeatureDialog) {
                     // Staggered animation phases with smooth entrance
@@ -429,7 +450,8 @@ class MainActivity : ComponentActivity() {
                     val phase2 = remember { androidx.compose.animation.core.Animatable(0f) }
                     val phase3 = remember { androidx.compose.animation.core.Animatable(0f) }
                     
-                    LaunchedEffect(Unit) {
+                    LaunchedEffect(featureAnnouncementId) {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFeatureAnnouncementViewed(featureAnnouncementId)
                         // First: smooth overlay fade-in
                         overlayAlpha.animateTo(1f, androidx.compose.animation.core.tween(600))
                         // Then: coordinated cascading fades (Header -> Body -> Action)
@@ -526,11 +548,13 @@ class MainActivity : ComponentActivity() {
                                 
                                 androidx.compose.material3.FilledTonalButton(
                                     onClick = {
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFeatureAnnouncementDismissed(featureAnnouncementId)
                                         scope.launch { userPrefs.dismissFeatureAnnouncement(featureAnnouncementId) }
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth(0.6f)
                                         .expressiveClickable {
+                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFeatureAnnouncementDismissed(featureAnnouncementId)
                                             scope.launch { userPrefs.dismissFeatureAnnouncement(featureAnnouncementId) }
                                         }
                                 ) {
@@ -650,13 +674,17 @@ class MainActivity : ComponentActivity() {
                                                 val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
                                                     android.widget.Toast.makeText(application, "Imported $count items", android.widget.Toast.LENGTH_SHORT).show()
-                                                    onboardingViewModel.trackImportSuccess("json", count)
-                                                    onboardingViewModel.skipOnboarding(method = "import") {
+                                                    // Analytics: Track import completion
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted("json", count, onboardingViewModel.getGenreScreenTimeSpent(), onboardingViewModel.getTotalOnboardingTime())
+                                                    onboardingViewModel.skipOnboarding {
                                                         navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                                                     }
                                                 }
                                             } catch(e: Exception) {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Import Failed", android.widget.Toast.LENGTH_SHORT).show() }
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
+                                                    android.widget.Toast.makeText(application, "Import Failed", android.widget.Toast.LENGTH_SHORT).show() 
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("json", e.message)
+                                                }
                                             }
                                         }
                                     },
@@ -668,13 +696,17 @@ class MainActivity : ComponentActivity() {
                                                 val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importFromOpml(inputStream)
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
                                                     android.widget.Toast.makeText(application, "Found & Subscribed to $count podcasts", android.widget.Toast.LENGTH_LONG).show()
-                                                    onboardingViewModel.trackImportSuccess("opml", count)
-                                                    onboardingViewModel.skipOnboarding(method = "import") {
+                                                    // Analytics: Track import completion
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted("opml", count, onboardingViewModel.getGenreScreenTimeSpent(), onboardingViewModel.getTotalOnboardingTime())
+                                                    onboardingViewModel.skipOnboarding {
                                                         navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                                                     }
                                                 }
                                             } catch(e: Exception){
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "OPML Import Failed", android.widget.Toast.LENGTH_SHORT).show() }
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
+                                                    android.widget.Toast.makeText(application, "OPML Import Failed", android.widget.Toast.LENGTH_SHORT).show() 
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", e.message)
+                                                }
                                             }
                                         }
                                     }
@@ -687,6 +719,7 @@ class MainActivity : ComponentActivity() {
                                     // Request Notification Permission for Android 13+ only after feature dialog is dismissed
                                     if (!showFeatureDialog && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                          if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackNotificationPermissionRequested()
                                              permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                          }
                                     }
@@ -695,36 +728,57 @@ class MainActivity : ComponentActivity() {
                                     apiBaseUrl = apiBaseUrl,
                                     publicKey = publicKey,
                                     playbackRepository = playbackRepository,
-                                    onPodcastClick = { podcast ->
-                                        navController.navigate("podcast/${podcast.id}")
+                                    onPodcastClick = { podcast, entryPointStr, genreStr, depthVal ->
+                                        var route = "podcast/${podcast.id}"
+                                        val params = mutableListOf<String>()
+                                        if (entryPointStr != null) params.add("entryPoint=$entryPointStr")
+                                        if (genreStr != null) params.add("genre=$genreStr")
+                                        if (depthVal != null) params.add("depth=$depthVal")
+                                        if (params.isNotEmpty()) route += "?" + params.joinToString("&")
+                                        navController.navigate(route)
                                     },
-                                    onPlayClick = { podcast -> 
+                                    onPlayClick = { podcast, bundle -> 
                                         // Start Playback via QueueManager (Smart Queue)
                                         val episode = podcast.latestEpisode
                                         if (episode != null) {
                                             // No scope needed? QueueManager launches on its own scope Main? 
                                             // Wait, playEpisode is not suspend, it launches scope.
-                                            queueManager.playEpisode(episode, podcast)
+                                            queueManager.playEpisode(episode, podcast, entryPointContext = bundle)
                                         }
                                         // Do not navigate, just play. Mini player appears.
                                     },
-                                    onHeroArrowClick = { heroItem ->
+                                    onHeroArrowClick = { heroItem, carouselPos ->
                                         val ep = heroItem.podcast.latestEpisode
                                         if (ep != null) {
                                             fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                            val entryPointStr = "home_hero_${heroItem.type.name.lowercase()}"
                                             navController.navigate(
                                                 "episode/${ep.id}/${encode(ep.title)}/" +
                                                 "${encode(ep.description.take(500))}/" +
                                                 "${encode(ep.imageUrl)}/" +
                                                 "${encode(ep.audioUrl)}/" +
                                                 "${ep.duration}/${heroItem.podcast.id}/" +
-                                                encode(heroItem.podcast.title)
+                                                "${encode(heroItem.podcast.title)}" +
+                                                "?entryPoint=$entryPointStr&carouselPosition=$carouselPos"
                                             )
                                         } else {
                                             navController.navigate("podcast/${heroItem.podcast.id}")
                                         }
                                     },
-                                    onEpisodeClick = { episode, podcast ->
+                                    onEpisodeClick = { episode, podcast, entryPointStr ->
+                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        val entryPointQuery = if (entryPointStr != null) "?entryPoint=$entryPointStr" else ""
+                                        navController.navigate(
+                                            "episode/${encode(episode.id)}/${encode(episode.title)}/" +
+                                            "${encode(episode.description.take(500))}/" +
+                                            "${encode(episode.imageUrl)}/" +
+                                            "${encode(episode.audioUrl)}/" +
+                                            "${episode.duration}/${encode(podcast.id)}/" +
+                                            "${encode(podcast.title)}" +
+                                            entryPointQuery
+                                        )
+                                    },
+                                    onCuratedEpisodeClick = { episode, podcast, vibeId, carouselPos ->
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         navController.navigate(
                                             "episode/${encode(episode.id)}/${encode(episode.title)}/" +
@@ -732,7 +786,10 @@ class MainActivity : ComponentActivity() {
                                             "${encode(episode.imageUrl)}/" +
                                             "${encode(episode.audioUrl)}/" +
                                             "${episode.duration}/${encode(podcast.id)}/" +
-                                            encode(podcast.title)
+                                            "${encode(podcast.title)}" +
+                                            "?entryPoint=home_curated_timeblock" +
+                                            "&vibeId=${encode(vibeId)}" +
+                                            "&carouselPosition=$carouselPos"
                                         )
                                     },
                                     onNavigateToLibrary = {
@@ -745,8 +802,9 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToLatestEpisodes = {
                                         navController.navigate("library/subscriptions?tab=1")
                                     },
-                                    onNavigateToExplore = { category ->
-                                        val route = if (category != null) "explore?category=$category" else "explore"
+                                    onNavigateToExplore = { category, entryPoint ->
+                                        val catQuery = if (category != null) "category=$category&" else ""
+                                        val route = "explore?${catQuery}entryPoint=${entryPoint ?: "home"}"
                                         navController.navigate(route) {
                                             popUpTo("home") { saveState = true }
                                             launchSingleTop = true
@@ -872,12 +930,17 @@ class MainActivity : ComponentActivity() {
                             }
                             
                             composable(
-                                route = "explore?category={category}",
+                                route = "explore?category={category}&entryPoint={entryPoint}",
                                 arguments = listOf(
                                     navArgument("category") { 
                                         type = NavType.StringType
                                         nullable = true
                                         defaultValue = null 
+                                    },
+                                    navArgument("entryPoint") {
+                                        type = NavType.StringType
+                                        nullable = true
+                                        defaultValue = "bottom_nav"
                                     }
                                 )
                             ) { backStackEntry -> 
@@ -887,6 +950,7 @@ class MainActivity : ComponentActivity() {
                                 
                                 // Handle Argument
                                 val category = backStackEntry.arguments?.getString("category")
+                                val entryPoint = backStackEntry.arguments?.getString("entryPoint") ?: "bottom_nav"
                                 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.explore.ExploreViewModel>(
                                     factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -904,9 +968,15 @@ class MainActivity : ComponentActivity() {
                                 
                                 cx.aswin.boxcast.feature.explore.ExploreScreen(
                                     viewModel = viewModel,
-                                    onPodcastClick = { podcastId ->
-                                        // Navigate to Podcast Info
-                                        navController.navigate("podcast/$podcastId")
+                                    entryPoint = entryPoint,
+                                    onPodcastClick = { podcastId, entryPointStr, genreStr, depthVal ->
+                                        var route = "podcast/$podcastId"
+                                        val params = mutableListOf<String>()
+                                        if (entryPointStr != null) params.add("entryPoint=$entryPointStr")
+                                        if (genreStr != null) params.add("genre=$genreStr")
+                                        if (depthVal != null) params.add("depth=$depthVal")
+                                        if (params.isNotEmpty()) route += "?" + params.joinToString("&")
+                                        navController.navigate(route)
                                     }
                                 )
                             }
@@ -965,7 +1035,8 @@ class MainActivity : ComponentActivity() {
                                             "${encode(entity.episodeImageUrl ?: entity.podcastImageUrl)}/" +
                                             "${encode(entity.episodeAudioUrl)}/" +
                                             "${entity.durationMs}/${entity.podcastId}/" +
-                                            encode(entity.podcastName)
+                                            "${encode(entity.podcastName)}" +
+                                            "?entryPoint=library_history"
                                         )
                                     }
                                 )
@@ -1000,11 +1071,12 @@ class MainActivity : ComponentActivity() {
                                             "${encode(episode.imageUrl)}/" +
                                             "${encode(episode.audioUrl)}/" +
                                             "${episode.duration}/${podcast.id}/" +
-                                            encode(podcast.title)
+                                            "${encode(podcast.title)}" +
+                                            "?entryPoint=library_liked_episodes"
                                         )
                                     },
                                     onExploreClick = {
-                                        navController.navigate("explore") {
+                                        navController.navigate("explore?entryPoint=library_history_empty_state") {
                                             popUpTo("home")
                                         }
                                     }
@@ -1042,25 +1114,27 @@ class MainActivity : ComponentActivity() {
                                     viewModel = viewModel,
                                     onBack = { navController.popBackStack() },
                                     onPodcastClick = { podcastId ->
-                                        navController.navigate("podcast/$podcastId")
+                                        navController.navigate("podcast/$podcastId?entryPoint=library_subscriptions")
                                     },
                                     onExploreClick = {
-                                        navController.navigate("explore") {
+                                        navController.navigate("explore?entryPoint=library_subscriptions_empty_state") {
                                             popUpTo("home")
                                         }
                                     },
                                     onPlayEpisode = { episode, podcast ->
                                         queueManager.playEpisode(episode, podcast)
                                     },
-                                    onEpisodeClick = { episode, podcast ->
+                                    onEpisodeClick = { episode, podcast, entryPointStr ->
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        val entryPointQuery = if (entryPointStr != null) "?entryPoint=$entryPointStr" else ""
                                         navController.navigate(
                                             "episode/${encode(episode.id)}/${encode(episode.title)}/" +
                                             "${encode(episode.description.take(500))}/" +
                                             "${encode(episode.imageUrl)}/" +
                                             "${encode(episode.audioUrl)}/" +
                                             "${episode.duration}/${encode(podcast.id)}/" +
-                                            encode(podcast.title)
+                                            "${encode(podcast.title)}" +
+                                            entryPointQuery
                                         )
                                     },
                                     initialTab = initialTab
@@ -1096,11 +1170,12 @@ class MainActivity : ComponentActivity() {
                                             "${encode(episode.imageUrl)}/" +
                                             "${encode(episode.audioUrl)}/" +
                                             "${episode.duration}/${podcast.id}/" +
-                                            encode(podcast.title)
+                                            "${encode(podcast.title)}" +
+                                            "?entryPoint=library_downloaded_episodes"
                                         )
                                     },
                                     onExploreClick = {
-                                        navController.navigate("explore") {
+                                        navController.navigate("explore?entryPoint=library_downloads_empty_state") {
                                             popUpTo("home")
                                         }
                                     }
@@ -1111,8 +1186,23 @@ class MainActivity : ComponentActivity() {
                             // REMOVED PlayerRoute logic from NavGraph
 
                             // Podcast Info Screen
-                            composable(route = "podcast/{podcastId}", arguments = listOf(navArgument("podcastId") { type = NavType.StringType })) { backStackEntry ->
+                            composable(
+                                route = "podcast/{podcastId}?entryPoint={entryPoint}&genre={genre}&depth={depth}&query={query}", 
+                                arguments = listOf(
+                                    navArgument("podcastId") { type = NavType.StringType },
+                                    navArgument("entryPoint") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("genre") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("depth") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("query") { type = NavType.StringType; nullable = true; defaultValue = null }
+                                )
+                            ) { backStackEntry ->
                                 val podcastId = backStackEntry.arguments?.getString("podcastId") ?: return@composable
+                                val entryPoint = backStackEntry.arguments?.getString("entryPoint")
+                                val genre = backStackEntry.arguments?.getString("genre")
+                                val depthStr = backStackEntry.arguments?.getString("depth")
+                                val depth = depthStr?.toIntOrNull()
+                                val query = backStackEntry.arguments?.getString("query")
+
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.info.PodcastInfoViewModel>(
                                     factory = object : androidx.lifecycle.ViewModelProvider.Factory {
                                         @Suppress("UNCHECKED_CAST")
@@ -1123,7 +1213,11 @@ class MainActivity : ComponentActivity() {
                                                 publicKey, 
                                                 playbackRepository, // Pass Shared Instance
                                                 downloadRepository,
-                                                queueManager
+                                                queueManager,
+                                                entryPoint,
+                                                genre,
+                                                depth,
+                                                query
                                             ) as T
                                         }
                                     }
@@ -1141,16 +1235,20 @@ class MainActivity : ComponentActivity() {
                                         viewModel = viewModel,
                                         onBack = { navController.popBackStack() },
                                         bottomContentPadding = miniPlayerPadding,
-                                        onEpisodeClick = { episode ->
+                                        onEpisodeClick = { episode, entryPointStr, index ->
                                             fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
-                                            navController.navigate(
-                                                "episode/${episode.id}/${encode(episode.title)}/" +
+                                            var route = "episode/${episode.id}/${encode(episode.title)}/" +
                                                 "${encode(episode.description.take(500))}/" +
                                                 "${encode(episode.imageUrl)}/" +
                                                 "${encode(episode.audioUrl)}/" +
                                                 "${episode.duration}/${podcastId}/" +
-                                                encode(viewModel.uiState.value.let { if (it is cx.aswin.boxcast.feature.info.PodcastInfoUiState.Success) it.podcast.title else "Podcast" })
-                                            )
+                                                "${encode(viewModel.uiState.value.let { if (it is cx.aswin.boxcast.feature.info.PodcastInfoUiState.Success) it.podcast.title else "Podcast" })}" +
+                                                "?entryPoint=$entryPointStr"
+                                                
+                                            if (index != null) {
+                                                route += "&carouselPosition=$index"
+                                            }
+                                            navController.navigate(route)
                                         },
                                         onPlayEpisode = { episode ->
                                             // Start Playback -> Mini Player
@@ -1165,7 +1263,7 @@ class MainActivity : ComponentActivity() {
 
                             // Episode Info Screen
                             composable(
-                                route = "episode/{episodeId}/{episodeTitle}/{episodeDescription}/{episodeImageUrl}/{episodeAudioUrl}/{episodeDuration}/{podcastId}/{podcastTitle}",
+                                route = "episode/{episodeId}/{episodeTitle}/{episodeDescription}/{episodeImageUrl}/{episodeAudioUrl}/{episodeDuration}/{podcastId}/{podcastTitle}?entryPoint={entryPoint}&vibeId={vibeId}&carouselPosition={carouselPosition}",
                                 arguments = listOf(
                                     navArgument("episodeId") { type = NavType.StringType },
                                     navArgument("episodeTitle") { type = NavType.StringType },
@@ -1174,7 +1272,10 @@ class MainActivity : ComponentActivity() {
                                     navArgument("episodeAudioUrl") { type = NavType.StringType },
                                     navArgument("episodeDuration") { type = NavType.IntType },
                                     navArgument("podcastId") { type = NavType.StringType },
-                                    navArgument("podcastTitle") { type = NavType.StringType }
+                                    navArgument("podcastTitle") { type = NavType.StringType },
+                                    navArgument("entryPoint") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("vibeId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("carouselPosition") { type = NavType.IntType; defaultValue = -1 }
                                 )
                             ) { backStackEntry ->
                                 val args = backStackEntry.arguments ?: return@composable
@@ -1199,6 +1300,10 @@ class MainActivity : ComponentActivity() {
                                 val podcastTitle = decode(args.getString("podcastTitle"))
                                 val episodeId = args.getString("episodeId") ?: ""
                                 val episodeTitle = decode(args.getString("episodeTitle"))
+                                val entryPoint = args.getString("entryPoint")
+                                val vibeId = decode(args.getString("vibeId"))
+                                val carouselPosition = args.getInt("carouselPosition", -1)
+                                
                                 
                                 cx.aswin.boxcast.feature.info.EpisodeInfoScreen(
                                     episodeId = episodeId,
@@ -1211,12 +1316,13 @@ class MainActivity : ComponentActivity() {
                                     podcastTitle = podcastTitle,
                                     viewModel = viewModel,
                                     onBack = { navController.popBackStack() },
-                                    onPodcastClick = { pId -> navController.navigate("podcast/$pId") },
+                                    onPodcastClick = { pId -> navController.navigate("podcast/$pId?entryPoint=episode_info") },
                                     onEpisodeClick = { ep ->
                                         // Navigate to the clicked episode
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         navController.navigate(
-                                            "episode/${ep.id}/${encode(ep.title)}/${encode(ep.description)}/${encode(ep.imageUrl)}/${encode(ep.audioUrl)}/${ep.duration}/${podcastId}/${encode(podcastTitle)}"
+                                            "episode/${ep.id}/${encode(ep.title)}/${encode(ep.description)}/${encode(ep.imageUrl)}/${encode(ep.audioUrl)}/${ep.duration}/${podcastId}/${encode(podcastTitle)}" +
+                                            "?entryPoint=episode_related_episodes"
                                         )
                                     },
                                     onPlay = {
@@ -1238,8 +1344,24 @@ class MainActivity : ComponentActivity() {
                                             description = "",
                                             genre = ""
                                         )
-                                        queueManager.playEpisode(episode, podcast)
+                                        val bundle = if (entryPoint != null) {
+                                            android.os.Bundle().apply {
+                                                putString("entry_point", entryPoint)
+                                                if (vibeId.isNotEmpty()) putString("curated_vibe_id", vibeId)
+                                                if (carouselPosition >= 0) putInt("curated_carousel_position", carouselPosition)
+                                            }
+                                        } else {
+                                            null
+                                        }
+                                        queueManager.playEpisode(episode, podcast, entryPointContext = bundle)
                                     },
+                                    entryPointContext = if (entryPoint != null) {
+                                        android.os.Bundle().apply {
+                                            putString("entry_point", entryPoint)
+                                            if (vibeId.isNotEmpty()) putString("curated_vibe_id", vibeId)
+                                            if (carouselPosition >= 0) putInt("curated_carousel_position", carouselPosition)
+                                        }
+                                    } else null,
                                     showMarkPlayedTip = !hasSeenMarkPlayedTip,
                                     onMarkPlayedTipDismissed = { scope.launch { userPrefs.markMarkPlayedTipSeen() } }
                                 )
@@ -1294,12 +1416,14 @@ class MainActivity : ComponentActivity() {
                                     
                                     // Default: Navigate to the new tab
                                     else -> {
-                                        navController.navigate(route) {
+                                        navController.navigate(
+                                            if (route == "explore") "explore?entryPoint=bottom_nav" else route
+                                        ) {
                                             popUpTo("home") {
                                                 saveState = true
                                             }
                                             launchSingleTop = true
-                                            restoreState = false // Fresh state for tabs
+                                            restoreState = true
                                         }
                                     }
                                 }
@@ -1330,14 +1454,15 @@ class MainActivity : ComponentActivity() {
                                 "${encode(episode.imageUrl)}/" +
                                 "${encode(episode.audioUrl)}/" +
                                 "${episode.duration}/${encode(podcast?.id ?: "unknown")}/" +
-                                encode(podcast?.title ?: "Podcast")
+                                "${encode(podcast?.title ?: "Podcast")}" +
+                                "?entryPoint=player_ui"
                             ) {
                                 launchSingleTop = true
                             }
                         },
                         onPodcastInfoClick = { podcast ->
                             // Navigate to podcast info
-                            navController.navigate("podcast/${podcast.id}") {
+                            navController.navigate("podcast/${podcast.id}?entryPoint=player_ui") {
                                 launchSingleTop = true
                             }
                         },
