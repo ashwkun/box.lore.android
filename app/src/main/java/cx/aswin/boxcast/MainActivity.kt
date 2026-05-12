@@ -125,6 +125,7 @@ class MainActivity : ComponentActivity() {
 
         if (intent.getBooleanExtra("from_push", false)) {
             intent.removeExtra("from_push")
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackNotificationTapped()
         }
     }
     
