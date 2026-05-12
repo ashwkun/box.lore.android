@@ -754,4 +754,24 @@ object AnalyticsHelper {
         props.putAll(metrics)
         PostHog.capture(event = "full_player_screen_session", properties = props)
     }
+
+    // ── 13. System & Background ────────────────────────────────────
+
+    fun trackNotificationTapped() {
+        PostHog.capture("notification_tapped")
+    }
+
+    fun trackDownloadCompleted(fileSizeMb: Float) {
+        PostHog.capture(
+            event = "download_completed",
+            properties = mapOf("file_size_mb" to fileSizeMb)
+        )
+    }
+
+    fun trackDownloadFailed(errorReason: String) {
+        PostHog.capture(
+            event = "download_failed",
+            properties = mapOf("error_reason" to errorReason)
+        )
+    }
 }

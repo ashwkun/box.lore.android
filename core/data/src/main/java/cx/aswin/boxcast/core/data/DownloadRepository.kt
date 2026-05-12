@@ -41,6 +41,9 @@ class DownloadRepository(
                 // Sync status with DB
                 val state = download.state
                 if (state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED) {
+                    val fileSizeMb = if (download.contentLength > 0) download.contentLength / (1024f * 1024f) else 0f
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDownloadCompleted(fileSizeMb)
+                    
                     CoroutineScope(Dispatchers.IO).launch {
                         val existing = database.downloadedEpisodeDao().getDownload(download.request.id)
                         if (existing != null) {
@@ -53,6 +56,9 @@ class DownloadRepository(
                         }
                     }
                 } else if (state == androidx.media3.exoplayer.offline.Download.STATE_FAILED) {
+                    val errorReason = finalException?.message ?: "Unknown Error"
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDownloadFailed(errorReason)
+                    
                      CoroutineScope(Dispatchers.IO).launch {
                         // Optional: Allow user to retry or just delete
                          database.downloadedEpisodeDao().delete(download.request.id)
