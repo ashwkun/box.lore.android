@@ -189,7 +189,7 @@ class MainActivity : ComponentActivity() {
             .diskCache {
                 DiskCache.Builder()
                     .directory(applicationContext.cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.02)
+                    .maxSizePercent(0.05) // Bumped from 2% to 5% since proxy WebPs are much smaller
                     .build()
             }
             .okHttpClient {
@@ -329,6 +329,7 @@ class MainActivity : ComponentActivity() {
             // Activation Tracking (first_episode_played)
             LaunchedEffect(playerState.isPlaying, hasLoggedFirstPlay) {
                 if (playerState.isPlaying && !hasLoggedFirstPlay) {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFirstEpisodePlayed()
                     userPrefs.markFirstPlayLogged()
                 }
             }
@@ -651,14 +652,6 @@ class MainActivity : ComponentActivity() {
                             ) {
                             // Onboarding
                             composable("onboarding") {
-                                val subs by subscriptionRepository.subscribedPodcastIds.collectAsState(initial = emptySet())
-                                androidx.compose.runtime.LaunchedEffect(subs) {
-                                    if (subs.isNotEmpty() && !onboardingViewModel.isOnboardingCompleted()) {
-                                        onboardingViewModel.skipOnboarding {
-                                            navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
-                                        }
-                                    }
-                                }
                                 cx.aswin.boxcast.feature.onboarding.OnboardingScreen(
                                     viewModel = onboardingViewModel,
                                     onComplete = {
@@ -676,7 +669,7 @@ class MainActivity : ComponentActivity() {
                                                     android.widget.Toast.makeText(application, "Imported $count items", android.widget.Toast.LENGTH_SHORT).show()
                                                     // Analytics: Track import completion
                                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted("json", count, onboardingViewModel.getGenreScreenTimeSpent(), onboardingViewModel.getTotalOnboardingTime())
-                                                    onboardingViewModel.skipOnboarding {
+                                                    onboardingViewModel.markOnboardingCompletedSilent {
                                                         navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                                                     }
                                                 }
@@ -698,7 +691,7 @@ class MainActivity : ComponentActivity() {
                                                     android.widget.Toast.makeText(application, "Found & Subscribed to $count podcasts", android.widget.Toast.LENGTH_LONG).show()
                                                     // Analytics: Track import completion
                                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted("opml", count, onboardingViewModel.getGenreScreenTimeSpent(), onboardingViewModel.getTotalOnboardingTime())
-                                                    onboardingViewModel.skipOnboarding {
+                                                    onboardingViewModel.markOnboardingCompletedSilent {
                                                         navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                                                     }
                                                 }

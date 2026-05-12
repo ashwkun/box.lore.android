@@ -62,6 +62,7 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 
 /**
  * Merged "Your Shows" Section (formerly LibrarySection + LatestSection)
@@ -281,8 +282,9 @@ private fun ResponsivePodcastCover(
     podcast: Podcast,
     onClick: () -> Unit
 ) {
-    SubcomposeAsyncImage(
-        model = podcast.imageUrl.optimizedImageUrl(400),
+    OptimizedImage(
+        url = podcast.imageUrl,
+        proxyWidth = 250, // Grid items ~60dp * 3x + margin
         contentDescription = podcast.title,
         contentScale = ContentScale.Crop,
         modifier = Modifier
@@ -290,16 +292,7 @@ private fun ResponsivePodcastCover(
             .aspectRatio(1f) // Square
             .clip(MaterialTheme.shapes.small)
             .expressiveClickable(shape = MaterialTheme.shapes.small, onClick = onClick)
-    ) {
-        val state = painter.state
-        if (state is AsyncImagePainter.State.Loading || 
-            state is AsyncImagePainter.State.Error || 
-            podcast.imageUrl.isEmpty()) {
-            AnimatedShapesFallback()
-        } else {
-            SubcomposeAsyncImageContent()
-        }
-    }
+    )
 }
 
 /**
@@ -310,25 +303,16 @@ private fun SmallPodcastCover(
     podcast: Podcast,
     onClick: () -> Unit
 ) {
-    SubcomposeAsyncImage(
-        model = podcast.imageUrl.optimizedImageUrl(400),
+    OptimizedImage(
+        url = podcast.imageUrl,
+        proxyWidth = 150, // 56dp * 3x density
         contentDescription = podcast.title,
         contentScale = ContentScale.Crop,
         modifier = Modifier
             .size(56.dp)
             .clip(MaterialTheme.shapes.small)
             .expressiveClickable(onClick = onClick)
-    ) {
-        // ... (Same content)
-        val state = painter.state
-        if (state is AsyncImagePainter.State.Loading || 
-            state is AsyncImagePainter.State.Error || 
-            podcast.imageUrl.isEmpty()) {
-            AnimatedShapesFallback()
-        } else {
-            SubcomposeAsyncImageContent()
-        }
-    }
+    )
 }
 
 /**
@@ -347,14 +331,6 @@ private fun NewEpisodeCard(
     val isCompleted = status == EpisodeStatus.COMPLETED
     val isInProgress = status == EpisodeStatus.IN_PROGRESS
 
-    // Track image URL chain: Episode → Podcast
-    var currentUrl by remember(episode.imageUrl, podcast.imageUrl) {
-        mutableStateOf(
-            episode.imageUrl?.takeIf { it.isNotEmpty() } 
-                ?: podcast.imageUrl.takeIf { it.isNotEmpty() }
-        )
-    }
-
     // Completed cards are slightly dimmed to de-emphasize
     val cardAlpha = if (isCompleted) 0.72f else 1f
 
@@ -370,32 +346,16 @@ private fun NewEpisodeCard(
         Column {
             // Image area with overlays
             Box {
-                SubcomposeAsyncImage(
-                    model = currentUrl?.optimizedImageUrl(400) ?: currentUrl,
+                OptimizedImage(
+                    url = episode.imageUrl?.takeIf { it.isNotEmpty() } ?: podcast.imageUrl.takeIf { it.isNotEmpty() },
+                    proxyWidth = 300, // 140dp cards
                     contentDescription = episode.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(140.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)),
-                    onState = { state ->
-                        if (state is AsyncImagePainter.State.Error) {
-                            val episodeUrl = episode.imageUrl
-                            if (currentUrl == episodeUrl && podcast.imageUrl.isNotEmpty()) {
-                                currentUrl = podcast.imageUrl
-                            }
-                        }
-                    }
-                ) {
-                    val state = painter.state
-                    if (state is AsyncImagePainter.State.Loading || 
-                        state is AsyncImagePainter.State.Error || 
-                        currentUrl.isNullOrEmpty()) {
-                        AnimatedShapesFallback()
-                    } else {
-                        SubcomposeAsyncImageContent()
-                    }
-                }
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                )
 
                 // Completed: Checkmark badge at top-right (same style as PodcastInfoScreen)
                 if (isCompleted) {

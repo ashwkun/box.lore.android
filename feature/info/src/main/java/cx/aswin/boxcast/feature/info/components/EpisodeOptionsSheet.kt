@@ -38,8 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
@@ -79,13 +78,12 @@ fun EpisodeOptionsSheet(
                     shape = MaterialTheme.shapes.medium, // Or ExpressiveShapes.Squircle
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
-                    SubcomposeAsyncImage(
-                        model = episode.imageUrl,
+                    OptimizedImage(
+                        url = episode.imageUrl,
+                        proxyWidth = 150, // 64dp thumbnail
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        loading = { AnimatedShapesFallback() },
-                        error = { AnimatedShapesFallback() }
+                        contentScale = ContentScale.Crop
                     )
                 }
                 

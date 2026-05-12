@@ -324,4 +324,9 @@ class OnboardingViewModel(
 
         onDone()
     }
+
+    fun markOnboardingCompletedSilent(onDone: () -> Unit) {
+        prefs.edit().putBoolean("onboarding_completed", true).apply()
+        onDone()
+    }
 }

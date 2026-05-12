@@ -265,6 +265,7 @@ fun UnifiedPlayerSheet(
         if (expandTrigger > 0L) {
             // Force Expand
             currentSheetContentState = PlayerSheetState.EXPANDED
+            cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.startSession(podcast?.id, episode?.id)
             animatePlayerSheet(targetExpanded = true)
         }
     }
@@ -286,6 +287,7 @@ fun UnifiedPlayerSheet(
             }
             launch { animatePlayerSheet(targetExpanded = false) }
             currentSheetContentState = PlayerSheetState.COLLAPSED
+            cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.endSession()
         }
     }
     
@@ -392,6 +394,7 @@ fun UnifiedPlayerSheet(
                                         }
                                         launch { animatePlayerSheet(targetExpanded = true) }
                                         currentSheetContentState = PlayerSheetState.EXPANDED
+                                        cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.startSession(podcast?.id, episode?.id)
                                     } else {
                                         val dynamicDamping = lerp(
                                             Spring.DampingRatioNoBouncy,
@@ -420,6 +423,7 @@ fun UnifiedPlayerSheet(
                                             )
                                         }
                                         currentSheetContentState = PlayerSheetState.COLLAPSED
+                                        cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.endSession()
                                     }
                                 }
                                 accumulatedDragYSinceStart = 0f
@@ -437,6 +441,7 @@ fun UnifiedPlayerSheet(
                                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("expanded", podcast?.id, episode?.id)
                                 launch { animatePlayerSheet(targetExpanded = true) }
                                 currentSheetContentState = PlayerSheetState.EXPANDED
+                                cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.startSession(podcast?.id, episode?.id)
                             } else {
                                 launch {
                                     val currentFraction = playerContentExpansionFraction.value
@@ -452,6 +457,7 @@ fun UnifiedPlayerSheet(
                                 }
                                 launch { animatePlayerSheet(targetExpanded = false) }
                                 currentSheetContentState = PlayerSheetState.COLLAPSED
+                                cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.endSession()
                             }
                         }
                     }
@@ -536,6 +542,7 @@ fun UnifiedPlayerSheet(
                                         }
                                         launch { animatePlayerSheet(targetExpanded = false) }
                                         currentSheetContentState = PlayerSheetState.COLLAPSED
+                                        cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.endSession()
                                     }
                                 },
                                 onEpisodeInfoClick = onEpisodeInfoClick,

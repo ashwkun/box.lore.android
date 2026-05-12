@@ -111,6 +111,15 @@ object AnalyticsHelper {
         }
     }
 
+    fun trackFirstEpisodePlayed() {
+        PostHog.capture(
+            "first_episode_played",
+            properties = mapOf(
+                "\$set_once" to mapOf("first_episode_played_logged" to true)
+            )
+        )
+    }
+
     // ── 2. Onboarding Started ──────────────────────────────────────
 
     fun trackOnboardingStarted() {
@@ -169,6 +178,7 @@ object AnalyticsHelper {
             event = "\$set",
             userProperties = mapOf(
                 "onboarding_status" to "completed",
+                "onboarding_method" to methodVal,
                 "user_intent" to userIntent
             )
         )
@@ -202,6 +212,7 @@ object AnalyticsHelper {
             event = "\$set",
             userProperties = mapOf(
                 "onboarding_status" to "completed",
+                "onboarding_method" to "import",
                 "user_intent" to "migrating_power_user",
                 "initial_podcasts_subscribed" to importedPodcastCount
             )
@@ -356,6 +367,7 @@ object AnalyticsHelper {
             event = "\$set",
             userProperties = mapOf(
                 "onboarding_status" to "completed",
+                "onboarding_method" to "suggestions_done",
                 "user_intent" to userIntent,
                 "selection_decisiveness" to decisiveness,
                 "discovery_reliance" to discoveryReliance,
@@ -416,19 +428,10 @@ object AnalyticsHelper {
             event = "curated_block_impression",
             properties = mapOf(
                 "block_title" to blockTitle,
-                "vibes_shown_count" to vibeIds.size
+                "vibes_shown_count" to vibeIds.size,
+                "vibe_ids" to vibeIds
             )
         )
-        
-        vibeIds.forEach { vibeId ->
-            PostHog.capture(
-                event = "curated_vibe_impression",
-                properties = mapOf(
-                    "block_title" to blockTitle,
-                    "vibe_id" to vibeId
-                )
-            )
-        }
     }
 
     // ── 11. Podcast Info Screen ────────────────────────────────────
@@ -449,8 +452,24 @@ object AnalyticsHelper {
         PostHog.capture(event = "podcast_info_screen_viewed", properties = props)
     }
 
+    fun trackPodcastSubscriptionToggled(
+        podcastId: String,
+        podcastName: String?,
+        isSubscribed: Boolean,
+        entryPoint: String
+    ) {
+        val props = mutableMapOf<String, Any>(
+            "podcast_id" to podcastId,
+            "is_subscribed" to isSubscribed,
+            "entry_point" to entryPoint
+        )
+        podcastName?.let { props["podcast_name"] = it }
+        PostHog.capture(event = "podcast_subscription_toggled", properties = props)
+    }
+
     fun trackPodcastInfoScreenSession(
         podcastId: String,
+        podcastName: String,
         timeSpentSeconds: Float,
         wasSubscribed: Boolean,
         didSubscribe: Boolean,
@@ -464,6 +483,7 @@ object AnalyticsHelper {
             event = "podcast_info_screen_session",
             properties = mapOf(
                 "podcast_id" to podcastId,
+                "podcast_name" to podcastName,
                 "time_spent_seconds" to timeSpentSeconds,
                 "was_subscribed" to wasSubscribed,
                 "did_subscribe" to didSubscribe,
@@ -496,6 +516,7 @@ object AnalyticsHelper {
         startPositionSeconds: Float,
         totalDurationSeconds: Float,
         isRepeating: Boolean,
+        isSubscribed: Boolean,
         entryPoint: String? = null,
         entryPointContext: Map<String, Any>? = null
     ) {
@@ -503,7 +524,8 @@ object AnalyticsHelper {
             "episode_id" to episodeId,
             "start_position_seconds" to startPositionSeconds,
             "total_duration_seconds" to totalDurationSeconds,
-            "is_repeating" to isRepeating
+            "is_repeating" to isRepeating,
+            "is_subscribed" to isSubscribed
         )
         podcastId?.let { props["podcast_id"] = it }
         podcastName?.let { props["podcast_name"] = it }
@@ -522,6 +544,7 @@ object AnalyticsHelper {
         episodeId: String,
         episodeTitle: String?,
         durationPlayedSeconds: Float,
+        totalBufferedTimeSeconds: Float,
         totalDurationSeconds: Float,
         isCompleted: Boolean,
         entryPoint: String? = null,
@@ -530,6 +553,7 @@ object AnalyticsHelper {
         val props = mutableMapOf<String, Any>(
             "episode_id" to episodeId,
             "duration_played_seconds" to durationPlayedSeconds,
+            "total_buffered_time_seconds" to totalBufferedTimeSeconds,
             "total_duration_seconds" to totalDurationSeconds,
             "is_completed" to isCompleted
         )
@@ -543,10 +567,30 @@ object AnalyticsHelper {
         PostHog.capture(event = "playback_paused", properties = props)
     }
 
+    fun trackPlaybackError(errorCode: String, errorMessage: String, podcastId: String?, episodeId: String?) {
+        val props = mutableMapOf<String, Any>(
+            "error_code" to errorCode,
+            "error_message" to errorMessage
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        episodeId?.let { props["episode_id"] = it }
+        PostHog.capture(event = "playback_error", properties = props)
+    }
+
     fun trackExploreScreenViewed(sourceEntryPoint: String? = null) {
         val props = mutableMapOf<String, Any>()
         sourceEntryPoint?.let { props["source_entry_point"] = it }
         PostHog.capture(event = "explore_screen_viewed", properties = props)
+    }
+
+    fun trackExploreSearchPerformed(query: String, resultsCount: Int) {
+        PostHog.capture(
+            event = "explore_search_performed",
+            properties = mapOf(
+                "search_query" to query,
+                "results_count" to resultsCount
+            )
+        )
     }
 
     fun trackExploreScreenSession(
@@ -703,11 +747,11 @@ object AnalyticsHelper {
         PostHog.capture(event = "mini_player_interaction", properties = props)
     }
 
-    fun trackFullPlayerInteraction(action: String, podcastId: String?, episodeId: String?, value: String? = null) {
-        val props = mutableMapOf<String, Any>("action" to action)
+    fun trackFullPlayerScreenSession(podcastId: String?, episodeId: String?, metrics: Map<String, Any>) {
+        val props = mutableMapOf<String, Any>()
         if (podcastId != null) props["podcast_id"] = podcastId
         if (episodeId != null) props["episode_id"] = episodeId
-        if (value != null) props["value"] = value
-        PostHog.capture(event = "full_player_interaction", properties = props)
+        props.putAll(metrics)
+        PostHog.capture(event = "full_player_screen_session", properties = props)
     }
 }

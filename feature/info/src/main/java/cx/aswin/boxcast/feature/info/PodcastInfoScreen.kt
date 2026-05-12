@@ -109,6 +109,7 @@ import coil.size.Size
 import cx.aswin.boxcast.core.designsystem.component.ExpressiveExtendedFab
 import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
@@ -312,13 +313,12 @@ fun PodcastInfoScreen(
                                     shape = MaterialTheme.shapes.large,
                                     shadowElevation = 4.dp
                                 ) {
-                                    SubcomposeAsyncImage(
-                                        model = state.podcast.imageUrl,
+                                    OptimizedImage(
+                                        url = state.podcast.imageUrl,
+                                        proxyWidth = 300, // 100dp * 3x density
                                         contentDescription = state.podcast.title,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
-                                        loading = { AnimatedShapesFallback() },
-                                        error = { AnimatedShapesFallback() }
+                                        contentScale = ContentScale.Crop
                                     )
                                 }
                                 
@@ -638,13 +638,12 @@ fun EpisodeListItem(
                         shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
-                        SubcomposeAsyncImage(
-                            model = episode.imageUrl,
+                        OptimizedImage(
+                            url = episode.imageUrl,
+                            proxyWidth = 200, // 84dp thumbnails
                             contentDescription = episode.title,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            loading = { AnimatedShapesFallback() },
-                            error = { AnimatedShapesFallback() }
+                            contentScale = ContentScale.Crop
                         )
                     }
 

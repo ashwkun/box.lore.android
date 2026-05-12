@@ -61,6 +61,9 @@ class BoxCastPlaybackService : MediaLibraryService() {
     private var playbackSessionIsRepeating: Boolean = false
     private var playbackSessionEntryPoint: String? = null
     private var playbackSessionEntryPointContext: Map<String, Any>? = null
+    
+    private var playbackSessionBufferingStartTimeMs: Long = 0L
+    private var playbackSessionTotalBufferedTimeMs: Long = 0L
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun onCreate() {
@@ -109,6 +112,14 @@ class BoxCastPlaybackService : MediaLibraryService() {
         player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
             override fun onPlayerError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, error: androidx.media3.common.PlaybackException) {
                 android.util.Log.e("BoxCastPlayer", "onPlayerError: ${error.errorCodeName}", error)
+                val podcastId = playbackSessionPodcastId
+                val episodeId = playbackSessionEpisodeId
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackError(
+                    errorCode = error.errorCodeName,
+                    errorMessage = error.message ?: "Unknown",
+                    podcastId = podcastId,
+                    episodeId = episodeId
+                )
             }
             
             override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, error: Exception) {
@@ -121,6 +132,17 @@ class BoxCastPlaybackService : MediaLibraryService() {
             
             override fun onIsPlayingChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, isPlaying: Boolean) {
                 android.util.Log.d("BoxCastPlayer", "onIsPlayingChanged: $isPlaying")
+            }
+
+            override fun onPlaybackStateChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, state: Int) {
+                if (state == Player.STATE_BUFFERING) {
+                    playbackSessionBufferingStartTimeMs = System.currentTimeMillis()
+                } else if (state == Player.STATE_READY) {
+                    if (playbackSessionBufferingStartTimeMs > 0) {
+                        playbackSessionTotalBufferedTimeMs += (System.currentTimeMillis() - playbackSessionBufferingStartTimeMs)
+                        playbackSessionBufferingStartTimeMs = 0L
+                    }
+                }
             }
             
             override fun onPositionDiscontinuity(
@@ -303,6 +325,8 @@ class BoxCastPlaybackService : MediaLibraryService() {
         endPlaybackSession(forceCompleted = false) // Flush any outgoing session
         
         playbackSessionStartTimeMs = System.currentTimeMillis()
+        playbackSessionBufferingStartTimeMs = 0L
+        playbackSessionTotalBufferedTimeMs = 0L
         playbackSessionEpisodeId = episodeId
         
         val title = currentItem?.mediaMetadata?.title?.toString()
@@ -364,7 +388,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             val startPositionMs = kotlinx.coroutines.withContext(Dispatchers.Main) { 
                 mediaSession?.player?.currentPosition ?: 0L 
             }
-            
+            val isSubscribed = podcastId?.let { subscriptionRepository.isSubscribed(it) } ?: false
             
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackStarted(
                 podcastId = podcastId,
@@ -375,6 +399,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 startPositionSeconds = startPositionMs / 1000f,
                 totalDurationSeconds = durationMs / 1000f,
                 isRepeating = playbackSessionIsRepeating,
+                isSubscribed = isSubscribed,
                 entryPoint = playbackSessionEntryPoint,
                 entryPointContext = playbackSessionEntryPointContext
             )
@@ -412,6 +437,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 episodeId = currentEpisodeId,
                 episodeTitle = currentEpisodeTitle,
                 durationPlayedSeconds = durationPlayedSeconds,
+                totalBufferedTimeSeconds = playbackSessionTotalBufferedTimeMs / 1000f,
                 totalDurationSeconds = totalDurationMs / 1000f,
                 isCompleted = isCompleted,
                 entryPoint = entryPoint,
@@ -420,6 +446,8 @@ class BoxCastPlaybackService : MediaLibraryService() {
             
             // Reset
             playbackSessionStartTimeMs = 0L
+            playbackSessionBufferingStartTimeMs = 0L
+            playbackSessionTotalBufferedTimeMs = 0L
             playbackSessionEpisodeId = null
             playbackSessionEpisodeTitle = null
             playbackSessionPodcastId = null

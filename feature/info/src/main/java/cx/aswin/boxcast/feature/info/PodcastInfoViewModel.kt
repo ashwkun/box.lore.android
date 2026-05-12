@@ -338,6 +338,13 @@ class PodcastInfoViewModel(
                 // Refresh state
                 val isSubscribed = subscriptionRepository.isSubscribed(currentState.podcast.id)
                 _uiState.value = currentState.copy(isSubscribed = isSubscribed)
+                
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastSubscriptionToggled(
+                    podcastId = currentState.podcast.id,
+                    podcastName = currentState.podcast.title,
+                    isSubscribed = isSubscribed,
+                    entryPoint = entryPoint ?: "unknown"
+                )
 
                 if (isSubscribed && !wasSubscribed) {
 
@@ -475,8 +482,10 @@ class PodcastInfoViewModel(
         if (hasTrackedExit || currentPodcastId.isEmpty()) return
         hasTrackedExit = true
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
+        val podcastName = (_uiState.value as? PodcastInfoUiState.Success)?.podcast?.title ?: "Unknown"
         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenSession(
             podcastId = currentPodcastId,
+            podcastName = podcastName,
             timeSpentSeconds = timeSpent,
             wasSubscribed = wasSubscribedAtStart ?: false,
             didSubscribe = didSubscribe,

@@ -239,7 +239,7 @@ class ExploreViewModel(
             try {
                 val results = podcastRepository.searchPodcasts(query)
                 _searchResults.value = results
-
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, results.size)
             } catch (e: Exception) {
                 // Handle error silently for search
                 _searchResults.value = emptyList()

@@ -179,7 +179,9 @@ class EpisodeInfoViewModel(
                 // Track Screen View
                 val props = mutableMapOf<String, Any>().apply {
                     put("podcast_id", podcastId)
+                    put("podcast_name", podcastTitle)
                     put("episode_id", episodeId)
+                    put("episode_name", episodeTitle)
                     put("is_partially_played", resumeMs > 0)
                     if (entryPointContext != null) {
                         entryPointContext.getString("entry_point")?.let {
@@ -408,7 +410,9 @@ class EpisodeInfoViewModel(
         
         val props = mutableMapOf<String, Any>().apply {
             put("podcast_id", currentState.podcastId)
+            put("podcast_name", currentState.podcastTitle)
             put("episode_id", currentState.episode.id)
+            put("episode_name", currentState.episode.title)
             put("time_spent_seconds", timeSpentSeconds)
             put("did_play", didPlay)
             put("did_like", didLike)

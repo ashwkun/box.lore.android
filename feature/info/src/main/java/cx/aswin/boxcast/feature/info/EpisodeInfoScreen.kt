@@ -85,6 +85,7 @@ import coil.request.ImageRequest
 import cx.aswin.boxcast.core.designsystem.component.HtmlText
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
 import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
@@ -299,13 +300,12 @@ fun EpisodeInfoScreen(
                                     shape = MaterialTheme.shapes.large,
                                     shadowElevation = 8.dp
                                 ) {
-                                    SubcomposeAsyncImage(
-                                        model = state.episode.imageUrl?.ifEmpty { null },
+                                    OptimizedImage(
+                                        url = state.episode.imageUrl?.ifEmpty { null },
+                                        proxyWidth = 400, // 180dp * 2x density
                                         contentDescription = state.episode.title,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
-                                        loading = { AnimatedShapesFallback() },
-                                        error = { AnimatedShapesFallback() }
+                                        contentScale = ContentScale.Crop
                                     )
                                 }
 
@@ -597,15 +597,14 @@ fun EpisodeInfoScreen(
                                             ) {
                                                 Column {
                                                     // Episode Artwork
-                                                    SubcomposeAsyncImage(
-                                                        model = episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
+                                                    OptimizedImage(
+                                                        url = episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
+                                                        proxyWidth = 300, // 140dp thumbnails
                                                         contentDescription = episode.title,
                                                         modifier = Modifier
                                                             .size(140.dp)
                                                             .clip(MaterialTheme.shapes.medium),
-                                                        contentScale = ContentScale.Crop,
-                                                        loading = { AnimatedShapesFallback() },
-                                                        error = { AnimatedShapesFallback() }
+                                                        contentScale = ContentScale.Crop
                                                     )
                                                     
                                                     // Title in card footer - minLines for even sizing

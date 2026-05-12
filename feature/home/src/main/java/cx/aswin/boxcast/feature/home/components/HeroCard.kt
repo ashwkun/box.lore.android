@@ -46,6 +46,7 @@ import coil.compose.SubcomposeAsyncImageContent
 import cx.aswin.boxcast.feature.home.HeroType
 import cx.aswin.boxcast.feature.home.SmartHeroItem
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 
 @Composable
 fun HeroCard(
@@ -72,40 +73,16 @@ fun HeroCard(
             val fallbackImage = item.podcast.fallbackImageUrl?.takeIf { it.isNotEmpty() }
             val podcastImage = item.podcast.imageUrl.takeIf { it.isNotEmpty() }
             
-            // Initial model: Episode -> Podcast -> Fallback -> null
-            val initialModel = episodeImage ?: podcastImage ?: fallbackImage
+            // Best available image: Episode -> Podcast -> Fallback
+            val bestImageUrl = episodeImage ?: podcastImage ?: fallbackImage
             
-            var currentModel by remember(item.podcast.id) { mutableStateOf(initialModel) }
-            
-            SubcomposeAsyncImage(
-                model = currentModel,
+            OptimizedImage(
+                url = bestImageUrl,
+                proxyWidth = 800, // Full-width hero needs high res
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
-                onState = { state ->
-                     if (state is AsyncImagePainter.State.Error) {
-                         // Fallback logic
-                         // Prevent loop: If we are already on podcastImage, don't set it again if it's the same as episodeImage
-                         if (currentModel == episodeImage && !podcastImage.isNullOrEmpty() && (podcastImage != episodeImage || episodeImage == null)) {
-                             currentModel = podcastImage
-                         } else if (currentModel == podcastImage && !fallbackImage.isNullOrEmpty() && fallbackImage != podcastImage) {
-                             currentModel = fallbackImage
-                         } else if (state.result.throwable is Exception && currentModel != null && currentModel != fallbackImage && !fallbackImage.isNullOrEmpty()) {
-                             // Catch-all: If any error and we haven't tried fallback yet
-                             currentModel = fallbackImage
-                         }
-                     }
-                }
-            ) {
-                val state = painter.state
-                
-                // Show Shapes if Loading, Error (and no fallback left), or Null
-                if (state is AsyncImagePainter.State.Loading || state is AsyncImagePainter.State.Error || currentModel == null) {
-                    AnimatedShapesFallback()
-                } else {
-                    SubcomposeAsyncImageContent()
-                }
-            }
+                contentScale = ContentScale.Crop
+            )
             
             // Strong Gradient Overlay for text visibility
             Box(
