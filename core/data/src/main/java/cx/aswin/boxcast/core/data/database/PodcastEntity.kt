@@ -17,6 +17,7 @@ data class PodcastEntity(
     val isSubscribed: Boolean = false,
     
     val genre: String? = null,
+    val type: String = "episodic",
     
     val lastRefreshed: Long = 0,
     
@@ -28,5 +29,6 @@ data class PodcastEntity(
     val fundingUrl: String? = null,
     val fundingMessage: String? = null,
     val medium: String? = null,
-    val hasValue: Boolean = false
+    val hasValue: Boolean = false,
+    val updateFrequency: String? = null
 )

@@ -210,6 +210,9 @@ data class PodcastFeed(
     @SerialName("url")
     val url: String? = null,
     
+    @SerialName("type")
+    val type: String? = "episodic",
+    
     @SerialName("author")
     val author: String? = null,
     
@@ -245,7 +248,10 @@ data class PodcastFeed(
     val locked: Int? = null,
 
     @SerialName("ownerName")
-    val ownerName: String? = null
+    val ownerName: String? = null,
+
+    @SerialName("updateFrequency")
+    val updateFrequency: String? = null
 )
 
 // ============== METADATA ==============

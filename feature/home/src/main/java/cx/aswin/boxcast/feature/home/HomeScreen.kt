@@ -388,8 +388,23 @@ private fun PodcastFeed(
         // 2. "Your Shows" (Merged: Subscribed + New Episodes) - MOVED ABOVE "On The Rise"
         if (subscribedItems.isNotEmpty() || latestItems.isNotEmpty()) {
             item(span = StaggeredGridItemSpan.FullLine) {
+                val suggestedItems = remember(subscribedItems, gridItems) {
+                    val subSize = subscribedItems.size
+                    if (subSize in 1..4 || subSize in 6..9) {
+                        val needed = if (subSize < 5) 5 - subSize else 10 - subSize
+                        val subGenres = subscribedItems.map { it.genre }.filter { it.isNotEmpty() }.toSet()
+                        val matchingGenre = gridItems.filter { it.genre in subGenres && !subscribedItems.any { sub -> sub.id == it.id } }
+                        if (matchingGenre.size >= needed) {
+                            matchingGenre.take(needed)
+                        } else {
+                            (matchingGenre + gridItems.filter { it !in matchingGenre && !subscribedItems.any { sub -> sub.id == it.id } }).take(needed)
+                        }
+                    } else emptyList()
+                }
+
                 YourShowsSection(
                     subscribedPodcasts = subscribedItems,
+                    suggestedPodcasts = suggestedItems,
                     latestEpisodes = latestItems,
                     unplayedEpisodeCount = unplayedEpisodeCount,
                     onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },

@@ -204,6 +204,24 @@ fun PodcastInfoScreen(
     LaunchedEffect(podcastId) {
         viewModel.loadPodcast(podcastId)
     }
+
+    var autoScrolledEpisodeId by remember(podcastId) { mutableStateOf<String?>(null) }
+    val completedEpisodeIds by viewModel.completedEpisodesState.collectAsState()
+
+    LaunchedEffect(uiState, completedEpisodeIds) {
+        val state = uiState
+        if (state is PodcastInfoUiState.Success && state.podcast.type == "serial" && autoScrolledEpisodeId == null) {
+            val firstUnplayedIndex = state.episodes.indexOfFirst { !completedEpisodeIds.contains(it.id) }
+            // Only scroll if there are actually completed episodes (don't scroll if they are on episode 1)
+            if (firstUnplayedIndex > 0) {
+                // Offset by 2 because of header + toolbar items in LazyColumn
+                listState.scrollToItem(firstUnplayedIndex + 2)
+                autoScrolledEpisodeId = state.episodes[firstUnplayedIndex].id
+            } else if (firstUnplayedIndex == 0) {
+                autoScrolledEpisodeId = "first_so_no_badge"
+            }
+        }
+    }
     
     // Scroll state for floating title animation (like Episode Info)
     val scrollOffset by remember {
@@ -263,7 +281,6 @@ fun PodcastInfoScreen(
     
     // Liked episodes state
     val likedEpisodeIds by viewModel.likedEpisodesState.collectAsState()
-    val completedEpisodeIds by viewModel.completedEpisodesState.collectAsState()
 
     // Playback state
     val episodePlaybackState by viewModel.episodePlaybackState.collectAsState()
@@ -391,12 +408,146 @@ fun PodcastInfoScreen(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
+                            // Update Frequency Calculation
+                            val frequencyText = remember(state.podcast, state.episodes) {
+                                val validEpisodes = state.episodes.filter { it.episodeType != "trailer" && it.episodeType != "bonus" }
+                                val latestEpisodeDate = validEpisodes.firstOrNull()?.publishedDate ?: state.podcast.latestEpisode?.publishedDate
+
+                                // 1. Check if it's dead (older than 1 year or 6 months)
+                                if (latestEpisodeDate != null && latestEpisodeDate > 0) {
+                                    val sixMonthsMs = 15552000000L // 180 days
+                                    val oneYearMs = 31536000000L // 365 days
+                                    val diff = System.currentTimeMillis() - (latestEpisodeDate * 1000)
+                                    if (diff > oneYearMs) {
+                                        return@remember "Last episode 1+ Y back"
+                                    } else if (diff > sixMonthsMs) {
+                                        return@remember "Last episode 6 M back"
+                                    }
+                                }
+
+                                // 2. Check explicitly provided update frequency
+                                val updateFrequency = state.podcast.updateFrequency
+                                if (!updateFrequency.isNullOrEmpty()) {
+                                    return@remember "Updates $updateFrequency"
+                                }
+
+                                // 3. Predict frequency
+                                if (validEpisodes.size < 5) return@remember null // Need enough data
+
+                                val calendar = java.util.Calendar.getInstance()
+                                val dayCounts = IntArray(8) // 1-7 for Sunday-Saturday
+                                val intervals = mutableListOf<Long>()
+
+                                var prevDate: Long? = null
+                                for (ep in validEpisodes) {
+                                    val pubDate = ep.publishedDate * 1000
+                                    if (pubDate <= 0) continue
+
+                                    calendar.timeInMillis = pubDate
+                                    val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+                                    dayCounts[dayOfWeek]++
+
+                                    if (prevDate != null) {
+                                        intervals.add(kotlin.math.abs(prevDate - pubDate))
+                                    }
+                                    prevDate = pubDate
+                                }
+
+                                val totalEps = validEpisodes.size
+                                var commonDay = -1
+                                for (i in 1..7) {
+                                    if (dayCounts[i] >= (totalEps * 0.6).toInt()) { // 60% of episodes on the same day
+                                        commonDay = i
+                                        break
+                                    }
+                                }
+
+                                var predictedText: String? = null
+                                var expectedIntervalDays: Long? = null
+
+                                if (commonDay != -1) {
+                                    val dayName = when (commonDay) {
+                                        java.util.Calendar.SUNDAY -> "Sundays"
+                                        java.util.Calendar.MONDAY -> "Mondays"
+                                        java.util.Calendar.TUESDAY -> "Tuesdays"
+                                        java.util.Calendar.WEDNESDAY -> "Wednesdays"
+                                        java.util.Calendar.THURSDAY -> "Thursdays"
+                                        java.util.Calendar.FRIDAY -> "Fridays"
+                                        java.util.Calendar.SATURDAY -> "Saturdays"
+                                        else -> ""
+                                    }
+                                    predictedText = "New episodes on $dayName"
+                                    expectedIntervalDays = 7
+                                } else if (intervals.isNotEmpty()) {
+                                    val avgIntervalMs = intervals.average().toLong()
+                                    val daysInterval = avgIntervalMs / (1000 * 60 * 60 * 24)
+                                    
+                                    if (daysInterval in 1..2) {
+                                        predictedText = "Daily"
+                                        expectedIntervalDays = 1
+                                    } else if (daysInterval in 5..8) {
+                                        predictedText = "Weekly"
+                                        expectedIntervalDays = 7
+                                    } else if (daysInterval in 12..16) {
+                                        predictedText = "Bi-weekly"
+                                        expectedIntervalDays = 14
+                                    } else if (daysInterval in 25..35) {
+                                        predictedText = "Monthly"
+                                        expectedIntervalDays = 30
+                                    }
+                                }
+
+                                if (predictedText != null && latestEpisodeDate != null) {
+                                    // Delay check: not applicable for daily (< 3 days interval)
+                                    if (expectedIntervalDays != null && expectedIntervalDays > 2) {
+                                        val diffDays = (System.currentTimeMillis() - (latestEpisodeDate * 1000)) / (1000 * 60 * 60 * 24)
+                                        if (diffDays > expectedIntervalDays * 2) {
+                                            return@remember "Season Completed / Delayed"
+                                        }
+                                    }
+                                    return@remember predictedText
+                                }
+
+                                null
+                            }
+
                             // 3. Scrollable Metadata Chips Row — centered
                             androidx.compose.foundation.lazy.LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                                 contentPadding = PaddingValues(horizontal = 0.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                // Update Frequency Pill
+                                if (frequencyText != null) {
+                                    item {
+                                        Surface(
+                                            shape = ExpressiveShapes.Pill,
+                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.AccessTime,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                                )
+                                                Text(
+                                                    text = frequencyText,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+
+
                                 // Medium Pill — only shown for non-"podcast" mediums
                                 val medium = state.podcast.medium
                                 if (!medium.isNullOrEmpty() && medium != "podcast") {
@@ -599,6 +750,7 @@ fun PodcastInfoScreen(
                                     isDownloading = isDownloading,
                                     isQueued = queuedEpisodeIds.contains(episode.id),
                                     isCompleted = isCompleted,
+                                    isUpNext = episode.id == autoScrolledEpisodeId,
                                     onClick = { 
                                         viewModel.recordEpisodeClick(episode.id)
                                         onEpisodeClick(episode, "podcast_info_episodes_list", index) 
@@ -772,6 +924,7 @@ fun EpisodeListItem(
     isDownloading: Boolean,
     isQueued: Boolean,
     isCompleted: Boolean,
+    isUpNext: Boolean = false,
     onClick: () -> Unit,
     onPlayClick: () -> Unit,
     onToggleLike: () -> Unit,
@@ -838,6 +991,20 @@ fun EpisodeListItem(
                 
                 // Text Content
                 Column(modifier = Modifier.weight(1f)) {
+                    if (isUpNext) {
+                        Surface(
+                            shape = ExpressiveShapes.Pill,
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            Text(
+                                "UP NEXT",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     // Metadata
                     fun formatDuration(seconds: Int): String {
                         val hours = seconds / 3600

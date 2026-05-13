@@ -10,7 +10,7 @@ import cx.aswin.boxcast.core.data.database.dao.QueueDao
 
 @Database(
     entities = [ListeningHistoryEntity::class, PodcastEntity::class, DownloadedEpisodeEntity::class, QueueItem::class],
-    version = 14, // Add episodeType/seasonNumber/episodeNumber to queue_items
+    version = 16, // Add updateFrequency field to podcasts table
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -38,6 +38,18 @@ abstract class BoxCastDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE queue_items ADD COLUMN episodeNumber INTEGER")
             }
         }
+        
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN type TEXT NOT NULL DEFAULT 'episodic'")
+            }
+        }
+
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN updateFrequency TEXT")
+            }
+        }
 
         @Volatile
         private var INSTANCE: BoxCastDatabase? = null
@@ -49,7 +61,7 @@ abstract class BoxCastDatabase : RoomDatabase() {
                     BoxCastDatabase::class.java,
                     "boxcast_database"
                 )
-                .addMigrations(MIGRATION_12_13, MIGRATION_13_14)
+                .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                 .fallbackToDestructiveMigration() // For development simplicity on older versions
                 .build()
                 INSTANCE = instance

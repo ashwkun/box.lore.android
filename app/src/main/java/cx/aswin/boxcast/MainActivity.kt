@@ -869,8 +869,7 @@ class MainActivity : ComponentActivity() {
                                     onResetAnalytics = {
                                         scope.launch {
                                             try {
-                                                // FirebaseAnalytics removed
-
+                                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.resetIdentity()
                                                 consentManager.clearConsent()
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Settings", "Failed to reset analytics", e)

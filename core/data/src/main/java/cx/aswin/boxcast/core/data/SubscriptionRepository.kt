@@ -27,12 +27,14 @@ class SubscriptionRepository(
                     imageUrl = entity.imageUrl ?: "",
                     description = entity.description,
                     genre = entity.genre ?: "Podcast", // Use stored genre
+                    type = entity.type,
                     latestEpisode = entity.latestEpisode,
                     podcastGuid = entity.podcastGuid,
                     fundingUrl = entity.fundingUrl,
                     fundingMessage = entity.fundingMessage,
                     medium = entity.medium,
-                    hasValue = entity.hasValue
+                    hasValue = entity.hasValue,
+                    updateFrequency = entity.updateFrequency
                 )
             }
         }
@@ -54,6 +56,7 @@ class SubscriptionRepository(
                 description = podcast.description,
                 isSubscribed = true,
                 genre = podcast.genre, // Persist genre for Smart Queue matching
+                type = podcast.type,
                 lastRefreshed = System.currentTimeMillis(),
                 latestEpisode = podcast.latestEpisode,
                 podcastGuid = podcast.podcastGuid,
@@ -72,22 +75,25 @@ class SubscriptionRepository(
 
     suspend fun subscribe(podcast: Podcast) {
         val existing = podcastDao.getPodcast(podcast.id)
-        if (existing == null) {
-            val entity = PodcastEntity(
-                podcastId = podcast.id,
-                title = podcast.title,
-                author = podcast.artist,
-                imageUrl = podcast.imageUrl,
-                description = podcast.description,
-                isSubscribed = true,
-                genre = podcast.genre,
-                lastRefreshed = System.currentTimeMillis(),
-                latestEpisode = podcast.latestEpisode
-            )
-            podcastDao.upsert(entity)
-        } else if (!existing.isSubscribed) {
-            podcastDao.setSubscribed(podcast.id, true)
-        }
+        val entity = PodcastEntity(
+            podcastId = podcast.id,
+            title = podcast.title,
+            author = podcast.artist,
+            imageUrl = podcast.imageUrl,
+            description = podcast.description,
+            isSubscribed = true,
+            genre = podcast.genre,
+            type = podcast.type,
+            lastRefreshed = existing?.lastRefreshed ?: System.currentTimeMillis(),
+            latestEpisode = podcast.latestEpisode ?: existing?.latestEpisode,
+            podcastGuid = existing?.podcastGuid ?: podcast.podcastGuid,
+            fundingUrl = existing?.fundingUrl ?: podcast.fundingUrl,
+            fundingMessage = existing?.fundingMessage ?: podcast.fundingMessage,
+            medium = existing?.medium ?: podcast.medium,
+            hasValue = existing?.hasValue ?: podcast.hasValue,
+            updateFrequency = existing?.updateFrequency ?: podcast.updateFrequency
+        )
+        podcastDao.upsert(entity)
     }
 
     suspend fun updateLatestEpisode(podcastId: String, episode: cx.aswin.boxcast.core.model.Episode?) {

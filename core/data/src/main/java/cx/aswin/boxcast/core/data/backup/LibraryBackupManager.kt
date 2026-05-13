@@ -57,7 +57,9 @@ class LibraryBackupManager(
                     artist = entity.author,
                     imageUrl = entity.imageUrl,
                     description = entity.description,
-                    genre = entity.genre ?: "Podcast"
+                    genre = entity.genre ?: "Podcast",
+                    type = entity.type,
+                    updateFrequency = entity.updateFrequency
                 )
                 subscriptionRepository.subscribe(podcast)
                 importedIds.add(podcast.id)

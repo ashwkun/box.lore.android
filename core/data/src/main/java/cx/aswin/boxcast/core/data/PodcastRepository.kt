@@ -273,6 +273,7 @@ class PodcastRepository(
                     title = feed.title,
                     artist = feed.author ?: "Unknown",
                     imageUrl = (feed.artwork ?: feed.image).toHttps(),
+                    type = feed.type ?: "episodic",
                     description = feed.description,
                     genre = resolvePrimaryGenre(feed.categories),
                     // Podcast 2.0
@@ -281,7 +282,8 @@ class PodcastRepository(
                     podcastGuid = feed.podcastGuid,
                     medium = feed.medium,
                     ownerName = feed.ownerName,
-                    hasValue = feed.value != null
+                    hasValue = feed.value != null,
+                    updateFrequency = feed.updateFrequency
                 )
             } else {
                 null

@@ -10,6 +10,7 @@ data class Podcast(
     val title: String,
     val artist: String,
     val imageUrl: String,
+    val type: String = "episodic", // "episodic" or "serial"
     val description: String? = null,
     val genre: String = "Podcast",
     val colorHex: String? = null, // For dynamic theming storage
@@ -23,5 +24,6 @@ data class Podcast(
     val podcastGuid: String? = null,
     val medium: String? = null,   // "podcast", "music", "video"
     val ownerName: String? = null,
-    val hasValue: Boolean = false  // true if V4V value tag exists
+    val hasValue: Boolean = false,  // true if V4V value tag exists
+    val updateFrequency: String? = null
 )

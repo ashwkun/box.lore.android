@@ -195,7 +195,10 @@ class PodcastInfoViewModel(
             try {
                 val podcast = repository.getPodcastDetails(podcastId)
                 if (podcast != null) {
-                    val page = repository.getEpisodesPaginated(podcastId, PAGE_SIZE, 0, "newest")
+                    val limit = if (podcast.type == "serial") 200 else PAGE_SIZE
+                    val initialSort = if (podcast.type == "serial") EpisodeSort.OLDEST else EpisodeSort.NEWEST
+                    val sortParam = if (initialSort == EpisodeSort.OLDEST) "oldest" else "newest"
+                    val page = repository.getEpisodesPaginated(podcastId, limit, 0, sortParam)
                     val isSubscribed = subscriptionRepository.isSubscribed(podcastId)
                     
                     if (wasSubscribedAtStart == null) {
@@ -207,7 +210,8 @@ class PodcastInfoViewModel(
                         podcast = podcast,
                         episodes = page.episodes,
                         isSubscribed = isSubscribed,
-                        hasMoreEpisodes = page.hasMore
+                        hasMoreEpisodes = page.hasMore,
+                        currentSort = initialSort
                     )
                 } else {
                     _uiState.value = PodcastInfoUiState.Error
@@ -229,8 +233,9 @@ class PodcastInfoViewModel(
 
         viewModelScope.launch {
             try {
+                val limit = if (currentState.podcast.type == "serial") 200 else PAGE_SIZE
                 val sortParam = if (currentState.currentSort == EpisodeSort.OLDEST) "oldest" else "newest"
-                val page = repository.getEpisodesPaginated(currentPodcastId, PAGE_SIZE, currentOffset, sortParam)
+                val page = repository.getEpisodesPaginated(currentPodcastId, limit, currentOffset, sortParam)
                 currentOffset += page.episodes.size
                 _uiState.value = currentState.copy(
                     episodes = currentState.episodes + page.episodes,
@@ -263,8 +268,9 @@ class PodcastInfoViewModel(
 
         viewModelScope.launch {
             try {
+                val limit = if (currentState.podcast.type == "serial") 200 else PAGE_SIZE
                 val sortParam = if (newSort == EpisodeSort.OLDEST) "oldest" else "newest"
-                val page = repository.getEpisodesPaginated(currentPodcastId, PAGE_SIZE, 0, sortParam)
+                val page = repository.getEpisodesPaginated(currentPodcastId, limit, 0, sortParam)
                 currentOffset = page.episodes.size
                 val latestState = _uiState.value as? PodcastInfoUiState.Success ?: return@launch
                 _uiState.value = latestState.copy(

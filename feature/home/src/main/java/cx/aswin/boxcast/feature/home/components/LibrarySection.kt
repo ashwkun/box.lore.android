@@ -58,11 +58,18 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorFilter
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import androidx.compose.foundation.layout.fillMaxHeight
 
 /**
  * Merged "Your Shows" Section (formerly LibrarySection + LatestSection)
@@ -76,6 +83,7 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 @Composable
 fun YourShowsSection(
     subscribedPodcasts: List<Podcast>,
+    suggestedPodcasts: List<Podcast> = emptyList(),
     latestEpisodes: List<Podcast>, // Podcasts with latestEpisode populated
     unplayedEpisodeCount: Int = 0,
     onPodcastClick: (Podcast) -> Unit,
@@ -126,69 +134,54 @@ fun YourShowsSection(
             }
         }
 
-        // --- Part A: Subscribed Shows Grid (5 items + 2 items + Button) ---
-        if (subscribedPodcasts.isNotEmpty()) {
+        // --- Part A: Subscribed Shows Grid ---
+        val combinedPodcasts = subscribedPodcasts + suggestedPodcasts
+        if (combinedPodcasts.isNotEmpty()) {
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 0.dp) // Removed padding
+                    .padding(horizontal = 0.dp)
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 val totalColumns = 5
-                val row1Items = subscribedPodcasts.take(totalColumns)
-                val row2Items = subscribedPodcasts.drop(totalColumns).take(2)
-                val remainingCount = (subscribedPodcasts.size - 7).coerceAtLeast(0)
-                // Show button if we have more items OR if we have valid items in row 2 that leave space
-                // User asked for 5 items, then 2 items + button.
-                // We'll show Row 2 if we have > 5 items.
-                
-                // Row 1
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Fill with items
-                    row1Items.forEach { podcast ->
-                        Box(modifier = Modifier.weight(1f)) {
-                           ResponsivePodcastCover(podcast = podcast, onClick = { onPodcastClick(podcast) })
-                        }
-                    }
-                    // Fill remaining empty slots in Row 1 if < 5
-                    repeat(totalColumns - row1Items.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
 
-                // Row 2
-                if (subscribedPodcasts.size > 5) {
+                if (subscribedPodcasts.size > 10) {
+                    val row1Items = subscribedPodcasts.take(totalColumns)
+                    val row2Items = subscribedPodcasts.drop(totalColumns).take(2)
+                    val remainingCount = subscribedPodcasts.size - 7
+
+                    // Row 1
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // First 2 slots: Items
-                        for (i in 0 until 2) {
-                            if (i < row2Items.size) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    ResponsivePodcastCover(podcast = row2Items[i], onClick = { onPodcastClick(row2Items[i]) })
-                                }
-                            } else {
-                                // Empty slot if we somehow have < 2 items here but entered this block (unlikely given logic)
-                                Spacer(modifier = Modifier.weight(1f))
+                        row1Items.forEach { podcast ->
+                            Box(modifier = Modifier.weight(1f)) {
+                               ResponsivePodcastCover(podcast = podcast, onClick = { onPodcastClick(podcast) })
                             }
                         }
+                    }
 
-                        // Remaining 3 slots: Button
-                        // Button spans 3 columns
-                        Box(modifier = Modifier.weight(3f)) {
-                             FilledTonalButton(
+                    // Row 2 (2 items + More Button)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        row2Items.forEach { podcast ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                ResponsivePodcastCover(podcast = podcast, onClick = { onPodcastClick(podcast) })
+                            }
+                        }
+                        
+                        Box(modifier = Modifier.weight(3f).fillMaxHeight()) {
+                            androidx.compose.material3.FilledTonalButton(
                                 onClick = onViewLibrary,
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max).aspectRatio(3f/1f, matchHeightConstraintsFirst = false) // Attempt to match height aspect
+                                modifier = Modifier.fillMaxSize(),
+                                shape = MaterialTheme.shapes.small,
+                                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
                             ) {
-                                // We need the button to match the height of the covers.
-                                // Covers are roughly aspect ratio 1:1.
-                                // So this button is spanning 3 slots.
-                                // It should probably just fill height.
                                 // Let's use a simpler approach for the button content.
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -205,6 +198,26 @@ fun YourShowsSection(
                             }
                         }
                     }
+                } else {
+                    // <= 10 subscriptions: fill up to 2 rows of 5, no "More" button needed
+                    val chunked = combinedPodcasts.chunked(totalColumns)
+                    chunked.forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowItems.forEach { podcast ->
+                                val isSuggested = suggestedPodcasts.any { it.id == podcast.id }
+                                Box(modifier = Modifier.weight(1f)) {
+                                    ResponsivePodcastCover(podcast = podcast, isSuggested = isSuggested, onClick = { onPodcastClick(podcast) })
+                                }
+                            }
+                            // Fill remaining empty slots in the row
+                            repeat(totalColumns - rowItems.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
                 }
             }
             
@@ -212,7 +225,8 @@ fun YourShowsSection(
         }
 
         // --- Part B: Latest Episodes Rail ---
-        if (latestEpisodes.isNotEmpty()) {
+        val combinedLatestEpisodes = latestEpisodes + suggestedPodcasts.filter { it.latestEpisode != null }
+        if (combinedLatestEpisodes.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -259,12 +273,14 @@ fun YourShowsSection(
                 contentPadding = PaddingValues(horizontal = 0.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(latestEpisodes, key = { "${it.id}_${it.latestEpisode?.id}" }) { podcast ->
+                items(combinedLatestEpisodes, key = { "${it.id}_${it.latestEpisode?.id}" }) { podcast ->
                     val episode = podcast.latestEpisode
                     if (episode != null) {
+                        val isSuggested = suggestedPodcasts.any { it.id == podcast.id }
                         NewEpisodeCard(
                             episode = episode,
                             podcast = podcast,
+                            isSuggested = isSuggested,
                             onClick = { onEpisodeClick(episode, podcast) }
                         )
                     }
@@ -280,19 +296,45 @@ fun YourShowsSection(
 @Composable
 private fun ResponsivePodcastCover(
     podcast: Podcast,
+    isSuggested: Boolean = false,
     onClick: () -> Unit
 ) {
-    OptimizedImage(
-        url = podcast.imageUrl,
-        proxyWidth = 250, // Grid items ~60dp * 3x + margin
-        contentDescription = podcast.title,
-        contentScale = ContentScale.Crop,
+    val grayscaleFilter = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f) // Square
+            .aspectRatio(1f)
             .clip(MaterialTheme.shapes.small)
             .expressiveClickable(shape = MaterialTheme.shapes.small, onClick = onClick)
-    )
+    ) {
+        OptimizedImage(
+            url = podcast.imageUrl,
+            proxyWidth = 250, // Grid items ~60dp * 3x + margin
+            contentDescription = podcast.title,
+            contentScale = ContentScale.Crop,
+            colorFilter = if (isSuggested) grayscaleFilter else null,
+            modifier = Modifier.fillMaxSize()
+        )
+        if (isSuggested) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Suggested",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -324,6 +366,7 @@ private fun SmallPodcastCover(
 private fun NewEpisodeCard(
     episode: Episode,
     podcast: Podcast,
+    isSuggested: Boolean = false,
     onClick: () -> Unit
 ) {
     val status = podcast.episodeStatus
@@ -333,6 +376,7 @@ private fun NewEpisodeCard(
 
     // Completed cards are slightly dimmed to de-emphasize
     val cardAlpha = if (isCompleted) 0.72f else 1f
+    val grayscaleFilter = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) }
 
     androidx.compose.material3.OutlinedCard(
         shape = MaterialTheme.shapes.medium,
@@ -351,6 +395,7 @@ private fun NewEpisodeCard(
                     proxyWidth = 300, // 140dp cards
                     contentDescription = episode.title,
                     contentScale = ContentScale.Crop,
+                    colorFilter = if (isSuggested) grayscaleFilter else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(140.dp)
@@ -428,6 +473,27 @@ private fun NewEpisodeCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                
+                if (isSuggested) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Suggested",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }

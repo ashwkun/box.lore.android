@@ -776,4 +776,12 @@ object AnalyticsHelper {
             properties = mapOf("error_reason" to errorReason)
         )
     }
+
+    fun resetIdentity() {
+        PostHog.reset()
+    }
+
+    fun getDistinctId(): String {
+        return PostHog.distinctId()
+    }
 }

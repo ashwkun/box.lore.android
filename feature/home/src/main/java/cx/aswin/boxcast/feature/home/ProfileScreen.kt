@@ -393,7 +393,7 @@ fun PrivacySection(
                 Text("Our Philosophy", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "boxcast is a 0-monetary-gain, exploratory pet project. We track app usage solely to understand what features work, what to remove, and what to build next. Your data never leaves our own databases, is completely anonymous, and will never be sold. 0 ads, forever.",
+                    "boxcast is a 0-monetary-gain, exploratory pet project. We track anonymous app usage (including device models and approximate regions via PostHog) solely to understand what features work and what to build next. Your data is completely anonymous and will never be sold. 0 ads, forever.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -411,7 +411,7 @@ fun PrivacySection(
                 Text("Why track podcasts?", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "We log which podcasts are being played to eventually build native, community-driven charts. This data is strictly aggregated and is absolutely never linked back to you or your device.",
+                    "We log which podcasts are being played to eventually build native, community-driven charts. This data is tied to an anonymous device ID, meaning we can analyze listenership without ever knowing who you actually are.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
@@ -432,20 +432,20 @@ fun PrivacySection(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Aggregated Plays", style = MaterialTheme.typography.bodySmall)
+                    Text("Device-Level Plays", style = MaterialTheme.typography.bodySmall)
                 }
             }
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Cancel, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("NO Location Data", style = MaterialTheme.typography.bodySmall)
+                    Text("Device & Approx Location", style = MaterialTheme.typography.bodySmall)
                 }
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Cancel, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("NO Personal IDs", style = MaterialTheme.typography.bodySmall)
+                    Text("NO PII (Personal Info)", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -453,16 +453,6 @@ fun PrivacySection(
         Spacer(Modifier.height(20.dp))
         HorizontalDivider()
         Spacer(Modifier.height(20.dp))
-
-        // Verify It Nudge
-        Text("Don't Trust Us? Verify It.", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Our entire app (not just the tracking engine) is 100% open source. You can audit the code on GitHub or ask AI to verify it for you.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(Modifier.height(12.dp))
 
         // GitHub Link Button
         OutlinedButton(
@@ -473,47 +463,14 @@ fun PrivacySection(
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Rounded.Code, null)
+            Icon(androidx.compose.ui.res.painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_github), null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("View App Source Code on GitHub")
+            Text("Review the code on Github")
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // AI Prompt block
-        val aiPrompt = "Analyze the source code of this Android app at https://github.com/ashwkun/box.cast.android.\n\nDoes it collect any Personally Identifiable Information (PII), track device identifiers, or contain any third-party advertising SDKs?"
-        
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(12.dp)) {
-                Text("AI Verification Prompt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = aiPrompt,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(8.dp))
-                FilledTonalButton(
-                    onClick = {
-                        clipboardManager.setText(AnnotatedString(aiPrompt))
-                        Toast.makeText(context, "Prompt copied!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Copy Prompt", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-        }
-        
-        Spacer(Modifier.height(16.dp))
+
 
         // Privacy Policy Link
         ListItem(
@@ -591,11 +548,10 @@ fun PrivacySection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    appInstanceId?.let {
-                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("delete_id_copied")
-                                        clipboardManager.setText(AnnotatedString(it))
-                                        Toast.makeText(context, "ID Copied", Toast.LENGTH_SHORT).show()
-                                    }
+                                    val postHogId = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.getDistinctId()
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("delete_id_copied")
+                                    clipboardManager.setText(AnnotatedString(postHogId))
+                                    Toast.makeText(context, "ID Copied", Toast.LENGTH_SHORT).show()
                                 }
                         ) {
                             Row(
@@ -604,7 +560,7 @@ fun PrivacySection(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = appInstanceId ?: "Generating ID...",
+                                    text = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.getDistinctId(),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontFamily = FontFamily.Monospace,
                                     maxLines = 1,
@@ -622,7 +578,7 @@ fun PrivacySection(
                                     data = Uri.parse("mailto:")
                                     putExtra(Intent.EXTRA_EMAIL, arrayOf("privacy@aswin.cx"))
                                     putExtra(Intent.EXTRA_SUBJECT, "Data Deletion Request")
-                                    putExtra(Intent.EXTRA_TEXT, "Please delete data associated with Instance ID: ${appInstanceId ?: "UNKNOWN"}")
+                                    putExtra(Intent.EXTRA_TEXT, "Please delete data associated with Instance ID: ${cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.getDistinctId()}")
                                 }
                                 try { context.startActivity(intent) } catch(_: Exception) {
                                     Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
@@ -686,7 +642,14 @@ fun CommunitySection(context: android.content.Context) {
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("boxcast v1.0.0 (Beta)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+            val versionName = remember {
+                try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "Unknown"
+                } catch (e: Exception) {
+                    "Unknown"
+                }
+            }
+            Text("boxcast v$versionName", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(4.dp))
             Text("Made with ❤️", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
         }

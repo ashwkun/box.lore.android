@@ -12,6 +12,8 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.compose.AsyncImagePainter
 
+import androidx.compose.ui.graphics.ColorFilter
+
 /**
  * A reusable image composable that implements a proxy-first loading strategy
  * with automatic fallback to the raw URL if the proxy fails.
@@ -27,6 +29,7 @@ import coil.compose.AsyncImagePainter
  * @param contentDescription Accessibility description.
  * @param modifier Modifier for the image.
  * @param contentScale How the image should be scaled inside its bounds.
+ * @param colorFilter Optional color filter (e.g., grayscale).
  */
 @Composable
 fun OptimizedImage(
@@ -34,7 +37,8 @@ fun OptimizedImage(
     proxyWidth: Int,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    colorFilter: ColorFilter? = null
 ) {
     if (url.isNullOrBlank()) {
         AnimatedShapesFallback()
@@ -51,6 +55,7 @@ fun OptimizedImage(
         model = currentUrl,
         contentDescription = contentDescription,
         contentScale = contentScale,
+        colorFilter = colorFilter,
         modifier = modifier
     ) {
         val state = painter.state
