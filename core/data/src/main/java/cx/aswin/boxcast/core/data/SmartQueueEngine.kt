@@ -133,8 +133,8 @@ class DefaultSmartQueueEngine @Inject constructor(
             sub.id != currentPodcast.id && 
             !sub.title.equals(currentPodcast.title, ignoreCase = true) &&
             !recentPodcasts.contains(sub.id)
-        }
-        android.util.Log.d("SmartQueue", "Fallback: ${eligibleSubs.size} eligible subscriptions (no genre filter)")
+        }.shuffled() // Rotate which subscription gets priority
+        android.util.Log.d("SmartQueue", "Fallback: ${eligibleSubs.size} eligible subscriptions (shuffled, no genre filter)")
 
         for (sub in eligibleSubs) {
             val subEpisodes = podcastRepository.getEpisodes(sub.id)

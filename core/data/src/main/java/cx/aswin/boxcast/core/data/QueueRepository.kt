@@ -58,7 +58,10 @@ class QueueRepository @Inject constructor(
             chaptersUrl = episode.chaptersUrl,
             transcriptUrl = episode.transcriptUrl,
             personsJson = encodePersons(episode.persons?.map { Person(name = it.name, role = it.role, img = it.img, href = it.href) }),
-            transcriptsJson = encodeTranscripts(episode.transcripts?.map { Transcript(url = it.url, type = it.type) })
+            transcriptsJson = encodeTranscripts(episode.transcripts?.map { Transcript(url = it.url, type = it.type) }),
+            episodeType = episode.episodeType,
+            seasonNumber = episode.season,
+            episodeNumber = episode.episodeNumber
         )
         android.util.Log.d(TAG, "addToQueue: Inserting newItem at position ${maxPos + 1}")
         queueDao.insertQueueItem(newItem)
@@ -94,7 +97,10 @@ class QueueRepository @Inject constructor(
                 chaptersUrl = ep.chaptersUrl,
                 transcriptUrl = ep.transcriptUrl,
                 personsJson = encodePersons(ep.persons),
-                transcriptsJson = encodeTranscripts(ep.transcripts)
+                transcriptsJson = encodeTranscripts(ep.transcripts),
+                episodeType = ep.episodeType,
+                seasonNumber = ep.seasonNumber,
+                episodeNumber = ep.episodeNumber
             )
             queueDao.insertQueueItem(item)
         }
@@ -125,7 +131,10 @@ class QueueRepository @Inject constructor(
             chaptersUrl = this.chaptersUrl,
             transcriptUrl = this.transcriptUrl,
             persons = decodePersons(this.personsJson),
-            transcripts = decodeTranscripts(this.transcriptsJson)
+            transcripts = decodeTranscripts(this.transcriptsJson),
+            episodeType = this.episodeType,
+            seasonNumber = this.seasonNumber,
+            episodeNumber = this.episodeNumber
         )
     }
     

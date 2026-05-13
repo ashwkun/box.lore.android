@@ -33,7 +33,12 @@ data class QueueItem(
     val chaptersUrl: String? = null,
     val transcriptUrl: String? = null,
     val personsJson: String? = null,      // JSON-serialized List<Person>
-    val transcriptsJson: String? = null   // JSON-serialized List<Transcript>
+    val transcriptsJson: String? = null,  // JSON-serialized List<Transcript>
+    
+    // Episode metadata
+    val episodeType: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null
 ) {
     fun toEpisodeItem(): EpisodeItem {
         return EpisodeItem(
@@ -44,7 +49,10 @@ data class QueueItem(
             duration = duration,
             datePublished = pubDate,
             image = imageUrl ?: "",
-            feedImage = podcastImageUrl // Podcast artwork fallback
+            feedImage = podcastImageUrl, // Podcast artwork fallback
+            episodeType = episodeType,
+            season = seasonNumber,
+            episodeNumber = episodeNumber
         )
     }
 }

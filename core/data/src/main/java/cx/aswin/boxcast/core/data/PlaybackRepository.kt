@@ -76,6 +76,7 @@ class PlaybackRepository(
     
     // Queue auto-refill callback - set by QueueManager
     private val QUEUE_REFILL_THRESHOLD = 3
+    private val QUEUE_MAX_SIZE = 50
     var queueRefillCallback: ((currentEpisode: Episode, podcast: Podcast) -> Unit)? = null
 
     init {
@@ -164,17 +165,41 @@ class PlaybackRepository(
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     Log.e("PlaybackRepo", "Player Error: ${error.message}", error)
-                    mediaController?.stop()
-                    mediaController?.clearMediaItems()
-                    _playerState.value = _playerState.value.copy(
-                        isPlaying = false, 
-                        isLoading = false,
-                        currentEpisode = null,
-                        queue = emptyList()
-                    )
+                    val controller = mediaController ?: return
+                    val queue = _playerState.value.queue
+                    val failedEpisode = _playerState.value.currentEpisode
+                    
+                    // Try to skip the bad item instead of nuking the entire queue
+                    val currentIndex = controller.currentMediaItemIndex
+                    val hasNext = currentIndex < controller.mediaItemCount - 1
+                    
+                    if (hasNext) {
+                        // Remove the failed item and advance to the next one
+                        Log.d("PlaybackRepo", "onPlayerError: Skipping failed item '${failedEpisode?.title}', advancing to next")
+                        controller.removeMediaItem(currentIndex)
+                        val newQueue = queue.filterNot { it.id == failedEpisode?.id }
+                        _playerState.value = _playerState.value.copy(
+                            queue = newQueue,
+                            isLoading = true
+                        )
+                        controller.prepare()
+                        controller.play()
+                    } else {
+                        // No more items — clear everything
+                        Log.d("PlaybackRepo", "onPlayerError: No more items in queue, clearing.")
+                        controller.stop()
+                        controller.clearMediaItems()
+                        _playerState.value = _playerState.value.copy(
+                            isPlaying = false, 
+                            isLoading = false,
+                            currentEpisode = null,
+                            queue = emptyList()
+                        )
+                    }
+                    
                     repositoryScope.launch {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            android.widget.Toast.makeText(context, "Playback error: Stream may be unavailable or broken.", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(context, "Stream unavailable, skipping...", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -351,6 +376,8 @@ class PlaybackRepository(
         }
     }
     
+    private var lastProgressSaveMs = 0L
+    
     private fun startProgressTicker() {
         stopProgressTicker()
         progressJob = repositoryScope.launch {
@@ -367,9 +394,11 @@ class PlaybackRepository(
                             duration = currentDur
                         )
                         
-                        // Save progress periodically (every ~10 seconds)
-                        if (System.currentTimeMillis() % 10000 < 500) {
-                             saveCurrentState()
+                        // Save progress every 10 seconds (deterministic)
+                        val now = System.currentTimeMillis()
+                        if (now - lastProgressSaveMs > 10_000) {
+                            saveCurrentState()
+                            lastProgressSaveMs = now
                         }
                     }
                 }
@@ -463,21 +492,14 @@ class PlaybackRepository(
                     .build()
             }
             
-            // Check for saved progress for the STARTING episode
+            // Check for saved progress and liked status in a single DB query
             var startPosMs = 0L
-            val startEpisodeId = episodes.getOrNull(startIndex)?.id
-            if (startEpisodeId != null) {
-                 val saved = listeningHistoryDao.getHistoryItem(startEpisodeId)
-                 if (saved != null && !saved.isCompleted) {
-                     startPosMs = saved.progressMs
-                 }
-            }
-            
-            // Check liked status for start episode
             var initialLikeState = false
+            val startEpisodeId = episodes.getOrNull(startIndex)?.id
             if (startEpisodeId != null) {
                 val saved = listeningHistoryDao.getHistoryItem(startEpisodeId)
                 if (saved != null) {
+                    if (!saved.isCompleted) startPosMs = saved.progressMs
                     initialLikeState = saved.isLiked
                 }
             }
@@ -512,7 +534,6 @@ class PlaybackRepository(
                 if (map.isNotEmpty()) {
                     cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
                 }
-            } else {
             }
             
             controller.play()
@@ -535,10 +556,12 @@ class PlaybackRepository(
             return
         }
         
-        // Prevent duplicate of currently playing episode (by title — catches republished episodes)
-        val currentEp = _playerState.value.currentEpisode
-        if (currentEp != null && currentEp.title == episode.title && currentEp.id != episode.id) {
-            Log.w("PlaybackRepo", "addToQueue: Episode '${episode.title}' matches currently playing title. Skipping.")
+        // ID-based dedup is sufficient — title matching is too fragile
+        // (podcasts reuse titles like "Bonus Episode", "Q&A", etc.)
+        
+        // Enforce queue size cap
+        if (_playerState.value.queue.size >= QUEUE_MAX_SIZE) {
+            Log.w("PlaybackRepo", "addToQueue: Queue at max capacity ($QUEUE_MAX_SIZE). Skipping.")
             return
         }
 
@@ -906,7 +929,6 @@ class PlaybackRepository(
                         if (map.isNotEmpty()) {
                             cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
                         }
-                    } else {
                     }
                     
                     controller.seekToDefaultPosition(i)

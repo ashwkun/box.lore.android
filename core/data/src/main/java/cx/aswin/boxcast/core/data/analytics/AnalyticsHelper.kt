@@ -548,7 +548,8 @@ object AnalyticsHelper {
         totalDurationSeconds: Float,
         isCompleted: Boolean,
         entryPoint: String? = null,
-        entryPointContext: Map<String, Any>? = null
+        entryPointContext: Map<String, Any>? = null,
+        queueSize: Int? = null
     ) {
         val props = mutableMapOf<String, Any>(
             "episode_id" to episodeId,
@@ -563,6 +564,7 @@ object AnalyticsHelper {
         episodeTitle?.let { props["episode_title"] = it }
         entryPoint?.let { props["entry_point"] = it }
         entryPointContext?.let { props.putAll(it) }
+        queueSize?.let { props["queue_size"] = it }
 
         PostHog.capture(event = "playback_paused", properties = props)
     }
