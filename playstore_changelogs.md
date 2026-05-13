@@ -1,5 +1,5 @@
 <en-GB>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0 is here! A massive update with a fresh, modern UI redesign.
 * Backup & Restore: You can now safely export and import your subscriptions and listening history.
 * Privacy Controls: Updated data privacy transparency and new in-app controls.
@@ -7,7 +7,7 @@ BoxCast v2.0.0
 </en-GB>
 
 <en-US>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0 is here! A massive update with a fresh, modern UI redesign.
 * Backup & Restore: You can now safely export and import your subscriptions and listening history.
 * Privacy Controls: Updated data privacy transparency and new in-app controls.
@@ -15,7 +15,7 @@ BoxCast v2.0.0
 </en-US>
 
 <en-IN>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0 is here! A massive update with a fresh, modern UI redesign.
 * Backup & Restore: You can now safely export and import your subscriptions and listening history.
 * Privacy Controls: Updated data privacy transparency and new in-app controls.
@@ -23,7 +23,7 @@ BoxCast v2.0.0
 </en-IN>
 
 <hi-IN>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0 आ गया है! एक ताज़ा, आधुनिक UI डिज़ाइन के साथ बड़ा अपडेट।
 * बैकअप और रीस्टोर: अब आप अपनी लाइब्रेरी और हिस्ट्री को सुरक्षित रूप से एक्सपोर्ट और इम्पोर्ट कर सकते हैं।
 * प्राइवेसी कंट्रोल्स: बेहतर प्राइवेसी और नए इन-ऐप कंट्रोल्स।
@@ -31,7 +31,7 @@ BoxCast v2.0.0
 </hi-IN>
 
 <ru-RU>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * Встречайте BoxCast 2.0! Крупное обновление с новым современным дизайном.
 * Резервное копирование: Теперь вы можете экспортировать и импортировать вашу библиотеку подкастов.
 * Конфиденциальность: Обновлены настройки приватности и добавлено прозрачное управление данными.
@@ -39,7 +39,7 @@ BoxCast v2.0.0
 </ru-RU>
 
 <es-ES>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * ¡BoxCast 2.0 ya está aquí! Una gran actualización con un nuevo y moderno diseño.
 * Copia de seguridad: Ahora puedes exportar e importar tu biblioteca de podcasts e historial.
 * Privacidad: Controles de privacidad actualizados y mayor transparencia de datos.
@@ -47,7 +47,7 @@ BoxCast v2.0.0
 </es-ES>
 
 <es-US>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * ¡BoxCast 2.0 ya está aquí! Una gran actualización con un nuevo y moderno diseño.
 * Copia de seguridad: Ahora puedes exportar e importar tu biblioteca de podcasts e historial.
 * Privacidad: Controles de privacidad actualizados y mayor transparencia de datos.
@@ -55,7 +55,7 @@ BoxCast v2.0.0
 </es-US>
 
 <it-IT>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0 è arrivato! Un grande aggiornamento con un nuovo design moderno.
 * Backup e ripristino: Ora puoi esportare e importare la tua libreria di podcast.
 * Privacy: Controlli sulla privacy aggiornati e maggiore trasparenza sui dati.
@@ -63,7 +63,7 @@ BoxCast v2.0.0
 </it-IT>
 
 <ja-JP>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0が登場！ 新鮮でモダンなUIデザインの大型アップデート。
 * バックアップと復元: ポッドキャストのライブラリと履歴を安全にエクスポート/インポートできるようになりました。
 * プライバシーコントロール: プライバシー設定が更新され、アプリ内でデータ管理が可能に。
@@ -71,7 +71,7 @@ BoxCast v2.0.0
 </ja-JP>
 
 <zh-CN>
-BoxCast v2.0.0
+BoxCast v2.1.0
 * BoxCast 2.0 来了！全新现代 UI 设计的重大更新。
 * 备份与恢复：现在您可以安全地导出和导入播客订阅与收听历史。
 * 隐私控制：更新了数据隐私政策并新增了应用内管理。
