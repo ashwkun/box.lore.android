@@ -27,7 +27,12 @@ class SubscriptionRepository(
                     imageUrl = entity.imageUrl ?: "",
                     description = entity.description,
                     genre = entity.genre ?: "Podcast", // Use stored genre
-                    latestEpisode = entity.latestEpisode
+                    latestEpisode = entity.latestEpisode,
+                    podcastGuid = entity.podcastGuid,
+                    fundingUrl = entity.fundingUrl,
+                    fundingMessage = entity.fundingMessage,
+                    medium = entity.medium,
+                    hasValue = entity.hasValue
                 )
             }
         }
@@ -50,7 +55,12 @@ class SubscriptionRepository(
                 isSubscribed = true,
                 genre = podcast.genre, // Persist genre for Smart Queue matching
                 lastRefreshed = System.currentTimeMillis(),
-                latestEpisode = podcast.latestEpisode
+                latestEpisode = podcast.latestEpisode,
+                podcastGuid = podcast.podcastGuid,
+                fundingUrl = podcast.fundingUrl,
+                fundingMessage = podcast.fundingMessage,
+                medium = podcast.medium,
+                hasValue = podcast.hasValue
             )
             podcastDao.upsert(entity)
         }

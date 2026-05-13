@@ -161,12 +161,20 @@ class HomeViewModel(
             userPrefs.regionStream.collectLatest { region ->
                 activeRegion = region
                 
+                // CRITICAL FIX: getTrendingPodcastsStream is a cold flow{} that COMPLETES 
+                // after parsing the network response. When used directly in combine(), its 
+                // completion kills the entire combine — meaning resumeSessions and history 
+                // Room flows stop being observed. Fix: collect into a hot StateFlow first.
+                val trendingState = MutableStateFlow<List<Podcast>>(emptyList())
+                launch {
+                    android.util.Log.d("BoxCastTiming", "VM: Base stream starting for region=$region")
+                    podcastRepository.getTrendingPodcastsStream(region, 50, null)
+                        .collect { trendingState.value = it }
+                    android.util.Log.d("BoxCastTiming", "VM: Trending stream completed (cold flow done). StateFlow keeps combine alive.")
+                }
+                
                 combine(
-                    podcastRepository.getTrendingPodcastsStream(region, 50, null) // Dynamic Region
-                        .onStart { 
-                            android.util.Log.d("BoxCastTiming", "VM: Base stream starting for region=$region")
-                            emit(emptyList()) 
-                        },
+                    trendingState, // Hot StateFlow — never completes
                     playbackRepository.resumeSessions
                         .onStart { emit(emptyList()) },
                     subscriptionRepository.subscribedPodcasts

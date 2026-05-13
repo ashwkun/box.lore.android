@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.R
+import cx.aswin.boxcast.core.designsystem.theme.contrastColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -306,7 +307,7 @@ fun AppearanceSection(
                                     .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (isSelected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                if (isSelected) Icon(Icons.Rounded.Check, null, tint = color.contrastColor(), modifier = Modifier.size(24.dp))
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

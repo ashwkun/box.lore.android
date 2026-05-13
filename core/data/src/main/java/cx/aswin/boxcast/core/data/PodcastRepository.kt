@@ -106,7 +106,7 @@ class PodcastRepository(
                                     artist = feed.author ?: "Unknown",
                                     imageUrl = (feed.artwork ?: feed.image).toHttps(),
                                     description = feed.description,
-                                    genre = feed.categories.values.firstOrNull() ?: "Podcast",
+                                    genre = resolvePrimaryGenre(feed.categories),
                                     latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) }
                                 )
                                 podcasts.add(podcast)

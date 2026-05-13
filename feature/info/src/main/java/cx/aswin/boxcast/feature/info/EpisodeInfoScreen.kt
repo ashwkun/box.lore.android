@@ -27,6 +27,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -43,6 +46,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +69,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -200,31 +205,27 @@ fun EpisodeInfoScreen(
         label = "headerColor"
     )
 
-    // Title animation - SINGLE floating title
-    // Font size interpolation: TitleLarge (body) -> TitleMedium (header)
+    // Title animation - header only fade-in
     val titleSizeStart = MaterialTheme.typography.titleLarge.fontSize
     val titleSizeEnd = MaterialTheme.typography.titleMedium.fontSize
     val titleFontSize = androidx.compose.ui.unit.lerp(titleSizeStart, titleSizeEnd, scrollFraction)
     
-    // Y position interpolation (in pixels for graphicsLayer)
-    // Start: Below header, ABOVE artwork in Hero card
-    // End: Centered in header
-    val bodyTitleYPx = with(density) { (collapsedHeaderHeight + 36.dp).toPx() }
+    // Y position fixed in header
     val headerTitleYPx = with(density) { (statusBarHeight + 18.dp).toPx() }
     val titleTranslationY by animateFloatAsState(
-        targetValue = androidx.compose.ui.util.lerp(bodyTitleYPx, headerTitleYPx, scrollFraction),
+        targetValue = headerTitleYPx,
         animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.85f),
         label = "titleY"
     )
     
-    // MaxLines: 4 when expanded, 1 when collapsed (change at 70% for late transition)
-    val titleMaxLines = if (scrollFraction < 0.7f) 4 else 1
-    // Keep alpha at 1 throughout - no fade discontinuity
-    val titleAlpha = 1f
+    // MaxLines: 1 when in header
+    val titleMaxLines = 1
+    // Fade in only when header collapses
+    val titleAlpha = if (scrollFraction > 0.8f) (scrollFraction - 0.8f) / 0.2f else 0f
     
-    // Horizontal padding: more when in body (centered card), less when in header
+    // Horizontal padding in header
     val titleHorizontalPadding by animateDpAsState(
-        targetValue = lerp(36.dp, 56.dp, scrollFraction),
+        targetValue = 56.dp,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label = "titlePadding"
     )
@@ -265,6 +266,37 @@ fun EpisodeInfoScreen(
             }
 
             Box(modifier = modifier.fillMaxSize()) {
+                // Blurred Background Header
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(collapsedHeaderHeight + 240.dp)
+                        .alpha(1f - scrollFraction)
+                ) {
+                    OptimizedImage(
+                        url = state.episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
+                        proxyWidth = 200,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(0.5f)
+                            .blur(50.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                        contentScale = ContentScale.Crop
+                    )
+                    // Gradient overlay to blend into the background
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        androidx.compose.ui.graphics.Color.Transparent,
+                                        MaterialTheme.colorScheme.background
+                                    )
+                                )
+                            )
+                    )
+                }
                 // Content List
                 LazyColumn(
                     state = listState,
@@ -277,128 +309,207 @@ fun EpisodeInfoScreen(
                 ) {
                     // HERO SECTION (Artwork + Title + Podcast Link + Metadata)
                     item {
-                        Surface(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            shape = MaterialTheme.shapes.extraLarge
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(
-                                modifier = Modifier.padding(20.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            // Artwork
+                            Surface(
+                                modifier = Modifier.size(180.dp),
+                                shape = MaterialTheme.shapes.extraLarge, // Match PodcastInfoScreen
+                                shadowElevation = 8.dp
                             ) {
-                                // Title placeholder ABOVE artwork - actual title is floating overlay
-                                // Reserve space for 4 lines of title text at TitleLarge size
-                                Spacer(modifier = Modifier.height(100.dp))
-                                
-                                Spacer(modifier = Modifier.height(12.dp))
+                                OptimizedImage(
+                                    url = state.episode.imageUrl?.ifEmpty { null },
+                                    proxyWidth = 600, // 180dp * ~3x density
+                                    contentDescription = state.episode.title,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
 
-                                // Artwork
-                                Surface(
-                                    modifier = Modifier.size(180.dp),
-                                    shape = MaterialTheme.shapes.large,
-                                    shadowElevation = 8.dp
-                                ) {
-                                    OptimizedImage(
-                                        url = state.episode.imageUrl?.ifEmpty { null },
-                                        proxyWidth = 400, // 180dp * 2x density
-                                        contentDescription = state.episode.title,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
+                            Spacer(modifier = Modifier.height(20.dp))
+                            
+                            // Episode Title
+                            Text(
+                                text = state.episode.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Podcast Title (clickable)
-                                Text(
-                                    text = state.podcastTitle,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = accentColor,
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.expressiveClickable { 
+                            // Podcast Title (clickable)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .expressiveClickable { 
                                         viewModel.onPodcastLinkClicked()
                                         onPodcastClick(state.podcastId) 
                                     }
+                                    .padding(vertical = 4.dp, horizontal = 8.dp)
+                            ) {
+                                Text(
+                                    text = state.podcastTitle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false) // shrink text, never push > off screen
                                 )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                    contentDescription = "Go to podcast",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                                // Metadata Row
-                                val durationText = if (episodeDuration > 3600)
-                                    "${episodeDuration / 3600}hr ${(episodeDuration % 3600) / 60}min"
-                                else "${(episodeDuration % 3600) / 60} min"
+                            // Metadata Row (Chips matching PodcastInfoScreen)
+                            fun formatDuration(seconds: Int): String {
+                                val hours = seconds / 3600
+                                val minutes = (seconds % 3600) / 60
+                                return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+                            }
+                            
+                            fun formatRelativeDate(timestampSeconds: Long): String {
+                                if (timestampSeconds == 0L) return ""
+                                val now = System.currentTimeMillis() / 1000
+                                val diff = now - timestampSeconds
+                                return when {
+                                    diff < 3600 -> "${diff / 60}m ago"
+                                    diff < 86400 -> "${diff / 3600}h ago"
+                                    diff < 604800 -> "${diff / 86400}d ago"
+                                    diff < 2592000 -> "${diff / 604800}w ago"
+                                    diff < 31536000 -> "${diff / 2592000}mo ago"
+                                    else -> "${diff / 31536000}y ago"
+                                }
+                            }
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = durationText,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = " • ",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = state.podcastGenre.ifEmpty { "Podcast" },
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                            androidx.compose.foundation.lazy.LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                                contentPadding = PaddingValues(horizontal = 0.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                // Duration Pill
+                                item {
+                                    Surface(
+                                        shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                    ) {
+                                        Text(
+                                            text = formatDuration(episodeDuration),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+
+                                // Date Pill
+                                val dateText = formatRelativeDate(state.episode.publishedDate)
+                                if (dateText.isNotEmpty()) {
+                                    item {
+                                        Surface(
+                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
+                                            color = MaterialTheme.colorScheme.secondaryContainer,
+                                        ) {
+                                            Text(
+                                                text = dateText,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Season/Episode Pill
+                                val seLabel = buildString {
+                                    state.episode.seasonNumber?.let { append("S$it ") }
+                                    state.episode.episodeNumber?.let { append("E$it") }
+                                }.trim()
+                                if (seLabel.isNotEmpty()) {
+                                    item {
+                                        Surface(
+                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
+                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                        ) {
+                                            Text(
+                                                text = seLabel,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Type Pill
+                                if (state.episode.episodeType != null && state.episode.episodeType != "full") {
+                                    item {
+                                        Surface(
+                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
+                                            color = MaterialTheme.colorScheme.errorContainer,
+                                        ) {
+                                            Text(
+                                                text = state.episode.episodeType!!.replaceFirstChar { it.uppercase() },
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // ACTION CARD (Play Button + Progress)
+                    // ACTION ROW (Play Button + Progress) - Flat design
                     item {
-                        Surface(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = MaterialTheme.shapes.large
+                                .padding(horizontal = 24.dp)
+                                .padding(top = 16.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                // Prepare Progress Data
-                                val progress = if (state.durationMs > 0) (state.resumePositionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
-                                val remainingSeconds = if (state.durationMs > 0) (state.durationMs - state.resumePositionMs) / 1000 else 0
-                                
-                                fun formatRemaining(totalSeconds: Long): String? {
-                                    if (totalSeconds <= 0) return null
-                                    val hours = totalSeconds / 3600
-                                    val minutes = (totalSeconds % 3600) / 60
-                                    return if (hours > 0) "${hours}h ${minutes}m left" else "${minutes}m left"
-                                }
+                            // Prepare Progress Data
+                            val progress = if (state.durationMs > 0) (state.resumePositionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
+                            val remainingSeconds = if (state.durationMs > 0) (state.durationMs - state.resumePositionMs) / 1000 else 0
+                            
+                            fun formatRemaining(totalSeconds: Long): String? {
+                                if (totalSeconds <= 0) return null
+                                val hours = totalSeconds / 3600
+                                val minutes = (totalSeconds % 3600) / 60
+                                return if (hours > 0) "${hours}h ${minutes}m left" else "${minutes}m left"
+                            }
 
-                                // Play Button (Integrated Pill) -- 3 STATES
-                                // 1. PLAYING -> Pause
-                                // 2. PAUSED (Current Ep) -> Resume
-                                // 3. PLAY/RESUME (Saved State) -> Resume/Play
-                                
-                                val isPlaying = state.isPlaying
-                                
-                                cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
-                                    onClick = { viewModel.onMainActionClick(entryPointContext) },
-                                    isPlaying = isPlaying, 
-                                    isResume = state.resumePositionMs > 0,
-                                    accentColor = MaterialTheme.colorScheme.primary,
-                                    progress = progress,
-                                    timeText = formatRemaining(remainingSeconds),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                            val isPlaying = state.isPlaying
+                            val isLiked = likedEpisodeIds.contains(state.episode.id)
+                            val isCompleted = completedEpisodeIds.contains(state.episode.id)
 
+                            // Single Row Layout
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ) {
                                 // Action Buttons Row (Tonal Squircles)
-                                Spacer(modifier = Modifier.height(24.dp))
-                                
-                                val isLiked = likedEpisodeIds.contains(state.episode.id)
-                                val isCompleted = completedEpisodeIds.contains(state.episode.id)
-                                
                                 cx.aswin.boxcast.core.designsystem.components.AdvancedPlayerControls(
                                     isLiked = isLiked,
                                     isDownloaded = isDownloaded, 
@@ -408,13 +519,27 @@ fun EpisodeInfoScreen(
                                     onDownloadClick = { viewModel.toggleDownload(state.episode) },
                                     onQueueClick = { viewModel.toggleQueue() },
                                     style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.TonalSquircle,
-                                    overrideColor = accentColor, // Enforce accent color (Use Primary Family)
+                                    overrideColor = accentColor, // Enforce accent color
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     showAddQueueIcon = true,
                                     isQueued = queuedEpisodeIds.contains(state.episode.id),
                                     showShareButton = false,
                                     isPlayed = isCompleted,
                                     onMarkPlayedClick = { viewModel.onToggleCompletion() },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                                    controlSize = 40.dp
+                                )
+                                
+                                // Play Button (Integrated Pill) — fills remaining space
+                                cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
+                                    onClick = { viewModel.onMainActionClick(entryPointContext) },
+                                    isPlaying = isPlaying, 
+                                    isResume = state.resumePositionMs > 0,
+                                    accentColor = MaterialTheme.colorScheme.primary,
+                                    progress = progress,
+                                    timeText = formatRemaining(remainingSeconds),
+                                    modifier = Modifier
+                                        .height(40.dp)
+                                        .weight(1f) // fill remaining space — no clipping
                                 )
                             }
                         }
@@ -440,8 +565,8 @@ fun EpisodeInfoScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(end = 40.dp, bottom = 8.dp), // Align with the last button in the row
-                                    contentAlignment = Alignment.CenterEnd
+                                        .padding(start = 24.dp, bottom = 8.dp), // Align with the controls on the left
+                                    contentAlignment = Alignment.CenterStart
                                 ) {
                                     Surface(
                                         shape = MaterialTheme.shapes.small,
@@ -461,7 +586,7 @@ fun EpisodeInfoScreen(
                         }
                     }
 
-                    // DESCRIPTION CARD
+                    // DESCRIPTION CARD -> Styled
                     if (state.episode.description.isNotEmpty()) {
                         item {
                             Surface(
@@ -469,19 +594,36 @@ fun EpisodeInfoScreen(
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                shape = MaterialTheme.shapes.large
+                                shape = MaterialTheme.shapes.extraLarge
                             ) {
-                                Column(modifier = Modifier.padding(20.dp)) {
-                                    Text(
-                                        text = "About this episode",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Info,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "About this episode",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    
                                     HtmlText(
                                         text = state.episode.description,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            lineHeight = 24.sp
+                                        ),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -489,7 +631,7 @@ fun EpisodeInfoScreen(
                         }
                     }
 
-                    // UNIFIED "MORE FROM PODCAST" SECTION
+                    // UNIFIED "MORE FROM PODCAST" SECTION -> Card
                     item {
                         Surface(
                             modifier = Modifier
@@ -499,7 +641,9 @@ fun EpisodeInfoScreen(
                             shape = MaterialTheme.shapes.extraLarge
                         ) {
                             Column(
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp)
                             ) {
                                 // Clickable header - "More from Podcast" with arrow
                                 Row(
@@ -509,6 +653,7 @@ fun EpisodeInfoScreen(
                                             viewModel.onPodcastLinkClicked()
                                             onPodcastClick(state.podcastId) 
                                         }
+                                        .padding(horizontal = 24.dp)
                                         .padding(bottom = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -537,7 +682,8 @@ fun EpisodeInfoScreen(
                                 }
                                 LazyRow(
                                     state = relatedListState,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp)
                                 ) {
                                     if (state.relatedEpisodesLoading) {
                                         // Skeleton loaders
@@ -635,6 +781,7 @@ fun EpisodeInfoScreen(
                             }
                         }
                     }
+                    }
                 }
 
                 // HEADER OVERLAY (Back button + animated background)
@@ -678,6 +825,3 @@ fun EpisodeInfoScreen(
             }
         }
     }
-}
-
-

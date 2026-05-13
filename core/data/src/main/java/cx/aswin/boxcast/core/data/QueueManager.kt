@@ -35,43 +35,46 @@ class QueueManager @Inject constructor(
         isRefilling = true
         
         scope.launch {
-            android.util.Log.d(TAG, "Auto-refill triggered for: ${currentEpisode.title}")
-            
-            val currentItem = EpisodeItem(
-                id = currentEpisode.id.toLongOrNull() ?: 0L,
-                title = currentEpisode.title,
-                description = currentEpisode.description,
-                enclosureUrl = currentEpisode.audioUrl,
-                duration = currentEpisode.duration,
-                datePublished = currentEpisode.publishedDate,
-                image = currentEpisode.imageUrl,
-                feedImage = currentEpisode.podcastImageUrl
-            )
-            
-            val nextEntries = smartQueueEngine.getNextEpisodes(currentItem, podcast, null)
-            android.util.Log.d(TAG, "Auto-refill got ${nextEntries.size} more episodes")
-            
-            // Defensive dedup: skip any entry matching currently playing episode
-            val currentEpisodeId = currentEpisode.id
-            val currentEpisodeTitle = currentEpisode.title
-            
-            nextEntries.forEach { entry ->
-                val domainNext = entry.episode.toDomain(entry.podcast)
+            try {
+                android.util.Log.d(TAG, "Auto-refill triggered for: ${currentEpisode.title}")
                 
-                // Skip if same ID or exact same title as currently playing
-                if (domainNext.id == currentEpisodeId || domainNext.title == currentEpisodeTitle) {
-                    android.util.Log.d(TAG, "Refill: Skipping duplicate '${domainNext.title}' (id=${domainNext.id})")
-                    return@forEach
+                val currentItem = EpisodeItem(
+                    id = currentEpisode.id.toLongOrNull() ?: 0L,
+                    title = currentEpisode.title,
+                    description = currentEpisode.description,
+                    enclosureUrl = currentEpisode.audioUrl,
+                    duration = currentEpisode.duration,
+                    datePublished = currentEpisode.publishedDate,
+                    image = currentEpisode.imageUrl,
+                    feedImage = currentEpisode.podcastImageUrl
+                )
+                
+                val nextEntries = smartQueueEngine.getNextEpisodes(currentItem, podcast, null)
+                android.util.Log.d(TAG, "Auto-refill got ${nextEntries.size} more episodes")
+                
+                // Defensive dedup: skip any entry matching currently playing episode
+                val currentEpisodeId = currentEpisode.id
+                
+                nextEntries.forEach { entry ->
+                    val domainNext = entry.episode.toDomain(entry.podcast)
+                    
+                    // Skip if same ID as currently playing
+                    if (domainNext.id == currentEpisodeId) {
+                        android.util.Log.d(TAG, "Refill: Skipping duplicate '${domainNext.title}' (id=${domainNext.id})")
+                        return@forEach
+                    }
+                    
+                    // Add to Persistence
+                    queueRepository.addToQueue(entry.episode, entry.podcast)
+                    
+                    // Add to Active Player Queue
+                    playbackRepository.addToQueue(domainNext, entry.podcast)
                 }
-                
-                // Add to Persistence
-                queueRepository.addToQueue(entry.episode, entry.podcast)
-                
-                // Add to Active Player Queue
-                playbackRepository.addToQueue(domainNext, entry.podcast)
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Auto-refill failed", e)
+            } finally {
+                isRefilling = false
             }
-            
-            isRefilling = false
         }
     }
 
@@ -146,7 +149,8 @@ class QueueManager @Inject constructor(
             chaptersUrl = this.chaptersUrl,
             transcriptUrl = this.transcriptUrl,
             persons = this.persons?.map { cx.aswin.boxcast.core.network.model.PersonItem(name = it.name, role = it.role, img = it.img, href = it.href) },
-            transcripts = this.transcripts?.map { cx.aswin.boxcast.core.network.model.TranscriptItem(url = it.url, type = it.type) }
+            transcripts = this.transcripts?.map { cx.aswin.boxcast.core.network.model.TranscriptItem(url = it.url, type = it.type) },
+            episodeType = this.episodeType
         )
     }
 
@@ -172,7 +176,8 @@ class QueueManager @Inject constructor(
             chaptersUrl = this.chaptersUrl,
             transcriptUrl = this.transcriptUrl,
             persons = this.persons?.map { cx.aswin.boxcast.core.model.Person(name = it.name, role = it.role, img = it.img, href = it.href) },
-            transcripts = this.transcripts?.map { cx.aswin.boxcast.core.model.Transcript(url = it.url, type = it.type) }
+            transcripts = this.transcripts?.map { cx.aswin.boxcast.core.model.Transcript(url = it.url, type = it.type) },
+            episodeType = this.episodeType
         )
     }
 }

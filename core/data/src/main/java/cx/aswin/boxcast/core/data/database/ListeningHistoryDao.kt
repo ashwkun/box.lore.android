@@ -41,9 +41,13 @@ interface ListeningHistoryDao {
     @Query("SELECT * FROM listening_history WHERE episodeId = :episodeId LIMIT 1")
     fun getHistoryItemFlow(episodeId: String): Flow<ListeningHistoryEntity?>
     
-    // Get the most recent incomplete session (for app restart restore)
+    // Get the most recent incomplete session (for resume cards)
     @Query("SELECT * FROM listening_history WHERE isCompleted = 0 ORDER BY lastPlayedAt DESC LIMIT 1")
     suspend fun getLastPlayedSession(): ListeningHistoryEntity?
+
+    // Get the most recent session regardless of completion (for miniplayer restore)
+    @Query("SELECT * FROM listening_history ORDER BY lastPlayedAt DESC LIMIT 1")
+    suspend fun getLastPlayedSessionAny(): ListeningHistoryEntity?
 
     // Like Feature
     @Query("SELECT * FROM listening_history WHERE isLiked = 1 ORDER BY lastPlayedAt DESC")

@@ -60,7 +60,6 @@ class DefaultSmartQueueEngine @Inject constructor(
         }
 
         // 3. Take next episodes from the same podcast (excluding current)
-        val currentTitle = allEpisodes[currentIndex].title
         val currentIdStr = searchId
         val candidates = mutableListOf<Episode>()
         val remainingCount = allEpisodes.size - (currentIndex + 1)
@@ -71,22 +70,29 @@ class DefaultSmartQueueEngine @Inject constructor(
             val limit = minOf(remainingCount, 20)
             for (i in 1..limit) {
                 val candidate = allEpisodes[currentIndex + i]
-                // Skip duplicates: same ID or same exact title as currently playing
-                if (candidate.id == currentIdStr || candidate.title == currentTitle) {
+                // Skip duplicates (by ID only — title dedup is too fragile)
+                if (candidate.id == currentIdStr) {
                     android.util.Log.d("SmartQueue", "Skipping duplicate: '${candidate.title}' (id=${candidate.id})")
+                    continue
+                }
+                // Skip trailers — don't auto-suggest promotional content
+                if (candidate.episodeType == "trailer") {
+                    android.util.Log.d("SmartQueue", "Skipping trailer: '${candidate.title}' (id=${candidate.id})")
                     continue
                 }
                 candidates.add(candidate)
             }
-        } else {
-            // FALLBACK: End of current podcast -> Smart Discovery
-            android.util.Log.d("SmartQueue", "End of podcast! Triggering Smart Fallback")
+        }
+        
+        // If no valid candidates remain (all were trailers or end of podcast), use fallback
+        if (candidates.isEmpty()) {
+            android.util.Log.d("SmartQueue", "No non-trailer candidates remain. Triggering Smart Fallback")
             val fallbackEpisodes = getSmartFallbackEpisodes(podcast)
             android.util.Log.d("SmartQueue", "Fallback returned ${fallbackEpisodes.size} episodes")
             return fallbackEpisodes
         }
         
-        android.util.Log.d("SmartQueue", "Returning ${candidates.size} candidates from same podcast")
+        android.util.Log.d("SmartQueue", "Returning ${candidates.size} candidates from same podcast (trailers excluded)")
 
         return candidates.map { domainEp ->
             val episodeItem = EpisodeItem(
@@ -97,7 +103,8 @@ class DefaultSmartQueueEngine @Inject constructor(
                 duration = domainEp.duration.toInt(),
                 datePublished = domainEp.publishedDate,
                 image = domainEp.imageUrl,
-                feedImage = domainEp.podcastImageUrl
+                feedImage = domainEp.podcastImageUrl,
+                episodeType = domainEp.episodeType
             )
             QueueEntry(episode = episodeItem, podcast = podcast)
         }
@@ -132,7 +139,7 @@ class DefaultSmartQueueEngine @Inject constructor(
         for (sub in eligibleSubs) {
             val subEpisodes = podcastRepository.getEpisodes(sub.id)
                 .sortedByDescending { it.publishedDate }
-                .filter { it.id !in completedEpisodeIds }
+                .filter { it.id !in completedEpisodeIds && it.episodeType != "trailer" }
             
             if (subEpisodes.isNotEmpty()) {
                 android.util.Log.d("SmartQueue", "Fallback: Found unplayed episode in '${sub.title}'")
@@ -166,7 +173,7 @@ class DefaultSmartQueueEngine @Inject constructor(
             
             val trendingEpisodes = podcastRepository.getEpisodes(trendingPod.id)
                 .sortedByDescending { it.publishedDate }
-                .filter { it.id !in completedEpisodeIds }
+                .filter { it.id !in completedEpisodeIds && it.episodeType != "trailer" }
 
             if (trendingEpisodes.isNotEmpty()) {
                 android.util.Log.d("SmartQueue", "Fallback: Found trending '${trendingPod.title}' with unplayed")

@@ -21,5 +21,12 @@ data class PodcastEntity(
     val lastRefreshed: Long = 0,
     
     // Cached latest episode for instantaneous home screen rendering
-    val latestEpisode: cx.aswin.boxcast.core.model.Episode? = null
+    val latestEpisode: cx.aswin.boxcast.core.model.Episode? = null,
+    
+    // Podcasting 2.0 Fields
+    val podcastGuid: String? = null,
+    val fundingUrl: String? = null,
+    val fundingMessage: String? = null,
+    val medium: String? = null,
+    val hasValue: Boolean = false
 )

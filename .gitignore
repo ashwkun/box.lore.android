@@ -54,3 +54,5 @@ telemetry-worker/
 # Local reference and scratch files
 playstore_changelogs.md
 telemetry_events.md
+podcasting_features.md
+posthog-setup-report.md

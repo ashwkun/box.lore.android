@@ -442,15 +442,16 @@ class PodcastInfoViewModel(
     )
     
     fun onPlayClick(episode: Episode) {
+        android.util.Log.d("PodcastInfoViewModel", "onPlayClick triggered for: ${episode.title} (ID: ${episode.id})")
         playedEpisodes.add(episode.id)
         val currentState = _uiState.value as? PodcastInfoUiState.Success ?: return
 
         viewModelScope.launch {
             if (playbackRepository.playerState.value.currentEpisode?.id == episode.id) {
+                android.util.Log.d("PodcastInfoViewModel", "Episode already active, toggling play/pause")
                 playbackRepository.togglePlayPause()
             } else {
-
-                // Pass the current UI sort order to the QueueManager logic
+                android.util.Log.d("PodcastInfoViewModel", "Starting new playback via queueManager")
                 val sortOrder = if (currentState.currentSort == EpisodeSort.OLDEST) "oldest" else "newest"
                 queueManager.playEpisode(episode, currentState.podcast, sortOrder)
             }

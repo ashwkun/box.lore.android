@@ -72,75 +72,9 @@ fun AdvancedPlayerControls(
         val baseActiveTint = overrideColor ?: if (style == ControlStyle.Outlined) Color(0xFFE91E63) else colorScheme.primary
         val baseInactiveTint = overrideColor ?: if (style == ControlStyle.Outlined || style == ControlStyle.TonalSquircle || style == ControlStyle.Transparent) colorScheme.onSurfaceVariant else colorScheme.primary
         
-        // 1. LIKE
-        AdaptiveControlButton(
-            style = style,
-            isActive = isLiked,
-            isLoading = false,
-            colorScheme = colorScheme,
-            activeIcon = Icons.Default.Favorite,
-            inactiveIcon = Icons.Outlined.FavoriteBorder,
-            contentDescription = "Like",
-            activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) colorScheme.onTertiaryContainer else baseActiveTint,
-            inactiveTint = baseInactiveTint,
-            activeContainerColor = if (style == ControlStyle.TonalSquircle) {
-                if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
-            } else Color.Unspecified,
-            controlSize = controlSize,
-            onClick = onLikeClick
-        )
-
-        // 2. QUEUE/ADD TO QUEUE
-        // Player (Squircle) -> View Queue (QueueMusic)
-        // Info (TonalSquircle/Transparent) -> Add to Queue (PlaylistAdd) or forced via showAddQueueIcon
-
-        val queueIcon = if (isQueued) {
-            androidx.compose.material.icons.Icons.Rounded.PlaylistAddCheck
-        } else if (showAddQueueIcon || style == ControlStyle.TonalSquircle || style == ControlStyle.Transparent) {
-            androidx.compose.material.icons.Icons.AutoMirrored.Rounded.PlaylistAdd
-        } else {
-            androidx.compose.material.icons.Icons.AutoMirrored.Rounded.QueueMusic
-        }
+        // --- Reordered for thumb reachability: low-priority LEFT → high-priority RIGHT ---
         
-        AdaptiveControlButton(
-            style = style,
-            isActive = isQueued, 
-            isLoading = false,
-            colorScheme = colorScheme,
-            activeIcon = queueIcon,
-            inactiveIcon = queueIcon,
-            contentDescription = if (isQueued) "Added to Queue" else if (showAddQueueIcon || style == ControlStyle.TonalSquircle || style == ControlStyle.Transparent) "Add to Queue" else "Queue",
-            activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) colorScheme.onTertiaryContainer else baseActiveTint, 
-            inactiveTint = baseInactiveTint,
-            activeContainerColor = if (style == ControlStyle.TonalSquircle) {
-                if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
-            } else Color.Unspecified,
-            controlSize = controlSize,
-            onClick = {
-                android.util.Log.d("AdvancedPlayerControls", "Queue button clicked: isQueued=$isQueued, showAddQueueIcon=$showAddQueueIcon, style=$style")
-                onQueueClick()
-            }
-        )
-        
-        // 3. DOWNLOAD
-        AdaptiveControlButton(
-            style = style,
-            isActive = isDownloaded,
-            isLoading = isDownloading,
-            colorScheme = colorScheme,
-            activeIcon = Icons.Rounded.DownloadDone,
-            inactiveIcon = Icons.Rounded.Download,
-            contentDescription = "Download",
-            activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) colorScheme.onTertiaryContainer else baseActiveTint,
-            inactiveTint = baseInactiveTint,
-            activeContainerColor = if (style == ControlStyle.TonalSquircle) {
-                if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
-            } else Color.Unspecified,
-            controlSize = controlSize,
-            onClick = onDownloadClick
-        )
-        
-        // 4. MARK PLAYED / SHARE
+        // 1. MARK PLAYED (leftmost — least frequent action)
         if (onMarkPlayedClick != null && showMarkPlayedButton) {
              AdaptiveControlButton(
                  style = style,
@@ -173,6 +107,71 @@ fun AdvancedPlayerControls(
                  onClick = { /* TODO layer */ }
              )
          }
+
+        // 2. LIKE
+        AdaptiveControlButton(
+            style = style,
+            isActive = isLiked,
+            isLoading = false,
+            colorScheme = colorScheme,
+            activeIcon = Icons.Default.Favorite,
+            inactiveIcon = Icons.Outlined.FavoriteBorder,
+            contentDescription = "Like",
+            activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) colorScheme.onTertiaryContainer else baseActiveTint,
+            inactiveTint = baseInactiveTint,
+            activeContainerColor = if (style == ControlStyle.TonalSquircle) {
+                if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
+            } else Color.Unspecified,
+            controlSize = controlSize,
+            onClick = onLikeClick
+        )
+        
+        // 3. DOWNLOAD
+        AdaptiveControlButton(
+            style = style,
+            isActive = isDownloaded,
+            isLoading = isDownloading,
+            colorScheme = colorScheme,
+            activeIcon = Icons.Rounded.DownloadDone,
+            inactiveIcon = Icons.Rounded.Download,
+            contentDescription = "Download",
+            activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) colorScheme.onTertiaryContainer else baseActiveTint,
+            inactiveTint = baseInactiveTint,
+            activeContainerColor = if (style == ControlStyle.TonalSquircle) {
+                if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
+            } else Color.Unspecified,
+            controlSize = controlSize,
+            onClick = onDownloadClick
+        )
+
+        // 4. QUEUE/ADD TO QUEUE (rightmost — closest to play button, most frequent)
+        val queueIcon = if (isQueued) {
+            androidx.compose.material.icons.Icons.Rounded.PlaylistAddCheck
+        } else if (showAddQueueIcon || style == ControlStyle.TonalSquircle || style == ControlStyle.Transparent) {
+            androidx.compose.material.icons.Icons.AutoMirrored.Rounded.PlaylistAdd
+        } else {
+            androidx.compose.material.icons.Icons.AutoMirrored.Rounded.QueueMusic
+        }
+        
+        AdaptiveControlButton(
+            style = style,
+            isActive = isQueued, 
+            isLoading = false,
+            colorScheme = colorScheme,
+            activeIcon = queueIcon,
+            inactiveIcon = queueIcon,
+            contentDescription = if (isQueued) "Added to Queue" else if (showAddQueueIcon || style == ControlStyle.TonalSquircle || style == ControlStyle.Transparent) "Add to Queue" else "Queue",
+            activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) colorScheme.onTertiaryContainer else baseActiveTint, 
+            inactiveTint = baseInactiveTint,
+            activeContainerColor = if (style == ControlStyle.TonalSquircle) {
+                if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
+            } else Color.Unspecified,
+            controlSize = controlSize,
+            onClick = {
+                android.util.Log.d("AdvancedPlayerControls", "Queue button clicked: isQueued=$isQueued, showAddQueueIcon=$showAddQueueIcon, style=$style")
+                onQueueClick()
+            }
+        )
     }
 }
 

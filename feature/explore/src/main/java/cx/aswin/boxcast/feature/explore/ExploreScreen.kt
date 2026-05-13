@@ -88,6 +88,8 @@ import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
@@ -314,7 +316,20 @@ fun ExploreContent(
                 }
     
                 // Content
-                if (state.isLoading || (displayList.isEmpty() && !state.isSearching && state.currentVibe == null)) {
+                if (state.isLoading) {
+                    if (state.isSearching || state.currentVibe != null) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BoxCastLoader.Expressive(size = 80.dp)
+                            }
+                        }
+                    } else {
+                        exploreSkeletonGridItems()
+                    }
+                } else if (displayList.isEmpty() && !state.isSearching && state.currentVibe == null) {
                     exploreSkeletonGridItems()
                 } else if (displayList.isEmpty() && (state.isSearching || state.currentVibe != null)) {
                     item(span = StaggeredGridItemSpan.FullLine) {
@@ -553,21 +568,13 @@ private fun ExploreHeroCard(
                     .width(160.dp)
                     .fillMaxHeight()
             ) {
-                SubcomposeAsyncImage(
-                    model = podcast.imageUrl,
+                OptimizedImage(
+                    url = podcast.imageUrl,
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    val state = painter.state
-                    if (state is AsyncImagePainter.State.Loading ||
-                        state is AsyncImagePainter.State.Error ||
-                        podcast.imageUrl.isEmpty()) {
-                        AnimatedShapesFallback()
-                    } else {
-                        SubcomposeAsyncImageContent()
-                    }
-                }
+                )
 
                 // Genre Badge overlay on image
                 if (showGenreChip && podcast.genre.isNotEmpty()) {
@@ -683,23 +690,15 @@ fun ExplorePodcastCard(
                     .fillMaxWidth()
                     .height(cardHeight)
             ) {
-                SubcomposeAsyncImage(
-                    model = podcast.imageUrl,
+                OptimizedImage(
+                    url = podcast.imageUrl,
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                ) {
-                    val state = painter.state
-                    if (state is AsyncImagePainter.State.Loading ||
-                        state is AsyncImagePainter.State.Error ||
-                        podcast.imageUrl.isEmpty()) {
-                        AnimatedShapesFallback()
-                    } else {
-                        SubcomposeAsyncImageContent()
-                    }
-                }
+                )
                 
                 // Genre Chip (only shown when showGenreChip is true)
                 if (showGenreChip && podcast.genre.isNotEmpty()) {

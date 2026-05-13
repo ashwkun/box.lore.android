@@ -106,7 +106,7 @@ class ExploreViewModel(
                     currentCategory = category,
                     searchQuery = query,
                     isSearching = isSearching,
-                    isLoading = pIsLoading && trending.isEmpty() && searchRes.isEmpty(),
+                    isLoading = pIsLoading,
                     currentVibe = currentVibe,
                     suggestedVibes = vibes
                 )

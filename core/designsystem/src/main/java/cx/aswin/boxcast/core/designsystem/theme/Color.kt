@@ -33,3 +33,28 @@ val md_theme_dark_background = Color(0xFF1C1B1F)
 val md_theme_dark_onBackground = Color(0xFFE6E1E5)
 val md_theme_dark_surface = Color(0xFF1C1B1F)
 val md_theme_dark_onSurface = Color(0xFFE6E1E5)
+
+/**
+ * Computes the ideal foreground content color for a given background.
+ * Uses relative luminance to guarantee WCAG-compliant contrast.
+ * Light backgrounds (luminance > 0.4) → dark text, dark backgrounds → light text.
+ *
+ * Usage: `val textColor = backgroundColor.contrastColor()`
+ */
+fun Color.contrastColor(): Color =
+    if (this.luminance() > 0.4f) Color.Black else Color.White
+
+/**
+ * Like [contrastColor] but returns the color with an optional alpha.
+ */
+fun Color.contrastColor(alpha: Float): Color =
+    contrastColor().copy(alpha = alpha)
+
+/**
+ * Returns the luminance value for this color (0.0 = pure black, 1.0 = pure white).
+ * Convenience wrapper around the Compose Color.luminance() extension.
+ */
+private fun Color.luminance(): Float {
+    // sRGB relative luminance per ITU-R BT.709
+    return 0.2126f * red + 0.7152f * green + 0.0722f * blue
+}

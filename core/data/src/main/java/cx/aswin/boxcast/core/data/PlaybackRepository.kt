@@ -161,6 +161,23 @@ class PlaybackRepository(
                         }
                     }
                 }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    Log.e("PlaybackRepo", "Player Error: ${error.message}", error)
+                    mediaController?.stop()
+                    mediaController?.clearMediaItems()
+                    _playerState.value = _playerState.value.copy(
+                        isPlaying = false, 
+                        isLoading = false,
+                        currentEpisode = null,
+                        queue = emptyList()
+                    )
+                    repositoryScope.launch {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            android.widget.Toast.makeText(context, "Playback error: Stream may be unavailable or broken.", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
                 
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     // Use mediaId to find episode — more reliable than index
@@ -275,7 +292,7 @@ class PlaybackRepository(
         if (hasMedia && _playerState.value.currentEpisode == null) {
             // MediaController has media but we don't have metadata - restore from DB
             repositoryScope.launch {
-                val lastSession = listeningHistoryDao.getLastPlayedSession()
+                val lastSession = listeningHistoryDao.getLastPlayedSessionAny()
                 if (lastSession != null) {
                     var episode = Episode(
                         id = lastSession.episodeId,
@@ -502,6 +519,10 @@ class PlaybackRepository(
             
             // Sync queue to DB for restart recovery
             syncQueueToDb()
+            
+            // Immediate save so Home resume card appears right away
+            // (without this, first DB write doesn't happen until ~10s periodic ticker save)
+            saveCurrentState()
         }
     }
 
@@ -663,7 +684,7 @@ class PlaybackRepository(
             return false
         }
         
-        val lastSession = listeningHistoryDao.getLastPlayedSession() ?: return false
+        val lastSession = listeningHistoryDao.getLastPlayedSessionAny() ?: return false
         
         // Construct Episode WITH podcast metadata (critical for onMediaItemTransition)
         var episode = Episode(

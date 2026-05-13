@@ -39,7 +39,7 @@ data class TrendingFeed(
     val language: String? = null,
     
     @SerialName("categories")
-    val categories: Map<String, String> = emptyMap(),
+    val categories: Map<String, String>? = emptyMap(),
     
     @SerialName("itunesId")
     val itunesId: Long? = null,
@@ -86,7 +86,7 @@ data class SearchFeed(
     val artwork: String? = null,
     
     @SerialName("categories")
-    val categories: Map<String, String> = emptyMap()
+    val categories: Map<String, String>? = emptyMap()
 )
 
 // ============== EPISODES ==============
@@ -226,7 +226,7 @@ data class PodcastFeed(
     val language: String? = null,
     
     @SerialName("categories")
-    val categories: Map<String, String> = emptyMap(),
+    val categories: Map<String, String>? = emptyMap(),
 
     // --- Podcast 2.0 Fields ---
     @SerialName("funding")

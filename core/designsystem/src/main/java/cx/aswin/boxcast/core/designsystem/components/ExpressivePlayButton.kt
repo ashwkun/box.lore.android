@@ -2,6 +2,8 @@ package cx.aswin.boxcast.core.designsystem.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -13,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxcast.core.designsystem.theme.contrastColor
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExpressivePlayButton(
     onClick: () -> Unit,
@@ -29,10 +33,9 @@ fun ExpressivePlayButton(
 
     Surface(
         color = accentColor,
-        contentColor = Color.White,
+        contentColor = accentColor.contrastColor(),
         shape = playPillShape,
         modifier = modifier
-            .height(56.dp)
             .expressiveClickable(onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -47,7 +50,7 @@ fun ExpressivePlayButton(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(4.dp), // Thin strip at bottom
-                        color = Color.White.copy(alpha = 0.5f), // Lighter tint of content
+                        color = accentColor.contrastColor(alpha = 0.5f), // Lighter tint of content
                         trackColor = Color.Transparent,
                         drawStopIndicator = {}
                     )
@@ -58,7 +61,7 @@ fun ExpressivePlayButton(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(horizontal = 24.dp)
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -67,7 +70,7 @@ fun ExpressivePlayButton(
                 )
                 
                 // Show text if there is space (implied, or always show for this component)
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 
                 // Formatted Text: "Resume • 12m left" or "Play"
                 val displayText = if (isPlaying) {
@@ -82,8 +85,13 @@ fun ExpressivePlayButton(
                 
                 Text(
                     text = displayText,
-                    style = if (isResume) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .basicMarquee(iterations = Int.MAX_VALUE)
                 )
             }
         }
