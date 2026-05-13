@@ -421,32 +421,26 @@ fun PrivacySection(
         Spacer(Modifier.height(16.dp))
 
         // Breakdown
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Anonymous Usage", style = MaterialTheme.typography.bodySmall)
-                }
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Device-Level Plays", style = MaterialTheme.typography.bodySmall)
-                }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Anonymous Usage", style = MaterialTheme.typography.bodyMedium)
             }
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Device & Approx Location", style = MaterialTheme.typography.bodySmall)
-                }
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Cancel, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("NO PII (Personal Info)", style = MaterialTheme.typography.bodySmall)
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Device-Level Plays", style = MaterialTheme.typography.bodyMedium)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Device & Approximate Location", style = MaterialTheme.typography.bodyMedium)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Cancel, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("NO PII (Personal Info)", style = MaterialTheme.typography.bodyMedium)
             }
         }
 
