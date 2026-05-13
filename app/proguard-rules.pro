@@ -61,3 +61,7 @@
 # Keep BuildConfig
 -keep class cx.aswin.boxcast.BuildConfig { *; }
 -keep class cx.aswin.boxcast.core.network.BuildConfig { *; }
+
+# Fix R8 compilation errors due to missing Kotlin 2.0 classes in transitive dependencies
+-dontwarn kotlin.uuid.**
+-dontwarn kotlinx.serialization.builtins.BuiltinSerializersKt
