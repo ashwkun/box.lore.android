@@ -177,7 +177,7 @@ fun YourShowsSection(
                             androidx.compose.material3.FilledTonalButton(
                                 onClick = onViewLibrary,
                                 modifier = Modifier.fillMaxSize(),
-                                shape = MaterialTheme.shapes.small,
+                                shape = CircleShape,
                                 colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 )

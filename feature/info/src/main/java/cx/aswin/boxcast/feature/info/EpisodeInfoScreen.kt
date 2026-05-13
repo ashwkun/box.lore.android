@@ -437,12 +437,14 @@ fun EpisodeInfoScreen(
                                 }
 
                                 // Season/Episode Pill
+                                val season = state.episode.seasonNumber
+                                val episode = state.episode.episodeNumber
                                 val seLabel = buildString {
-                                    if (state.episode.seasonNumber != null && state.episode.seasonNumber > 0) {
-                                        append("S${state.episode.seasonNumber} ")
+                                    if (season != null && season > 0) {
+                                        append("S$season ")
                                     }
-                                    if (state.episode.episodeNumber != null && state.episode.episodeNumber > 0) {
-                                        append("E${state.episode.episodeNumber}")
+                                    if (episode != null && episode > 0) {
+                                        append("E$episode")
                                     }
                                 }.trim()
                                 if (seLabel.isNotEmpty()) {
