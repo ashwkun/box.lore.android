@@ -2,9 +2,8 @@ name: Sync Search Index
 
 on:
   schedule:
-    # Run weekly on Sundays at 4:00 AM UTC
-    # Podcast Index dump updates weekly — no need for more frequent syncs
-    - cron: '0 4 * * 0'
+    # Run fortnightly — 1st and 15th of each month at 4:00 AM UTC
+    - cron: '0 4 1,15 * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

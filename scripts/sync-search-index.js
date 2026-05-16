@@ -108,6 +108,7 @@ async function ensureSchema() {
             language TEXT,
             episode_count INTEGER DEFAULT 0,
             newest_pub_date INTEGER DEFAULT 0,
+            popularity_score INTEGER DEFAULT 0,
             updated_at TEXT DEFAULT (datetime('now'))
         )
     `);
@@ -145,6 +146,17 @@ function extractFromPIDump() {
         throw new Error(`PI database not found at ${PI_DB_PATH}`);
     }
 
+    // Inspect schema for debugging
+    try {
+        const schema = execSync(
+            `sqlite3 "${PI_DB_PATH}" "PRAGMA table_info(podcasts);"`,
+            { encoding: 'utf-8' }
+        ).trim();
+        console.log("📋 PI dump columns:", schema.split('\n').map(l => l.split('|')[1]).join(', '));
+    } catch (e) {
+        console.warn("⚠️ Could not inspect schema:", e.message);
+    }
+
     // Get total count first
     const countResult = execSync(
         `sqlite3 "${PI_DB_PATH}" "SELECT COUNT(*) FROM podcasts WHERE dead = 0 AND episodeCount >= ${MIN_EPISODES};"`,
@@ -152,31 +164,41 @@ function extractFromPIDump() {
     ).trim();
     console.log(`📊 Total qualifying podcasts: ${countResult}`);
 
-    // Export as CSV with pipe delimiter (avoids comma-in-description issues)
-    // Using JSON output for safer parsing
+    // Write the SQL to a temp file to avoid shell escaping issues
     const exportSQL = `
         SELECT 
             id,
             title,
-            COALESCE(itunesAuthor, author, '') as author,
+            COALESCE(itunesAuthor, '') as author,
             SUBSTR(COALESCE(description, ''), 1, ${DESC_MAX_LENGTH}) as description,
-            COALESCE(artwork, imageUrl, '') as artwork,
-            COALESCE(category1, '') || CASE WHEN category2 IS NOT NULL AND category2 != '' THEN ',' || category2 ELSE '' END as categories,
+            COALESCE(imageUrl, '') as artwork,
+            TRIM(
+                COALESCE(category1, '') || 
+                CASE WHEN category2 != '' THEN ',' || category2 ELSE '' END ||
+                CASE WHEN category3 != '' THEN ',' || category3 ELSE '' END ||
+                CASE WHEN category4 != '' THEN ',' || category4 ELSE '' END ||
+                CASE WHEN category5 != '' THEN ',' || category5 ELSE '' END
+            ) as categories,
             COALESCE(language, 'en') as language,
             episodeCount,
-            COALESCE(newestItemPubdate, 0) as newest_pub_date
+            COALESCE(newestItemPubdate, 0) as newest_pub_date,
+            COALESCE(popularityScore, 0) as popularity_score
         FROM podcasts
         WHERE dead = 0
           AND episodeCount >= ${MIN_EPISODES}
           AND title IS NOT NULL
           AND title != ''
-        ORDER BY episodeCount DESC;
+        ORDER BY popularityScore DESC, episodeCount DESC;
     `;
+
+    // Write SQL to temp file to avoid shell quoting nightmares
+    const sqlFile = '/tmp/search_export.sql';
+    fs.writeFileSync(sqlFile, exportSQL.trim());
 
     // Use JSON mode for reliable parsing
     const rawOutput = execSync(
-        `sqlite3 -json "${PI_DB_PATH}" "${exportSQL.replace(/\n/g, ' ').replace(/"/g, '\\"')}"`,
-        { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 500 } // 500MB buffer
+        `sqlite3 -json "${PI_DB_PATH}" < "${sqlFile}"`,
+        { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 1500 } // 1.5GB buffer for large output
     ).trim();
 
     let rows;
@@ -184,6 +206,8 @@ function extractFromPIDump() {
         rows = JSON.parse(rawOutput);
     } catch (e) {
         console.error("❌ Failed to parse sqlite3 JSON output");
+        // Try to show first 500 chars for debugging
+        console.error("First 500 chars:", rawOutput.substring(0, 500));
         throw e;
     }
 
@@ -225,8 +249,8 @@ async function importToTurso(rows) {
 
             statements.push({
                 sql: `INSERT OR REPLACE INTO podcast_search 
-                      (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, updated_at)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+                      (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
                 args: [
                     row.id,
                     title,
@@ -236,7 +260,8 @@ async function importToTurso(rows) {
                     sanitize(row.categories),
                     sanitize(row.language),
                     row.episodeCount || row.episode_count || 0,
-                    row.newest_pub_date || 0
+                    row.newest_pub_date || 0,
+                    row.popularity_score || 0
                 ]
             });
         }
