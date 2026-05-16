@@ -44,10 +44,14 @@ async function executeSQL(sql, args = []) {
                 type: "execute",
                 stmt: {
                     sql,
-                    args: args.map(a => ({
-                        type: a === null ? "null" : "text",
-                        value: a === null ? null : String(a)
-                    }))
+                    args: args.map(a => {
+                        if (a === null || a === undefined) return { type: "null" };
+                        if (typeof a === "number") {
+                            if (Number.isNaN(a)) return { type: "null" };
+                            return { type: "integer", value: String(Math.round(a)) };
+                        }
+                        return { type: "text", value: String(a) };
+                    })
                 }
             }, { type: "close" }]
         })
@@ -74,10 +78,14 @@ async function executeBatch(statements) {
         type: "execute",
         stmt: {
             sql: stmt.sql,
-            args: stmt.args.map(a => ({
-                type: a === null ? "null" : "text",
-                value: a === null ? null : String(a || "")
-            }))
+            args: stmt.args.map(a => {
+                if (a === null || a === undefined) return { type: "null" };
+                if (typeof a === "number") {
+                    if (Number.isNaN(a)) return { type: "null" };
+                    return { type: "integer", value: String(Math.round(a)) };
+                }
+                return { type: "text", value: String(a) };
+            })
         }
     }));
     requests.push({ type: "close" });
@@ -97,12 +105,17 @@ async function executeBatch(statements) {
     }
 
     const data = await response.json();
+    let successCount = 0;
     for (let i = 0; i < (data.results || []).length; i++) {
         const res = data.results[i];
         if (res.type === "error") {
-            throw new Error(`Turso SQL error at statement ${i}: ${res.error?.message}`);
+            console.error(`⚠️ SQL error at statement ${i}: ${res.error?.message}`);
+            console.error(`   Statement: ${statements[i].sql.trim()} | Args: ${JSON.stringify(statements[i].args)}`);
+        } else {
+            successCount++;
         }
     }
+    data.successCount = successCount;
     return data;
 }
 
@@ -208,6 +221,9 @@ WHERE dead = 0
   AND episodeCount >= ${MIN_EPISODES}
   AND title IS NOT NULL
   AND title != ''
+  AND COALESCE(language, '') NOT LIKE 'zh%'
+  AND COALESCE(language, '') NOT LIKE 'ja%'
+  AND COALESCE(language, '') NOT LIKE 'ko%'
 ORDER BY popularityScore DESC, episodeCount DESC;
 .output stdout
 `;
@@ -328,7 +344,7 @@ async function streamImportToTurso(expectedCount) {
                   (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
             args: [
-                row.id,
+                parseInt(row.id, 10),
                 title,
                 sanitize(row.author),
                 sanitize(row.description),
@@ -336,18 +352,19 @@ async function streamImportToTurso(expectedCount) {
                 sanitize(row.categories),
                 sanitize(row.language),
                 eps,
-                row.newest_pub_date || 0,
-                row.popularity_score || 0
+                parseInt(row.newest_pub_date || '0', 10),
+                parseInt(row.popularity_score || '0', 10)
             ]
         });
 
         // Flush batch
         if (batch.length >= BATCH_SIZE) {
             try {
-                await executeBatch(batch);
-                imported += batch.length;
+                const res = await executeBatch(batch);
+                imported += res.successCount || 0;
+                errors += (batch.length - (res.successCount || 0));
             } catch (e) {
-                console.error(`⚠️ Batch error at line ${lineNum}:`, e.message);
+                console.error(`⚠️ Batch HTTP error at line ${lineNum}:`, e.message);
                 errors += batch.length;
             }
             batch = [];
@@ -365,8 +382,9 @@ async function streamImportToTurso(expectedCount) {
     // Flush remaining
     if (batch.length > 0) {
         try {
-            await executeBatch(batch);
-            imported += batch.length;
+            const res = await executeBatch(batch);
+            imported += res.successCount || 0;
+            errors += (batch.length - (res.successCount || 0));
         } catch (e) {
             errors += batch.length;
         }
