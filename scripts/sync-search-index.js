@@ -268,6 +268,9 @@ async function streamImportToTurso(expectedCount) {
     let lineNum = 0;
     const startTime = Date.now();
 
+    // Dictionary tracking
+    const wordStats = new Map();
+
     for await (const line of rl) {
         lineNum++;
 
@@ -288,6 +291,23 @@ async function streamImportToTurso(expectedCount) {
         const title = sanitize(row.title);
         if (!title) continue;
 
+        const eps = parseInt(row.episodeCount || row.episode_count || 0, 10);
+
+        // Build dictionary stats
+        // Strip punctuation, make lowercase, split by whitespace
+        const words = title.toLowerCase().replace(/['"]/g, "").replace(/[^\w\s]/g, " ").split(/\s+/);
+        // Unique words per title so "the the" counts as 1
+        const uniqueWords = new Set(words);
+        for (const w of uniqueWords) {
+            // Only keep alphabetical words, length >= 4
+            if (w.length >= 4 && /^[a-z]+$/.test(w)) {
+                const stat = wordStats.get(w) || { count: 0, maxEpisodes: 0 };
+                stat.count += 1;
+                if (eps > stat.maxEpisodes) stat.maxEpisodes = eps;
+                wordStats.set(w, stat);
+            }
+        }
+
         batch.push({
             sql: `INSERT OR REPLACE INTO podcast_search 
                   (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at)
@@ -300,7 +320,7 @@ async function streamImportToTurso(expectedCount) {
                 sanitize(row.artwork),
                 sanitize(row.categories),
                 sanitize(row.language),
-                row.episodeCount || row.episode_count || 0,
+                eps,
                 row.newest_pub_date || 0,
                 row.popularity_score || 0
             ]
@@ -339,7 +359,7 @@ async function streamImportToTurso(expectedCount) {
 
     const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n✅ Import complete: ${imported} rows in ${totalElapsed}s (${errors} errors)`);
-    return imported;
+    return { imported, wordStats };
 }
 
 // ── Rebuild FTS5 index ──────────────────────────────────────────────
@@ -367,6 +387,10 @@ async function verify() {
     const countRes = await executeSQL("SELECT COUNT(*) as c FROM podcast_search");
     const count = countRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || '0';
     console.log(`  📊 Total rows in podcast_search: ${count}`);
+
+    const ftsRes = await executeSQL("SELECT COUNT(*) as c FROM podcast_search_fts");
+    const ftsCount = ftsRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || '0';
+    console.log(`  📊 Total rows in FTS index: ${ftsCount}`);
 
     // Test a search
     const testRes = await executeSQL(
@@ -404,7 +428,19 @@ async function main() {
     const expectedCount = extractToCSV();
 
     // 3. Stream import to Turso
-    const imported = await streamImportToTurso(expectedCount);
+    const { imported, wordStats } = await streamImportToTurso(expectedCount);
+
+    // Build and save dictionary
+    console.log(`\n📚 Building spell-check dictionary from ${wordStats.size} unique words...`);
+    const validWords = [];
+    for (const [word, stat] of wordStats.entries()) {
+        if (stat.count > 3 || stat.maxEpisodes > 50) {
+            validWords.push(word);
+        }
+    }
+    console.log(`  Filtered down to ${validWords.length} valid words.`);
+    fs.writeFileSync('spell_dict.json', JSON.stringify(validWords));
+    console.log(`  Saved dictionary to spell_dict.json`);
 
     // 4. Rebuild FTS5 index
     await rebuildFTS();
