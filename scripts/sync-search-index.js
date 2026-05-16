@@ -22,7 +22,8 @@ const TURSO_URL = process.env.TURSO_URL?.replace('libsql://', 'https://');
 const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN;
 const PI_DB_PATH = process.env.PI_DB_PATH || 'podcastindex_feeds.db';
 const MIN_EPISODES = parseInt(process.env.MIN_EPISODES || '5', 10);
-const BATCH_SIZE = 1000; // Increased batch size for faster inserts
+const BATCH_SIZE = 2500; // Increased to max safe parameter limit
+const MAX_CONCURRENT = 4; // Number of concurrent Turso HTTP requests
 const DESC_MAX_LENGTH = 300; // Truncate descriptions to save space
 
 if (!TURSO_URL || !TURSO_TOKEN) {
@@ -294,6 +295,7 @@ async function streamImportToTurso(expectedCount) {
 
     let headers = null;
     let batch = [];
+    let promises = [];
     let imported = 0;
     let errors = 0;
     let lineNum = 0;
@@ -360,36 +362,6 @@ async function streamImportToTurso(expectedCount) {
 
         // Flush batch
         if (batch.length >= BATCH_SIZE) {
-            try {
-                let sql = `INSERT OR REPLACE INTO podcast_search (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at) VALUES `;
-                const args = [];
-                const placeholders = [];
-                for (const r of batch) {
-                    placeholders.push(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
-                    args.push(...r);
-                }
-                sql += placeholders.join(", ");
-                await executeSQL(sql, args);
-                imported += batch.length;
-            } catch (e) {
-                console.error(`⚠️ Bulk insert error at line ${lineNum}:`, e.message);
-                errors += batch.length;
-            }
-            batch = [];
-
-            // Progress log every 5000 rows
-            if (imported % 5000 < BATCH_SIZE) {
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-                const rate = (imported / elapsed).toFixed(0);
-                const pct = Math.round((imported / expectedCount) * 100);
-                console.log(`  📥 ${imported}/${expectedCount} (${pct}%) | ${rate} rows/s | Errors: ${errors}`);
-            }
-        }
-    }
-
-    // Flush remaining
-    if (batch.length > 0) {
-        try {
             let sql = `INSERT OR REPLACE INTO podcast_search (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at) VALUES `;
             const args = [];
             const placeholders = [];
@@ -398,11 +370,57 @@ async function streamImportToTurso(expectedCount) {
                 args.push(...r);
             }
             sql += placeholders.join(", ");
-            await executeSQL(sql, args);
-            imported += batch.length;
-        } catch (e) {
-            errors += batch.length;
+            
+            const currentBatchLen = batch.length;
+            const currentLineNum = lineNum;
+            
+            const p = executeSQL(sql, args).then(() => {
+                imported += currentBatchLen;
+                
+                // Progress log
+                if (imported % 10000 < BATCH_SIZE * MAX_CONCURRENT) {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    const rate = (imported / elapsed).toFixed(0);
+                    const pct = Math.round((imported / expectedCount) * 100);
+                    console.log(`  📥 ${imported}/${expectedCount} (${pct}%) | ${rate} rows/s | Errors: ${errors}`);
+                }
+            }).catch(e => {
+                console.error(`⚠️ Bulk insert error at line ${currentLineNum}:`, e.message);
+                errors += currentBatchLen;
+            });
+            
+            promises.push(p);
+            batch = [];
+
+            if (promises.length >= MAX_CONCURRENT) {
+                await Promise.all(promises);
+                promises = [];
+            }
         }
+    }
+
+    // Flush remaining
+    if (batch.length > 0) {
+        let sql = `INSERT OR REPLACE INTO podcast_search (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at) VALUES `;
+        const args = [];
+        const placeholders = [];
+        for (const r of batch) {
+            placeholders.push(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+            args.push(...r);
+        }
+        sql += placeholders.join(", ");
+        
+        const currentBatchLen = batch.length;
+        const p = executeSQL(sql, args).then(() => {
+            imported += currentBatchLen;
+        }).catch(e => {
+            errors += currentBatchLen;
+        });
+        promises.push(p);
+    }
+    
+    if (promises.length > 0) {
+        await Promise.all(promises);
     }
 
     const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
