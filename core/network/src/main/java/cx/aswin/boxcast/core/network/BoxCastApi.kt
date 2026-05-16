@@ -38,11 +38,10 @@ interface BoxCastApi {
         @Query("cat") category: String? = null // New: Genre Filter
     ): retrofit2.Call<okhttp3.ResponseBody>
 
-    @GET("search/v2")
+    @GET("search")
     fun search(
         @Header("X-App-Key") publicKey: String,
-        @Query("q") query: String,
-        @Query("exact") exact: Boolean? = null
+        @Query("q") query: String
     ): retrofit2.Call<SearchResponse>
 
     @GET("episodes")

@@ -45,11 +45,11 @@ jobs:
           MIN_EPISODES: '10'
         run: node scripts/sync-search-index.js
 
-      - name: Upload Spell Dictionary to Cloudflare KV
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler@latest kv key put spell_dict_v1 --namespace-id=b97e807ebc7a47449effd0ce8d9f5b0c --path=spell_dict.json
+      - name: Upload Spell Dictionary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spell-dictionary
+          path: spell_dict.json
 
       - name: Cleanup
         run: rm -f *.db *.tgz

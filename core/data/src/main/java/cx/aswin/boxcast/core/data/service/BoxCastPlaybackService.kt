@@ -887,7 +887,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     if (results.size < 10) {
                         try {
                             val apiResults = podcastRepository.searchPodcasts(query)
-                            apiResults.podcasts.take(10).forEach { podcast ->
+                            apiResults.take(10).forEach { podcast ->
                                 val artworkUri = android.net.Uri.parse(podcast.imageUrl)
                                 results.add(
                                     MediaItem.Builder()
@@ -1027,7 +1027,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     // Not in subscriptions → search Podcast Index API
                     try {
                         val apiResults = podcastRepository.searchPodcasts(searchQuery)
-                        val firstPod = apiResults.podcasts.firstOrNull()
+                        val firstPod = apiResults.firstOrNull()
                         if (firstPod != null) {
                             android.util.Log.d("AutoBrowse", "Voice matched API: ${firstPod.title}")
                             val episodes = podcastRepository.getEpisodes(firstPod.id)

@@ -61,9 +61,6 @@ data class SearchResponse(
     @SerialName("status")
     val status: String,
     
-    @SerialName("correctedQuery")
-    val correctedQuery: String? = null,
-    
     @SerialName("feeds")
     val feeds: List<SearchFeed> = emptyList()
 )

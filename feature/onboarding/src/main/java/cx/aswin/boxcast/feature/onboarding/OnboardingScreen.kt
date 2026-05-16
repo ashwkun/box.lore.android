@@ -124,7 +124,6 @@ fun OnboardingScreen(
             OnboardingStep.SEARCH -> {
                 OnboardingSearchScreen(
                     query = uiState.searchQuery,
-                    correctedQuery = uiState.correctedQuery,
                     results = uiState.searchResults,
                     isSearching = uiState.isSearching,
                     subscribedIds = uiState.subscribedPodcastIds,
@@ -671,11 +670,10 @@ private fun GenreChip(
 @Composable
 private fun OnboardingSearchScreen(
     query: String,
-    correctedQuery: String?,
     results: List<Podcast>,
     isSearching: Boolean,
     subscribedIds: Set<String>,
-    onQueryChange: (String, Boolean) -> Unit,
+    onQueryChange: (String) -> Unit,
     onSubscribe: (Podcast) -> Unit,
     onBack: () -> Unit,
     onDone: () -> Unit
@@ -699,7 +697,7 @@ private fun OnboardingSearchScreen(
             
             OutlinedTextField(
                 value = query,
-                onValueChange = { onQueryChange(it, false) },
+                onValueChange = onQueryChange,
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Search podcasts...") },
                 singleLine = true,
@@ -707,7 +705,7 @@ private fun OnboardingSearchScreen(
                 leadingIcon = { Icon(Icons.Rounded.Search, null, modifier = Modifier.size(20.dp)) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
-                        IconButton(onClick = { onQueryChange("", false) }) {
+                        IconButton(onClick = { onQueryChange("") }) {
                             Icon(Icons.Rounded.Close, "Clear", modifier = Modifier.size(20.dp))
                         }
                     }
@@ -742,33 +740,6 @@ private fun OnboardingSearchScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (correctedQuery != null) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Surface(
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier
-                                    .padding(horizontal = 32.dp)
-                                    .expressiveClickable { onQueryChange(query, true) }
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "Showing results for $correctedQuery",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    )
-                                    Text(
-                                        text = "Search instead for $query",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -786,54 +757,17 @@ private fun OnboardingSearchScreen(
                 }
             }
             else -> {
-                Column(modifier = Modifier.weight(1f)) {
-                    if (correctedQuery != null) {
-                        androidx.compose.material3.Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .expressiveClickable { onQueryChange(query, true) }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "Showing results for $correctedQuery",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    )
-                                    Text(
-                                        text = "Search instead for $query",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(results, key = { it.id }) { podcast ->
-                            SearchResultRow(
-                                podcast = podcast,
-                                isSubscribed = podcast.id in subscribedIds,
-                                onSubscribe = { onSubscribe(podcast) }
-                            )
-                        }
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(results, key = { it.id }) { podcast ->
+                        SearchResultRow(
+                            podcast = podcast,
+                            isSubscribed = podcast.id in subscribedIds,
+                            onSubscribe = { onSubscribe(podcast) }
+                        )
                     }
                 }
             }

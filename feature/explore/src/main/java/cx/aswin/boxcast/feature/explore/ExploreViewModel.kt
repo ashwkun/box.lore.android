@@ -30,7 +30,6 @@ sealed interface ExploreUiState {
         val subscribedIds: Set<String> = emptySet(), // For badging
         val currentCategory: String = "All",
         val searchQuery: String = "",
-        val correctedQuery: String? = null,
         val isSearching: Boolean = false,
         val isLoading: Boolean = false, // For showing skeleton in grid area only
         val currentVibe: String? = null,
@@ -50,9 +49,7 @@ class ExploreViewModel(
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
 
     // Internal state to combine
-    data class SearchRequest(val query: String, val exact: Boolean = false)
-    private val _searchRequest = MutableStateFlow(SearchRequest("", false))
-    private val _correctedQuery = MutableStateFlow<String?>(null)
+    private val _searchQuery = MutableStateFlow("")
     private val _currentCategory = MutableStateFlow(initialCategory ?: "All") // Use it here
     private val _trendingPodcasts = MutableStateFlow<List<Podcast>>(emptyList())
     private val _searchResults = MutableStateFlow<List<Podcast>>(emptyList())
@@ -82,23 +79,23 @@ class ExploreViewModel(
                 _currentCategory,
                 _trendingPodcasts,
                 _searchResults,
-                _searchRequest,
-                _correctedQuery
+                _searchQuery,
+                _isLoading
             ) { args: Array<Any?> ->
                 val subIds = args[0] as Set<String>
                 val category = args[1] as String
                 val trending = args[2] as List<Podcast>
                 val searchRes = args[3] as List<Podcast>
-                val request = args[4] as SearchRequest
-                val corrected = args[5] as String?
+                val query = args[4] as String
+                val pIsLoading = args[5] as Boolean
                 // Custom combine to pull all flows
-                Triple(subIds, category, trending) to Triple(searchRes, request.query, corrected)
+                Triple(subIds, category, trending) to Triple(searchRes, query, pIsLoading)
             }.combine(
-                combine(_isLoading, _currentVibe, _suggestedVibes) { loading, vibe, vibes -> Triple(loading, vibe, vibes) }
-            ) { (trip1, trip2), trip3 ->
+                combine(_currentVibe, _suggestedVibes) { vibe, vibes -> vibe to vibes }
+            ) { (trip1, trip2), vibePair ->
                 val (subIds, category, trending) = trip1
-                val (searchRes, query, corrected) = trip2
-                val (pIsLoading, currentVibe, vibes) = trip3
+                val (searchRes, query, pIsLoading) = trip2
+                val (currentVibe, vibes) = vibePair
 
                 val isSearching = query.isNotEmpty() || currentVibe != null
 
@@ -108,7 +105,6 @@ class ExploreViewModel(
                     subscribedIds = subIds,
                     currentCategory = category,
                     searchQuery = query,
-                    correctedQuery = corrected,
                     isSearching = isSearching,
                     isLoading = pIsLoading,
                     currentVibe = currentVibe,
@@ -148,12 +144,12 @@ class ExploreViewModel(
 
     @OptIn(FlowPreview::class)
     private fun startSearchObserver() {
-        _searchRequest
+        _searchQuery
             .debounce(500L) // Wait 500ms after last char
             .distinctUntilChanged()
-            .onEach { request ->
-                if (request.query.isNotBlank()) {
-                    performSearch(request.query, request.exact)
+            .onEach { query ->
+                if (query.isNotBlank()) {
+                    performSearch(query)
                 } else if (_currentVibe.value == null) {
                     _searchResults.value = emptyList()
                 }
@@ -161,12 +157,12 @@ class ExploreViewModel(
             .launchIn(viewModelScope)
     }
 
-    fun onSearchQueryChanged(query: String, exact: Boolean = false) {
+    fun onSearchQueryChanged(query: String) {
         if (query.isNotEmpty() && _currentVibe.value != null) {
             _currentVibe.value = null // Stop showing vibe results if they start typing
             _searchResults.value = emptyList()
         }
-        _searchRequest.value = SearchRequest(query, exact)
+        _searchQuery.value = query
     }
 
     fun onCategorySelected(category: String) {
@@ -175,14 +171,14 @@ class ExploreViewModel(
         _currentCategory.value = category
         clearVibe()
         // Clear Search when switching category to browse
-        _searchRequest.value = SearchRequest("", false) 
+        _searchQuery.value = "" 
         _trendingPodcasts.value = emptyList() // Clear to force Skeleton
         loadTrending(category)
     }
     
     fun onVibeSelected(vibeId: String, vibeName: String) {
         vibesClickedCount++
-        _searchRequest.value = SearchRequest("", false)
+        _searchQuery.value = ""
         _currentVibe.value = vibeName
         _isLoading.value = true
         _searchResults.value = emptyList()
@@ -204,7 +200,7 @@ class ExploreViewModel(
     
     fun clearVibe() {
         _currentVibe.value = null
-        if (_searchRequest.value.query.isEmpty()) {
+        if (_searchQuery.value.isEmpty()) {
             _searchResults.value = emptyList()
         }
     }
@@ -232,7 +228,7 @@ class ExploreViewModel(
         }
     }
 
-    private fun performSearch(query: String, exact: Boolean = false) {
+    private fun performSearch(query: String) {
         if (_currentVibe.value != null) return // Safety check
 
         searchesPerformedCount++
@@ -240,16 +236,13 @@ class ExploreViewModel(
         searchJob = viewModelScope.launch {
             _isLoading.value = true
             _searchResults.value = emptyList() // Clear previous results to force Skeleton
-            _correctedQuery.value = null // Clear previous correction
             try {
-                val result = podcastRepository.searchPodcasts(query, exact)
-                _searchResults.value = result.podcasts
-                _correctedQuery.value = result.correctedQuery
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, result.podcasts.size)
+                val results = podcastRepository.searchPodcasts(query)
+                _searchResults.value = results
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, results.size)
             } catch (e: Exception) {
                 // Handle error silently for search
                 _searchResults.value = emptyList()
-                _correctedQuery.value = null
             } finally {
                 _isLoading.value = false
             }
@@ -285,7 +278,7 @@ class ExploreViewModel(
             maxScrollDepth = maxScrollDepth,
             finalCategoryState = _currentCategory.value,
             finalVibeState = _currentVibe.value,
-            finalSearchQuery = _searchRequest.value.query.takeIf { it.isNotBlank() }
+            finalSearchQuery = _searchQuery.value.takeIf { it.isNotBlank() }
         )
     }
 
