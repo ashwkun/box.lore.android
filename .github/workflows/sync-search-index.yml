@@ -1,0 +1,50 @@
+name: Sync Search Index
+
+on:
+  schedule:
+    # Run weekly on Sundays at 4:00 AM UTC
+    # Podcast Index dump updates weekly — no need for more frequent syncs
+    - cron: '0 4 * * 0'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync-search-index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download Podcast Index Database
+        run: |
+          echo "📦 Downloading PI database dump..."
+          curl -L -f --retry 3 -A "BoxCast/2.1 (github.com/ashwkun/box.cast.android)" \
+            -o podcastindex_feeds.db.tgz \
+            https://public.podcastindex.org/podcastindex_feeds.db.tgz
+          
+          echo "📂 Extracting..."
+          tar -xzf podcastindex_feeds.db.tgz
+          ls -lh *.db
+          
+          echo ""
+          echo "📊 Quick stats from PI dump:"
+          sqlite3 podcastindex_feeds.db "SELECT COUNT(*) || ' total podcasts' FROM podcasts;"
+          sqlite3 podcastindex_feeds.db "SELECT COUNT(*) || ' alive podcasts (dead=0)' FROM podcasts WHERE dead = 0;"
+          sqlite3 podcastindex_feeds.db "SELECT COUNT(*) || ' quality podcasts (alive + >=5 episodes)' FROM podcasts WHERE dead = 0 AND episodeCount >= 5;"
+
+      - name: Build Search Index
+        env:
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          PI_DB_PATH: podcastindex_feeds.db
+          MIN_EPISODES: '5'
+        run: node scripts/sync-search-index.js
+
+      - name: Cleanup
+        run: rm -f *.db *.tgz
