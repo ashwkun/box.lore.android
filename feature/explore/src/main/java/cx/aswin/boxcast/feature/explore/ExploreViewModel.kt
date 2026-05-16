@@ -237,10 +237,13 @@ class ExploreViewModel(
             _isLoading.value = true
             _searchResults.value = emptyList() // Clear previous results to force Skeleton
             try {
+                android.util.Log.d("ExploreViewModel", "Starting search for: $query")
                 val results = podcastRepository.searchPodcasts(query)
+                android.util.Log.d("ExploreViewModel", "Search success: ${results.size} results returned")
                 _searchResults.value = results
                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, results.size)
             } catch (e: Exception) {
+                android.util.Log.e("ExploreViewModel", "Search error: ${e.message}", e)
                 // Handle error silently for search
                 _searchResults.value = emptyList()
             } finally {
