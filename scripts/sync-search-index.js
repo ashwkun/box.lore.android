@@ -22,7 +22,7 @@ const TURSO_URL = process.env.TURSO_URL?.replace('libsql://', 'https://');
 const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN;
 const PI_DB_PATH = process.env.PI_DB_PATH || 'podcastindex_feeds.db';
 const MIN_EPISODES = parseInt(process.env.MIN_EPISODES || '5', 10);
-const BATCH_SIZE = 80; // Turso pipeline limit-safe batch size
+const BATCH_SIZE = 1000; // Increased batch size for faster inserts
 const DESC_MAX_LENGTH = 300; // Truncate descriptions to save space
 
 if (!TURSO_URL || !TURSO_TOKEN) {
@@ -57,7 +57,14 @@ async function executeSQL(sql, args = []) {
         const text = await response.text();
         throw new Error(`Turso HTTP ${response.status}: ${text}`);
     }
-    return response.json();
+    
+    const data = await response.json();
+    for (const res of data.results || []) {
+        if (res.type === "error") {
+            throw new Error(`Turso SQL error: ${res.error?.message}`);
+        }
+    }
+    return data;
 }
 
 async function executeBatch(statements) {
@@ -88,7 +95,15 @@ async function executeBatch(statements) {
         const text = await response.text();
         throw new Error(`Turso batch error ${response.status}: ${text}`);
     }
-    return response.json();
+
+    const data = await response.json();
+    for (let i = 0; i < (data.results || []).length; i++) {
+        const res = data.results[i];
+        if (res.type === "error") {
+            throw new Error(`Turso SQL error at statement ${i}: ${res.error?.message}`);
+        }
+    }
+    return data;
 }
 
 // ── Schema setup ────────────────────────────────────────────────────
