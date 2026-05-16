@@ -173,11 +173,17 @@ class PodcastRepository(
         }
     }
 
-    suspend fun searchPodcasts(query: String): List<Podcast> = withContext(Dispatchers.IO) {
+    data class SearchResult(
+        val podcasts: List<Podcast>,
+        val correctedQuery: String?
+    )
+
+    suspend fun searchPodcasts(query: String, exact: Boolean = false): SearchResult = withContext(Dispatchers.IO) {
         try {
-            val response = api.search(publicKey, query).execute()
+            val response = api.search(publicKey, query, exact).execute()
             if (response.isSuccessful && response.body() != null) {
-                response.body()!!.feeds.map { feed ->
+                val body = response.body()!!
+                val podcasts = body.feeds.map { feed ->
                     Podcast(
                         id = feed.id.toString(),
                         title = feed.title,
@@ -187,11 +193,12 @@ class PodcastRepository(
                         genre = resolvePrimaryGenre(feed.categories)
                     )
                 }
+                SearchResult(podcasts, body.correctedQuery)
             } else {
-                emptyList()
+                SearchResult(emptyList(), null)
             }
         } catch (e: Exception) {
-            emptyList()
+            SearchResult(emptyList(), null)
         }
     }
 

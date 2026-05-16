@@ -144,7 +144,7 @@ fun ExploreScreen(
 @Composable
 fun ExploreContent(
     uiState: ExploreUiState,
-    onSearchQueryChanged: (String) -> Unit,
+    onSearchQueryChanged: (String, Boolean) -> Unit,
     onCategorySelected: (String) -> Unit,
     onPodcastClick: (String, String, String?, Int?) -> Unit,
     onVibeSelected: (String, String) -> Unit,
@@ -215,7 +215,7 @@ fun ExploreContent(
             // Search Bar (Always Visible)
             DockedSearchBar(
                 query = state.searchQuery,
-                onQueryChange = onSearchQueryChanged,
+                onQueryChange = { onSearchQueryChanged(it, false) },
                 onSearch = { 
                     searchActive = false 
                     focusManager.clearFocus()
@@ -227,7 +227,7 @@ fun ExploreContent(
                     if (searchActive || state.searchQuery.isNotEmpty() || state.currentVibe != null) {
                         IconButton(onClick = {
                             searchActive = false
-                            onSearchQueryChanged("")
+                            onSearchQueryChanged("", false)
                             onClearVibe()
                             focusManager.clearFocus()
                         }) {
@@ -239,7 +239,7 @@ fun ExploreContent(
                 },
                 trailingIcon = {
                     if (state.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { onSearchQueryChanged("") }) {
+                        IconButton(onClick = { onSearchQueryChanged("", false) }) {
                             Icon(Icons.Rounded.Close, contentDescription = "Clear")
                         }
                     }
@@ -301,6 +301,44 @@ fun ExploreContent(
                             "Trending in ${state.currentCategory}"
                         }
                         ExploreSectionHeader(title = headerTitle)
+                    }
+                }
+
+                if (state.isSearching && state.correctedQuery != null) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        androidx.compose.material3.Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                                .expressiveClickable { onSearchQueryChanged(state.searchQuery, true) }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Showing results for ${state.correctedQuery}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                    Text(
+                                        text = "Search instead for ${state.searchQuery}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -25,6 +25,7 @@ data class OnboardingUiState(
     val isLoadingPodcasts: Boolean = false,
     val searchQuery: String = "",
     val searchResults: List<Podcast> = emptyList(),
+    val correctedQuery: String? = null,
     val isSearching: Boolean = false,
     val isCompleting: Boolean = false
 )
@@ -212,7 +213,7 @@ class OnboardingViewModel(
         _uiState.update { it.copy(currentStep = backStep, searchQuery = "", searchResults = emptyList()) }
     }
     
-    fun updateSearchQuery(query: String) {
+    fun updateSearchQuery(query: String, exact: Boolean = false) {
         _uiState.update { it.copy(searchQuery = query) }
         
         // Debounce search
@@ -224,14 +225,20 @@ class OnboardingViewModel(
         }
         
         searchJob = viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true) }
+            _uiState.update { it.copy(isSearching = true, correctedQuery = null) }
             delay(400) // Debounce
-            val results = podcastRepository.searchPodcasts(cleaned)
-            _uiState.update { it.copy(searchResults = results, isSearching = false) }
+            val result = podcastRepository.searchPodcasts(cleaned, exact)
+            _uiState.update { 
+                it.copy(
+                    searchResults = result.podcasts, 
+                    correctedQuery = result.correctedQuery,
+                    isSearching = false
+                ) 
+            }
 
             // Analytics: Track search performed
             searchesPerformedCount++
-            AnalyticsHelper.trackSearchPerformed(cleaned, results.size)
+            AnalyticsHelper.trackSearchPerformed(cleaned, result.podcasts.size)
         }
     }
     

@@ -136,9 +136,9 @@ class LibraryBackupManager(
             for (query in queries) {
                 try {
                     // Try to search by title
-                    val results = podcastRepository.searchPodcasts(query)
-                    if (results.isNotEmpty()) {
-                        val match = results.first()
+                    val result = podcastRepository.searchPodcasts(query)
+                    if (result.podcasts.isNotEmpty()) {
+                        val match = result.podcasts.first()
                         subscriptionRepository.subscribe(match)
                         importedIds.add(match.id)
                         importedCount++
