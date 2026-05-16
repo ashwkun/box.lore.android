@@ -45,5 +45,11 @@ jobs:
           MIN_EPISODES: '10'
         run: node scripts/sync-search-index.js
 
+      - name: Upload Spell Dictionary
+        uses: actions/upload-artifact@v4
+        with:
+          name: spell-dictionary
+          path: spell_dict.json
+
       - name: Cleanup
         run: rm -f *.db *.tgz
