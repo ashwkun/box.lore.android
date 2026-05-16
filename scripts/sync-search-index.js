@@ -322,6 +322,12 @@ async function streamImportToTurso(expectedCount) {
         const title = sanitize(row.title);
         if (!title) continue;
 
+        // Skip titles with non-Latin scripts (Chinese, Japanese, Hindi, Thai, Arabic, Cyrillic, etc.)
+        const nonLatinRegex = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\p{Script=Devanagari}\p{Script=Arabic}\p{Script=Cyrillic}\p{Script=Hebrew}\p{Script=Tamil}\p{Script=Telugu}]/u;
+        if (nonLatinRegex.test(title)) {
+            continue;
+        }
+
         const eps = parseInt(row.episodeCount || row.episode_count || 0, 10);
 
         // Build dictionary stats
@@ -339,32 +345,34 @@ async function streamImportToTurso(expectedCount) {
             }
         }
 
-        batch.push({
-            sql: `INSERT OR REPLACE INTO podcast_search 
-                  (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-            args: [
-                parseInt(row.id, 10),
-                title,
-                sanitize(row.author),
-                sanitize(row.description),
-                sanitize(row.artwork),
-                sanitize(row.categories),
-                sanitize(row.language),
-                eps,
-                parseInt(row.newest_pub_date || '0', 10),
-                parseInt(row.popularity_score || '0', 10)
-            ]
-        });
+        batch.push([
+            parseInt(row.id, 10),
+            title,
+            sanitize(row.author),
+            sanitize(row.description),
+            sanitize(row.artwork),
+            sanitize(row.categories),
+            sanitize(row.language),
+            eps,
+            parseInt(row.newest_pub_date || '0', 10),
+            parseInt(row.popularity_score || '0', 10)
+        ]);
 
         // Flush batch
         if (batch.length >= BATCH_SIZE) {
             try {
-                const res = await executeBatch(batch);
-                imported += res.successCount || 0;
-                errors += (batch.length - (res.successCount || 0));
+                let sql = `INSERT OR REPLACE INTO podcast_search (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at) VALUES `;
+                const args = [];
+                const placeholders = [];
+                for (const r of batch) {
+                    placeholders.push(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+                    args.push(...r);
+                }
+                sql += placeholders.join(", ");
+                await executeSQL(sql, args);
+                imported += batch.length;
             } catch (e) {
-                console.error(`⚠️ Batch HTTP error at line ${lineNum}:`, e.message);
+                console.error(`⚠️ Bulk insert error at line ${lineNum}:`, e.message);
                 errors += batch.length;
             }
             batch = [];
@@ -382,9 +390,16 @@ async function streamImportToTurso(expectedCount) {
     // Flush remaining
     if (batch.length > 0) {
         try {
-            const res = await executeBatch(batch);
-            imported += res.successCount || 0;
-            errors += (batch.length - (res.successCount || 0));
+            let sql = `INSERT OR REPLACE INTO podcast_search (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at) VALUES `;
+            const args = [];
+            const placeholders = [];
+            for (const r of batch) {
+                placeholders.push(`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+                args.push(...r);
+            }
+            sql += placeholders.join(", ");
+            await executeSQL(sql, args);
+            imported += batch.length;
         } catch (e) {
             errors += batch.length;
         }
