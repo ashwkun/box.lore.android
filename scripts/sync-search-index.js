@@ -284,9 +284,9 @@ function sanitize(text) {
 async function streamImportToTurso(expectedCount) {
     console.log(`\n🚀 Streaming import to Turso (~${expectedCount} podcasts)...`);
 
-    // Clear existing data for clean rebuild
-    console.log("🗑️  Clearing existing search index...");
-    await executeSQL("DELETE FROM podcast_search");
+    // Instead of deleting everything and causing a blackout, we just rely on INSERT OR REPLACE
+    // to update existing podcasts. Stale podcasts will be pruned at the end of the sync.
+    console.log("♻️  Using INSERT OR REPLACE to avoid search blackouts...");
 
     const readline = require('readline');
     const fileStream = fs.createReadStream(CSV_EXPORT_PATH, { encoding: 'utf-8' });
@@ -407,6 +407,11 @@ async function streamImportToTurso(expectedCount) {
 
     const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n✅ Import complete: ${imported} rows in ${totalElapsed}s (${errors} errors)`);
+    
+    // Prune dead/removed podcasts that weren't updated in this run
+    console.log("🧹 Pruning removed podcasts to keep index clean...");
+    await executeSQL("DELETE FROM podcast_search WHERE updated_at < datetime('now', '-1 day')");
+
     return { imported, wordStats };
 }
 
@@ -442,7 +447,7 @@ async function verify() {
 
     // Test a search
     const testRes = await executeSQL(
-        "SELECT ps.id, ps.title, ps.author FROM podcast_search_fts fts JOIN podcast_search ps ON fts.rowid = ps.id WHERE fts MATCH 'joe rogan' LIMIT 5"
+        "SELECT ps.id, ps.title, ps.author FROM podcast_search_fts fts JOIN podcast_search ps ON fts.rowid = ps.id WHERE podcast_search_fts MATCH 'joe rogan' LIMIT 5"
     );
     const testRows = testRes?.results?.[0]?.response?.result?.rows || [];
     console.log(`  🔎 Test search "joe rogan": ${testRows.length} results`);
@@ -452,7 +457,7 @@ async function verify() {
 
     // Test prefix search
     const prefixRes = await executeSQL(
-        "SELECT ps.id, ps.title FROM podcast_search_fts fts JOIN podcast_search ps ON fts.rowid = ps.id WHERE fts MATCH 'tech*' LIMIT 5"
+        "SELECT ps.id, ps.title FROM podcast_search_fts fts JOIN podcast_search ps ON fts.rowid = ps.id WHERE podcast_search_fts MATCH 'tech*' LIMIT 5"
     );
     const prefixRows = prefixRes?.results?.[0]?.response?.result?.rows || [];
     console.log(`  🔎 Test prefix "tech*": ${prefixRows.length} results`);
