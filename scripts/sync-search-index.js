@@ -137,9 +137,11 @@ async function ensureSchema() {
     console.log("✅ Schema ready");
 }
 
-// ── Extract from PI dump ────────────────────────────────────────────
+// ── Extract from PI dump to CSV ─────────────────────────────────────
 
-function extractFromPIDump() {
+const CSV_EXPORT_PATH = '/tmp/podcast_search_export.csv';
+
+function extractToCSV() {
     console.log(`📦 Extracting from ${PI_DB_PATH} (episodeCount >= ${MIN_EPISODES}, dead=0)...`);
 
     if (!fs.existsSync(PI_DB_PATH)) {
@@ -164,55 +166,76 @@ function extractFromPIDump() {
     ).trim();
     console.log(`📊 Total qualifying podcasts: ${countResult}`);
 
-    // Write the SQL to a temp file to avoid shell escaping issues
+    // Export to CSV file (avoids loading everything into memory)
     const exportSQL = `
-        SELECT 
-            id,
-            title,
-            COALESCE(itunesAuthor, '') as author,
-            SUBSTR(COALESCE(description, ''), 1, ${DESC_MAX_LENGTH}) as description,
-            COALESCE(imageUrl, '') as artwork,
-            TRIM(
-                COALESCE(category1, '') || 
-                CASE WHEN category2 != '' THEN ',' || category2 ELSE '' END ||
-                CASE WHEN category3 != '' THEN ',' || category3 ELSE '' END ||
-                CASE WHEN category4 != '' THEN ',' || category4 ELSE '' END ||
-                CASE WHEN category5 != '' THEN ',' || category5 ELSE '' END
-            ) as categories,
-            COALESCE(language, 'en') as language,
-            episodeCount,
-            COALESCE(newestItemPubdate, 0) as newest_pub_date,
-            COALESCE(popularityScore, 0) as popularity_score
-        FROM podcasts
-        WHERE dead = 0
-          AND episodeCount >= ${MIN_EPISODES}
-          AND title IS NOT NULL
-          AND title != ''
-        ORDER BY popularityScore DESC, episodeCount DESC;
-    `;
+.mode csv
+.headers on
+.output ${CSV_EXPORT_PATH}
+SELECT 
+    id,
+    title,
+    COALESCE(itunesAuthor, '') as author,
+    SUBSTR(COALESCE(description, ''), 1, ${DESC_MAX_LENGTH}) as description,
+    COALESCE(imageUrl, '') as artwork,
+    TRIM(
+        COALESCE(category1, '') || 
+        CASE WHEN category2 != '' THEN ',' || category2 ELSE '' END ||
+        CASE WHEN category3 != '' THEN ',' || category3 ELSE '' END ||
+        CASE WHEN category4 != '' THEN ',' || category4 ELSE '' END ||
+        CASE WHEN category5 != '' THEN ',' || category5 ELSE '' END
+    ) as categories,
+    COALESCE(language, 'en') as language,
+    episodeCount,
+    COALESCE(newestItemPubdate, 0) as newest_pub_date,
+    COALESCE(popularityScore, 0) as popularity_score
+FROM podcasts
+WHERE dead = 0
+  AND episodeCount >= ${MIN_EPISODES}
+  AND title IS NOT NULL
+  AND title != ''
+ORDER BY popularityScore DESC, episodeCount DESC;
+.output stdout
+`;
 
-    // Write SQL to temp file to avoid shell quoting nightmares
     const sqlFile = '/tmp/search_export.sql';
     fs.writeFileSync(sqlFile, exportSQL.trim());
 
-    // Use JSON mode for reliable parsing
-    const rawOutput = execSync(
-        `sqlite3 -json "${PI_DB_PATH}" < "${sqlFile}"`,
-        { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 1500 } // 1.5GB buffer for large output
-    ).trim();
+    console.log("📝 Exporting to CSV...");
+    execSync(`sqlite3 "${PI_DB_PATH}" < "${sqlFile}"`, {
+        encoding: 'utf-8',
+        timeout: 300000 // 5 min timeout
+    });
 
-    let rows;
-    try {
-        rows = JSON.parse(rawOutput);
-    } catch (e) {
-        console.error("❌ Failed to parse sqlite3 JSON output");
-        // Try to show first 500 chars for debugging
-        console.error("First 500 chars:", rawOutput.substring(0, 500));
-        throw e;
+    const stats = fs.statSync(CSV_EXPORT_PATH);
+    console.log(`✅ CSV exported: ${(stats.size / 1024 / 1024).toFixed(1)} MB`);
+    return parseInt(countResult, 10);
+}
+
+// ── CSV line parser (handles quoted fields with commas/newlines) ─────
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            result.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
     }
-
-    console.log(`✅ Extracted ${rows.length} podcasts from PI dump`);
-    return rows;
+    result.push(current);
+    return result;
 }
 
 // ── Sanitize text for Turso insertion ───────────────────────────────
@@ -225,61 +248,92 @@ function sanitize(text) {
         .trim();
 }
 
-// ── Import to Turso ─────────────────────────────────────────────────
+// ── Stream import to Turso ──────────────────────────────────────────
 
-async function importToTurso(rows) {
-    const total = rows.length;
-    console.log(`\n🚀 Importing ${total} podcasts to Turso...`);
+async function streamImportToTurso(expectedCount) {
+    console.log(`\n🚀 Streaming import to Turso (~${expectedCount} podcasts)...`);
 
     // Clear existing data for clean rebuild
     console.log("🗑️  Clearing existing search index...");
     await executeSQL("DELETE FROM podcast_search");
 
+    const readline = require('readline');
+    const fileStream = fs.createReadStream(CSV_EXPORT_PATH, { encoding: 'utf-8' });
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+
+    let headers = null;
+    let batch = [];
     let imported = 0;
     let errors = 0;
+    let lineNum = 0;
     const startTime = Date.now();
 
-    for (let i = 0; i < total; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE);
-        const statements = [];
+    for await (const line of rl) {
+        lineNum++;
 
-        for (const row of batch) {
-            const title = sanitize(row.title);
-            if (!title) continue;
-
-            statements.push({
-                sql: `INSERT OR REPLACE INTO podcast_search 
-                      (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-                args: [
-                    row.id,
-                    title,
-                    sanitize(row.author),
-                    sanitize(row.description),
-                    sanitize(row.artwork),
-                    sanitize(row.categories),
-                    sanitize(row.language),
-                    row.episodeCount || row.episode_count || 0,
-                    row.newest_pub_date || 0,
-                    row.popularity_score || 0
-                ]
-            });
+        // First line = headers
+        if (!headers) {
+            headers = parseCSVLine(line);
+            console.log("📋 CSV headers:", headers.join(', '));
+            continue;
         }
 
+        // Parse CSV line
+        const values = parseCSVLine(line);
+        if (values.length < headers.length) continue; // Skip malformed lines
+
+        const row = {};
+        headers.forEach((h, i) => { row[h] = values[i]; });
+
+        const title = sanitize(row.title);
+        if (!title) continue;
+
+        batch.push({
+            sql: `INSERT OR REPLACE INTO podcast_search 
+                  (id, title, author, description, artwork, categories, language, episode_count, newest_pub_date, popularity_score, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            args: [
+                row.id,
+                title,
+                sanitize(row.author),
+                sanitize(row.description),
+                sanitize(row.artwork),
+                sanitize(row.categories),
+                sanitize(row.language),
+                row.episodeCount || row.episode_count || 0,
+                row.newest_pub_date || 0,
+                row.popularity_score || 0
+            ]
+        });
+
+        // Flush batch
+        if (batch.length >= BATCH_SIZE) {
+            try {
+                await executeBatch(batch);
+                imported += batch.length;
+            } catch (e) {
+                console.error(`⚠️ Batch error at line ${lineNum}:`, e.message);
+                errors += batch.length;
+            }
+            batch = [];
+
+            // Progress log every 5000 rows
+            if (imported % 5000 < BATCH_SIZE) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                const rate = (imported / elapsed).toFixed(0);
+                const pct = Math.round((imported / expectedCount) * 100);
+                console.log(`  📥 ${imported}/${expectedCount} (${pct}%) | ${rate} rows/s | Errors: ${errors}`);
+            }
+        }
+    }
+
+    // Flush remaining
+    if (batch.length > 0) {
         try {
-            await executeBatch(statements);
-            imported += statements.length;
+            await executeBatch(batch);
+            imported += batch.length;
         } catch (e) {
-            console.error(`⚠️ Batch error at offset ${i}:`, e.message);
             errors += batch.length;
-        }
-
-        // Progress log every 5000 rows
-        if (imported % 5000 < BATCH_SIZE) {
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            const rate = (imported / elapsed * 1).toFixed(0);
-            const pct = Math.round((i / total) * 100);
-            console.log(`  📥 ${imported}/${total} (${pct}%) | ${rate} rows/s | Errors: ${errors}`);
         }
     }
 
@@ -346,11 +400,11 @@ async function main() {
     // 1. Ensure schema
     await ensureSchema();
 
-    // 2. Extract from PI dump
-    const rows = extractFromPIDump();
+    // 2. Extract from PI dump to CSV file
+    const expectedCount = extractToCSV();
 
-    // 3. Import to Turso
-    const imported = await importToTurso(rows);
+    // 3. Stream import to Turso
+    const imported = await streamImportToTurso(expectedCount);
 
     // 4. Rebuild FTS5 index
     await rebuildFTS();
