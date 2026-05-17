@@ -409,103 +409,119 @@ fun PodcastInfoScreen(
                             Spacer(modifier = Modifier.height(12.dp))
                             
                             // Update Frequency Calculation
-                            val frequencyData = remember(state.podcast, state.episodes) {
-                                // 1. Securely sort and take the latest 15 episodes (Recent History)
-                                val validEpisodes = state.episodes
-                                    .filter { it.episodeType != "trailer" && it.episodeType != "bonus" && it.publishedDate > 0 }
-                                    .sortedByDescending { it.publishedDate }
-                                    .take(15)
-
-                                val latestEpisodeDate = validEpisodes.firstOrNull()?.publishedDate ?: state.podcast.latestEpisode?.publishedDate
-
-                                // 2. Check if it's dead or on hiatus
-                                if (latestEpisodeDate != null && latestEpisodeDate > 0) {
-                                    val daysSinceLatest = (System.currentTimeMillis() / 1000 - latestEpisodeDate) / (60 * 60 * 24)
-                                    if (daysSinceLatest > 365) {
-                                        return@remember Pair("Inactive / Ended", Icons.Rounded.PauseCircle)
-                                    } else if (daysSinceLatest > 180) {
-                                        return@remember Pair("On Hiatus", Icons.Rounded.PauseCircle)
-                                    }
-                                }
-
-                                // 3. Predict frequency using Median
-                                if (validEpisodes.size < 4) return@remember null
-
-                                val intervals = mutableListOf<Long>()
-                                for (i in 0 until validEpisodes.size - 1) {
-                                    val newer = validEpisodes[i].publishedDate
-                                    val older = validEpisodes[i + 1].publishedDate
-                                    val daysDiff = (newer - older) / (60 * 60 * 24)
-                                    if (daysDiff >= 0) intervals.add(daysDiff)
-                                }
-
-                                if (intervals.isEmpty()) return@remember null
-
-                                // The magic of Median: ignores outliers like special drops
-                                val sortedIntervals = intervals.sorted()
-                                val medianIntervalDays = sortedIntervals[sortedIntervals.size / 2]
-
-                                // Determine common release day
-                                val calendar = java.util.Calendar.getInstance()
-                                val dayCounts = IntArray(8)
-                                for (ep in validEpisodes) {
-                                    calendar.timeInMillis = ep.publishedDate * 1000
-                                    dayCounts[calendar.get(java.util.Calendar.DAY_OF_WEEK)]++
-                                }
-                                var maxDay = -1
-                                var maxCount = 0
-                                for (i in 1..7) {
-                                    if (dayCounts[i] > maxCount) {
-                                        maxCount = dayCounts[i]
-                                        maxDay = i
-                                    }
-                                }
-                                
-                                val commonDayName = if (maxCount >= (validEpisodes.size * 0.5).toInt()) {
-                                    when (maxDay) {
-                                        java.util.Calendar.SUNDAY -> "Sundays"
-                                        java.util.Calendar.MONDAY -> "Mondays"
-                                        java.util.Calendar.TUESDAY -> "Tuesdays"
-                                        java.util.Calendar.WEDNESDAY -> "Wednesdays"
-                                        java.util.Calendar.THURSDAY -> "Thursdays"
-                                        java.util.Calendar.FRIDAY -> "Fridays"
-                                        java.util.Calendar.SATURDAY -> "Saturdays"
-                                        else -> null
-                                    }
-                                } else null
-
-                                var predictedText: String? = null
-                                var icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.CalendarMonth
-
-                                if (medianIntervalDays in 0..1) {
-                                    predictedText = "Releases Daily"
-                                    icon = Icons.Rounded.Bolt
-                                } else if (medianIntervalDays in 2..4) {
-                                    predictedText = "Releases Multi-Weekly"
-                                    icon = Icons.Rounded.CalendarMonth
-                                } else if (medianIntervalDays in 5..8) {
-                                    predictedText = if (commonDayName != null) "Weekly on $commonDayName" else "Releases Weekly"
-                                    icon = Icons.Rounded.CalendarMonth
-                                } else if (medianIntervalDays in 12..16) {
-                                    predictedText = if (commonDayName != null) "Every 2 Weeks on $commonDayName" else "Releases Every 2 Weeks"
-                                    icon = Icons.Rounded.CalendarMonth
-                                } else if (medianIntervalDays in 25..35) {
-                                    predictedText = "Releases Monthly"
-                                    icon = Icons.Rounded.CalendarMonth
-                                }
-
-                                // 4. Check for decay / delayed seasons
-                                if (predictedText != null && latestEpisodeDate != null) {
-                                    if (medianIntervalDays > 3) {
+                            var cachedFrequencyData by remember(state.podcast.id) { mutableStateOf<Pair<String, ImageVector>?>(null) }
+                            
+                            val frequencyData = remember(state.podcast, state.episodes, state.currentSort, state.searchQuery) {
+                                // Only calculate when we have the newest episodes
+                                if (state.currentSort == EpisodeSort.NEWEST && state.searchQuery.isEmpty()) {
+                                    // 1. Securely sort and take the latest 15 episodes (Recent History)
+                                    val validEpisodes = state.episodes
+                                        .filter { it.episodeType != "trailer" && it.episodeType != "bonus" && it.publishedDate > 0 }
+                                        .sortedByDescending { it.publishedDate }
+                                        .take(15)
+    
+                                    val latestEpisodeDate = validEpisodes.firstOrNull()?.publishedDate ?: state.podcast.latestEpisode?.publishedDate
+    
+                                    // 2. Check if it's dead or on hiatus
+                                    if (latestEpisodeDate != null && latestEpisodeDate > 0) {
                                         val daysSinceLatest = (System.currentTimeMillis() / 1000 - latestEpisodeDate) / (60 * 60 * 24)
-                                        if (daysSinceLatest > (medianIntervalDays * 2)) {
-                                            return@remember Pair("Between Seasons", Icons.Rounded.HourglassBottom)
+                                        if (daysSinceLatest > 365) {
+                                            val result = Pair("Inactive / Ended", Icons.Rounded.PauseCircle)
+                                            cachedFrequencyData = result
+                                            return@remember result
+                                        } else if (daysSinceLatest > 180) {
+                                            val result = Pair("On Hiatus", Icons.Rounded.PauseCircle)
+                                            cachedFrequencyData = result
+                                            return@remember result
                                         }
                                     }
-                                    return@remember Pair(predictedText, icon)
+    
+                                    // 3. Predict frequency using Median
+                                    if (validEpisodes.size < 4) return@remember cachedFrequencyData
+    
+                                    val intervals = mutableListOf<Long>()
+                                    for (i in 0 until validEpisodes.size - 1) {
+                                        val newer = validEpisodes[i].publishedDate
+                                        val older = validEpisodes[i + 1].publishedDate
+                                        val daysDiff = (newer - older) / (60 * 60 * 24)
+                                        if (daysDiff >= 0) intervals.add(daysDiff)
+                                    }
+    
+                                    if (intervals.isEmpty()) return@remember cachedFrequencyData
+    
+                                    // The magic of Median: ignores outliers like special drops
+                                    val sortedIntervals = intervals.sorted()
+                                    val medianIntervalDays = sortedIntervals[sortedIntervals.size / 2]
+    
+                                    // Determine common release day
+                                    val calendar = java.util.Calendar.getInstance()
+                                    val dayCounts = IntArray(8)
+                                    for (ep in validEpisodes) {
+                                        calendar.timeInMillis = ep.publishedDate * 1000
+                                        dayCounts[calendar.get(java.util.Calendar.DAY_OF_WEEK)]++
+                                    }
+                                    var maxDay = -1
+                                    var maxCount = 0
+                                    for (i in 1..7) {
+                                        if (dayCounts[i] > maxCount) {
+                                            maxCount = dayCounts[i]
+                                            maxDay = i
+                                        }
+                                    }
+                                    
+                                    val commonDayName = if (maxCount >= (validEpisodes.size * 0.5).toInt()) {
+                                        when (maxDay) {
+                                            java.util.Calendar.SUNDAY -> "Sundays"
+                                            java.util.Calendar.MONDAY -> "Mondays"
+                                            java.util.Calendar.TUESDAY -> "Tuesdays"
+                                            java.util.Calendar.WEDNESDAY -> "Wednesdays"
+                                            java.util.Calendar.THURSDAY -> "Thursdays"
+                                            java.util.Calendar.FRIDAY -> "Fridays"
+                                            java.util.Calendar.SATURDAY -> "Saturdays"
+                                            else -> null
+                                        }
+                                    } else null
+    
+                                    var predictedText: String? = null
+                                    var icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.CalendarMonth
+    
+                                    if (medianIntervalDays in 0..1) {
+                                        predictedText = "Releases Daily"
+                                        icon = Icons.Rounded.Bolt
+                                    } else if (medianIntervalDays in 2..4) {
+                                        predictedText = "Releases Multi-Weekly"
+                                        icon = Icons.Rounded.CalendarMonth
+                                    } else if (medianIntervalDays in 5..8) {
+                                        predictedText = if (commonDayName != null) "Weekly on $commonDayName" else "Releases Weekly"
+                                        icon = Icons.Rounded.CalendarMonth
+                                    } else if (medianIntervalDays in 12..16) {
+                                        predictedText = if (commonDayName != null) "Every 2 Weeks on $commonDayName" else "Releases Every 2 Weeks"
+                                        icon = Icons.Rounded.CalendarMonth
+                                    } else if (medianIntervalDays in 25..35) {
+                                        predictedText = "Releases Monthly"
+                                        icon = Icons.Rounded.CalendarMonth
+                                    }
+    
+                                    // 4. Check for decay / delayed seasons
+                                    if (predictedText != null && latestEpisodeDate != null) {
+                                        if (medianIntervalDays > 3) {
+                                            val daysSinceLatest = (System.currentTimeMillis() / 1000 - latestEpisodeDate) / (60 * 60 * 24)
+                                            if (daysSinceLatest > (medianIntervalDays * 2)) {
+                                                val result = Pair("Between Seasons", Icons.Rounded.HourglassBottom)
+                                                cachedFrequencyData = result
+                                                return@remember result
+                                            }
+                                        }
+                                        val result = Pair(predictedText, icon)
+                                        cachedFrequencyData = result
+                                        return@remember result
+                                    }
+    
+                                    cachedFrequencyData
+                                } else {
+                                    // If sorted by oldest or searching, use the cached calculation (to prevent "Inactive / Ended" bug)
+                                    cachedFrequencyData
                                 }
-
-                                null
                             }
 
                             // 3. Scrollable Metadata Chips Row — centered
