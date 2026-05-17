@@ -32,8 +32,10 @@ captures/
 .externalNativeBuild
 .cxx
 API_GUIDE.md
-proxy/
 node_modules/
+proxy/node_modules/
+proxy/.wrangler/
+proxy/public/
 
 # Sensitive files
 *.keystore
