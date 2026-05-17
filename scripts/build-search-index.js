@@ -59,7 +59,7 @@ console.log(`Total podcasts in PI dump: ${totalPodcasts}`);
 // Step 2: Get max values for normalization
 console.log("Computing normalization values...");
 const maxEpisodeCount = parseInt(sqlite3(PI_DB_PATH, "SELECT MAX(episodeCount) FROM podcasts WHERE episodeCount IS NOT NULL;")) || 1;
-const maxPopularity = parseInt(sqlite3(PI_DB_PATH, "SELECT MAX(popularity) FROM podcasts WHERE popularity IS NOT NULL;")) || 1;
+const maxPopularity = parseInt(sqlite3(PI_DB_PATH, "SELECT MAX(popularityScore) FROM podcasts WHERE popularityScore IS NOT NULL;")) || 1;
 console.log(`  Max episode count: ${maxEpisodeCount}`);
 console.log(`  Max PI popularity: ${maxPopularity}`);
 
@@ -126,8 +126,7 @@ CREATE TABLE chart_ids (itunes_id TEXT PRIMARY KEY);
 //
 // episodeNorm = ln(episodeCount + 1) / ln(maxEpisodeCount + 1)
 //   → logarithmic normalization (diminishing returns)
-//
-// piPopNorm = popularity / maxPopularity
+// piPopNorm = popularityScore / maxPopularity
 //
 // chartsBoost = 1.0 if in Apple Charts, else 0.0
 
@@ -153,7 +152,7 @@ SELECT
     ROUND(
         0.35 * MAX(0.0, MIN(1.0, 1.0 - CAST((${nowEpoch} - COALESCE(p.newestItemPubdate, 0)) AS REAL) / (2.0 * 365.0 * 24.0 * 3600.0)))
       + 0.30 * (LOG(COALESCE(p.episodeCount, 0) + 1) / ${logMaxEp})
-      + 0.20 * (CAST(COALESCE(p.popularity, 0) AS REAL) / ${maxPopularity}.0)
+      + 0.20 * (CAST(COALESCE(p.popularityScore, 0) AS REAL) / ${maxPopularity}.0)
       + 0.15 * CASE WHEN ci.itunes_id IS NOT NULL THEN 1.0 ELSE 0.0 END
     , 6),
     COALESCE(p.category1, '') || CASE WHEN p.category2 IS NOT NULL AND p.category2 != '' THEN ', ' || p.category2 ELSE '' END,
