@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
@@ -101,6 +102,7 @@ import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
 import cx.aswin.boxcast.core.designsystem.components.ControlStyle
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import kotlinx.coroutines.delay
+import androidx.compose.ui.layout.layout
 
 // Color extraction helper
 private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
@@ -574,17 +576,17 @@ fun EpisodeInfoScreen(
                                     onQueueClick = { viewModel.toggleQueue() },
                                     style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.Material3, // Circular M3
                                     overrideColor = accentColor, // Enforce accent color for active states
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp), // Tighter spacing
                                     showAddQueueIcon = true,
                                     isQueued = queuedEpisodeIds.contains(state.episode.id),
                                     showShareButton = false,
                                     isPlayed = isCompleted,
                                     onMarkPlayedClick = { viewModel.onToggleCompletion() },
-                                    controlSize = 48.dp,
-                                    modifier = Modifier.weight(1f, fill = false) // Don't steal too much space
+                                    controlSize = 40.dp, // Smaller size to fit all 4 buttons + Play button
+                                    modifier = Modifier.wrapContentWidth(unbounded = true) // Guarantee it won't shrink
                                 )
                                 
-                                Spacer(modifier = Modifier.width(16.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
 
                                 // Prominent Play Button (Right)
                                 cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
