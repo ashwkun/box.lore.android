@@ -207,7 +207,7 @@ CREATE VIRTUAL TABLE search_vocab USING fts5vocab('main', 'search_fts', 'row');
 `);
 // Read the vocab table into JSON using sqlite3 JSON output
 try {
-    const vocabJson = execSync(\`sqlite3 "\${OUTPUT_DB_PATH}" -json "SELECT term FROM search_vocab WHERE length(term) >= 4;"\`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 100 }).trim();
+    const vocabJson = execSync(`sqlite3 "${OUTPUT_DB_PATH}" -json "SELECT term FROM search_vocab WHERE length(term) >= 4;"`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 100 }).trim();
     if (vocabJson) {
         const words = JSON.parse(vocabJson).map(row => row.term);
         fs.writeFileSync('proxy/src/dictionary.json', JSON.stringify(words));
