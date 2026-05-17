@@ -33,7 +33,8 @@ sealed interface ExploreUiState {
         val isSearching: Boolean = false,
         val isLoading: Boolean = false, // For showing skeleton in grid area only
         val currentVibe: String? = null,
-        val suggestedVibes: List<Pair<String, String>> = emptyList()
+        val suggestedVibes: List<Pair<String, String>> = emptyList(),
+        val correctedQuery: String? = null
     ) : ExploreUiState
     data class Error(val message: String) : ExploreUiState
 }
@@ -58,6 +59,7 @@ class ExploreViewModel(
     // Vibe Prompt State
     private val _currentVibe = MutableStateFlow<String?>(null)
     private val _suggestedVibes = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    private val _correctedQuery = MutableStateFlow<String?>(null)
     
     // Search Job to cancel previous searches
     private var searchJob: Job? = null
@@ -91,11 +93,11 @@ class ExploreViewModel(
                 // Custom combine to pull all flows
                 Triple(subIds, category, trending) to Triple(searchRes, query, pIsLoading)
             }.combine(
-                combine(_currentVibe, _suggestedVibes) { vibe, vibes -> vibe to vibes }
-            ) { (trip1, trip2), vibePair ->
+                combine(_currentVibe, _suggestedVibes, _correctedQuery) { vibe, vibes, corrected -> Triple(vibe, vibes, corrected) }
+            ) { (trip1, trip2), vibeTriple ->
                 val (subIds, category, trending) = trip1
                 val (searchRes, query, pIsLoading) = trip2
-                val (currentVibe, vibes) = vibePair
+                val (currentVibe, vibes, corrected) = vibeTriple
 
                 val isSearching = query.isNotEmpty() || currentVibe != null
 
@@ -108,7 +110,8 @@ class ExploreViewModel(
                     isSearching = isSearching,
                     isLoading = pIsLoading,
                     currentVibe = currentVibe,
-                    suggestedVibes = vibes
+                    suggestedVibes = vibes,
+                    correctedQuery = corrected
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -121,6 +124,11 @@ class ExploreViewModel(
         // Initial Load
         loadAllVibes()
         loadTrending(_currentCategory.value)
+        
+        // Init local spellchecker safely on a background thread
+        viewModelScope.launch {
+            cx.aswin.boxcast.core.data.Spellchecker.init(application)
+        }
     }
 
     private fun loadAllVibes() {
@@ -162,6 +170,7 @@ class ExploreViewModel(
             _currentVibe.value = null // Stop showing vibe results if they start typing
             _searchResults.value = emptyList()
         }
+        _correctedQuery.value = null // Clear correction when typing
         _searchQuery.value = query
     }
 
@@ -238,7 +247,14 @@ class ExploreViewModel(
             _searchResults.value = emptyList() // Clear previous results to force Skeleton
             try {
                 android.util.Log.d("ExploreViewModel", "Starting search for: $query")
-                val results = podcastRepository.searchPodcasts(query)
+                val corrected = cx.aswin.boxcast.core.data.Spellchecker.correctQuery(query)
+                if (corrected != query) {
+                    _correctedQuery.value = corrected
+                } else {
+                    _correctedQuery.value = null
+                }
+                
+                val results = podcastRepository.searchPodcasts(corrected)
                 android.util.Log.d("ExploreViewModel", "Search success: ${results.size} results returned")
                 _searchResults.value = results
                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, results.size)

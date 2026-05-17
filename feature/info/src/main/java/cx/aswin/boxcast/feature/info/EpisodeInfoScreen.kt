@@ -48,6 +48,10 @@ import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.CalendarToday
+import androidx.compose.material.icons.rounded.Tag
+import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -405,15 +409,26 @@ fun EpisodeInfoScreen(
                                 item {
                                     Surface(
                                         shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     ) {
-                                        Text(
-                                            text = formatDuration(episodeDuration),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = androidx.compose.material.icons.Icons.Rounded.Schedule,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = formatDuration(episodeDuration),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
                                     }
                                 }
 
@@ -423,15 +438,26 @@ fun EpisodeInfoScreen(
                                     item {
                                         Surface(
                                             shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.secondaryContainer,
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                         ) {
-                                            Text(
-                                                text = dateText,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.CalendarToday,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = dateText,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -451,15 +477,26 @@ fun EpisodeInfoScreen(
                                     item {
                                         Surface(
                                             shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                         ) {
-                                            Text(
-                                                text = seLabel,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.Tag,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = seLabel,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -469,15 +506,26 @@ fun EpisodeInfoScreen(
                                     item {
                                         Surface(
                                             shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.errorContainer,
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                         ) {
-                                            Text(
-                                                text = state.episode.episodeType!!.replaceFirstChar { it.uppercase() },
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.Label,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = state.episode.episodeType!!.replaceFirstChar { it.uppercase() },
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
                                         }
                                     }
                                 }

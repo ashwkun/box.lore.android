@@ -292,10 +292,10 @@ fun ExploreContent(
                 item(span = StaggeredGridItemSpan.FullLine) {
                     if (state.currentVibe != null) {
                         CuratedVibeHeader(title = state.currentVibe)
+                    } else if (state.isSearching) {
+                        ExploreSearchHeader(correctedQuery = state.correctedQuery)
                     } else {
-                        val headerTitle = if (state.isSearching) {
-                            "Search Results"
-                        } else if (state.currentCategory == "All") {
+                        val headerTitle = if (state.currentCategory == "All") {
                             "Featured Podcasts"
                         } else {
                             "Trending in ${state.currentCategory}"
@@ -662,6 +662,45 @@ private fun ExploreSectionHeader(title: String) {
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+    }
+}
+
+/**
+ * Dedicated Material 3 Search Header with optional typo correction
+ */
+@Composable
+private fun ExploreSearchHeader(correctedQuery: String?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val icon = if (correctedQuery != null) Icons.Rounded.AutoFixHigh else Icons.Rounded.Search
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = "Search Results",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = SectionHeaderFontFamily
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (correctedQuery != null) {
+                Text(
+                    text = "Showing results for \"$correctedQuery\"",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }

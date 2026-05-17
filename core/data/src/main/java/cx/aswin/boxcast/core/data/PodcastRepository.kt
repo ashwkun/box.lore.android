@@ -139,24 +139,32 @@ class PodcastRepository(
         }
     }.flowOn(Dispatchers.IO)
 
+    // Sort from most specific/descriptive to most generic to prevent "News" overriding "Sports"
     private val GENRE_PRIORITY = listOf(
-        "Technology", "News", "Business", "Science", "Sports", "True Crime",
-        "History", "Comedy", "Arts", "Fiction", "Music", "Religion & Spirituality",
-        "Kids & Family", "Government", "Health", "TV & Film", "Education"
+        "True Crime", "Fiction", "Comedy", "Sports", "History", "Science", 
+        "Technology", "Music", "TV & Film", "Arts", "Health & Fitness", "Health", 
+        "Religion & Spirituality", "Kids & Family", "Education", "Government", "Business",
+        "News", "Leisure", "Society & Culture", "Society", "Culture"
     )
 
     private fun resolvePrimaryGenre(categories: Map<String, String>?): String {
         if (categories.isNullOrEmpty()) return "Podcast"
         
-        // Check for high-priority genres first
+        // 1. Check for exact matches in our priority list (from most specific to generic)
         for (priority in GENRE_PRIORITY) {
-            // Case-insensitive check
             val match = categories.values.find { it.equals(priority, ignoreCase = true) }
             if (match != null) return match
         }
+
+        // 2. Fallback check for partial matches in our priority list
+        for (priority in GENRE_PRIORITY) {
+            val match = categories.values.find { it.contains(priority, ignoreCase = true) }
+            if (match != null) return match
+        }
         
-        // Fallback: Return the first value
-        return categories.values.firstOrNull() ?: "Podcast"
+        // 3. Last resort: Return the first value that isn't completely useless
+        val ignored = listOf("podcasts", "podcast")
+        return categories.values.firstOrNull { it.lowercase() !in ignored } ?: "Podcast"
     }
 
     private fun mapFeedsToPodcasts(feeds: List<cx.aswin.boxcast.core.network.model.TrendingFeed>): List<Podcast> {

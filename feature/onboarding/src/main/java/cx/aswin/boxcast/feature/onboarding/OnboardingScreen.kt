@@ -124,6 +124,7 @@ fun OnboardingScreen(
             OnboardingStep.SEARCH -> {
                 OnboardingSearchScreen(
                     query = uiState.searchQuery,
+                    correctedQuery = uiState.correctedQuery,
                     results = uiState.searchResults,
                     isSearching = uiState.isSearching,
                     subscribedIds = uiState.subscribedPodcastIds,
@@ -670,6 +671,7 @@ private fun GenreChip(
 @Composable
 private fun OnboardingSearchScreen(
     query: String,
+    correctedQuery: String?,
     results: List<Podcast>,
     isSearching: Boolean,
     subscribedIds: Set<String>,
@@ -762,6 +764,11 @@ private fun OnboardingSearchScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    if (correctedQuery != null) {
+                        item {
+                            OnboardingSearchHeader(correctedQuery = correctedQuery)
+                        }
+                    }
                     items(results, key = { it.id }) { podcast ->
                         SearchResultRow(
                             podcast = podcast,
@@ -790,6 +797,37 @@ private fun OnboardingSearchScreen(
                     fontWeight = FontWeight.SemiBold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun OnboardingSearchHeader(correctedQuery: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.AutoFixHigh,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = "Search Results",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Showing results for \"$correctedQuery\"",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }

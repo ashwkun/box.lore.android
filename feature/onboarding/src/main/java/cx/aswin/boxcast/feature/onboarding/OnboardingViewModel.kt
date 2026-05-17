@@ -26,7 +26,8 @@ data class OnboardingUiState(
     val searchQuery: String = "",
     val searchResults: List<Podcast> = emptyList(),
     val isSearching: Boolean = false,
-    val isCompleting: Boolean = false
+    val isCompleting: Boolean = false,
+    val correctedQuery: String? = null
 )
 
 enum class OnboardingStep {
@@ -45,6 +46,13 @@ class OnboardingViewModel(
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
     
     private var searchJob: Job? = null
+
+    init {
+        // Init local spellchecker safely on a background thread for the search step
+        viewModelScope.launch {
+            cx.aswin.boxcast.core.data.Spellchecker.init(application)
+        }
+    }
 
     // ── Analytics Timing & Counters ────────────────────────────────
     private var onboardingStartMs: Long = 0L
@@ -213,7 +221,7 @@ class OnboardingViewModel(
     }
     
     fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        _uiState.update { it.copy(searchQuery = query, correctedQuery = null) }
         
         // Debounce search
         searchJob?.cancel()
@@ -226,7 +234,13 @@ class OnboardingViewModel(
         searchJob = viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true) }
             delay(400) // Debounce
-            val results = podcastRepository.searchPodcasts(cleaned)
+            
+            val corrected = cx.aswin.boxcast.core.data.Spellchecker.correctQuery(cleaned)
+            if (corrected != cleaned) {
+                _uiState.update { it.copy(correctedQuery = corrected) }
+            }
+            
+            val results = podcastRepository.searchPodcasts(corrected)
             _uiState.update { it.copy(searchResults = results, isSearching = false) }
 
             // Analytics: Track search performed
