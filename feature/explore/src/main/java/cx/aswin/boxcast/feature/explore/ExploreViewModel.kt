@@ -127,7 +127,7 @@ class ExploreViewModel(
         
         // Init local spellchecker safely on a background thread
         viewModelScope.launch {
-            cx.aswin.boxcast.core.data.Spellchecker.init(application)
+            // Offline spellchecker removed - handled at the Edge
         }
     }
 
@@ -247,7 +247,7 @@ class ExploreViewModel(
             _searchResults.value = emptyList() // Clear previous results to force Skeleton
             try {
                 android.util.Log.d("ExploreViewModel", "Starting search for: $query")
-                val corrected = cx.aswin.boxcast.core.data.Spellchecker.correctQuery(query)
+                val corrected = query // Spelling is now handled by the Cloudflare Worker
                 if (corrected != query) {
                     _correctedQuery.value = corrected
                 } else {

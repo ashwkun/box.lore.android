@@ -50,7 +50,7 @@ class OnboardingViewModel(
     init {
         // Init local spellchecker safely on a background thread for the search step
         viewModelScope.launch {
-            cx.aswin.boxcast.core.data.Spellchecker.init(application)
+            // Offline spellchecker removed - handled at the Edge
         }
     }
 
@@ -235,7 +235,7 @@ class OnboardingViewModel(
             _uiState.update { it.copy(isSearching = true) }
             delay(400) // Debounce
             
-            val corrected = cx.aswin.boxcast.core.data.Spellchecker.correctQuery(cleaned)
+            val corrected = cleaned // Spelling handled by Edge API
             if (corrected != cleaned) {
                 _uiState.update { it.copy(correctedQuery = corrected) }
             }
