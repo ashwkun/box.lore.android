@@ -9,7 +9,7 @@ on:
 jobs:
   build-search-index:
     runs-on: ubuntu-latest
-    timeout-minutes: 180  # 3 hours — FTS5 trigram build on 2M rows needs time
+    timeout-minutes: 45  # Standard FTS5 build is much faster now
     env:
       TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
     
@@ -27,7 +27,7 @@ jobs:
           curl -sSfL https://get.tur.so/install.sh | bash
           echo "$HOME/.turso" >> $GITHUB_PATH
 
-      - name: Download Podcast Index Database
+      - name: 📥 Download Podcast Index Database
         run: |
           echo "Downloading PI database dump..."
           curl -L -f -A "BoxCast/1.0 (github.com/ashwkun/box.cast.android)" -o podcastindex_feeds.db.tgz https://public.podcastindex.org/podcastindex_feeds.db.tgz
@@ -36,7 +36,7 @@ jobs:
           ls -la *.db
           echo "Total podcasts: $(sqlite3 podcastindex_feeds.db 'SELECT COUNT(*) FROM podcasts;')"
 
-      - name: Get chart iTunes IDs from main DB
+      - name: 📈 Get Chart Data from Main DB
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
@@ -44,12 +44,12 @@ jobs:
           node scripts/get-chart-itunes-ids.js > chart_itunes_ids.txt
           echo "Got $(wc -l < chart_itunes_ids.txt) iTunes IDs from charts"
 
-      - name: Build Search Index
+      - name: 🏗️ Build High-Performance Search Index & Dictionary
         run: |
           node scripts/build-search-index.js
           ls -lh search.db
 
-      - name: Upload Search DB to Turso
+      - name: ☁️ Upload Search DB to Turso
         run: |
           echo "Destroying old search database..."
           turso db destroy boxcast-search --yes || echo "No existing DB to destroy"
@@ -60,7 +60,7 @@ jobs:
           echo "Verifying..."
           turso db show boxcast-search
 
-      - name: Warm up Turso Cache
+      - name: 🔥 Warm up Turso Cache
         run: |
           echo "Warming up FTS index blocks to prevent cold-start latency..."
           turso db shell boxcast-search "SELECT title FROM search_fts WHERE search_fts MATCH 'news' LIMIT 5;" > /dev/null
@@ -71,7 +71,7 @@ jobs:
           turso db shell boxcast-search "SELECT title FROM search_fts WHERE search_fts MATCH 'conspiracy' LIMIT 5;" > /dev/null
           echo "Warm-up complete!"
 
-      - name: Update Worker Search Token
+      - name: 🔐 Update Worker Search Token
         env:
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -89,7 +89,7 @@ jobs:
           
           echo "Worker secret TURSO_SEARCH_TOKEN updated automatically."
 
-      - name: Deploy Cloudflare Worker
+      - name: 🚀 Deploy Cloudflare Worker (with new Dictionary)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -98,5 +98,5 @@ jobs:
           npm install
           npx wrangler deploy
 
-      - name: Cleanup
+      - name: 🧹 Cleanup
         run: rm -f *.db *.tgz *.csv *.txt

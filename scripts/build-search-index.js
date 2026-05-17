@@ -34,6 +34,7 @@ if (fs.existsSync(OUTPUT_DB_PATH)) {
     fs.unlinkSync(OUTPUT_DB_PATH);
 }
 
+console.log("::group::[Step 1] Initializing Build & Getting PI Dump Stats");
 console.log("=== Building Search Index ===");
 console.log(`Source: ${PI_DB_PATH}`);
 console.log(`Output: ${OUTPUT_DB_PATH}`);
@@ -53,28 +54,35 @@ function sqlite3Multi(dbPath, commands) {
 }
 
 // Step 1: Get stats from PI dump
+console.log("Reading total podcast count from PI dump...");
 const totalPodcasts = sqlite3(PI_DB_PATH, "SELECT COUNT(*) FROM podcasts;");
-console.log(`Total podcasts in PI dump: ${totalPodcasts}`);
+console.log(`  => Total podcasts in PI dump: ${totalPodcasts}`);
+console.log("::endgroup::");
 
 // Step 2: Get max values for normalization
-console.log("Computing normalization values...");
+console.log("::group::[Step 2] Computing Normalization Values");
+console.log("Scanning dump to find maximum episode count and popularity scores...");
 const maxEpisodeCount = parseInt(sqlite3(PI_DB_PATH, "SELECT MAX(episodeCount) FROM podcasts WHERE episodeCount IS NOT NULL;")) || 1;
 const maxPopularity = parseInt(sqlite3(PI_DB_PATH, "SELECT MAX(popularityScore) FROM podcasts WHERE popularityScore IS NOT NULL;")) || 1;
-console.log(`  Max episode count: ${maxEpisodeCount}`);
-console.log(`  Max PI popularity: ${maxPopularity}`);
+console.log(`  => Max episode count: ${maxEpisodeCount}`);
+console.log(`  => Max PI popularity: ${maxPopularity}`);
+console.log("::endgroup::");
 
 // Step 3: Load chart iTunes IDs if available
+console.log("::group::[Step 3] Loading Apple Charts Data");
 let chartIds = new Set();
 if (fs.existsSync(CHARTS_CSV_PATH)) {
     const chartContent = fs.readFileSync(CHARTS_CSV_PATH, 'utf-8');
     chartContent.split('\n').filter(l => l.trim()).forEach(id => chartIds.add(id.trim()));
-    console.log(`  Chart iTunes IDs loaded: ${chartIds.size}`);
+    console.log(`  => Chart iTunes IDs loaded: ${chartIds.size} (These will receive a ranking boost)`);
 } else {
-    console.log("  No charts file found, skipping charts boost");
+    console.log("  => No charts file found, skipping charts boost");
 }
+console.log("::endgroup::");
 
 // Step 4: Create output database schema
-console.log("\nCreating output database schema...");
+console.log("::group::[Step 4] Creating Output Database Schema");
+console.log("Defining table structure for optimized search...");
 sqlite3Multi(OUTPUT_DB_PATH, `
 CREATE TABLE podcasts_search (
     id INTEGER PRIMARY KEY,
@@ -93,9 +101,12 @@ CREATE TABLE podcasts_search (
     explicit INTEGER DEFAULT 0
 );
 `);
+console.log("  => Schema created successfully.");
+console.log("::endgroup::");
 
 // Step 5: Attach PI dump and insert with computed popularity scores
-console.log("Exporting podcasts and computing popularity scores...");
+console.log("::group::[Step 5] Exporting Podcasts & Computing Popularity Scores");
+console.log("This step filters out dead/foreign podcasts and calculates a complex ranking score for each.");
 
 const nowEpoch = Math.floor(Date.now() / 1000);
 const oneYearAgo = nowEpoch - (365 * 24 * 60 * 60);
@@ -173,17 +184,22 @@ sqlite3Multi(OUTPUT_DB_PATH, insertSQL);
 const insertTime = ((Date.now() - startInsert) / 1000).toFixed(1);
 
 const insertedCount = sqlite3(OUTPUT_DB_PATH, "SELECT COUNT(*) FROM podcasts_search;");
-console.log(`  Inserted ${insertedCount} podcasts in ${insertTime}s`);
+console.log(`  => Successfully exported ${insertedCount} highly-ranked English podcasts in ${insertTime}s`);
+console.log("::endgroup::");
 
 // Step 6: Create indexes on the base table
-console.log("\nCreating indexes...");
+console.log("::group::[Step 6] Creating Database Indexes");
+console.log("Creating B-Tree indexes for itunes_id and popularity_score...");
 sqlite3Multi(OUTPUT_DB_PATH, `
 CREATE INDEX IF NOT EXISTS idx_ps_itunes_id ON podcasts_search(itunes_id);
 CREATE INDEX IF NOT EXISTS idx_ps_popularity ON podcasts_search(popularity_score DESC);
 `);
+console.log("  => Indexes created.");
+console.log("::endgroup::");
 
-// Step 7: Generate clean dictionary and build FTS5 index
-console.log("Building FTS5 index (standard tokenization)...");
+// Step 7: Build FTS5 index
+console.log("::group::[Step 7] Building FTS5 Text Search Index");
+console.log("Building FTS5 virtual table with standard unicode61 tokenization (optimized for size & speed)...");
 const startFTS = Date.now();
 
 sqlite3Multi(OUTPUT_DB_PATH, `
@@ -198,9 +214,11 @@ INSERT INTO search_fts(search_fts) VALUES('rebuild');
 `);
 
 const ftsTime = ((Date.now() - startFTS) / 1000).toFixed(1);
-console.log(`  FTS5 index built in ${ftsTime}s`);
+console.log(`  => FTS5 text index fully compiled in ${ftsTime}s`);
+console.log("::endgroup::");
 
-console.log("Extracting dictionary words...");
+console.log("::group::[Step 8] Generating Edge-Side Dictionary for Spellchecking");
+console.log("Extracting unique, normalized terms from the FTS5 vocabulary table...");
 // Extract all words from the FTS5 vocab table
 sqlite3Multi(OUTPUT_DB_PATH, `
 CREATE VIRTUAL TABLE search_vocab USING fts5vocab('main', 'search_fts', 'row');
@@ -211,27 +229,33 @@ try {
     if (vocabJson) {
         const words = JSON.parse(vocabJson).map(row => row.term);
         fs.writeFileSync('proxy/src/dictionary.json', JSON.stringify(words));
-        console.log(\`  Extracted \${words.length} words to proxy/src/dictionary.json\`);
+        console.log(`  => Successfully extracted ${words.length} unique words.`);
+        console.log(`  => Wrote pristine dictionary to proxy/src/dictionary.json for Cloudflare Edge typo-tolerance.`);
     }
 } catch (e) {
-    console.error("Failed to generate dictionary:", e.message);
+    console.error("  => [ERROR] Failed to generate dictionary:", e.message);
 }
+console.log("::endgroup::");
 
-// Step 8: Clean up chart_ids temp table
+// Step 9: Clean up chart_ids temp table
 if (chartIds.size > 0) {
     sqlite3(OUTPUT_DB_PATH, "DROP TABLE IF EXISTS chart_ids;");
 }
 
-// Step 9: Optimize
-console.log("\nOptimizing database...");
+// Step 10: Optimize
+console.log("::group::[Step 9] Database Optimization & Vacuum");
+console.log("Performing VACUUM and enabling WAL mode for production performance...");
 sqlite3Multi(OUTPUT_DB_PATH, `
 INSERT INTO search_fts(search_fts) VALUES('optimize');
 VACUUM;
 PRAGMA journal_mode=WAL;
 PRAGMA wal_checkpoint(TRUNCATE);
 `);
+console.log("  => Optimization complete.");
+console.log("::endgroup::");
 
-// Step 10: Report
+// Step 11: Report
+console.log("::group::[Step 10] Final Report & Test Query");
 const dbSize = fs.statSync(OUTPUT_DB_PATH).size;
 const dbSizeMB = (dbSize / 1024 / 1024).toFixed(1);
 
@@ -249,3 +273,4 @@ console.log(`Total time: ${((Date.now() - startInsert) / 1000).toFixed(1)}s`);
 console.log(`\nTest query (MATCH 'wav'):`);
 console.log(testResult || "(no results)");
 console.log("======================\n");
+console.log("::endgroup::");
