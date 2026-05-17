@@ -160,6 +160,9 @@ SELECT
 FROM pi.podcasts p
 LEFT JOIN chart_ids ci ON CAST(p.itunesId AS TEXT) = ci.itunes_id
 WHERE p.title IS NOT NULL AND p.title != ''
+  AND p.episodeCount >= 10
+  AND p.language LIKE 'en%'
+  AND COALESCE(p.dead, 0) = 0
 ${limitClause};
 
 DETACH DATABASE pi;
@@ -187,7 +190,6 @@ sqlite3Multi(OUTPUT_DB_PATH, `
 CREATE VIRTUAL TABLE search_fts USING fts5(
     title,
     author,
-    description,
     content='podcasts_search',
     content_rowid='id',
     tokenize='trigram'
