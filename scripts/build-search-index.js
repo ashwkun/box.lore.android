@@ -221,7 +221,7 @@ console.log("::group::[Step 8] Generating Edge-Side Dictionary for Spellchecking
 console.log("Extracting unique, normalized terms from the FTS5 vocabulary table...");
 // Extract all words from the FTS5 vocab table
 sqlite3Multi(OUTPUT_DB_PATH, `
-CREATE VIRTUAL TABLE search_vocab USING fts5vocab('main', 'search_fts', 'row');
+CREATE VIRTUAL TABLE search_vocab USING fts5vocab('search_fts', 'row');
 `);
 // Read the vocab table into JSON using sqlite3 JSON output
 try {
