@@ -556,14 +556,14 @@ fun EpisodeInfoScreen(
                             val isLiked = likedEpisodeIds.contains(state.episode.id)
                             val isCompleted = completedEpisodeIds.contains(state.episode.id)
 
-                            // Single Row Layout
+                            // Single Elegant Row Layout (M3 standard: actions left, FAB right)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 modifier = Modifier
                                     .fillMaxWidth()
                             ) {
-                                // Action Buttons Row (Tonal Squircles)
+                                // Action Buttons Row (Material3 Tonal) on the Left
                                 cx.aswin.boxcast.core.designsystem.components.AdvancedPlayerControls(
                                     isLiked = isLiked,
                                     isDownloaded = isDownloaded, 
@@ -572,28 +572,31 @@ fun EpisodeInfoScreen(
                                     onLikeClick = { viewModel.onToggleLike(state.episode) },
                                     onDownloadClick = { viewModel.toggleDownload(state.episode) },
                                     onQueueClick = { viewModel.toggleQueue() },
-                                    style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.TonalSquircle,
-                                    overrideColor = accentColor, // Enforce accent color
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.Material3, // Circular M3
+                                    overrideColor = accentColor, // Enforce accent color for active states
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     showAddQueueIcon = true,
                                     isQueued = queuedEpisodeIds.contains(state.episode.id),
                                     showShareButton = false,
                                     isPlayed = isCompleted,
                                     onMarkPlayedClick = { viewModel.onToggleCompletion() },
-                                    controlSize = 40.dp
+                                    controlSize = 48.dp,
+                                    modifier = Modifier.weight(1f, fill = false) // Don't steal too much space
                                 )
                                 
-                                // Play Button (Integrated Pill) — fills remaining space
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                // Prominent Play Button (Right)
                                 cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
                                     onClick = { viewModel.onMainActionClick(entryPointContext) },
                                     isPlaying = isPlaying, 
                                     isResume = state.resumePositionMs > 0,
-                                    accentColor = MaterialTheme.colorScheme.primary,
+                                    accentColor = accentColor, // Use extracted album art color
                                     progress = progress,
                                     timeText = formatRemaining(remainingSeconds),
                                     modifier = Modifier
-                                        .height(40.dp)
-                                        .weight(1f) // fill remaining space — no clipping
+                                        .height(56.dp)
+                                        .weight(1f) // Takes up remaining width (lots of area for Resume text)
                                 )
                             }
                         }

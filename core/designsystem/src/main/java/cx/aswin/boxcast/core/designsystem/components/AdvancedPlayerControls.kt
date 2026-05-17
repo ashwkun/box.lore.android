@@ -32,7 +32,8 @@ enum class ControlStyle {
     Squircle, // Primary Player Style (Primary Container)
     Outlined, // (Legacy/Alternative)
     TonalSquircle, // (Heavy weight)
-    Transparent // (Lighter weight - Simply Icons)
+    Transparent, // (Lighter weight - Simply Icons)
+    Material3 // Standard M3 Circular Tonal Buttons
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -221,6 +222,52 @@ fun AdaptiveControlButton(
                             contentDescription = contentDescription,
                             tint = if (isActive) activeTint else inactiveTint,
                             modifier = Modifier.size((controlSize ?: 48.dp) * 0.58f)
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    if (style == ControlStyle.Material3) {
+        val containerColor = if (isActive && activeContainerColor != Color.Unspecified) {
+            activeContainerColor 
+        } else {
+             colorScheme.surfaceContainerHigh
+        }
+        
+        val size = controlSize ?: 48.dp
+        val iconSize = size * 0.5f
+        
+        Surface(
+            color = containerColor,
+            shape = androidx.compose.foundation.shape.CircleShape,
+            modifier = Modifier
+                .size(size)
+                .expressiveClickable(onClick = onClick)
+        ) {
+            Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                androidx.compose.animation.AnimatedContent(
+                    targetState = isLoading,
+                    transitionSpec = {
+                        androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith 
+                        androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
+                    },
+                    label = "loader_transition"
+                ) { loading ->
+                    if (loading) {
+                        cx.aswin.boxcast.core.designsystem.components.BoxCastLoader.CircularWavy(
+                            modifier = Modifier.size(iconSize - 2.dp),
+                            color = activeTint,
+                            trackColor = activeTint.copy(alpha = 0.2f)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isActive) activeIcon else inactiveIcon,
+                            contentDescription = contentDescription,
+                            tint = if (isActive) activeTint else inactiveTint,
+                            modifier = Modifier.size(iconSize)
                         )
                     }
                 }
