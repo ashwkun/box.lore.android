@@ -199,48 +199,29 @@ private fun SocialChip(
     link: SocialLink,
     onClick: () -> Unit
 ) {
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    // In dark mode, lighten the brand color for container; in light mode, use it directly
-    val chipContainerColor = if (isDark) {
-        link.brandColor.copy(alpha = 0.15f)
-    } else {
-        link.brandColor.copy(alpha = 0.1f)
-    }
-    val chipContentColor = if (isDark) {
-        link.brandColor.copy(alpha = 0.9f)
-    } else {
-        link.brandColor
-    }
-
     Surface(
-        color = chipContainerColor,
-        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
         modifier = Modifier
-            .height(36.dp)
             .expressiveClickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(
                 imageVector = link.icon,
                 contentDescription = link.platform,
-                tint = chipContentColor,
-                modifier = Modifier.size(18.dp)
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
             )
             Text(
                 text = link.platform,
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = chipContentColor
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
-}
-
-// Helper
-private fun Color.luminance(): Float {
-    return (0.299f * red + 0.587f * green + 0.114f * blue)
 }
