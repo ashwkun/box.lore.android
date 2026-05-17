@@ -89,5 +89,14 @@ jobs:
           
           echo "Worker secret TURSO_SEARCH_TOKEN updated automatically."
 
+      - name: Deploy Cloudflare Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: ./proxy
+        run: |
+          npm install
+          npx wrangler deploy
+
       - name: Cleanup
         run: rm -f *.db *.tgz *.csv *.txt

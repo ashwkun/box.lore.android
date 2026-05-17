@@ -182,8 +182,8 @@ CREATE INDEX IF NOT EXISTS idx_ps_itunes_id ON podcasts_search(itunes_id);
 CREATE INDEX IF NOT EXISTS idx_ps_popularity ON podcasts_search(popularity_score DESC);
 `);
 
-// Step 7: Build FTS5 trigram index
-console.log("Building FTS5 trigram index (this may take a few minutes)...");
+// Step 7: Generate clean dictionary and build FTS5 index
+console.log("Building FTS5 index (standard tokenization)...");
 const startFTS = Date.now();
 
 sqlite3Multi(OUTPUT_DB_PATH, `
@@ -191,15 +191,31 @@ CREATE VIRTUAL TABLE search_fts USING fts5(
     title,
     author,
     content='podcasts_search',
-    content_rowid='id',
-    tokenize='trigram'
+    content_rowid='id'
 );
 
 INSERT INTO search_fts(search_fts) VALUES('rebuild');
 `);
 
 const ftsTime = ((Date.now() - startFTS) / 1000).toFixed(1);
-console.log(`  FTS5 trigram index built in ${ftsTime}s`);
+console.log(`  FTS5 index built in ${ftsTime}s`);
+
+console.log("Extracting dictionary words...");
+// Extract all words from the FTS5 vocab table
+sqlite3Multi(OUTPUT_DB_PATH, `
+CREATE VIRTUAL TABLE search_vocab USING fts5vocab('main', 'search_fts', 'row');
+`);
+// Read the vocab table into JSON using sqlite3 JSON output
+try {
+    const vocabJson = execSync(\`sqlite3 "\${OUTPUT_DB_PATH}" -json "SELECT term FROM search_vocab WHERE length(term) >= 4;"\`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 100 }).trim();
+    if (vocabJson) {
+        const words = JSON.parse(vocabJson).map(row => row.term);
+        fs.writeFileSync('proxy/src/dictionary.json', JSON.stringify(words));
+        console.log(\`  Extracted \${words.length} words to proxy/src/dictionary.json\`);
+    }
+} catch (e) {
+    console.error("Failed to generate dictionary:", e.message);
+}
 
 // Step 8: Clean up chart_ids temp table
 if (chartIds.size > 0) {
