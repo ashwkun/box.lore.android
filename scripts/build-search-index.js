@@ -228,6 +228,7 @@ try {
     const vocabJson = execSync(`sqlite3 "${OUTPUT_DB_PATH}" -json "SELECT term FROM search_vocab WHERE length(term) >= 4;"`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 100 }).trim();
     if (vocabJson) {
         const words = JSON.parse(vocabJson).map(row => row.term);
+        fs.mkdirSync(path.dirname('proxy/src/dictionary.json'), { recursive: true });
         fs.writeFileSync('proxy/src/dictionary.json', JSON.stringify(words));
         console.log(`  => Successfully extracted ${words.length} unique words.`);
         console.log(`  => Wrote pristine dictionary to proxy/src/dictionary.json for Cloudflare Edge typo-tolerance.`);
