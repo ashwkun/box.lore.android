@@ -326,18 +326,44 @@ fun ContentLibrarySection(
 ) {
     Column {
         Text("Content Region", style = MaterialTheme.typography.titleMedium)
-        Text("Choose region for trending charts.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Select your region for localized recommendations and feeds.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val isGlobal = currentRegion != "in"
-            FilterChip(
-                selected = !isGlobal, onClick = { onSetRegion("in") }, label = { Text("India (IN)") },
-                leadingIcon = { if (!isGlobal) Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }, modifier = Modifier.weight(1f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val regions = listOf(
+                "us" to "USA",
+                "in" to "India",
+                "gb" to "UK"
             )
-            FilterChip(
-                selected = isGlobal, onClick = { onSetRegion("us") }, label = { Text("Global (US)") },
-                leadingIcon = { if (isGlobal) Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }, modifier = Modifier.weight(1f)
-            )
+            regions.forEach { (code, label) ->
+                val isSelected = currentRegion == code
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer 
+                            else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                        .clickable { onSetRegion(code) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer 
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(24.dp))

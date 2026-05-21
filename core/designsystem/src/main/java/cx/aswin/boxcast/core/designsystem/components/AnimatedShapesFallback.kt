@@ -23,9 +23,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 
+data class PlacedShape(val x: Float, val y: Float, val size: Int, val shape: androidx.compose.ui.graphics.Shape)
+
 @Composable
 fun AnimatedShapesFallback() {
-    // Random positions calculated once per composition
+    LogRecomposition(name = "AnimatedShapesFallback")
+    
+    // Random positions and sizes calculated once per composition
     val shapes = remember {
         val allShapes = listOf(
             ExpressiveShapes.Sunny, ExpressiveShapes.VerySunny, 
@@ -36,7 +40,7 @@ fun AnimatedShapesFallback() {
             ExpressiveShapes.Diamond, ExpressiveShapes.Gem, ExpressiveShapes.Pentagon
         ).shuffled()
         
-        val placedShapes = mutableListOf<Triple<Float, Float, androidx.compose.ui.graphics.Shape>>()
+        val placedShapes = mutableListOf<PlacedShape>()
         val availableShapes = allShapes.toMutableList()
         
         // Try to place up to 6 shapes without overlapping
@@ -49,8 +53,8 @@ fun AnimatedShapesFallback() {
             
             var overlaps = false
             for (placed in placedShapes) {
-                val px = placed.first
-                val py = placed.second
+                val px = placed.x
+                val py = placed.y
                 val dist = kotlin.math.sqrt((x - px) * (x - px) + (y - py) * (y - py))
                 if (dist < 200f) { // Larger separation for fallback
                     overlaps = true
@@ -59,7 +63,8 @@ fun AnimatedShapesFallback() {
             }
             
             if (!overlaps) {
-                placedShapes.add(Triple(x, y, availableShapes.removeAt(0)))
+                val size = 180 + Random.nextInt(170)
+                placedShapes.add(PlacedShape(x, y, size, availableShapes.removeAt(0)))
             }
         }
         placedShapes
@@ -70,21 +75,21 @@ fun AnimatedShapesFallback() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.primaryContainer)
             .graphicsLayer { clip = true } // Allow clipping at container edge
+            .logDrawTime("AnimatedShapesFallbackDraw")
+            .logLayoutTime("AnimatedShapesFallbackLayout")
     ) {
-        shapes.forEach { (dx, dy, shape) ->
-            // Massive sizes
-            val size = (180 + Random.nextInt(170)).dp 
-            
+        shapes.forEach { placed ->
+            val sizeDp = placed.size.dp
             Box(
                 modifier = Modifier
-                    .size(size)
+                    .size(sizeDp)
                     .offset(
-                        x = dx.dp - (size / 2), 
-                        y = dy.dp - (size / 2)
+                        x = placed.x.dp - (sizeDp / 2), 
+                        y = placed.y.dp - (sizeDp / 2)
                     )
                     .background(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f), // Very subtle
-                        shape = shape
+                        shape = placed.shape
                     )
             )
         }

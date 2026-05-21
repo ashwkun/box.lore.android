@@ -1,377 +1,313 @@
 package cx.aswin.boxcast.core.designsystem.theme
 
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
-import kotlin.math.cos
-import kotlin.math.sin
+
+/**
+ * Cached shape implementation for custom paths to avoid recreating paths during draw/layout.
+ */
+class CachedPathShape(private val pathBuilder: (Size) -> Path) : androidx.compose.ui.graphics.Shape {
+    private var lastSize: Size? = null
+    private var lastPath: Path? = null
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        if (size != lastSize || lastPath == null) {
+            lastSize = size
+            lastPath = pathBuilder(size)
+        }
+        return Outline.Generic(lastPath!!)
+    }
+}
+
+/**
+ * Cached shape implementation for RoundedPolygons.
+ */
+class CachedPolygonShape(
+    private val numVertices: Int,
+    private val isStar: Boolean,
+    private val innerRadiusRatio: Float = 0.5f,
+    private val roundingRatio: Float = 0.0f
+) : androidx.compose.ui.graphics.Shape {
+    private var lastSize: Size? = null
+    private var lastPath: Path? = null
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        if (size != lastSize || lastPath == null) {
+            lastSize = size
+            val radius = size.minDimension / 2
+            val centerX = size.width / 2
+            val centerY = size.height / 2
+            val polygon = if (isStar) {
+                RoundedPolygon.star(
+                    numVerticesPerRadius = numVertices,
+                    radius = radius,
+                    innerRadius = radius * innerRadiusRatio,
+                    rounding = CornerRounding(radius * roundingRatio),
+                    centerX = centerX,
+                    centerY = centerY
+                )
+            } else {
+                if (roundingRatio > 0f) {
+                    RoundedPolygon(
+                        numVertices = numVertices,
+                        radius = radius,
+                        centerX = centerX,
+                        centerY = centerY,
+                        rounding = CornerRounding(radius * roundingRatio)
+                    )
+                } else {
+                    RoundedPolygon(
+                        numVertices = numVertices,
+                        radius = radius,
+                        centerX = centerX,
+                        centerY = centerY
+                    )
+                }
+            }
+            lastPath = polygon.toPath().asComposePath()
+        }
+        return Outline.Generic(lastPath!!)
+    }
+}
 
 /**
  * Expressive Shapes for BoxCast.
  * Comprehensive implementation of Material 3 Expressive Shapes.
- * Uses androidx.graphics.shapes.RoundedPolygon for radial shapes,
- * and standard Path/GenericShape for irregular shapes.
+ * Uses CachedPolygonShape and CachedPathShape to eliminate draw-time allocations.
  */
 object ExpressiveShapes {
 
     // --- Basic Shapes ---
     val Circle = CircleShape
     val Square = RoundedCornerShape(0)
-    val Pill = CircleShape // Pill is usually just CircleShape on a rectangle
-    val Oval = CircleShape // Compose CircleShape adapts to bounds, forming Oval
-    val Full = RoundedCornerShape(50) // For progress indicators, fully rounded ends
+    val Pill = CircleShape 
+    val Oval = CircleShape 
+    val Full = RoundedCornerShape(50) 
 
-    val Slanted: GenericShape
-        get() = GenericShape { size, _ ->
-            val slant = size.width * 0.15f
-            moveTo(slant, 0f)
-            lineTo(size.width, 0f)
-            lineTo(size.width - slant, size.height)
-            lineTo(0f, size.height)
-            close()
-        }
-
-    val Triangle: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon(
-                numVertices = 3,
-                radius = size.minDimension / 2,
-                centerX = size.width / 2,
-                centerY = size.height / 2,
-                rounding = CornerRounding(size.minDimension * 0.1f)
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    val Semicircle: GenericShape
-        get() = GenericShape { size, _ ->
-            addArc(Rect(0f, 0f, size.width, size.height * 2), 180f, 180f)
-            close()
-        }
-
-    val Arch: GenericShape
-        get() = GenericShape { size, _ ->
-            // Rect bottom, Semicircle top
-            moveTo(0f, size.height)
-            lineTo(0f, size.height / 2)
-            arcTo(
-                rect = Rect(0f, 0f, size.width, size.height),
-                startAngleDegrees = 180f,
-                sweepAngleDegrees = 180f,
-                forceMoveTo = false
-            )
-            lineTo(size.width, size.height)
-            close()
-        }
-    
-    val Fan: GenericShape
-        get() = GenericShape { size, _ ->
-             // Top-Left rounded quarter circle (0,0 to center) is not a Fan?
-             // A "Fan" is usually a sector. M3 Fan is often a square with one rounded corner.
-             // Let's implement M3 Fan: Square with Top-Right corner rounded fully?
-             // Or strict quarter circle.
-             
-             // Quarter Circle (Top Left)
-             moveTo(0f, size.height)
-             lineTo(0f, 0f)
-             arcTo(Rect(0f, 0f, size.width * 2, size.height * 2), 180f, 90f, false)
-             lineTo(size.width, size.height)
-             close()
-        }
-
-    val Arrow: GenericShape
-        get() = GenericShape { size, _ ->
-            // Triangle pointing up with rounded corners logic or path
-            // M3 Arrow is usually a soft triangle
-             val polygon = RoundedPolygon(
-                numVertices = 3,
-                radius = size.minDimension / 2,
-                centerX = size.width / 2,
-                centerY = size.height / 2,
-                rounding = CornerRounding(size.minDimension * 0.2f)
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    // --- Polygonal / Stars ---
-    val Star: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 5,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.4f,
-                rounding = CornerRounding(radius = size.minDimension * 0.05f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    val Sunny: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 8,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.7f,
-                rounding = CornerRounding(radius = size.minDimension * 0.05f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-    
-    val VerySunny: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 12,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.75f,
-                rounding = CornerRounding(radius = size.minDimension * 0.05f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    val Diamond: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon(
-                numVertices = 4,
-                radius = size.minDimension / 2,
-                centerX = size.width / 2,
-                centerY = size.height / 2,
-                rounding = CornerRounding(size.minDimension * 0.1f)
-            )
-            // Rotate 45deg? RoundedPolygon starts with vertex? default orientation might be diamond-like for 4
-            // Default 4 is square rotated? let's check. 
-            // Often requires rotation.
-            addPath(polygon.toPath().asComposePath())
-        }
-        
-    val Pentagon: GenericShape
-        get() = createRegularPolygon(5)
-    
-    val Hexagon: GenericShape
-        get() = createRegularPolygon(6)
-
-    val Gem: GenericShape
-        get() = GenericShape { size, _ ->
-            // 6-sided but slightly different proportions often
-            val polygon = RoundedPolygon(
-                numVertices = 6,
-                radius = size.minDimension / 2,
-                centerX = size.width / 2,
-                centerY = size.height / 2,
-                rounding = CornerRounding(size.minDimension * 0.15f)
-            )
-             addPath(polygon.toPath().asComposePath())
-        }
-
-    // --- Cookies (Rounded N-gons) ---
-    val Cookie4: GenericShape get() = createCookie(4)
-    val Cookie6: GenericShape get() = createCookie(6)
-    val Cookie7: GenericShape get() = createCookie(7)
-    val Cookie9: GenericShape get() = createCookie(9)
-    val Cookie12: GenericShape get() = createCookie(12)
-
-
-    // --- Expressive ---
-    
-    val GhostIsh: GenericShape
-        get() = GenericShape { size, _ ->
-            // Arch top, subtle wavy bottom
-            val w = size.width
-            val h = size.height
-            // Top Arch
-            moveTo(0f, h * 0.5f)
-            arcTo(Rect(0f, 0f, w, h), 180f, 180f, false)
-            lineTo(w, h * 0.8f)
-            // Simpler subtle wave at bottom
-             cubicTo(w * 0.75f, h, w * 0.25f, h * 0.6f, 0f, h * 0.8f)
-            close()
-        }
-
-    val Clover4: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 4,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension * 0.1f, // Tight center
-                rounding = CornerRounding(size.minDimension * 0.25f), // Heavy rounding
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-        
-    val Clover8: GenericShape
-        get() = GenericShape { size, _ ->
-             val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 8,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension * 0.3f, 
-                rounding = CornerRounding(size.minDimension * 0.15f), 
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    val Burst: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 12,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.6f,
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-        
-    val SoftBurst: GenericShape
-        get() = GenericShape { size, _ ->
-             val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 10,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.7f,
-                rounding = CornerRounding(size.minDimension * 0.05f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-        
-    val Boom: GenericShape
-        get() = GenericShape { size, _ ->
-             // Sharp 16 point star
-              val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 16,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.4f,
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-    
-    val SoftBoom: GenericShape
-        get() = GenericShape { size, _ ->
-              val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 16,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.4f,
-                 rounding = CornerRounding(size.minDimension * 0.03f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    val Flower: GenericShape
-        get() = GenericShape { size, _ ->
-             val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 8,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.6f,
-                rounding = CornerRounding(size.minDimension * 0.05f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    // Puffy / Cloud-like
-    val Puffy: GenericShape
-        get() = GenericShape { size, _ ->
-            // Low vertex count star with heavy rounding creates puffy look
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 8,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.7f,
-                rounding = CornerRounding(size.minDimension * 0.2f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-    
-    val PuffyDiamond: GenericShape
-        get() = GenericShape { size, _ ->
-            val polygon = RoundedPolygon.star(
-                numVerticesPerRadius = 4,
-                radius = size.minDimension / 2,
-                innerRadius = size.minDimension / 2 * 0.5f,
-                rounding = CornerRounding(size.minDimension * 0.2f),
-                centerX = size.width / 2,
-                centerY = size.height / 2
-            )
-            addPath(polygon.toPath().asComposePath())
-        }
-
-    val Bun: GenericShape
-        get() = GenericShape { size, _ ->
-            // Two pills merged or broad rounded rect with pinch
-            // Simulating with RoundedPolygon 4 sides heavily modified or path
-            // Path: Top oval, Bottom oval slightly overlapping
-            addOval(Rect(0f, 0f, size.width, size.height * 0.65f))
-            addOval(Rect(0f, size.height * 0.35f, size.width, size.height))
-        }
-
-    val Heart: GenericShape
-        get() = GenericShape { size, _ ->
-            val width = size.width
-            val height = size.height
-            val path = Path()
-            path.moveTo(width / 2, height * 0.25f)
-            path.cubicTo(width, 0f, width, height * 0.5f, width / 2, height)
-            path.cubicTo(0f, height * 0.5f, 0f, 0f, width / 2, height * 0.25f)
-            addPath(path)
-        }
-        
-    val Clamshell: GenericShape
-        get() = GenericShape { size, _ ->
-             // Wide Arch / Fan
-             // Reverse Fan
-              addArc(Rect(0f, 0f, size.width, size.height), 0f, 180f)
-              // This is just a semicircle, Clamshell usually has scallops or specific width
-              // Stick to simple wide arc for now
-        }
-
-    // --- Helpers ---
-    private fun createRegularPolygon(vertices: Int): GenericShape = GenericShape { size, _ ->
-        val polygon = RoundedPolygon(
-            numVertices = vertices,
-            radius = size.minDimension / 2,
-            centerX = size.width / 2,
-            centerY = size.height / 2
-        )
-        addPath(polygon.toPath().asComposePath())
+    val Slanted = CachedPathShape { size ->
+        val path = Path()
+        val slant = size.width * 0.15f
+        path.moveTo(slant, 0f)
+        path.lineTo(size.width, 0f)
+        path.lineTo(size.width - slant, size.height)
+        path.lineTo(0f, size.height)
+        path.close()
+        path
     }
 
-    private fun createCookie(sides: Int): GenericShape = GenericShape { size, _ ->
-         val polygon = RoundedPolygon(
-            numVertices = sides,
-            radius = size.minDimension / 2,
-            centerX = size.width / 2,
-            centerY = size.height / 2,
-            rounding = CornerRounding(size.minDimension * 0.2f)
+    val Triangle = CachedPolygonShape(
+        numVertices = 3,
+        isStar = false,
+        roundingRatio = 0.1f
+    )
+
+    val Semicircle = CachedPathShape { size ->
+        val path = Path()
+        path.addArc(Rect(0f, 0f, size.width, size.height * 2), 180f, 180f)
+        path.close()
+        path
+    }
+
+    val Arch = CachedPathShape { size ->
+        val path = Path()
+        path.moveTo(0f, size.height)
+        path.lineTo(0f, size.height / 2)
+        path.arcTo(
+            rect = Rect(0f, 0f, size.width, size.height),
+            startAngleDegrees = 180f,
+            sweepAngleDegrees = 180f,
+            forceMoveTo = false
         )
-        addPath(polygon.toPath().asComposePath())
+        path.lineTo(size.width, size.height)
+        path.close()
+        path
+    }
+    
+    val Fan = CachedPathShape { size ->
+         val path = Path()
+         path.moveTo(0f, size.height)
+         path.lineTo(0f, 0f)
+         path.arcTo(Rect(0f, 0f, size.width * 2, size.height * 2), 180f, 90f, false)
+         path.lineTo(size.width, size.height)
+         path.close()
+         path
+    }
+
+    val Arrow = CachedPolygonShape(
+        numVertices = 3,
+        isStar = false,
+        roundingRatio = 0.2f
+    )
+
+    // --- Polygonal / Stars ---
+    val Star = CachedPolygonShape(
+        numVertices = 5,
+        isStar = true,
+        innerRadiusRatio = 0.4f,
+        roundingRatio = 0.05f
+    )
+
+    val Sunny = CachedPolygonShape(
+        numVertices = 8,
+        isStar = true,
+        innerRadiusRatio = 0.7f,
+        roundingRatio = 0.05f
+    )
+    
+    val VerySunny = CachedPolygonShape(
+        numVertices = 12,
+        isStar = true,
+        innerRadiusRatio = 0.75f,
+        roundingRatio = 0.05f
+    )
+
+    val Diamond = CachedPolygonShape(
+        numVertices = 4,
+        isStar = false,
+        roundingRatio = 0.1f
+    )
+        
+    val Pentagon = CachedPolygonShape(
+        numVertices = 5,
+        isStar = false
+    )
+    
+    val Hexagon = CachedPolygonShape(
+        numVertices = 6,
+        isStar = false
+    )
+
+    val Gem = CachedPolygonShape(
+        numVertices = 6,
+        isStar = false,
+        roundingRatio = 0.15f
+    )
+
+    // --- Cookies (Rounded N-gons) ---
+    val Cookie4 = CachedPolygonShape(4, false, roundingRatio = 0.2f)
+    val Cookie6 = CachedPolygonShape(6, false, roundingRatio = 0.2f)
+    val Cookie7 = CachedPolygonShape(7, false, roundingRatio = 0.2f)
+    val Cookie9 = CachedPolygonShape(9, false, roundingRatio = 0.2f)
+    val Cookie12 = CachedPolygonShape(12, false, roundingRatio = 0.2f)
+
+    // --- Expressive ---
+    val GhostIsh = CachedPathShape { size ->
+        val path = Path()
+        val w = size.width
+        val h = size.height
+        path.moveTo(0f, h * 0.5f)
+        path.arcTo(Rect(0f, 0f, w, h), 180f, 180f, false)
+        path.lineTo(w, h * 0.8f)
+        path.cubicTo(w * 0.75f, h, w * 0.25f, h * 0.6f, 0f, h * 0.8f)
+        path.close()
+        path
+    }
+
+    val Clover4 = CachedPolygonShape(
+        numVertices = 4,
+        isStar = true,
+        innerRadiusRatio = 0.1f,
+        roundingRatio = 0.25f
+    )
+        
+    val Clover8 = CachedPolygonShape(
+        numVertices = 8,
+        isStar = true,
+        innerRadiusRatio = 0.3f,
+        roundingRatio = 0.15f
+    )
+
+    val Burst = CachedPolygonShape(
+        numVertices = 12,
+        isStar = true,
+        innerRadiusRatio = 0.6f
+    )
+        
+    val SoftBurst = CachedPolygonShape(
+        numVertices = 10,
+        isStar = true,
+        innerRadiusRatio = 0.7f,
+        roundingRatio = 0.05f
+    )
+        
+    val Boom = CachedPolygonShape(
+        numVertices = 16,
+        isStar = true,
+        innerRadiusRatio = 0.4f
+    )
+    
+    val SoftBoom = CachedPolygonShape(
+        numVertices = 16,
+        isStar = true,
+        innerRadiusRatio = 0.4f,
+        roundingRatio = 0.03f
+    )
+
+    val Flower = CachedPolygonShape(
+        numVertices = 8,
+        isStar = true,
+        innerRadiusRatio = 0.6f,
+        roundingRatio = 0.05f
+    )
+
+    val Puffy = CachedPolygonShape(
+        numVertices = 8,
+        isStar = true,
+        innerRadiusRatio = 0.7f,
+        roundingRatio = 0.2f
+    )
+    
+    val PuffyDiamond = CachedPolygonShape(
+        numVertices = 4,
+        isStar = true,
+        innerRadiusRatio = 0.5f,
+        roundingRatio = 0.2f
+    )
+
+    val Bun = CachedPathShape { size ->
+        val path = Path()
+        path.addOval(Rect(0f, 0f, size.width, size.height * 0.65f))
+        path.addOval(Rect(0f, size.height * 0.35f, size.width, size.height))
+        path
+    }
+
+    val Heart = CachedPathShape { size ->
+        val width = size.width
+        val height = size.height
+        val path = Path()
+        path.moveTo(width / 2, height * 0.25f)
+        path.cubicTo(width, 0f, width, height * 0.5f, width / 2, height)
+        path.cubicTo(0f, height * 0.5f, 0f, 0f, width / 2, height * 0.25f)
+        path
+    }
+        
+    val Clamshell = CachedPathShape { size ->
+         val path = Path()
+         path.addArc(Rect(0f, 0f, size.width, size.height), 0f, 180f)
+         path
     }
 
     // --- Raw Polygons (for LoadingIndicator) ---
     object Polygons {
-        // Standardized size for morphing compatibility
         private const val RADIUS = 1f
         
         val Star: RoundedPolygon = RoundedPolygon.star(

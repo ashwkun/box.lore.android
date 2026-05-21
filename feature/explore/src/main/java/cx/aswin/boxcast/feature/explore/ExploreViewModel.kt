@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -45,6 +47,7 @@ class ExploreViewModel(
     application: android.app.Application,
     private val podcastRepository: PodcastRepository,
     private val subscriptionRepository: SubscriptionRepository,
+    private val userPrefs: cx.aswin.boxcast.core.data.UserPreferencesRepository,
     initialCategory: String? = null // New param
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
@@ -80,6 +83,13 @@ class ExploreViewModel(
     private var podcastsClickedCount = 0
     private var maxScrollDepth = 0
     private var hasTrackedExit = false
+
+    // Explore Region Nudge State flows (must be before init)
+    private val _activeRegionCode = MutableStateFlow("us")
+    val activeRegionCode: StateFlow<String> = _activeRegionCode.asStateFlow()
+
+    private val _showRegionNudge = MutableStateFlow(false)
+    val showRegionNudge: StateFlow<Boolean> = _showRegionNudge.asStateFlow()
 
     init {
         // Observe Subscriptions for Badging
@@ -141,11 +151,31 @@ class ExploreViewModel(
         
         // Initial Load
         loadAllVibes()
-        loadTrending(_currentCategory.value)
         
-        // Init local spellchecker safely on a background thread
         viewModelScope.launch {
-            // Offline spellchecker removed - handled at the Edge
+            combine(_currentCategory, userPrefs.regionStream) { category, region ->
+                category to region
+            }.collectLatest { (category, region) ->
+                loadTrending(category, region)
+            }
+        }
+        
+        // Observe explore region nudge preference and active region stream
+        // Only show for non-mismatch users (mismatch users already get the Home nudge)
+        viewModelScope.launch {
+            combine(
+                userPrefs.regionStream,
+                userPrefs.hasDismissedExploreRegionNudgeStream
+            ) { region, hasDismissed ->
+                region to hasDismissed
+            }.collect { (region, hasDismissed) ->
+                _activeRegionCode.value = region
+                val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
+                    if (it == "us" || it == "in" || it == "gb") it else "us"
+                }
+                // Show only when no mismatch and not already dismissed
+                _showRegionNudge.value = !hasDismissed && (systemCountry == region)
+            }
         }
     }
 
@@ -200,7 +230,6 @@ class ExploreViewModel(
         // Clear Search when switching category to browse
         _searchQuery.value = "" 
         _trendingPodcasts.value = emptyList() // Clear to force Skeleton
-        loadTrending(category)
     }
     
     fun onVibeSelected(vibeId: String, vibeName: String) {
@@ -232,31 +261,29 @@ class ExploreViewModel(
         }
     }
 
-    private fun loadTrending(category: String) {
+    private suspend fun loadTrending(category: String, region: String) {
         currentOffset = 0
         _hasMorePages.value = true
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // Map "All" to null for API, and lowercase others for consistency
-                val apiCategory = if (category == "All") null else category.lowercase()
-                
-                // This hits the Turso DB (via Proxy)
-                val podcasts = podcastRepository.getTrendingPodcasts(
-                    country = "us", 
-                    limit = PAGE_SIZE,
-                    category = apiCategory,
-                    offset = 0
-                )
-                _trendingPodcasts.value = podcasts
-                _hasMorePages.value = podcasts.size >= PAGE_SIZE
-                currentOffset = podcasts.size
-            } catch (e: Exception) {
-                // Handle error
-                _trendingPodcasts.value = emptyList()
-            } finally {
-                _isLoading.value = false
-            }
+        _isLoading.value = true
+        try {
+            // Map "All" to null for API, and lowercase others for consistency
+            val apiCategory = if (category == "All") null else category.lowercase()
+            
+            // This hits the Turso DB (via Proxy)
+            val podcasts = podcastRepository.getTrendingPodcasts(
+                country = region, 
+                limit = PAGE_SIZE,
+                category = apiCategory,
+                offset = 0
+            )
+            _trendingPodcasts.value = podcasts
+            _hasMorePages.value = podcasts.size >= PAGE_SIZE
+            currentOffset = podcasts.size
+        } catch (e: Exception) {
+            // Handle error
+            _trendingPodcasts.value = emptyList()
+        } finally {
+            _isLoading.value = false
         }
     }
 
@@ -266,8 +293,9 @@ class ExploreViewModel(
         viewModelScope.launch {
             try {
                 val apiCategory = if (_currentCategory.value == "All") null else _currentCategory.value.lowercase()
+                val region = userPrefs.regionStream.first()
                 val morePodcasts = podcastRepository.getTrendingPodcasts(
-                    country = "us",
+                    country = region,
                     limit = PAGE_SIZE,
                     category = apiCategory,
                     offset = currentOffset
@@ -349,6 +377,20 @@ class ExploreViewModel(
             finalVibeState = _currentVibe.value,
             finalSearchQuery = _searchQuery.value.takeIf { it.isNotBlank() }
         )
+    }
+
+    // Explore Region Nudge controllers
+
+    fun dismissExploreRegionNudge() {
+        viewModelScope.launch {
+            userPrefs.dismissExploreRegionNudge()
+        }
+    }
+
+    fun switchRegion(region: String) {
+        viewModelScope.launch {
+            userPrefs.setRegion(region)
+        }
     }
 
     override fun onCleared() {

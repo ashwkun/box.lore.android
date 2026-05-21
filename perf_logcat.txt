@@ -1,0 +1,595 @@
+--------- beginning of main
+05-21 23:18:08.522 22406 22406 D BoxCastPerf: [RECOMP] HomeScreen recomposed. Total: 1
+05-21 23:18:08.522 22406 22406 D BoxCastPerf: [RECOMP] PodcastFeed recomposed. Total: 1
+05-21 23:18:09.007 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:09.014 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.057 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.081 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.104 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.129 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.149 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.169 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.203 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.221 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.235 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.243 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 2.49 ms
+05-21 23:18:09.251 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 2.48 ms
+05-21 23:18:09.254 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 2.14 ms
+05-21 23:18:09.257 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 2.45 ms
+05-21 23:18:09.260 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 2.24 ms
+05-21 23:18:09.263 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 2.13 ms
+05-21 23:18:09.266 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.67 ms
+05-21 23:18:09.269 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.60 ms
+05-21 23:18:09.272 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.62 ms
+05-21 23:18:09.274 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.73 ms
+05-21 23:18:09.284 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.49 ms
+05-21 23:18:09.301 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 13.70 ms
+05-21 23:18:09.314 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 12.26 ms
+05-21 23:18:09.325 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 10.02 ms
+05-21 23:18:09.337 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 10.59 ms
+05-21 23:18:09.345 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 7.82 ms
+05-21 23:18:09.354 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 7.48 ms
+05-21 23:18:09.361 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.46 ms
+05-21 23:18:09.368 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.80 ms
+05-21 23:18:09.374 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.70 ms
+05-21 23:18:09.450 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:09.458 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.476 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:09.481 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.498 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:09.503 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.517 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.50 ms
+05-21 23:18:09.522 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.51 ms
+05-21 23:18:09.536 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 1.42 ms
+05-21 23:18:09.544 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.67 ms
+05-21 23:18:09.551 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.02 ms
+05-21 23:18:09.562 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 8.78 ms
+05-21 23:18:09.870 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.885 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.896 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.78 ms
+05-21 23:18:09.899 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.70 ms
+05-21 23:18:09.937 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.93 ms
+05-21 23:18:09.945 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 7.12 ms
+05-21 23:18:09.978 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:09.993 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:10.008 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:10.022 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:10.030 22406 22406 D BoxCastPerf: [LAYOUT] AnimatedShapesFallbackLayout took 1.57 ms
+05-21 23:18:10.058 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 7.30 ms
+05-21 23:18:10.065 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.64 ms
+05-21 23:18:10.071 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.50 ms
+05-21 23:18:10.079 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.26 ms
+05-21 23:18:11.269 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:11.284 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:11.299 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:11.314 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:12.586 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:12.600 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:12.614 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:12.627 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:13.770 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:13.782 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:13.794 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:13.805 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:15.224 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:15.231 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:15.240 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:15.247 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:17.972 22406 22406 D BoxCastPerf: [RECOMP] ExploreContent recomposed. Total: 1
+05-21 23:18:18.129 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:18.133 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.140 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.140 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:18.142 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.145 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.145 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 16-5c9b0e594e192.jpg recomposed. Total: 1
+05-21 23:18:18.147 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.159 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.76 ms
+05-21 23:18:18.166 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.27 ms
+05-21 23:18:18.171 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.82 ms
+05-21 23:18:18.542 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.542 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0lqf7hf.jpg recomposed. Total: 1
+05-21 23:18:18.545 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.554 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.17 ms
+05-21 23:18:18.559 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.559 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ab71c973d23d6382.png recomposed. Total: 1
+05-21 23:18:18.562 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.575 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.71 ms
+05-21 23:18:18.592 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.592 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ffd70725b164d186.jpg recomposed. Total: 1
+05-21 23:18:18.623 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.630 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.70 ms
+05-21 23:18:18.634 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.634 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 661187242&size=Large recomposed. Total: 1
+05-21 23:18:18.636 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.644 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.07 ms
+05-21 23:18:18.658 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.658 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: MjJi/ZGQ2YS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:18.664 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.675 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.675 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:18.677 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.687 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.26 ms
+05-21 23:18:18.707 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.707 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 000.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:18.724 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.724 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: MGIx/YmY3NS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:18.748 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.748 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: z4lv6yfo3vt6q6dx.png recomposed. Total: 1
+05-21 23:18:18.764 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.764 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 400/el=1/rt=fill.jpg recomposed. Total: 1
+05-21 23:18:18.774 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.774 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:18.799 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.799 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:18.839 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.839 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 08-186730a03a7a8.jpg recomposed. Total: 1
+05-21 23:18:18.847 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.860 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.97 ms
+05-21 23:18:18.871 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.871 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 605620/Podcast_A.jpg recomposed. Total: 1
+05-21 23:18:18.873 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.880 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.880 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:18.894 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.901 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.86 ms
+05-21 23:18:18.915 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.915 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ce-6ec455dd9df0.jpeg recomposed. Total: 1
+05-21 23:18:18.921 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.931 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.931 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 709051474&size=Large recomposed. Total: 1
+05-21 23:18:18.938 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.963 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.963 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: bda67f81cd81af0a.png recomposed. Total: 1
+05-21 23:18:18.970 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:18.979 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:18.979 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: aff96/show-cover.png recomposed. Total: 1
+05-21 23:18:18.988 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.007 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.71 ms
+05-21 23:18:19.013 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.013 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: com/images/cover.png recomposed. Total: 1
+05-21 23:18:19.020 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.035 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.81 ms
+05-21 23:18:19.045 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.045 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.062 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.091 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.55 ms
+05-21 23:18:19.103 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.103 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 749760216&size=Large recomposed. Total: 1
+05-21 23:18:19.118 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.45 ms
+05-21 23:18:19.127 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.136 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.136 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: e3e67038daf00960.jpg recomposed. Total: 1
+05-21 23:18:19.142 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.153 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.80 ms
+05-21 23:18:19.159 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.159 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: nal.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:19.171 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.43 ms
+05-21 23:18:19.176 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.186 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.186 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 09-8665756a468e5.jpg recomposed. Total: 1
+05-21 23:18:19.200 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 7.32 ms
+05-21 23:18:19.205 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.215 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.88 ms
+05-21 23:18:19.229 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.229 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.234 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.246 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 8.35 ms
+05-21 23:18:19.253 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.253 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: b6-0131b4119d61.jpeg recomposed. Total: 1
+05-21 23:18:19.256 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.269 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.66 ms
+05-21 23:18:19.275 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.275 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ZWJm/ZjM5ZS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:19.278 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.283 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.283 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 09-0a2f515e6c1ee.jpg recomposed. Total: 1
+05-21 23:18:19.286 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.301 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 8.47 ms
+05-21 23:18:19.308 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.40 ms
+05-21 23:18:19.314 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.314 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.317 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.329 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.75 ms
+05-21 23:18:19.335 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.335 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: -so.jpg?v=1633109076 recomposed. Total: 1
+05-21 23:18:19.338 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.343 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.343 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 32-bdffea8fcf5f.jpeg recomposed. Total: 1
+05-21 23:18:19.346 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.356 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.52 ms
+05-21 23:18:19.363 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 6.63 ms
+05-21 23:18:19.370 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.370 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: _bg_1400X1400-01.png recomposed. Total: 1
+05-21 23:18:19.373 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.402 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.15 ms
+05-21 23:18:19.410 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.410 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: omist-show-cover.png recomposed. Total: 1
+05-21 23:18:19.413 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.424 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.96 ms
+05-21 23:18:19.430 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.430 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 669021329&size=Large recomposed. Total: 1
+05-21 23:18:19.433 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.438 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.438 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 000.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:19.440 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.467 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.83 ms
+05-21 23:18:19.475 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 7.73 ms
+05-21 23:18:19.484 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.484 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.487 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.492 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.492 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.494 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.520 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.31 ms
+05-21 23:18:19.526 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.68 ms
+05-21 23:18:19.535 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.535 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.537 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.542 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.542 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0hxql2c.jpg recomposed. Total: 1
+05-21 23:18:19.544 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.558 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.88 ms
+05-21 23:18:19.563 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.10 ms
+05-21 23:18:19.570 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.570 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 3c5871229ebbf89.jpeg recomposed. Total: 1
+05-21 23:18:19.573 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.584 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.84 ms
+05-21 23:18:19.591 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.592 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: dccb661849485894.jpg recomposed. Total: 1
+05-21 23:18:19.594 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.607 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.02 ms
+05-21 23:18:19.615 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.615 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.617 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.632 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.25 ms
+05-21 23:18:19.638 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.638 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0m0lkym.jpg recomposed. Total: 1
+05-21 23:18:19.640 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.650 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.30 ms
+05-21 23:18:19.672 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.672 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.680 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.680 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.719 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.719 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 000.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:19.721 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.728 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.728 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 669021329&size=Large recomposed. Total: 1
+05-21 23:18:19.730 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.755 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 2.64 ms
+05-21 23:18:19.764 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.39 ms
+05-21 23:18:19.769 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.769 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: omist-show-cover.png recomposed. Total: 1
+05-21 23:18:19.771 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.777 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.777 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: _bg_1400X1400-01.png recomposed. Total: 1
+05-21 23:18:19.779 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.801 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.04 ms
+05-21 23:18:19.807 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.807 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: _bg_1400X1400-01.png recomposed. Total: 1
+05-21 23:18:19.809 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.816 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 2.49 ms
+05-21 23:18:19.828 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.828 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 32-bdffea8fcf5f.jpeg recomposed. Total: 1
+05-21 23:18:19.836 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.842 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.842 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: -so.jpg?v=1633109076 recomposed. Total: 1
+05-21 23:18:19.845 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.858 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.09 ms
+05-21 23:18:19.860 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 1.94 ms
+05-21 23:18:19.869 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.869 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.878 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.886 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.46 ms
+05-21 23:18:19.890 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.890 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 09-0a2f515e6c1ee.jpg recomposed. Total: 1
+05-21 23:18:19.892 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.899 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.48 ms
+05-21 23:18:19.909 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.909 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ZWJm/ZjM5ZS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:19.915 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.925 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.05 ms
+05-21 23:18:19.934 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.934 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:19.942 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.942 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: b6-0131b4119d61.jpeg recomposed. Total: 1
+05-21 23:18:19.945 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.954 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.00 ms
+05-21 23:18:19.959 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:19.970 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.08 ms
+05-21 23:18:19.982 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.982 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: nal.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:19.989 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:19.989 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 09-8665756a468e5.jpg recomposed. Total: 1
+05-21 23:18:19.992 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:20.011 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 5.12 ms
+05-21 23:18:20.024 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.024 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: e3e67038daf00960.jpg recomposed. Total: 1
+05-21 23:18:20.027 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:20.036 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.28 ms
+05-21 23:18:20.043 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.043 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 749760216&size=Large recomposed. Total: 1
+05-21 23:18:20.054 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:20.064 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 2.51 ms
+05-21 23:18:20.069 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.069 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:20.090 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.090 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: com/images/cover.png recomposed. Total: 1
+05-21 23:18:20.093 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:20.104 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.65 ms
+05-21 23:18:20.115 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.115 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: aff96/show-cover.png recomposed. Total: 1
+05-21 23:18:20.117 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:20.126 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 2.99 ms
+05-21 23:18:20.133 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.133 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ce-6ec455dd9df0.jpeg recomposed. Total: 1
+05-21 23:18:20.148 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.148 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: bda67f81cd81af0a.png recomposed. Total: 1
+05-21 23:18:20.150 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:20.161 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.12 ms
+05-21 23:18:20.176 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.176 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:20.190 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.190 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 605620/Podcast_A.jpg recomposed. Total: 1
+05-21 23:18:20.197 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.197 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 709051474&size=Large recomposed. Total: 1
+05-21 23:18:20.216 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.216 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 08-186730a03a7a8.jpg recomposed. Total: 1
+05-21 23:18:20.238 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.238 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:20.369 22406 22406 D BoxCastPerf: [RECOMP] HomeScreen recomposed. Total: 1
+05-21 23:18:20.369 22406 22406 D BoxCastPerf: [RECOMP] PodcastFeed recomposed. Total: 1
+05-21 23:18:20.410 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.410 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 08-186730a03a7a8.jpg recomposed. Total: 1
+05-21 23:18:20.414 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.415 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:20.420 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.420 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:20.426 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.426 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 400/el=1/rt=fill.jpg recomposed. Total: 1
+05-21 23:18:20.451 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.451 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: z4lv6yfo3vt6q6dx.png recomposed. Total: 1
+05-21 23:18:20.457 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.457 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: MGIx/YmY3NS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:20.481 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.481 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: auto=format,compress recomposed. Total: 1
+05-21 23:18:20.484 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.484 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 000.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:20.504 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.504 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: MjJi/ZGQ2YS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:20.527 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.527 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 661187242&size=Large recomposed. Total: 1
+05-21 23:18:20.536 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.536 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ffd70725b164d186.jpg recomposed. Total: 1
+05-21 23:18:20.550 22406 22406 D BoxCastPerf: [RECOMP] ExplorePodcastCard recomposed. Total: 1
+05-21 23:18:20.550 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: MjJi/ZGQ2YS5wbmc.jpg recomposed. Total: 1
+05-21 23:18:21.132 22406 22406 D BoxCastPerf: [RECOMP] PodcastInfoScreen recomposed. Total: 1
+05-21 23:18:21.770 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:21.771 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:21.776 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:21.778 22406 22406 D BoxCastPerf: [RECOMP] AnimatedShapesFallback recomposed. Total: 1
+05-21 23:18:21.799 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:21.799 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:21.817 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 4.44 ms
+05-21 23:18:21.821 22406 22406 D BoxCastPerf: [DRAW] AnimatedShapesFallbackDraw took 3.24 ms
+05-21 23:18:22.209 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.209 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.245 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.245 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.291 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.291 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.333 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.333 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.348 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.348 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.398 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.398 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.414 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.414 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.428 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.428 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.485 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.485 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.502 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.502 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.517 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.517 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.573 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.573 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.586 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.586 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.599 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.599 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.652 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.652 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.666 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.666 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.679 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.679 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.776 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.777 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:22.811 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:22.811 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.366 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.366 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.408 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.408 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.436 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.436 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.464 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.464 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.495 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.495 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.522 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.522 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.549 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.549 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.594 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.594 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.610 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.610 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.643 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.643 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.676 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.676 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.691 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.691 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.722 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.723 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.752 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.752 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.778 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.778 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.805 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:23.805 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:23.846 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.011 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.011 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.057 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.057 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.108 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.108 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.149 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.149 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.191 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.191 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.230 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.230 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.285 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.285 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.314 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.314 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.401 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.402 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.431 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.431 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.462 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.462 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.483 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.483 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.502 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.502 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.524 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:24.524 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:24.563 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.029 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.029 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.077 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.077 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.144 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.144 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.177 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.177 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.211 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.211 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.249 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.249 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.296 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.296 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.342 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.342 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.356 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.356 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.407 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.407 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.422 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.422 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.472 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.472 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.517 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.517 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.558 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.558 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.598 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.598 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.630 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.630 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.654 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.654 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.678 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.678 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.703 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.703 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.725 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.725 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.745 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.745 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.769 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.769 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.794 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.794 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.827 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.827 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.851 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.851 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.875 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:25.875 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:25.917 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.215 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.215 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.245 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.245 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.274 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.275 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.305 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.305 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.357 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.358 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.391 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.391 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.431 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.431 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.473 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.473 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.513 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.513 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.553 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.553 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.591 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.591 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.627 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.627 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.683 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.683 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.738 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.738 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.766 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.766 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.798 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.798 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.834 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.834 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.861 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.861 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.900 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.900 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.921 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.921 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.946 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.946 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.975 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.975 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:26.994 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:26.994 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:27.019 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:27.019 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:27.060 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:27.061 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:27.088 22406 22406 D BoxCastPerf: [RECOMP] EpisodeListItem recomposed. Total: 1
+05-21 23:18:27.088 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:27.131 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: ite.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:28.134 22406 22406 D BoxCastPerf: [RECOMP] HomeScreen recomposed. Total: 1
+05-21 23:18:28.134 22406 22406 D BoxCastPerf: [RECOMP] PodcastFeed recomposed. Total: 1
+05-21 23:18:29.249 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:29.256 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:29.262 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:29.267 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:30.650 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:30.657 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:30.663 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:30.668 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1
+05-21 23:18:31.810 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: a49c98439c94f7c.jpeg recomposed. Total: 1
+05-21 23:18:31.819 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: eif.jpg?aid=rss_feed recomposed. Total: 1
+05-21 23:18:31.824 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 28-6d08402409118.jpg recomposed. Total: 1
+05-21 23:18:31.830 22406 22406 D BoxCastPerf: [RECOMP] OptimizedImage: 00x3000/p0nmdt8v.jpg recomposed. Total: 1

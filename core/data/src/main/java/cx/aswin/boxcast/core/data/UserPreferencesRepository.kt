@@ -23,6 +23,8 @@ class UserPreferencesRepository(context: Context) {
         val USE_DYNAMIC_COLOR = androidx.datastore.preferences.core.booleanPreferencesKey("use_dynamic_color")
         val THEME_BRAND = stringPreferencesKey("theme_brand")
         val IS_RADIO_MODE = androidx.datastore.preferences.core.booleanPreferencesKey("is_radio_mode")
+        val HAS_DISMISSED_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_region_nudge")
+        val HAS_DISMISSED_EXPLORE_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_explore_region_nudge")
     }
 
     val regionStream: Flow<String> = dataStore.data
@@ -34,12 +36,55 @@ class UserPreferencesRepository(context: Context) {
             }
         }
         .map { preferences ->
-            preferences[Keys.REGION] ?: "us"
+            preferences[Keys.REGION] ?: run {
+                val localeCountry = java.util.Locale.getDefault().country.lowercase()
+                if (localeCountry == "in" || localeCountry == "gb") {
+                    localeCountry
+                } else {
+                    "us"
+                }
+            }
         }
 
     suspend fun setRegion(region: String) {
         dataStore.edit { preferences ->
             preferences[Keys.REGION] = region
+        }
+    }
+
+    val hasDismissedRegionNudgeStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[Keys.HAS_DISMISSED_REGION_NUDGE] ?: false
+        }
+
+    suspend fun dismissRegionNudge() {
+        dataStore.edit { preferences ->
+            preferences[Keys.HAS_DISMISSED_REGION_NUDGE] = true
+        }
+    }
+
+    val hasDismissedExploreRegionNudgeStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[Keys.HAS_DISMISSED_EXPLORE_REGION_NUDGE] ?: false
+        }
+
+    suspend fun dismissExploreRegionNudge() {
+        dataStore.edit { preferences ->
+            preferences[Keys.HAS_DISMISSED_EXPLORE_REGION_NUDGE] = true
         }
     }
 
