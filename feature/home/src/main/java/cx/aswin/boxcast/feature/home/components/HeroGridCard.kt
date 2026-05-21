@@ -182,33 +182,13 @@ private fun GridCell(
             }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Image with fallback chain
-            var currentModel by remember(podcast.imageUrl) {
-                mutableStateOf(podcast.imageUrl.ifEmpty { null })
-            }
-
-            SubcomposeAsyncImage(
-                model = currentModel,
+            OptimizedImage(
+                url = podcast.imageUrl.ifEmpty { podcast.fallbackImageUrl.orEmpty() },
+                proxyWidth = 400,
                 contentDescription = podcast.title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                onState = { state ->
-                    if (state is AsyncImagePainter.State.Error) {
-                        if (currentModel == podcast.imageUrl && !podcast.fallbackImageUrl.isNullOrEmpty()) {
-                            currentModel = podcast.fallbackImageUrl
-                        }
-                    }
-                }
-            ) {
-                val state = painter.state
-                if (state is AsyncImagePainter.State.Loading ||
-                    state is AsyncImagePainter.State.Error ||
-                    currentModel == null) {
-                    AnimatedShapesFallback()
-                } else {
-                    SubcomposeAsyncImageContent()
-                }
-            }
+                modifier = Modifier.fillMaxSize()
+            )
 
             // Strong gradient overlay — covers bottom 60% of cell for text readability
             Box(

@@ -37,8 +37,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
@@ -610,8 +610,9 @@ private fun PodcastPickCard(
     ) {
         Column {
             Box {
-                AsyncImage(
-                    model = podcast.imageUrl,
+                OptimizedImage(
+                    url = podcast.imageUrl,
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -897,8 +898,9 @@ private fun SearchResultRow(
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AsyncImage(
-            model = podcast.imageUrl,
+        OptimizedImage(
+            url = podcast.imageUrl,
+            proxyWidth = 400,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier

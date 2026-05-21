@@ -1,7 +1,5 @@
 package cx.aswin.boxcast.feature.home.components
 
-import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -19,12 +17,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
 import androidx.compose.material3.Card
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
-import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 
 @Composable
 fun RisingCard(
@@ -47,21 +43,13 @@ fun RisingCard(
                 modifier = Modifier
                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
             ) {
-                SubcomposeAsyncImage(
-                    model = podcast.imageUrl.optimizedImageUrl(400),
+                OptimizedImage(
+                    url = podcast.imageUrl,
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(160.dp)
-                ) {
-                    val state = painter.state
-                    if (state is coil.compose.AsyncImagePainter.State.Loading || 
-                        state is coil.compose.AsyncImagePainter.State.Error || 
-                        podcast.imageUrl.isEmpty()) {
-                        AnimatedShapesFallback()
-                    } else {
-                        SubcomposeAsyncImageContent()
-                    }
-                }
+                )
                 
                 // M3 Genre Chip Overlay (Top Left)
                 if (podcast.genre.isNotEmpty()) {

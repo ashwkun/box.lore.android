@@ -1,7 +1,5 @@
 package cx.aswin.boxcast.feature.home.components
 
-import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
-
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.BorderStroke
@@ -25,11 +23,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
-import coil.compose.AsyncImagePainter
 import cx.aswin.boxcast.core.model.Podcast
-import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 
 @Composable
 fun PodcastCard(
@@ -53,23 +48,15 @@ fun PodcastCard(
                     .fillMaxWidth()
                     .height(if (isTall) 280.dp else 220.dp)
             ) {
-                SubcomposeAsyncImage(
-                    model = podcast.imageUrl.optimizedImageUrl(400),
+                OptimizedImage(
+                    url = podcast.imageUrl,
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                ) {
-                    val state = painter.state
-                    if (state is AsyncImagePainter.State.Loading || 
-                        state is AsyncImagePainter.State.Error || 
-                        podcast.imageUrl.isEmpty()) {
-                        AnimatedShapesFallback()
-                    } else {
-                        SubcomposeAsyncImageContent()
-                    }
-                }
+                )
                 
                 // Genre Chip (Top Left) - only shown when showGenreChip is true
                 if (showGenreChip && podcast.genre.isNotEmpty()) {
