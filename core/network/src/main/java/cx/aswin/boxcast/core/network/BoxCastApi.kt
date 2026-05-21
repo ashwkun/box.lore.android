@@ -95,7 +95,8 @@ interface BoxCastApi {
     @GET("curated/vibe")
     fun getCuratedVibe(
         @Header("X-App-Key") publicKey: String,
-        @Query("id") vibeId: String
+        @Query("id") vibeId: String,
+        @Query("country") country: String? = null
     ): retrofit2.Call<TrendingResponse> // Reusing TrendingResponse structure (feeds list)
 
     @GET("podcast/meta")

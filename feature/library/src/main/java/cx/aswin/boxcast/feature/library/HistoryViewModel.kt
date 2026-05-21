@@ -17,20 +17,29 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-data class RichHistoryStats(
+data class DetailedHistoryStats(
     val totalListeningMs: Long = 0L,
     val completedEpisodesCount: Int = 0,
+    val inProgressEpisodesCount: Int = 0,
+    val likedEpisodesCount: Int = 0,
     val topPodcastName: String? = null,
-    val topPodcastImageUrl: String? = null
+    val topPodcastImageUrl: String? = null,
+    val topPodcastPlayCount: Int = 0,
+    val listeningStreakDays: Int = 0,
+    val peakListeningHour: Int = -1,
+    val peakListeningVibe: String = "Unknown",
+    val hourlyDistribution: FloatArray = FloatArray(24),
+    val activeDays: Set<LocalDate> = emptySet()
 )
 
 sealed interface HistoryUiState {
     object Loading : HistoryUiState
     object Empty : HistoryUiState
     data class Success(
-        val stats: RichHistoryStats,
+        val stats: DetailedHistoryStats,
         val groupedHistory: Map<LocalDate, List<ListeningHistoryEntity>>,
-        val expandedDates: Set<LocalDate>
+        val expandedDates: Set<LocalDate>,
+        val selectedFilterDate: LocalDate? = null
     ) : HistoryUiState
 }
 
@@ -39,57 +48,137 @@ class HistoryViewModel(
 ) : ViewModel() {
 
     private val _expandedDates = MutableStateFlow<Set<LocalDate>>(emptySet())
+    private val _selectedFilterDate = MutableStateFlow<LocalDate?>(null)
     private var hasInitializedExpansions = false
 
     val uiState: StateFlow<HistoryUiState> = combine(
         playbackRepository.getAllHistory(),
-        _expandedDates
-    ) { historyList, expandedDates ->
+        _expandedDates,
+        _selectedFilterDate
+    ) { historyList, expandedDates, selectedFilterDate ->
         if (historyList.isEmpty()) {
             HistoryUiState.Empty
         } else {
-            // Calculate Rich Stats (separate from grouping to avoid side-effects)
             var totalMs = 0L
             var completedCount = 0
+            var inProgressCount = 0
+            var likedCount = 0
             val podcastFrequency = mutableMapOf<String, Int>()
             val podcastImages = mutableMapOf<String, String?>()
+            val hourlyCount = IntArray(24)
 
             historyList.forEach { entity ->
-                // Use durationMs for completed episodes (prevents replay-reduces-time bug)
-                // Use progressMs for in-progress episodes
                 val isComplete = entity.isCompleted || (entity.durationMs > 0 && entity.progressMs > entity.durationMs * 0.9f)
                 totalMs += if (isComplete && entity.durationMs > 0) entity.durationMs else entity.progressMs
-                if (isComplete) completedCount++
+                if (isComplete) {
+                    completedCount++
+                } else if (entity.progressMs > 0) {
+                    inProgressCount++
+                }
+                if (entity.isLiked) {
+                    likedCount++
+                }
 
                 val count = podcastFrequency.getOrDefault(entity.podcastName, 0) + 1
                 podcastFrequency[entity.podcastName] = count
                 if (entity.podcastImageUrl != null) {
                     podcastImages[entity.podcastName] = entity.podcastImageUrl
+                } else if (entity.podcastImageUrl == null && entity.episodeImageUrl != null) {
+                    podcastImages[entity.podcastName] = entity.episodeImageUrl
                 }
+
+                val hour = Instant.ofEpochMilli(entity.lastPlayedAt).atZone(ZoneId.systemDefault()).hour
+                hourlyCount[hour]++
             }
 
             val groupedByDate = historyList.groupBy { entity ->
                 Instant.ofEpochMilli(entity.lastPlayedAt).atZone(ZoneId.systemDefault()).toLocalDate()
             }.toSortedMap(reverseOrder())
 
-            // Auto-expand the first 2 dates only once
+            val activeDays = groupedByDate.keys.toSet()
+
+            // Calculate streak
+            val sortedActiveDates = activeDays.sortedDescending()
+            var streak = 0
+            val today = LocalDate.now()
+            val yesterday = today.minusDays(1)
+            if (sortedActiveDates.isNotEmpty()) {
+                val currentCheck = when {
+                    sortedActiveDates.contains(today) -> today
+                    sortedActiveDates.contains(yesterday) -> yesterday
+                    else -> null
+                }
+                if (currentCheck != null) {
+                    streak = 1
+                    var checkDate = currentCheck.minusDays(1)
+                    while (sortedActiveDates.contains(checkDate)) {
+                        streak++
+                        checkDate = checkDate.minusDays(1)
+                    }
+                }
+            }
+
+            val peakHour = hourlyCount.indices.maxByOrNull { hourlyCount[it] } ?: -1
+            val totalPlays = historyList.size.toFloat()
+            val hourlyDistribution = FloatArray(24) { i ->
+                if (totalPlays > 0) hourlyCount[i] / totalPlays else 0f
+            }
+
+            val peakVibe = when (peakHour) {
+                in 5..10 -> "Morning Ritual"
+                in 11..16 -> "Midday Flow"
+                in 17..21 -> "Evening Unwind"
+                in 22..24, in 0..4 -> "Night Owl"
+                else -> "Balanced Listener"
+            }
+
+            val topPodcast = podcastFrequency.maxByOrNull { it.value }?.key
+            val topPodcastPlayCount = topPodcast?.let { podcastFrequency[it] } ?: 0
+            val stats = DetailedHistoryStats(
+                totalListeningMs = totalMs,
+                completedEpisodesCount = completedCount,
+                inProgressEpisodesCount = inProgressCount,
+                likedEpisodesCount = likedCount,
+                topPodcastName = topPodcast,
+                topPodcastImageUrl = topPodcast?.let { podcastImages[it] },
+                topPodcastPlayCount = topPodcastPlayCount,
+                listeningStreakDays = streak,
+                peakListeningHour = peakHour,
+                peakListeningVibe = peakVibe,
+                hourlyDistribution = hourlyDistribution,
+                activeDays = activeDays
+            )
+
+            val currentGrouped = if (selectedFilterDate != null) {
+                groupedByDate.filterKeys { it == selectedFilterDate }
+            } else {
+                groupedByDate
+            }
+
             if (!hasInitializedExpansions) {
                 hasInitializedExpansions = true
                 val initialExpand = groupedByDate.keys.take(2).toSet()
                 _expandedDates.update { initialExpand }
-                
-                // Return immediately with the auto-expanded dates to prevent a stutter
+
                 return@combine HistoryUiState.Success(
-                    stats = calculateStats(totalMs, completedCount, podcastFrequency, podcastImages),
-                    groupedHistory = groupedByDate,
-                    expandedDates = initialExpand
+                    stats = stats,
+                    groupedHistory = currentGrouped,
+                    expandedDates = initialExpand,
+                    selectedFilterDate = selectedFilterDate
                 )
             }
 
+            val finalExpandedDates = if (selectedFilterDate != null) {
+                expandedDates + selectedFilterDate
+            } else {
+                expandedDates
+            }
+
             HistoryUiState.Success(
-                stats = calculateStats(totalMs, completedCount, podcastFrequency, podcastImages),
-                groupedHistory = groupedByDate,
-                expandedDates = expandedDates
+                stats = stats,
+                groupedHistory = currentGrouped,
+                expandedDates = finalExpandedDates,
+                selectedFilterDate = selectedFilterDate
             )
         }
     }.stateIn(
@@ -98,19 +187,8 @@ class HistoryViewModel(
         initialValue = HistoryUiState.Loading
     )
 
-    private fun calculateStats(
-        totalMs: Long,
-        completedCount: Int,
-        podcastFrequency: Map<String, Int>,
-        podcastImages: Map<String, String?>
-    ): RichHistoryStats {
-        val topPodcast = podcastFrequency.maxByOrNull { it.value }?.key
-        return RichHistoryStats(
-            totalListeningMs = totalMs,
-            completedEpisodesCount = completedCount,
-            topPodcastName = topPodcast,
-            topPodcastImageUrl = topPodcast?.let { podcastImages[it] }
-        )
+    fun setFilterDate(date: LocalDate?) {
+        _selectedFilterDate.value = date
     }
 
     fun toggleDateExpansion(date: LocalDate) {

@@ -91,7 +91,6 @@ class ExploreViewModel(
     private val _showRegionNudge = MutableStateFlow(false)
     val showRegionNudge: StateFlow<Boolean> = _showRegionNudge.asStateFlow()
 
-    private var initialNoMismatch: Boolean? = null
 
     init {
         // Observe Subscriptions for Badging
@@ -165,6 +164,18 @@ class ExploreViewModel(
         // Observe explore region nudge preference and active region stream
         // Only show for non-mismatch users (mismatch users already get the Home nudge)
         viewModelScope.launch {
+            val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
+                if (it == "us" || it == "in" || it == "gb") it else "us"
+            }
+            
+            // Persist the initial match check to survive VM recreation
+            val wasMatch = userPrefs.wasInitialRegionMatchStream.first() ?: run {
+                val currentReg = userPrefs.regionStream.first()
+                val isMatch = (systemCountry == currentReg)
+                userPrefs.setWasInitialRegionMatch(isMatch)
+                isMatch
+            }
+
             combine(
                 userPrefs.regionStream,
                 userPrefs.hasDismissedExploreRegionNudgeStream
@@ -172,14 +183,8 @@ class ExploreViewModel(
                 region to hasDismissed
             }.collect { (region, hasDismissed) ->
                 _activeRegionCode.value = region
-                val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                    if (it == "us" || it == "in" || it == "gb") it else "us"
-                }
-                if (initialNoMismatch == null) {
-                    initialNoMismatch = (systemCountry == region)
-                }
                 // Show only when no initial mismatch and not already dismissed
-                _showRegionNudge.value = !hasDismissed && (initialNoMismatch == true)
+                _showRegionNudge.value = !hasDismissed && wasMatch
             }
         }
     }

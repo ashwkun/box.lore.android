@@ -161,6 +161,16 @@ class HomeViewModel(
 
     private fun loadData() {
         viewModelScope.launch {
+            // Seed the WAS_INITIAL_REGION_MATCH if not set yet
+            val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
+                if (it == "us" || it == "in" || it == "gb") it else "us"
+            }
+            userPrefs.wasInitialRegionMatchStream.first() ?: run {
+                val currentReg = userPrefs.regionStream.first()
+                val isMatch = (systemCountry == currentReg)
+                userPrefs.setWasInitialRegionMatch(isMatch)
+            }
+
             // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
             combine(
                 userPrefs.regionStream,
@@ -204,7 +214,7 @@ class HomeViewModel(
                         val sectionJobs = blockConfig.genres.map { genre ->
                             async {
                                 try {
-                                    val list = podcastRepository.getCuratedPodcasts(genre.id)
+                                    val list = podcastRepository.getCuratedPodcasts(genre.id, region)
                                     val filtered = list
                                         .filter { it.latestEpisode != null }
                                         .shuffled(kotlin.random.Random(daySeed.toInt() + genre.title.hashCode()))

@@ -53,9 +53,9 @@ class PodcastRepository(
         }
     }
 
-    suspend fun getCuratedPodcasts(vibeId: String): List<Podcast> = withContext(Dispatchers.IO) {
+    suspend fun getCuratedPodcasts(vibeId: String, country: String? = null): List<Podcast> = withContext(Dispatchers.IO) {
         try {
-            val response = api.getCuratedVibe(publicKey, vibeId).execute()
+            val response = api.getCuratedVibe(publicKey, vibeId, country).execute()
             if (response.isSuccessful && response.body() != null) {
                 mapFeedsToPodcasts(response.body()!!.feeds)
             } else {

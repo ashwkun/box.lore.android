@@ -55,6 +55,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
     private var pendingSeekMs: Long = 0L
 
     private val firedHeartbeats = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private var activePlaybackStartTimeMs: Long = 0L
 
     // Playback Telemetry State
     private var playbackSessionStartTimeMs: Long = 0L
@@ -190,6 +191,9 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 if (player.isPlaying) {
                     val episodeId = mediaItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
                     if (episodeId != null) startPlaybackSession(episodeId, mediaItem)
+                    activePlaybackStartTimeMs = System.currentTimeMillis()
+                } else {
+                    activePlaybackStartTimeMs = 0L
                 }
 
                 val remaining = player.mediaItemCount - player.currentMediaItemIndex - 1
@@ -240,6 +244,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 if (isPlaying) {
                     // Telemetry: Started playing
                     if (episodeId != null) startPlaybackSession(episodeId, currentItem)
+                    activePlaybackStartTimeMs = System.currentTimeMillis()
 
                     // Apply any pending resume-seek BEFORE starting progress saver
                     val seekTo = pendingSeekMs
@@ -277,6 +282,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     progressSaverJob = null
                     serviceScope.launch(Dispatchers.IO) {
                         saveProgressOnce(player)
+                        activePlaybackStartTimeMs = 0L
                     }
                 }
             }
@@ -823,11 +829,14 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 ?.removePrefix("episode:")?.removePrefix("queue:") ?: return
             val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
             if (existing != null && positionMs > 0) {
+                val hasBeenPlayingFor10s = activePlaybackStartTimeMs > 0 && 
+                        (System.currentTimeMillis() - activePlaybackStartTimeMs >= 10_000)
+                val lastPlayed = if (hasBeenPlayingFor10s) System.currentTimeMillis() else existing.lastPlayedAt
                 database.listeningHistoryDao().updateProgress(
                     episodeId = episodeId,
                     progressMs = positionMs,
                     durationMs = if (durationMs > 0) durationMs else existing.durationMs,
-                    lastPlayedAt = System.currentTimeMillis()
+                    lastPlayedAt = lastPlayed
                 )
                 android.util.Log.d("AutoProgress", "Saved: $episodeId @ ${positionMs/1000}s / ${durationMs/1000}s")
                 

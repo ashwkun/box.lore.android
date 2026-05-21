@@ -116,18 +116,23 @@ class PlaybackRepository(
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     Log.d("PlaybackRepo", "onIsPlayingChanged: isPlaying=$isPlaying, currentPos=${mediaController?.currentPosition}")
+                    val oldIsPlaying = _playerState.value.isPlaying
                     _playerState.value = _playerState.value.copy(isPlaying = isPlaying)
                     if (isPlaying) {
                         pendingSaveJob?.cancel() // Cancel pending save if we resume
+                        if (!oldIsPlaying) {
+                            activePlaybackStartTimeMs = System.currentTimeMillis()
+                        }
                         startProgressTicker()
                     } else {
                         stopProgressTicker()
-                        // Save state when paused - delay to prevent list reorder during pod switching
+                        val hasBeenPlayingFor10s = activePlaybackStartTimeMs > 0 && 
+                                (System.currentTimeMillis() - activePlaybackStartTimeMs >= 10_000)
                         pendingSaveJob?.cancel()
                         pendingSaveJob = repositoryScope.launch { 
-                            kotlinx.coroutines.delay(10000) // 10 second delay
-                            saveCurrentState() 
+                            saveCurrentState(updateLastPlayedAt = hasBeenPlayingFor10s) 
                         }
+                        activePlaybackStartTimeMs = 0L
                     }
                 }
 
@@ -205,6 +210,11 @@ class PlaybackRepository(
                 }
                 
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                    if (mediaController?.isPlaying == true) {
+                        activePlaybackStartTimeMs = System.currentTimeMillis()
+                    } else {
+                        activePlaybackStartTimeMs = 0L
+                    }
                     // Use mediaId to find episode — more reliable than index
                     val episodeId = mediaItem?.mediaId ?: return
                     val queue = _playerState.value.queue
@@ -377,9 +387,11 @@ class PlaybackRepository(
     }
     
     private var lastProgressSaveMs = 0L
+    private var activePlaybackStartTimeMs = 0L
     
     private fun startProgressTicker() {
         stopProgressTicker()
+        lastProgressSaveMs = System.currentTimeMillis() // Reset so first ticker save is 10s from now
         progressJob = repositoryScope.launch {
             while (true) {
                 mediaController?.let { controller ->
@@ -397,7 +409,9 @@ class PlaybackRepository(
                         // Save progress every 10 seconds (deterministic)
                         val now = System.currentTimeMillis()
                         if (now - lastProgressSaveMs > 10_000) {
-                            saveCurrentState()
+                            val hasBeenPlayingFor10s = activePlaybackStartTimeMs > 0 &&
+                                    (now - activePlaybackStartTimeMs >= 10_000)
+                            saveCurrentState(updateLastPlayedAt = hasBeenPlayingFor10s)
                             lastProgressSaveMs = now
                         }
                     }
@@ -408,7 +422,7 @@ class PlaybackRepository(
     }
     
     // Helper to save current state
-    private suspend fun saveCurrentState() {
+    private suspend fun saveCurrentState(updateLastPlayedAt: Boolean = true) {
         val state = _playerState.value
         val episode = state.currentEpisode ?: return
         val podcast = state.currentPodcast ?: return
@@ -416,12 +430,7 @@ class PlaybackRepository(
         // Check existing completion status to avoid overwriting
         val existing = listeningHistoryDao.getHistoryItem(episode.id)
         val wasCompleted = existing?.isCompleted ?: false
-        
-        // If it was completed, keep it completed UNLESS we are explicitly restarting (pos < 5s)
-        // But even then, maybe we just want to keep it "played"? 
-        // Let's say if we are > 95% or < 5% and it WAS completed, keep it completed.
-        // Actually simplest: If it was completed, STAY completed.
-        // Only un-complete if user explicitly clears history (which is a different action).
+        val lastPlayed = if (updateLastPlayedAt) System.currentTimeMillis() else (existing?.lastPlayedAt ?: System.currentTimeMillis())
         
         savePlaybackState(
             podcastId = podcast.id,
@@ -434,7 +443,8 @@ class PlaybackRepository(
             episodeAudioUrl = episode.audioUrl,
             podcastName = podcast.title,
             isCompleted = wasCompleted, // Persist completion!
-            isLiked = state.isLiked
+            isLiked = state.isLiked,
+            lastPlayedAt = lastPlayed
         )
     }
     
@@ -542,9 +552,10 @@ class PlaybackRepository(
             // Sync queue to DB for restart recovery
             syncQueueToDb()
             
-            // Immediate save so Home resume card appears right away
-            // (without this, first DB write doesn't happen until ~10s periodic ticker save)
-            saveCurrentState()
+            // Save state immediately but do NOT update lastPlayedAt timestamp to prevent
+            // instant card reordering on the home screen. The timestamp will be updated
+            // after 10 seconds of active playback via the progress ticker.
+            saveCurrentState(updateLastPlayedAt = false)
         }
     }
 
@@ -880,8 +891,8 @@ class PlaybackRepository(
         mediaController?.seekTo(positionMs)
         _playerState.value = _playerState.value.copy(position = positionMs)
         
-        // Save state on seek
-        repositoryScope.launch { saveCurrentState() }
+        // Save state on seek (do not update lastPlayedAt to prevent reordering on scrub)
+        repositoryScope.launch { saveCurrentState(updateLastPlayedAt = false) }
     }
     
     fun skipForward() {
@@ -1206,7 +1217,8 @@ class PlaybackRepository(
         episodeAudioUrl: String,
         podcastName: String,
         isCompleted: Boolean,
-        isLiked: Boolean
+        isLiked: Boolean,
+        lastPlayedAt: Long = System.currentTimeMillis()
     ) {
         android.util.Log.v("PlaybackRepo", "Saving playback state: $episodeTitle, pos=$positionMs, completed=$isCompleted")
         val entity = cx.aswin.boxcast.core.data.database.ListeningHistoryEntity(
@@ -1221,7 +1233,7 @@ class PlaybackRepository(
             durationMs = durationMs,
             isCompleted = isCompleted,
             isLiked = isLiked,
-            lastPlayedAt = System.currentTimeMillis(),
+            lastPlayedAt = lastPlayedAt,
             isDirty = true
         )
         listeningHistoryDao.upsert(entity)

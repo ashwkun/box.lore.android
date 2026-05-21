@@ -1,38 +1,55 @@
 package cx.aswin.boxcast.feature.library
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.*
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccessTime
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ClearAll
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.ModeNight
+import androidx.compose.material.icons.rounded.Pending
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -46,9 +63,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
-import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,7 +84,7 @@ fun HistoryScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
                 viewModel.trackScreenExit()
@@ -82,7 +98,7 @@ fun HistoryScreen(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibraryHistoryViewed("library_hub_card")
     }
 
@@ -155,18 +171,106 @@ fun HistoryScreen(
                     )
                 }
                 is HistoryUiState.Success -> {
+                    val pagerState = rememberPagerState(initialPage = 0) { 3 }
                     LazyColumn(
-                        contentPadding = PaddingValues(bottom = 120.dp, start = 16.dp, end = 16.dp, top = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        contentPadding = PaddingValues(bottom = 120.dp, start = 16.dp, end = 16.dp, top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        // Rich Stats Hero Section
+                        // Stats Card Carousel
                         item {
-                            RichStatsDashboard(stats = state.stats)
-                            Spacer(modifier = Modifier.height(24.dp))
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            ) { page ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp)
+                                ) {
+                                    when (page) {
+                                        0 -> OverviewStatsCard(stats = state.stats)
+                                        1 -> HabitsStatsCard(stats = state.stats)
+                                        2 -> TopShowStatsCard(stats = state.stats)
+                                    }
+                                }
+                            }
+                            
+                            // Pager indicator
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                repeat(3) { iteration ->
+                                    val color = if (pagerState.currentPage == iteration) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(3.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .size(6.dp)
+                                    )
+                                }
+                            }
                         }
 
-                        // Chronological Timeline
+                        // Activity Calendar Strip
+                        item {
+                            ActivityCalendarStrip(
+                                activeDays = state.stats.activeDays,
+                                selectedDate = state.selectedFilterDate,
+                                onDateSelected = { viewModel.setFilterDate(it) }
+                            )
+                        }
+
+                        // Contextual Calendar Insights Banner
+                        item {
+                            CalendarInsightBanner(
+                                stats = state.stats,
+                                selectedDate = state.selectedFilterDate,
+                                groupedHistory = state.groupedHistory,
+                                onClearFilter = { viewModel.setFilterDate(null) }
+                            )
+                        }
+
+                        // Empty Filtered State
+                        if (state.groupedHistory.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 48.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            "No activity on this day",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            "Select another date or reset the filter.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Chronological Timeline List
                         state.groupedHistory.forEach { (date, episodes) ->
                             val isExpanded = state.expandedDates.contains(date)
 
@@ -185,21 +289,55 @@ fun HistoryScreen(
                                     exit = shrinkVertically(animationSpec = tween(400))
                                 ) {
                                     Column(
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+                                        modifier = Modifier.padding(vertical = 4.dp)
                                     ) {
                                         episodes.forEach { entity ->
-                                            // key() ensures dismiss state is tied to THIS specific episode,
-                                            // preventing cascade-delete when items shift after removal
-                                            androidx.compose.runtime.key(entity.episodeId) {
-                                                SwipeToDeleteHistoryItem(
-                                                    entity = entity,
-                                                    onDelete = { viewModel.removeHistoryItem(entity.episodeId) },
-                                                    onClick = {
-                                                        viewModel.episodesClickedCount++
-                                                        onEpisodeClick(entity)
+                                            key(entity.episodeId) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(IntrinsicSize.Min),
+                                                    verticalAlignment = Alignment.Top
+                                                ) {
+                                                    // Timeline vertical connector line
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(24.dp)
+                                                            .fillMaxHeight(),
+                                                        contentAlignment = Alignment.TopCenter
+                                                    ) {
+                                                        VerticalDivider(
+                                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                                                            modifier = Modifier
+                                                                .width(2.dp)
+                                                                .fillMaxHeight()
+                                                        )
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .padding(top = 28.dp)
+                                                                .size(8.dp)
+                                                                .clip(CircleShape)
+                                                                .background(MaterialTheme.colorScheme.secondary)
+                                                        )
                                                     }
-                                                )
+                                                    
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .padding(bottom = 8.dp)
+                                                    ) {
+                                                        SwipeToDeleteHistoryItem(
+                                                            entity = entity,
+                                                            onDelete = { viewModel.removeHistoryItem(entity.episodeId) },
+                                                            onClick = {
+                                                                viewModel.episodesClickedCount++
+                                                                onEpisodeClick(entity)
+                                                            }
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -214,140 +352,751 @@ fun HistoryScreen(
 }
 
 @Composable
-fun RichStatsDashboard(stats: RichHistoryStats) {
-    // Bento-style Grid
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+fun ActivityCalendarStrip(
+    activeDays: Set<LocalDate>,
+    selectedDate: LocalDate?,
+    onDateSelected: (LocalDate?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val today = remember { LocalDate.now() }
+    val dates = remember(today) {
+        (0..13).map { today.minusDays(it.toLong()) }.reversed()
+    }
+    
+    val listState = rememberLazyListState()
+    
+    val targetDate = selectedDate ?: today
+    val targetIndex = remember(dates, targetDate) {
+        dates.indexOf(targetDate).coerceAtLeast(0)
+    }
+    
+    LaunchedEffect(targetIndex) {
+        listState.animateScrollToItem(targetIndex)
+    }
+    
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 4.dp)
     ) {
-        // Large Tile: Total Listening Time
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = MaterialTheme.shapes.extraLarge,
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .aspectRatio(1f)
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Energetic expressive background graphic
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(1.3f)
-                        .offset(x = (-30).dp, y = 30.dp)
-                        .clip(ExpressiveShapes.Puffy)
-                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f))
-                )
-                
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Total Time",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+            LazyRow(
+                state = listState,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                items(dates) { date ->
+                    val isSelected = date == selectedDate
+                    val isToday = date == today
+                    val hasActivity = activeDays.contains(date)
                     
+                    val dayOfWeek = date.dayOfWeek.getDisplayName(
+                        java.time.format.TextStyle.SHORT,
+                        java.util.Locale.getDefault()
+                    ).take(1)
+                    val dayOfMonth = date.dayOfMonth.toString()
+                    
+                    val containerColor = when {
+                        isSelected -> MaterialTheme.colorScheme.primary
+                        isToday -> MaterialTheme.colorScheme.primaryContainer
+                        hasActivity -> MaterialTheme.colorScheme.surfaceContainerHigh
+                        else -> MaterialTheme.colorScheme.surfaceContainerLowest
+                    }
+                    
+                    val contentColor = when {
+                        isSelected -> MaterialTheme.colorScheme.onPrimary
+                        isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+                        hasActivity -> MaterialTheme.colorScheme.onSurface
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    }
+                    
+                    val borderStroke = if (isToday && !isSelected) {
+                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                    } else null
+                    
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = containerColor,
+                        contentColor = contentColor,
+                        border = borderStroke,
+                        modifier = Modifier
+                            .width(46.dp)
+                            .aspectRatio(0.8f)
+                            .clickable {
+                                if (isSelected) {
+                                    onDateSelected(null)
+                                } else {
+                                    onDateSelected(date)
+                                }
+                            }
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Text(
+                                text = dayOfWeek,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = contentColor.copy(alpha = 0.8f)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = dayOfMonth,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = contentColor
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (hasActivity) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                                        )
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.size(6.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryStatsCardContainer(
+    gradientColors: List<Color>,
+    shapes: List<Shape>,
+    shapeColors: List<Color>,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "stats_card_shapes")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(30000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    val floatOffset by infiniteTransition.animateFloat(
+        initialValue = -8f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(10000, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
+
+    ElevatedCard(
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = gradientColors.firstOrNull() ?: MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(240.dp)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                shape = MaterialTheme.shapes.extraLarge
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(Brush.linearGradient(colors = gradientColors))
+        ) {
+            // Floating shapes in background
+            if (shapes.size >= 1 && shapeColors.size >= 1) {
+                CardFloatingShape(
+                    shape = shapes[0],
+                    rotation = rotation,
+                    color = shapeColors[0],
+                    size = 140.dp,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 20.dp, y = (-30).dp + floatOffset.dp)
+                )
+            }
+            if (shapes.size >= 2 && shapeColors.size >= 2) {
+                CardFloatingShape(
+                    shape = shapes[1],
+                    rotation = -rotation * 0.5f,
+                    color = shapeColors[1],
+                    size = 120.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .offset(x = (-20).dp - floatOffset.dp, y = 30.dp)
+                )
+            }
+            if (shapes.size >= 3 && shapeColors.size >= 3) {
+                CardFloatingShape(
+                    shape = shapes[2],
+                    rotation = rotation * 0.3f,
+                    color = shapeColors[2],
+                    size = 100.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 30.dp, y = 20.dp + (floatOffset * 0.5f).dp)
+                )
+            }
+
+            // Content container above background shapes
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .zIndex(1f)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+fun OverviewStatsCard(stats: DetailedHistoryStats) {
+    val darkTheme = isSystemInDarkTheme()
+    val gradientColors = listOf(
+        MaterialTheme.colorScheme.primaryContainer,
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+    )
+    val shapeColors = if (darkTheme) {
+        listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.06f)
+        )
+    } else {
+        listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f)
+        )
+    }
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+
+    val infiniteTransition = rememberInfiniteTransition(label = "streak_flame")
+    val flameColor by infiniteTransition.animateColor(
+        initialValue = Color.White,
+        targetValue = Color(0xFFFFF176), // Light amber/yellow
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_color"
+    )
+
+    HistoryStatsCardContainer(
+        gradientColors = gradientColors,
+        shapes = listOf(ExpressiveShapes.Sunny, ExpressiveShapes.Flower, ExpressiveShapes.Burst),
+        shapeColors = shapeColors
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top Section: Listening Time & Streak Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Listening Time",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = contentColor.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
                     val hours = TimeUnit.MILLISECONDS.toHours(stats.totalListeningMs)
                     val mins = TimeUnit.MILLISECONDS.toMinutes(stats.totalListeningMs) % 60
-                    
                     Text(
-                        text = "${hours}h ${mins}m",
+                        text = if (hours > 0) "${hours}h ${mins}m" else "${mins}m",
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = contentColor
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                if (stats.listeningStreakDays > 0) {
+                    val streakBgBrush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFFFF3D00),
+                            Color(0xFFFF9100)
+                        )
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(brush = streakBgBrush, shape = RoundedCornerShape(16.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Whatshot,
+                                contentDescription = "Streak",
+                                tint = flameColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "${stats.listeningStreakDays}-Day Streak",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = contentColor.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "0-Day Streak",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                color = contentColor.copy(alpha = 0.25f),
+                thickness = 1.dp,
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
+
+            // Bottom Section: 3-column metrics
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OverviewMetricColumn(
+                    icon = Icons.Rounded.CheckCircle,
+                    iconColor = Color(0xFF00E676), // Vibrant Neon Green
+                    label = "Completed",
+                    value = "${stats.completedEpisodesCount}",
+                    contentColor = contentColor,
+                    modifier = Modifier.weight(1f)
+                )
+                OverviewMetricColumn(
+                    icon = Icons.Rounded.Pending,
+                    iconColor = Color(0xFFFFD600), // Vibrant Yellow
+                    label = "In Progress",
+                    value = "${stats.inProgressEpisodesCount}",
+                    contentColor = contentColor,
+                    modifier = Modifier.weight(1f)
+                )
+                OverviewMetricColumn(
+                    icon = Icons.Rounded.Favorite,
+                    iconColor = Color(0xFFFF1744), // Vibrant Pink-Red
+                    label = "Liked",
+                    value = "${stats.likedEpisodesCount}",
+                    contentColor = contentColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun OverviewMetricColumn(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    label: String,
+    value: String,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = contentColor.copy(alpha = 0.95f),
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Visible
+        )
+    }
+}
+
+@Composable
+fun HabitsStatsCard(stats: DetailedHistoryStats) {
+    val darkTheme = isSystemInDarkTheme()
+    val gradientColors = listOf(
+        MaterialTheme.colorScheme.tertiaryContainer,
+        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    )
+    val shapeColors = if (darkTheme) {
+        listOf(
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.06f)
+        )
+    } else {
+        listOf(
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)
+        )
+    }
+    val contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+
+    val vibeIcon = when (stats.peakListeningVibe) {
+        "Morning Ritual" -> Icons.Rounded.LightMode
+        "Midday Flow" -> Icons.Rounded.Bolt
+        "Evening Unwind" -> Icons.Rounded.ModeNight
+        "Night Owl" -> Icons.Rounded.Bedtime
+        else -> Icons.Rounded.AccessTime
+    }
+
+    val peakHourText = if (stats.peakListeningHour >= 0) {
+        val hour = stats.peakListeningHour
+        val ampm = if (hour >= 12) "PM" else "AM"
+        val hour12 = if (hour % 12 == 0) 12 else hour % 12
+        "$hour12 $ampm peak"
+    } else {
+        "No activity"
+    }
+
+    HistoryStatsCardContainer(
+        gradientColors = gradientColors,
+        shapes = listOf(ExpressiveShapes.Flower, ExpressiveShapes.Cookie12, ExpressiveShapes.Burst),
+        shapeColors = shapeColors
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top Section: Vibe & Peak Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Listening Vibe",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = contentColor.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stats.peakListeningVibe,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        color = contentColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Surface(
+                    color = contentColor.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.5.dp, contentColor.copy(alpha = 0.40f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = vibeIcon,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = peakHourText,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = contentColor,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+
+            // Middle Section: Distribution Graph spanning full width, filling remaining vertical space
+            val barValues = remember(stats.hourlyDistribution) {
+                FloatArray(12) { i ->
+                    stats.hourlyDistribution.getOrElse(i * 2) { 0f } + stats.hourlyDistribution.getOrElse(i * 2 + 1) { 0f }
+                }
+            }
+            val maxVal = remember(barValues) { barValues.maxOrNull() ?: 1f }.let { if (it == 0f) 1f else it }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    barValues.forEachIndexed { index, value ->
+                        val normalizedHeight = (value / maxVal).coerceIn(0.12f, 1f)
+                        val isPeak = index == stats.peakListeningHour / 2
+                        
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 3.dp)
+                                .fillMaxHeight(normalizedHeight)
+                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                .background(
+                                    if (isPeak) contentColor
+                                    else contentColor.copy(alpha = 0.55f)
+                                )
+                        )
+                    }
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("12 AM", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.95f), fontWeight = FontWeight.Bold)
+                    Text("6 AM", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.95f), fontWeight = FontWeight.Bold)
+                    Text("12 PM", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.95f), fontWeight = FontWeight.Bold)
+                    Text("6 PM", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.95f), fontWeight = FontWeight.Bold)
+                    Text("11 PM", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.95f), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TopShowStatsCard(stats: DetailedHistoryStats) {
+    val darkTheme = isSystemInDarkTheme()
+    val gradientColors = listOf(
+        MaterialTheme.colorScheme.secondaryContainer,
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+    )
+    val shapeColors = if (darkTheme) {
+        listOf(
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+        )
+    } else {
+        listOf(
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+        )
+    }
+    val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+
+    HistoryStatsCardContainer(
+        gradientColors = gradientColors,
+        shapes = listOf(ExpressiveShapes.Burst, ExpressiveShapes.SoftBurst, ExpressiveShapes.Diamond),
+        shapeColors = shapeColors
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = contentColor.copy(alpha = 0.1f),
+                border = BorderStroke(1.5.dp, contentColor.copy(alpha = 0.2f)),
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(16.dp))
+            ) {
+                if (stats.topPodcastImageUrl != null) {
+                    OptimizedImage(
+                        url = stats.topPodcastImageUrl,
+                        proxyWidth = 200,
+                        contentDescription = stats.topPodcastName,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Top Podcast",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = contentColor.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stats.topPodcastName ?: "No podcast found",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = contentColor
+                )
+
+                if (stats.topPodcastName != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        color = contentColor.copy(alpha = 0.18f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.5.dp, contentColor.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = contentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            val playsText = if (stats.topPodcastPlayCount == 1) "1 play" else "${stats.topPodcastPlayCount} plays"
+                            Text(
+                                text = playsText,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Black,
+                                color = contentColor
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Listen to podcasts to see your top show!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = contentColor.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
         }
+    }
+}
 
-        // Two smaller tiles stacked vertically
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .aspectRatio(1f),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize(1.5f)
-                            .offset(x = 40.dp, y = (-20).dp)
-                            .clip(ExpressiveShapes.Cookie4)
-                            .background(MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.08f))
-                    )
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.CenterStart) {
-                        Column {
-                            Text(
-                                text = "Completed",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                text = "${stats.completedEpisodesCount} Eps",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                    }
-                }
-            }
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize(1.3f)
-                            .offset(x = (-10).dp, y = (-30).dp)
-                            .clip(ExpressiveShapes.Diamond)
-                            .background(MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.08f))
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Top Show",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                            Text(
-                                text = stats.topPodcastName ?: "None",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        }
-                        if (stats.topPodcastImageUrl != null) {
-                            AsyncImage(
-                                model = stats.topPodcastImageUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                            )
-                        }
-                    }
-                }
-            }
+@Composable
+fun StatsMetricRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.size(18.dp)
+        )
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -367,29 +1116,51 @@ fun DateHeaderRow(
         yesterday -> "Yesterday"
         else -> date.format(formatter)
     }
+    
+    val rotationAngle by animateFloatAsState(
+        targetValue = if (isExpanded) 90f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "Caret Rotation"
+    )
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = CircleShape,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .expressiveClickable(onClick = onClick)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .width(24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = dateText,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
             )
-            // Caret rotation can be added here if desired.
         }
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Text(
+            text = dateText,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f)
+        )
+        
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = if (isExpanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .rotate(rotationAngle)
+                .size(24.dp)
+        )
     }
 }
 
@@ -403,7 +1174,6 @@ fun SwipeToDeleteHistoryItem(
     val hapticFeedback = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     
-    // Swipe state
     val offsetX = remember { Animatable(0f) }
     var showDeletePill by remember { mutableStateOf(false) }
     var autoHideJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -411,7 +1181,6 @@ fun SwipeToDeleteHistoryItem(
     val dismissThreshold = with(density) { 80.dp.toPx() }
     
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Delete pill BEHIND the card — uses matchParentSize to match card height exactly
         if (showDeletePill) {
             Box(
                 modifier = Modifier
@@ -453,10 +1222,9 @@ fun SwipeToDeleteHistoryItem(
             }
         }
         
-        // Card content - slides with swipe
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
@@ -470,7 +1238,6 @@ fun SwipeToDeleteHistoryItem(
                         onDragEnd = {
                             coroutineScope.launch {
                                 if (offsetX.value < -dismissThreshold) {
-                                    // Show delete pill
                                     showDeletePill = true
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                     
@@ -482,7 +1249,6 @@ fun SwipeToDeleteHistoryItem(
                                         )
                                     )
                                     
-                                    // Auto-restore after 3 seconds
                                     autoHideJob = coroutineScope.launch {
                                         delay(3000)
                                         showDeletePill = false
@@ -495,7 +1261,6 @@ fun SwipeToDeleteHistoryItem(
                                         )
                                     }
                                 } else {
-                                    // Snap back
                                     showDeletePill = false
                                     offsetX.animateTo(
                                         0f,
@@ -515,7 +1280,6 @@ fun SwipeToDeleteHistoryItem(
                         },
                         onHorizontalDrag = { _, dragAmount ->
                             coroutineScope.launch {
-                                // Only allow left swipe (negative)
                                 val newOffset = (offsetX.value + dragAmount).coerceAtMost(0f)
                                 offsetX.snapTo(newOffset)
                                 
@@ -541,14 +1305,13 @@ fun SwipeToDeleteHistoryItem(
                         .size(64.dp)
                         .clip(MaterialTheme.shapes.medium)
                 ) {
-                    AsyncImage(
-                        model = entity.episodeImageUrl ?: entity.podcastImageUrl,
+                    OptimizedImage(
+                        url = entity.episodeImageUrl ?: entity.podcastImageUrl,
+                        proxyWidth = 150,
                         contentDescription = null,
-                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                     
-                    // Progress scrim on image
                     if (entity.durationMs > 0) {
                         val progress = (entity.progressMs.toFloat() / entity.durationMs.toFloat()).coerceIn(0f, 1f)
                         Box(
@@ -579,13 +1342,46 @@ fun SwipeToDeleteHistoryItem(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = entity.podcastName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    
+                    val playProgressInfo = remember(entity.progressMs, entity.durationMs, entity.isCompleted) {
+                        val isComplete = entity.isCompleted || (entity.durationMs > 0 && entity.progressMs > entity.durationMs * 0.9f)
+                        if (isComplete) {
+                            "Completed"
+                        } else if (entity.durationMs > 0) {
+                            val remainingMs = entity.durationMs - entity.progressMs
+                            val remainingMins = TimeUnit.MILLISECONDS.toMinutes(remainingMs)
+                            if (remainingMins > 0) "$remainingMins mins left" else "Almost done"
+                        } else {
+                            "In Progress"
+                        }
+                    }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = entity.podcastName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        Surface(
+                            color = if (entity.isCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                text = playProgressInfo,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (entity.isCompleted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
                 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -596,6 +1392,213 @@ fun SwipeToDeleteHistoryItem(
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun CardFloatingShape(
+    shape: Shape,
+    rotation: Float,
+    color: Color,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .graphicsLayer {
+                rotationZ = rotation
+            }
+            .background(color = color, shape = shape)
+    )
+}
+
+@Composable
+fun CompactMetricRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    label: String,
+    value: String,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = contentColor.copy(alpha = 0.8f)
+            )
+        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = contentColor
+        )
+    }
+}
+
+@Composable
+fun CalendarInsightBanner(
+    stats: DetailedHistoryStats,
+    selectedDate: LocalDate?,
+    groupedHistory: Map<LocalDate, List<ListeningHistoryEntity>>,
+    onClearFilter: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val today = remember { LocalDate.now() }
+    val isFiltered = selectedDate != null
+    
+    val containerColor = if (isFiltered) {
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
+    } else {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    }
+    
+    val contentColor = if (isFiltered) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    
+    val borderStroke = BorderStroke(
+        width = 1.dp,
+        color = if (isFiltered) {
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)
+        } else {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+        }
+    )
+
+    Surface(
+        color = containerColor,
+        contentColor = contentColor,
+        shape = MaterialTheme.shapes.large,
+        border = borderStroke,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 4.dp)
+    ) {
+        Crossfade(
+            targetState = selectedDate,
+            label = "insight_banner_transition"
+        ) { targetDate ->
+            val hasFilter = targetDate != null
+            val icon = if (hasFilter) {
+                Icons.Rounded.PlayArrow
+            } else {
+                val last14Days = remember(today) { (0..13).map { today.minusDays(it.toLong()) } }
+                val activeCount = last14Days.count { stats.activeDays.contains(it) }
+                if (activeCount >= 5) Icons.Rounded.Whatshot else Icons.Rounded.Bolt
+            }
+            
+            val iconColor = if (hasFilter) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(iconColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                val descText = if (hasFilter) {
+                    val dateStr = when (targetDate) {
+                        today -> "Today"
+                        today.minusDays(1) -> "Yesterday"
+                        else -> targetDate!!.format(DateTimeFormatter.ofPattern("MMMM d"))
+                    }
+                    val episodes = groupedHistory[targetDate] ?: emptyList()
+                    var dailyMs = 0L
+                    episodes.forEach { entity ->
+                        val isComplete = entity.isCompleted || (entity.durationMs > 0 && entity.progressMs > entity.durationMs * 0.9f)
+                        dailyMs += if (isComplete && entity.durationMs > 0) entity.durationMs else entity.progressMs
+                    }
+                    val hours = TimeUnit.MILLISECONDS.toHours(dailyMs)
+                    val mins = TimeUnit.MILLISECONDS.toMinutes(dailyMs) % 60
+                    val durationStr = if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+                    val epCount = episodes.size
+                    "On $dateStr, you played $epCount ${if (epCount == 1) "episode" else "episodes"} for a total of $durationStr."
+                } else {
+                    val last14Days = remember(today) { (0..13).map { today.minusDays(it.toLong()) } }
+                    val activeCount = last14Days.count { stats.activeDays.contains(it) }
+                    when {
+                        activeCount == 14 -> "Perfect fortnight! You listened every day for the last 14 days."
+                        activeCount >= 10 -> "Incredible consistency! You listened on $activeCount of the last 14 days."
+                        activeCount >= 5 -> "Great habit! You listened on $activeCount of the last 14 days."
+                        activeCount >= 1 -> "You listened on $activeCount of the last 14 days recently. Keep it up!"
+                        else -> "No listening history in the last 14 days. Start listening today!"
+                    }
+                }
+
+                Text(
+                    text = descText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = contentColor,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                if (hasFilter) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onClearFilter,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Clear filter",
+                            tint = contentColor.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
     }

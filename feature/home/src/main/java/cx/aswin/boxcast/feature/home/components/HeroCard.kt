@@ -196,11 +196,13 @@ fun HeroCard(
                         ),
                         modifier = Modifier
                             .height(48.dp)
-                            .expressiveClickable(onClick = onClick)
+                            .width(160.dp)
+                            .expressiveClickable(isolate = true, onClick = onClick)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 40.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
                                 imageVector = if (showPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -228,7 +230,7 @@ fun HeroCard(
                         ),
                         modifier = Modifier
                             .size(48.dp)
-                            .expressiveClickable(onClick = onArrowClick)
+                            .expressiveClickable(isolate = true, onClick = onArrowClick)
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
