@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.feature.home.components
 
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
+import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -92,6 +93,7 @@ fun YourShowsSection(
     onViewAllLatest: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    LogRecomposition(name = "YourShowsSection")
     if (subscribedPodcasts.isEmpty() && latestEpisodes.isEmpty()) return
 
     Column(modifier = modifier) {
@@ -369,6 +371,7 @@ private fun NewEpisodeCard(
     isSuggested: Boolean = false,
     onClick: () -> Unit
 ) {
+    LogRecomposition(name = "NewEpisodeCard")
     val status = podcast.episodeStatus
     val progress = podcast.resumeProgress ?: 0f
     val isCompleted = status == EpisodeStatus.COMPLETED

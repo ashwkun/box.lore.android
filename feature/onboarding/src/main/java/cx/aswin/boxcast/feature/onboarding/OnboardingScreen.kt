@@ -41,6 +41,7 @@ import coil.compose.AsyncImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
+import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.model.Podcast
 
 // Genre data matching GenreSelector.kt
@@ -80,7 +81,10 @@ fun OnboardingScreen(
     onImportOpml: (android.net.Uri) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+    val handleComplete = {
+        viewModel.completeOnboarding(onComplete)
+    }
+
     // Main content with animated transitions
     AnimatedContent(
         targetState = uiState.currentStep,
@@ -112,11 +116,13 @@ fun OnboardingScreen(
                 PodcastPicksScreen(
                     podcasts = uiState.recommendedPodcasts,
                     subscribedIds = uiState.subscribedPodcastIds,
+                    currentRegion = uiState.currentRegion,
                     isLoading = uiState.isLoadingPodcasts,
                     onToggleSubscription = viewModel::togglePodcastSubscription,
+                    onRegionChange = viewModel::setRegion,
                     onSearch = viewModel::navigateToSearch,
                     onBack = viewModel::navigateBackFromPodcasts,
-                    onDone = { viewModel.completeOnboarding(onComplete) },
+                    onDone = handleComplete,
                     onSkip = { viewModel.skipOnboarding(onComplete) },
                     onDidScroll = viewModel::onPodcastScreenScrolled
                 )
@@ -131,7 +137,7 @@ fun OnboardingScreen(
                     onQueryChange = viewModel::updateSearchQuery,
                     onSubscribe = viewModel::subscribeFromSearch,
                     onBack = viewModel::navigateBackFromSearch,
-                    onDone = { viewModel.completeOnboarding(onComplete) }
+                    onDone = handleComplete
                 )
             }
         }
@@ -393,14 +399,17 @@ private fun GenrePickerScreen(
 private fun PodcastPicksScreen(
     podcasts: List<Podcast>,
     subscribedIds: Set<String>,
+    currentRegion: String,
     isLoading: Boolean,
     onToggleSubscription: (String) -> Unit,
+    onRegionChange: (String) -> Unit,
     onSearch: () -> Unit,
     onBack: () -> Unit,
     onDone: () -> Unit,
     onSkip: () -> Unit,
     onDidScroll: () -> Unit
 ) {
+    LogRecomposition(name = "PodcastPicksScreen")
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
 
@@ -453,7 +462,7 @@ private fun PodcastPicksScreen(
                 ) {
                     Button(
                         onClick = onDone,
-                        enabled = true,
+                        enabled = subscribedIds.isNotEmpty(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -520,12 +529,53 @@ private fun PodcastPicksScreen(
                     .padding(innerPadding)
             ) {
                 item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        text = "Tap to subscribe — you can always change later",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                    Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                        Text(
+                            text = "Tap to subscribe — you can always change later",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        
+                        // Premium Region Segmented Control
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val regions = listOf(
+                                "us" to "USA",
+                                "in" to "India",
+                                "gb" to "UK"
+                            )
+                            regions.forEach { (code, label) ->
+                                val isSelected = currentRegion == code
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                            else androidx.compose.ui.graphics.Color.Transparent
+                                        )
+                                        .expressiveClickable { onRegionChange(code) }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                 items(podcasts, key = { it.id }) { podcast ->
                     PodcastPickCard(
@@ -545,6 +595,7 @@ private fun PodcastPickCard(
     isSubscribed: Boolean,
     onToggle: () -> Unit
 ) {
+    LogRecomposition(name = "PodcastPickCard")
     val containerColor = if (isSubscribed)
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
     else

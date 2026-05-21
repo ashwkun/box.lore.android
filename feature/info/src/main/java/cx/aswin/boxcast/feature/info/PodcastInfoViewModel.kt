@@ -119,6 +119,32 @@ class PodcastInfoViewModel(
         )
     val completedEpisodesState: StateFlow<Set<String>> = completedEpisodeIds
 
+    // Observe downloaded episode IDs
+    val downloadedEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads
+        .map { downloads ->
+            downloads.filter { it.status == cx.aswin.boxcast.core.data.database.DownloadedEpisodeEntity.STATUS_COMPLETED }
+                .map { it.episodeId }
+                .toSet()
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptySet()
+        )
+
+    // Observe downloading episode IDs
+    val downloadingEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads
+        .map { downloads ->
+            downloads.filter { it.status == cx.aswin.boxcast.core.data.database.DownloadedEpisodeEntity.STATUS_DOWNLOADING }
+                .map { it.episodeId }
+                .toSet()
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptySet()
+        )
+
     fun isEpisodeCompleted(episodeId: String): Boolean {
         return completedEpisodeIds.value.contains(episodeId)
     }

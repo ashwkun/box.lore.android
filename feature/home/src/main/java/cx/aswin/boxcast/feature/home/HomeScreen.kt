@@ -1,5 +1,11 @@
 package cx.aswin.boxcast.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +55,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -143,6 +150,8 @@ fun HomeRoute(
         },
         onSubmitFeedback = onSubmitFeedback,
         onResetFeatureFlag = viewModel::resetFeatureFlag,
+        onSwitchRegion = viewModel::setRegion,
+        onDismissNudge = viewModel::dismissRegionNudge,
 
         modifier = modifier
     )
@@ -182,9 +191,12 @@ fun HomeScreen(
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
     onResetFeatureFlag: () -> Unit = {},
+    onSwitchRegion: (String) -> Unit = {},
+    onDismissNudge: () -> Unit = {},
 
     modifier: Modifier = Modifier
 ) {
+    LogRecomposition(name = "HomeScreen")
     // Track scroll state for collapsing top bar
     val gridState = rememberLazyStaggeredGridState()
     var showDebugDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -268,6 +280,11 @@ fun HomeScreen(
                             onToggleSubscription = onToggleSubscription,
                             onTogglePlayback = onTogglePlayback,
                             onSelectCategory = onSelectCategory,
+                            showRegionNudge = uiState.showRegionNudge,
+                            systemRegionCode = uiState.systemRegionCode,
+                            activeRegionCode = uiState.activeRegionCode,
+                            onSwitchRegion = onSwitchRegion,
+                            onDismissNudge = onDismissNudge,
                             gridState = gridState
                         )
                     }
@@ -335,6 +352,11 @@ private fun PodcastFeed(
     currentPlayingPodcastId: String?,
     isPlaying: Boolean,
     isFilterLoading: Boolean,
+    showRegionNudge: Boolean = false,
+    systemRegionCode: String = "",
+    activeRegionCode: String = "",
+    onSwitchRegion: (String) -> Unit = {},
+    onDismissNudge: () -> Unit = {},
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
@@ -350,6 +372,7 @@ private fun PodcastFeed(
     gridState: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
     modifier: Modifier = Modifier
 ) {
+    LogRecomposition(name = "PodcastFeed")
     LazyVerticalStaggeredGrid(
         state = gridState,
         columns = StaggeredGridCells.Adaptive(150.dp),
@@ -382,6 +405,28 @@ private fun PodcastFeed(
                 )
             } else {
                 cx.aswin.boxcast.feature.home.components.HeroSkeleton()
+            }
+        }
+
+        item(span = StaggeredGridItemSpan.FullLine) {
+            AnimatedVisibility(
+                visible = showRegionNudge,
+                enter = expandVertically(
+                    animationSpec = tween(400),
+                    expandFrom = androidx.compose.ui.Alignment.Top
+                ) + fadeIn(animationSpec = tween(400)),
+                exit = shrinkVertically(
+                    animationSpec = tween(300),
+                    shrinkTowards = androidx.compose.ui.Alignment.Top
+                ) + fadeOut(animationSpec = tween(300))
+            ) {
+                cx.aswin.boxcast.feature.home.components.RegionMismatchNudgeBanner(
+                    systemRegion = systemRegionCode,
+                    activeRegion = activeRegionCode,
+                    onSwitchRegion = onSwitchRegion,
+                    onDismiss = onDismissNudge,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                )
             }
         }
 

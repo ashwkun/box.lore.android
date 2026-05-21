@@ -8,6 +8,7 @@ import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.SubscriptionRepository
 import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.data.UserPreferencesRepository
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 
 data class OnboardingUiState(
@@ -27,7 +29,10 @@ data class OnboardingUiState(
     val searchResults: List<Podcast> = emptyList(),
     val isSearching: Boolean = false,
     val isCompleting: Boolean = false,
-    val correctedQuery: String? = null
+    val correctedQuery: String? = null,
+    val currentRegion: String = "us",
+    val initialRegion: String = "us",
+    val selectedPodcasts: Map<String, Podcast> = emptyMap()
 )
 
 enum class OnboardingStep {
@@ -37,7 +42,8 @@ enum class OnboardingStep {
 class OnboardingViewModel(
     application: Application,
     private val podcastRepository: PodcastRepository,
-    private val subscriptionRepository: SubscriptionRepository
+    private val subscriptionRepository: SubscriptionRepository,
+    private val userPrefs: UserPreferencesRepository
 ) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
@@ -46,11 +52,27 @@ class OnboardingViewModel(
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
     
     private var searchJob: Job? = null
+    private var recommendationJob: Job? = null
 
     init {
         // Init local spellchecker safely on a background thread for the search step
         viewModelScope.launch {
             // Offline spellchecker removed - handled at the Edge
+        }
+        
+        // Retrieve and initialize region once on startup
+        viewModelScope.launch {
+            userPrefs.regionStream.take(1).collect { region ->
+                _uiState.update { 
+                    it.copy(
+                        currentRegion = region,
+                        initialRegion = region
+                    ) 
+                }
+                if (_uiState.value.currentStep == OnboardingStep.PODCASTS) {
+                    loadRecommendationsForRegion(region)
+                }
+            }
         }
     }
 
@@ -127,14 +149,10 @@ class OnboardingViewModel(
         }
     }
     
-    fun continueToRecommendations() {
-        // Analytics: Track genres submitted with time spent
-        val selectedGenres = _uiState.value.selectedGenres
-        AnalyticsHelper.trackGenresSubmitted(selectedGenres, getGenreScreenTimeSpent())
-
-        val selectedCount = _uiState.value.selectedGenres.size
-        _uiState.update { it.copy(currentStep = OnboardingStep.PODCASTS, isLoadingPodcasts = true) }
-        viewModelScope.launch {
+    private fun loadRecommendationsForRegion(region: String) {
+        recommendationJob?.cancel()
+        recommendationJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingPodcasts = true) }
             val genresList = _uiState.value.selectedGenres.toList()
             val allPodcasts = mutableListOf<Podcast>()
             
@@ -147,6 +165,7 @@ class OnboardingViewModel(
             
             for (genre in genresList) {
                 val trending = podcastRepository.getTrendingPodcasts(
+                    country = region,
                     category = genre,
                     limit = perGenreLimit
                 )
@@ -162,21 +181,45 @@ class OnboardingViewModel(
             _uiState.update {
                 it.copy(
                     recommendedPodcasts = uniquePodcasts,
-                    subscribedPodcastIds = uniquePodcasts.map { p -> p.id }.toSet(), // Pre-select all
                     isLoadingPodcasts = false
                 )
             }
         }
     }
+
+    fun continueToRecommendations() {
+        // Analytics: Track genres submitted with time spent
+        val selectedGenres = _uiState.value.selectedGenres
+        AnalyticsHelper.trackGenresSubmitted(selectedGenres, getGenreScreenTimeSpent())
+
+        _uiState.update { it.copy(currentStep = OnboardingStep.PODCASTS) }
+        loadRecommendationsForRegion(_uiState.value.currentRegion)
+    }
+
+    fun setRegion(region: String) {
+        _uiState.update { it.copy(currentRegion = region) }
+        if (_uiState.value.currentStep == OnboardingStep.PODCASTS) {
+            loadRecommendationsForRegion(region)
+        }
+    }
     
     fun togglePodcastSubscription(podcastId: String) {
         _uiState.update { state ->
-            val newSubs = if (podcastId in state.subscribedPodcastIds) {
-                state.subscribedPodcastIds - podcastId
+            val newSelected = if (podcastId in state.selectedPodcasts) {
+                state.selectedPodcasts - podcastId
             } else {
-                state.subscribedPodcastIds + podcastId
+                val podcast = state.recommendedPodcasts.find { it.id == podcastId }
+                    ?: state.searchResults.find { it.id == podcastId }
+                if (podcast != null) {
+                    state.selectedPodcasts + (podcastId to podcast)
+                } else {
+                    state.selectedPodcasts
+                }
             }
-            state.copy(subscribedPodcastIds = newSubs)
+            state.copy(
+                selectedPodcasts = newSelected,
+                subscribedPodcastIds = newSelected.keys
+            )
         }
     }
     
@@ -251,8 +294,7 @@ class OnboardingViewModel(
     
     fun subscribeFromSearch(podcast: Podcast) {
         _uiState.update { state ->
-            // Add to subscribed IDs
-            val newSubs = state.subscribedPodcastIds + podcast.id
+            val newSelected = state.selectedPodcasts + (podcast.id to podcast)
             
             // Allow this podcast to appear in the main recommendation list too
             val newRecommendations = if (state.recommendedPodcasts.any { it.id == podcast.id }) {
@@ -262,7 +304,8 @@ class OnboardingViewModel(
             }
             
             state.copy(
-                subscribedPodcastIds = newSubs,
+                selectedPodcasts = newSelected,
+                subscribedPodcastIds = newSelected.keys,
                 recommendedPodcasts = newRecommendations
             )
         }
@@ -283,12 +326,15 @@ class OnboardingViewModel(
         _uiState.update { it.copy(isCompleting = true) }
         viewModelScope.launch {
             val state = _uiState.value
-            // Subscribe to all selected podcasts from recommendations (which now includes search selections)
-            val podcastsToSubscribe = state.recommendedPodcasts.filter { it.id in state.subscribedPodcastIds }
+            // Subscribe to all selected podcasts accumulated across regions and search
+            val podcastsToSubscribe = state.selectedPodcasts.values
             for (podcast in podcastsToSubscribe) {
                 // Use idempotent subscribe to avoid toggling off existing subs
                 subscriptionRepository.subscribe(podcast)
             }
+            
+            // Persist the home region preference selection upon completion
+            userPrefs.setRegion(state.currentRegion)
             
             // Mark onboarding as completed
             prefs.edit().putBoolean("onboarding_completed", true).apply()

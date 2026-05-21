@@ -73,7 +73,10 @@ data class HomeUiState(
     val discoverPodcasts: List<Podcast>, 
     val isLoading: Boolean = false, // Initial full-screen loader
     val isFilterLoading: Boolean = false, // Inline loader when switching genres
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    val showRegionNudge: Boolean = false,
+    val systemRegionCode: String = "",
+    val activeRegionCode: String = ""
 )
 
 data class HomeDataWrapper(
@@ -131,6 +134,7 @@ class HomeViewModel(
     val playerState = playbackRepository.playerState
     
     // Cached base data (For You)
+    private var cachedRegion: String? = null
     private var cachedForYouTrending: List<Podcast> = emptyList()
     private var cachedHeroItems: List<SmartHeroItem> = emptyList()
     private var cachedTimeBlock: CuratedTimeBlock? = null
@@ -157,8 +161,27 @@ class HomeViewModel(
 
     private fun loadData() {
         viewModelScope.launch {
-            // --- BASE DATA FLOW (Restarts when Region changes) ---
-            userPrefs.regionStream.collectLatest { region ->
+            // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
+            combine(
+                userPrefs.regionStream,
+                userPrefs.hasDismissedRegionNudgeStream
+            ) { region, hasDismissed ->
+                region to hasDismissed
+            }.collectLatest { (region, hasDismissed) ->
+                if (cachedRegion != region) {
+                    cachedRegion = region
+                    cachedForYouTrending = emptyList()
+                    cachedHeroItems = emptyList()
+                    cachedTimeBlock = null
+                    cachedLatestEpisodes = emptyList()
+                    
+                    _uiState.update { 
+                        it.copy(
+                            discoverPodcasts = emptyList(),
+                            isFilterLoading = true
+                        )
+                    }
+                }
                 activeRegion = region
                 
                 // CRITICAL FIX: getTrendingPodcastsStream is a cold flow{} that COMPLETES 
@@ -482,11 +505,17 @@ class HomeViewModel(
                         val discover = remaining 
 
                         if (trendingList.isNotEmpty()) {
+                            cachedRegion = region
                             cachedForYouTrending = trendingList
                             cachedHeroItems = heroList
                             cachedTimeBlock = timeBlock
                             cachedLatestEpisodes = catchUpList
                         }
+
+                        val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
+                            if (it == "us" || it == "in" || it == "gb") it else "us"
+                        }
+                        val shouldShowNudge = !hasDismissed && (systemCountry != region)
 
                         _uiState.value = HomeUiState(
                             heroItems = heroList,
@@ -499,7 +528,10 @@ class HomeViewModel(
                             discoverPodcasts = discover,
                             isLoading = false,
                             isFilterLoading = trendingList.isEmpty(),
-                            isError = false
+                            isError = false,
+                            showRegionNudge = shouldShowNudge,
+                            systemRegionCode = systemCountry,
+                            activeRegionCode = region
                         )
                         
 
@@ -513,9 +545,8 @@ class HomeViewModel(
                 category to region 
             }.collectLatest { (category, region) ->
                 if (category == null) {
-                    // "For You" - use cached data instantly (if matches region?)
-                    // Simplified: caching matches current region because region change triggers base reload
-                    if (cachedHeroItems.isNotEmpty()) {
+                    // "For You" - use cached data instantly if it matches current region
+                    if (cachedRegion == region && cachedHeroItems.isNotEmpty()) {
                         val discover = cachedForYouTrending.filter { pod ->
                             !cachedHeroItems.any { it.podcast.id == pod.id } &&
                             !(cachedTimeBlock?.sections?.any { sec -> sec.podcasts.any { it.id == pod.id } } ?: false)
@@ -526,6 +557,15 @@ class HomeViewModel(
                                 selectedCategory = null,
                                 discoverPodcasts = discover,
                                 isFilterLoading = false
+                            )
+                        }
+                    } else {
+                        // Region has changed or cache is empty / stale, so clear discover list and wait for load
+                        _uiState.update {
+                            it.copy(
+                                selectedCategory = null,
+                                discoverPodcasts = emptyList(),
+                                isFilterLoading = true
                             )
                         }
                     }
@@ -748,6 +788,12 @@ class HomeViewModel(
         }
     }
     
+    fun dismissRegionNudge() {
+        viewModelScope.launch {
+            userPrefs.dismissRegionNudge()
+        }
+    }
+
     fun resetFeatureFlag() {
         viewModelScope.launch {
             userPrefs.dismissFeatureAnnouncement("")

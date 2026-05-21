@@ -250,9 +250,11 @@ class MainActivity : ComponentActivity() {
             // Privacy & Preferences
             val consentManager = remember { cx.aswin.boxcast.core.data.privacy.ConsentManager(application) }
             
+            val userPrefs = remember { cx.aswin.boxcast.core.data.UserPreferencesRepository(application) }
+            
             // 6. Onboarding ViewModel
             val onboardingViewModel = remember {
-                cx.aswin.boxcast.feature.onboarding.OnboardingViewModel(application, podcastRepository, subscriptionRepository)
+                cx.aswin.boxcast.feature.onboarding.OnboardingViewModel(application, podcastRepository, subscriptionRepository, userPrefs)
             }
             val onboardingCompleted = remember { onboardingViewModel.isOnboardingCompleted() }
             
@@ -263,8 +265,6 @@ class MainActivity : ComponentActivity() {
             val queueManager = remember { 
                 cx.aswin.boxcast.core.data.QueueManager(queueRepository, smartQueueEngine, playbackRepository, podcastRepository)
             }
-
-            val userPrefs = remember { cx.aswin.boxcast.core.data.UserPreferencesRepository(application) }
             
             // Check Consent Status
             // Initial = true to prevent flashing dialog while DataStore loads.
@@ -953,6 +953,7 @@ class MainActivity : ComponentActivity() {
                                                 application,
                                                 podcastRepository,
                                                 subscriptionRepository, // Updated to take repo
+                                                userPrefs,
                                                 initialCategory = category 
                                             ) as T
                                         }

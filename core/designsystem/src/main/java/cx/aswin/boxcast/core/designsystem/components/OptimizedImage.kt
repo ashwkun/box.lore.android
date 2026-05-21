@@ -1,5 +1,8 @@
 package cx.aswin.boxcast.core.designsystem.components
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -8,11 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
-import coil.compose.AsyncImagePainter
-
 import androidx.compose.ui.graphics.ColorFilter
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 
 /**
  * A reusable image composable that implements a proxy-first loading strategy
@@ -40,8 +41,11 @@ fun OptimizedImage(
     contentScale: ContentScale = ContentScale.Crop,
     colorFilter: ColorFilter? = null
 ) {
+    LogRecomposition(name = "OptimizedImage: ${url?.takeLast(20)}")
     if (url.isNullOrBlank()) {
-        AnimatedShapesFallback()
+        Box(modifier = modifier) {
+            AnimatedShapesFallback()
+        }
         return
     }
 
@@ -51,44 +55,39 @@ fun OptimizedImage(
     var currentUrl by remember(url) { mutableStateOf(proxyUrl) }
     var hasTriedFallback by remember(url) { mutableStateOf(false) }
 
-    SubcomposeAsyncImage(
-        model = currentUrl,
-        contentDescription = contentDescription,
-        contentScale = contentScale,
-        colorFilter = colorFilter,
-        modifier = modifier
-    ) {
-        val state = painter.state
+    val painter = rememberAsyncImagePainter(model = currentUrl)
+    val state = painter.state
 
-        when (state) {
-            is AsyncImagePainter.State.Loading -> {
-                AnimatedShapesFallback()
+    if (state is AsyncImagePainter.State.Error) {
+        // Trigger fallback to raw URL outside of composition via LaunchedEffect
+        if (!hasTriedFallback && currentUrl == proxyUrl) {
+            LaunchedEffect(url) {
+                hasTriedFallback = true
+                currentUrl = url
+                
+                // Track the fallback so we can monitor proxy reliability
+                com.posthog.PostHog.capture(
+                    "proxy_fallback_triggered",
+                    properties = mapOf(
+                        "original_url" to url,
+                        "proxy_width" to proxyWidth
+                    )
+                )
             }
-            is AsyncImagePainter.State.Success -> {
-                SubcomposeAsyncImageContent()
-            }
-            is AsyncImagePainter.State.Error -> {
-                // Trigger fallback to raw URL outside of composition via LaunchedEffect
-                if (!hasTriedFallback && currentUrl == proxyUrl) {
-                    LaunchedEffect(Unit) {
-                        hasTriedFallback = true
-                        currentUrl = url
-                        
-                        // Track the fallback so we can monitor proxy reliability
-                        com.posthog.PostHog.capture(
-                            "proxy_fallback_triggered",
-                            properties = mapOf(
-                                "original_url" to url,
-                                "proxy_width" to proxyWidth
-                            )
-                        )
-                    }
-                }
-                AnimatedShapesFallback()
-            }
-            else -> {
-                AnimatedShapesFallback()
-            }
+        }
+    }
+
+    Box(modifier = modifier) {
+        if (state is AsyncImagePainter.State.Success) {
+            Image(
+                painter = painter,
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                colorFilter = colorFilter,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            AnimatedShapesFallback()
         }
     }
 }

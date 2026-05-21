@@ -94,11 +94,13 @@ import coil.compose.SubcomposeAsyncImageContent
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
 import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.explore.components.ExploreSkeletonLoader
 import cx.aswin.boxcast.feature.explore.components.exploreSkeletonGridItems
+import cx.aswin.boxcast.core.designsystem.components.RegionNudgeBanner
 
 /**
  * Main Explore Screen Entry Point
@@ -110,6 +112,8 @@ fun ExploreScreen(
     onPodcastClick: (String, String, String?, Int?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val showRegionNudge by viewModel.showRegionNudge.collectAsStateWithLifecycle()
+    val activeRegionCode by viewModel.activeRegionCode.collectAsStateWithLifecycle()
     
     androidx.compose.runtime.LaunchedEffect(Unit) {
         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreScreenViewed(entryPoint)
@@ -133,6 +137,8 @@ fun ExploreScreen(
 
     ExploreContent(
         uiState = uiState,
+        showRegionNudge = showRegionNudge,
+        activeRegionCode = activeRegionCode,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onCategorySelected = viewModel::onCategorySelected,
         onPodcastClick = { id, entryPoint, filter, index ->
@@ -141,6 +147,8 @@ fun ExploreScreen(
         },
         onVibeSelected = viewModel::onVibeSelected,
         onClearVibe = viewModel::clearVibe,
+        onSwitchRegion = viewModel::switchRegion,
+        onDismissNudge = viewModel::dismissExploreRegionNudge,
         onLoadMore = { viewModel.loadMoreTrending() }
     )
 }
@@ -149,13 +157,18 @@ fun ExploreScreen(
 @Composable
 fun ExploreContent(
     uiState: ExploreUiState,
+    showRegionNudge: Boolean = false,
+    activeRegionCode: String = "us",
     onSearchQueryChanged: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
     onPodcastClick: (String, String, String?, Int?) -> Unit,
     onVibeSelected: (String, String) -> Unit,
     onClearVibe: () -> Unit,
+    onSwitchRegion: (String) -> Unit = {},
+    onDismissNudge: () -> Unit = {},
     onLoadMore: () -> Unit = {}
 ) {
+    LogRecomposition(name = "ExploreContent")
     // Handle error/loading states
     when (uiState) {
         is ExploreUiState.Loading -> {
@@ -299,6 +312,18 @@ fun ExploreContent(
             verticalItemSpacing = 16.dp,
             modifier = Modifier.weight(1f)
         ) {
+            if (showRegionNudge && !state.isSearching && state.currentVibe == null && !isPrompting) {
+                item(span = StaggeredGridItemSpan.FullLine) {
+                    RegionNudgeBanner(
+                        systemRegion = "",
+                        activeRegion = activeRegionCode,
+                        onSwitchRegion = onSwitchRegion,
+                        onDismiss = onDismissNudge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+            }
+
             if (isPrompting && state.suggestedVibes.isNotEmpty()) {
                 // Section Header
                 item(span = StaggeredGridItemSpan.FullLine) {
@@ -751,6 +776,7 @@ fun ExplorePodcastCard(
     modifier: Modifier = Modifier,
     showGenreChip: Boolean = false
 ) {
+    LogRecomposition(name = "ExplorePodcastCard")
     OutlinedCard(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
