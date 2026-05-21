@@ -5,7 +5,10 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,29 +79,33 @@ fun Modifier.expressiveClickable(
         }
         .pointerInput(enabled) {
             if (!enabled) return@pointerInput
-            detectTapGestures(
-                onPress = { 
-                    // Quick shrink on press
-                    scope.launch {
-                        scale.animateTo(
-                            targetValue = 0.85f,
-                            animationSpec = ExpressiveMotion.QuickSpring
-                        )
-                    }
-                    // Wait for release
-                    tryAwaitRelease()
-                    // Bounce back
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                scope.launch {
+                    scale.animateTo(
+                        targetValue = 0.85f,
+                        animationSpec = ExpressiveMotion.QuickSpring
+                    )
+                }
+                val up = waitForUpOrCancellation()
+                if (up == null) {
                     scope.launch {
                         scale.animateTo(
                             targetValue = 1f,
                             animationSpec = ExpressiveMotion.BouncySpring
                         )
                     }
-                },
-                onTap = {
+                } else {
+                    up.consume()
+                    scope.launch {
+                        scale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = ExpressiveMotion.BouncySpring
+                        )
+                    }
                     currentOnClick()
                 }
-            )
+            }
         }
 }
 
@@ -110,3 +117,4 @@ fun Modifier.expressiveClickable(
     shape: androidx.compose.ui.graphics.Shape? = null,
     onClick: () -> Unit
 ): Modifier = expressiveClickable(enabled = enabled, shape = shape, onClick = onClick)
+

@@ -14,10 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
-import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
@@ -108,20 +105,13 @@ fun FeaturedCuratedCard(
                     .size(110.dp)
                     .clip(MaterialTheme.shapes.large)
             ) {
-                SubcomposeAsyncImage(
-                    model = (episode.imageUrl ?: "").ifEmpty { podcast.imageUrl },
+                OptimizedImage(
+                    url = (episode.imageUrl ?: "").ifEmpty { podcast.imageUrl },
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    val state = painter.state
-                    if (state is AsyncImagePainter.State.Loading ||
-                        state is AsyncImagePainter.State.Error) {
-                        AnimatedShapesFallback()
-                    } else {
-                        SubcomposeAsyncImageContent()
-                    }
-                }
+                )
             }
         }
     }

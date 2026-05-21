@@ -230,6 +230,8 @@ fun PodcastInfoScreen(
     LogRecomposition(name = "PodcastInfoScreen")
     val uiState by viewModel.uiState.collectAsState()
     val queuedEpisodeIds by viewModel.queuedEpisodeIds.collectAsState()
+    val downloadedEpisodeIds by viewModel.downloadedEpisodeIds.collectAsState()
+    val downloadingEpisodeIds by viewModel.downloadingEpisodeIds.collectAsState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -1004,8 +1006,8 @@ fun PodcastInfoScreen(
                                 val index = feedItem.globalIndex
                                 val episode = feedItem.episode
                                 val playState = episodePlaybackState[episode.id]
-                                val isDownloaded by viewModel.isDownloaded(episode.id).collectAsState(initial = false)
-                                val isDownloading by viewModel.isDownloading(episode.id).collectAsState(initial = false)
+                                val isDownloaded = downloadedEpisodeIds.contains(episode.id)
+                                val isDownloading = downloadingEpisodeIds.contains(episode.id)
                                 val isCompleted = completedEpisodeIds.contains(episode.id)
                                 
                                 EpisodeListItem(
@@ -1178,8 +1180,8 @@ fun PodcastInfoScreen(
                         episodePlaybackState = episodePlaybackState,
                         isSearching = state.isSearching,
                         accentColor = accentColor,
-                        isDownloadedFlow = viewModel::isDownloaded,
-                        isDownloadingFlow = viewModel::isDownloading
+                        downloadedEpisodeIds = downloadedEpisodeIds,
+                        downloadingEpisodeIds = downloadingEpisodeIds
                     )
                 }
             }
@@ -1810,8 +1812,8 @@ fun PodcastInfoSearchOverlay(
     episodePlaybackState: Map<String, cx.aswin.boxcast.feature.info.PodcastInfoViewModel.EpisodePlaybackState>,
     isSearching: Boolean,
     accentColor: Color,
-    isDownloadedFlow: (String) -> kotlinx.coroutines.flow.Flow<Boolean>,
-    isDownloadingFlow: (String) -> kotlinx.coroutines.flow.Flow<Boolean>
+    downloadedEpisodeIds: Set<String>,
+    downloadingEpisodeIds: Set<String>
 ) {
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     
@@ -1930,8 +1932,8 @@ fun PodcastInfoSearchOverlay(
                 ) {
                     itemsIndexed(displayList, key = { _, ep -> ep.id }) { index, episode ->
                         val playState = episodePlaybackState[episode.id]
-                        val isDownloaded by isDownloadedFlow(episode.id).collectAsState(initial = false)
-                        val isDownloading by isDownloadingFlow(episode.id).collectAsState(initial = false)
+                        val isDownloaded = downloadedEpisodeIds.contains(episode.id)
+                        val isDownloading = downloadingEpisodeIds.contains(episode.id)
                         val isCompleted = completedEpisodeIds.contains(episode.id)
                         
                         EpisodeListItem(
