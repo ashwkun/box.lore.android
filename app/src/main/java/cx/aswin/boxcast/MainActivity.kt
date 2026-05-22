@@ -1028,7 +1028,7 @@ class MainActivity : ComponentActivity() {
                                             "${encode(desc)}/" +
                                             "${encode(entity.episodeImageUrl ?: entity.podcastImageUrl)}/" +
                                             "${encode(entity.episodeAudioUrl)}/" +
-                                            "${entity.durationMs}/${entity.podcastId}/" +
+                                            "${entity.durationMs}/${encode(entity.podcastId)}/" +
                                             "${encode(entity.podcastName)}" +
                                             "?entryPoint=library_history"
                                         )
@@ -1064,7 +1064,7 @@ class MainActivity : ComponentActivity() {
                                             "${encode(episode.description.take(500))}/" +
                                             "${encode(episode.imageUrl)}/" +
                                             "${encode(episode.audioUrl)}/" +
-                                            "${episode.duration}/${podcast.id}/" +
+                                            "${episode.duration}/${encode(podcast.id)}/" +
                                             "${encode(podcast.title)}" +
                                             "?entryPoint=library_liked_episodes"
                                         )
@@ -1163,7 +1163,7 @@ class MainActivity : ComponentActivity() {
                                             "${encode(episode.description.take(500))}/" +
                                             "${encode(episode.imageUrl)}/" +
                                             "${encode(episode.audioUrl)}/" +
-                                            "${episode.duration}/${podcast.id}/" +
+                                            "${episode.duration}/${encode(podcast.id)}/" +
                                             "${encode(podcast.title)}" +
                                             "?entryPoint=library_downloaded_episodes"
                                         )
@@ -1229,13 +1229,16 @@ class MainActivity : ComponentActivity() {
                                         viewModel = viewModel,
                                         onBack = { navController.popBackStack() },
                                         bottomContentPadding = miniPlayerPadding,
+                                        onPodcastClick = { pId ->
+                                            navController.navigate("podcast/$pId?entryPoint=podroll")
+                                        },
                                         onEpisodeClick = { episode, entryPointStr, index ->
                                             fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                             var route = "episode/${episode.id}/${encode(episode.title)}/" +
                                                 "${encode(episode.description.take(500))}/" +
                                                 "${encode(episode.imageUrl)}/" +
                                                 "${encode(episode.audioUrl)}/" +
-                                                "${episode.duration}/${podcastId}/" +
+                                                "${episode.duration}/${encode(viewModel.uiState.value.let { if (it is cx.aswin.boxcast.feature.info.PodcastInfoUiState.Success) it.podcast.id else podcastId })}/" +
                                                 "${encode(viewModel.uiState.value.let { if (it is cx.aswin.boxcast.feature.info.PodcastInfoUiState.Success) it.podcast.title else "Podcast" })}" +
                                                 "?entryPoint=$entryPointStr"
                                                 
@@ -1290,7 +1293,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 fun decode(s: String?) = try { android.net.Uri.decode(s ?: "").let { if (it == "_") "" else it } } catch (_: Exception) { s ?: "" }
                                 
-                                val podcastId = args.getString("podcastId") ?: ""
+                                val podcastId = decode(args.getString("podcastId"))
                                 val podcastTitle = decode(args.getString("podcastTitle"))
                                 val episodeId = args.getString("episodeId") ?: ""
                                 val episodeTitle = decode(args.getString("episodeTitle"))
@@ -1315,7 +1318,7 @@ class MainActivity : ComponentActivity() {
                                         // Navigate to the clicked episode
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         navController.navigate(
-                                            "episode/${ep.id}/${encode(ep.title)}/${encode(ep.description)}/${encode(ep.imageUrl)}/${encode(ep.audioUrl)}/${ep.duration}/${podcastId}/${encode(podcastTitle)}" +
+                                            "episode/${ep.id}/${encode(ep.title)}/${encode(ep.description)}/${encode(ep.imageUrl)}/${encode(ep.audioUrl)}/${ep.duration}/${encode(podcastId)}/${encode(podcastTitle)}" +
                                             "?entryPoint=episode_related_episodes"
                                         )
                                     },

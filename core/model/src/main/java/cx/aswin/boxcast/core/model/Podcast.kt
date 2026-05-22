@@ -28,5 +28,6 @@ data class Podcast(
     val updateFrequency: String? = null,
     val location: String? = null,
     val license: String? = null,
-    val isLocked: Boolean = false
+    val isLocked: Boolean = false,
+    val podroll: List<PodrollItem>? = null
 )

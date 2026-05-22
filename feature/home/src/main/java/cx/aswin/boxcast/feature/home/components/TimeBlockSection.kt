@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,15 +108,16 @@ fun TimeBlockSection(
                 }
 
                 // Rail
+                val distinctPodcasts = remember(section.podcasts) { section.podcasts.distinctBy { it.id } }
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 0.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        count = section.podcasts.size,
-                        key = { i -> section.podcasts[i].id }
+                        count = distinctPodcasts.size,
+                        key = { i -> distinctPodcasts[i].id }
                     ) { i ->
-                        val podcast = section.podcasts[i]
+                        val podcast = distinctPodcasts[i]
                         val episode = podcast.latestEpisode
                         
                         if (episode != null) {

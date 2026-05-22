@@ -29,6 +29,11 @@ private fun String?.toHttps(): String {
     }
 }
 
+data class SearchResult(
+    val podcasts: List<cx.aswin.boxcast.core.model.Podcast>,
+    val correctedQuery: String? = null
+)
+
 /**
  * Repository for podcast data via BoxCast API (Cloudflare Worker → Podcast Index)
  */
@@ -181,13 +186,21 @@ class PodcastRepository(
         }
     }
 
-    suspend fun searchPodcasts(query: String): List<Podcast> = withContext(Dispatchers.IO) {
+    suspend fun searchPodcastsWithCorrection(query: String): SearchResult = withContext(Dispatchers.IO) {
         try {
             val response = api.search(publicKey, query).execute()
             if (response.isSuccessful && response.body() != null) {
-                response.body()!!.feeds.map { feed ->
+                val body = response.body()!!
+                val podcasts = body.feeds.map { feed ->
+                    val podcastId = if (feed.id != 0L) {
+                        feed.id.toString()
+                    } else if (!feed.url.isNullOrEmpty()) {
+                        "url:${java.net.URLEncoder.encode(feed.url, "UTF-8")}"
+                    } else {
+                        "0"
+                    }
                     Podcast(
-                        id = feed.id.toString(),
+                        id = podcastId,
                         title = feed.title,
                         artist = feed.author ?: "Unknown",
                         imageUrl = (feed.artwork ?: feed.image).toHttps(),
@@ -195,12 +208,17 @@ class PodcastRepository(
                         genre = resolvePrimaryGenre(feed.categories)
                     )
                 }
+                SearchResult(podcasts, null)
             } else {
-                emptyList()
+                SearchResult(emptyList())
             }
         } catch (e: Exception) {
-            emptyList()
+            SearchResult(emptyList())
         }
+    }
+
+    suspend fun searchPodcasts(query: String): List<Podcast> = withContext(Dispatchers.IO) {
+        searchPodcastsWithCorrection(query).podcasts
     }
 
     suspend fun searchEpisodes(feedId: String, query: String): List<Episode> = withContext(Dispatchers.IO) {
@@ -273,7 +291,16 @@ class PodcastRepository(
 
     suspend fun getPodcastDetails(feedId: String): Podcast? = withContext(Dispatchers.IO) {
         try {
-            val response = api.getPodcast(publicKey, feedId).execute()
+            val response = if (feedId.startsWith("url:")) {
+                val encodedUrl = feedId.substringAfter("url:")
+                val decodedUrl = java.net.URLDecoder.decode(encodedUrl, "UTF-8")
+                api.getPodcast(publicKey = publicKey, feedUrl = decodedUrl).execute()
+            } else if (feedId.startsWith("guid:")) {
+                val guid = feedId.substringAfter("guid:")
+                api.getPodcast(publicKey = publicKey, feedGuid = guid).execute()
+            } else {
+                api.getPodcast(publicKey = publicKey, feedId = feedId).execute()
+            }
             if (response.isSuccessful && response.body() != null) {
                 val feed = response.body()!!.feed ?: return@withContext null
                 Podcast(
@@ -373,7 +400,16 @@ class PodcastRepository(
 
     suspend fun getPodcastMeta(feedId: String): cx.aswin.boxcast.core.network.model.PodcastMetaResponse? = withContext(Dispatchers.IO) {
         try {
-            val response = api.getPodcastMeta(publicKey, feedId).execute()
+            val response = if (feedId.startsWith("url:")) {
+                val encodedUrl = feedId.substringAfter("url:")
+                val decodedUrl = java.net.URLDecoder.decode(encodedUrl, "UTF-8")
+                api.getPodcastMeta(publicKey = publicKey, feedUrl = decodedUrl).execute()
+            } else if (feedId.startsWith("guid:")) {
+                val guid = feedId.substringAfter("guid:")
+                api.getPodcastMeta(publicKey = publicKey, feedGuid = guid).execute()
+            } else {
+                api.getPodcastMeta(publicKey = publicKey, feedId = feedId).execute()
+            }
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null

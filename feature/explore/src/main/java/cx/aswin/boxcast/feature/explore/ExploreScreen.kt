@@ -9,6 +9,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,6 +67,11 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -98,8 +104,6 @@ import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
-import cx.aswin.boxcast.feature.explore.components.ExploreSkeletonLoader
-import cx.aswin.boxcast.feature.explore.components.exploreSkeletonGridItems
 import cx.aswin.boxcast.core.designsystem.components.RegionNudgeBanner
 
 /**
@@ -169,10 +173,16 @@ fun ExploreContent(
     onLoadMore: () -> Unit = {}
 ) {
     LogRecomposition(name = "ExploreContent")
+
     // Handle error/loading states
     when (uiState) {
         is ExploreUiState.Loading -> {
-            ExploreSkeletonLoader()
+            Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                BoxCastLoader.Expressive(size = 100.dp)
+            }
             return
         }
         is ExploreUiState.Error -> {
@@ -299,6 +309,21 @@ fun ExploreContent(
             }
         }
 
+        val distinctVibes = remember(state.suggestedVibes) { state.suggestedVibes.distinctBy { it.first } }
+
+        val rawGridItems = if (!state.isSearching && displayList.isNotEmpty() && state.currentVibe == null) displayList.drop(1) else displayList
+        val gridItems = remember(rawGridItems) {
+            rawGridItems.distinctBy { podcast ->
+                val titleKey = podcast.title.lowercase().replace(Regex("[^a-z0-9]"), "").trim()
+                val artistKey = podcast.artist.lowercase().replace(Regex("[^a-z0-9]"), "").trim()
+                if (titleKey.isNotEmpty() && artistKey.isNotEmpty()) {
+                    "$titleKey|$artistKey"
+                } else {
+                    podcast.id
+                }
+            }
+        }
+
         LazyVerticalStaggeredGrid(
             state = gridState,
             columns = StaggeredGridCells.Adaptive(150.dp),
@@ -329,7 +354,7 @@ fun ExploreContent(
                 item(span = StaggeredGridItemSpan.FullLine) {
                     ExploreSectionHeader(title = "Suggested for You")
                 }
-                items(state.suggestedVibes, key = { "vibe_${it.first}" }) { vibe ->
+                items(distinctVibes, key = { "vibe_${it.first}" }) { vibe ->
                     ExploreVibeCard(vibe = vibe, onClick = { 
                         searchActive = false
                         onVibeSelected(vibe.first, vibe.second) 
@@ -341,7 +366,7 @@ fun ExploreContent(
                     if (state.currentVibe != null) {
                         CuratedVibeHeader(title = state.currentVibe)
                     } else if (state.isSearching) {
-                        ExploreSearchHeader(correctedQuery = state.correctedQuery)
+                        ExploreSearchHeader()
                     } else {
                         val headerTitle = if (state.currentCategory == "All") {
                             "Featured Podcasts"
@@ -349,6 +374,21 @@ fun ExploreContent(
                             "Trending in ${state.currentCategory}"
                         }
                         ExploreSectionHeader(title = headerTitle)
+                    }
+                }
+
+                // Sleek glowing progress indicator for search background fetching
+                if (state.isLoading && (state.isSearching || state.currentVibe != null) && displayList.isNotEmpty()) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
                     }
                 }
 
@@ -364,35 +404,30 @@ fun ExploreContent(
                 }
     
                 // Content
-                if (state.isLoading) {
-                    if (state.isSearching || state.currentVibe != null) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(200.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BoxCastLoader.Expressive(size = 80.dp)
-                            }
+                val showContent = displayList.isNotEmpty()
+                val showSkeletons = state.isLoading && (displayList.isEmpty() || !state.isSearching && state.currentVibe == null)
+                val showEmptyState = !state.isLoading && displayList.isEmpty() && (state.isSearching || state.currentVibe != null)
+
+                if (showSkeletons) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(80.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val loaderSize = if (state.isSearching) 100.dp else 80.dp
+                            BoxCastLoader.Expressive(size = loaderSize)
                         }
-                    } else {
-                        exploreSkeletonGridItems()
                     }
-                } else if (displayList.isEmpty() && !state.isSearching && state.currentVibe == null) {
-                    exploreSkeletonGridItems()
-                } else if (displayList.isEmpty() && (state.isSearching || state.currentVibe != null)) {
+                } else if (showEmptyState) {
                     item(span = StaggeredGridItemSpan.FullLine) {
                         ExploreEmptyState()
                     }
-                } else {
-                    val gridItems = if (!state.isSearching && displayList.isNotEmpty() && state.currentVibe == null) displayList.drop(1) else displayList
+                } else if (showContent) {
                     val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
-                    itemsIndexed(gridItems, key = { index, it -> "grid_${index}_${it.id}" }) { index, podcast ->
-                        val heightVariant = podcast.id.hashCode() % 3
-                        val cardHeight = when (heightVariant) {
-                            0 -> 260.dp
-                            1 -> 210.dp
-                            else -> 160.dp
-                        }
+                    itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
+                        val cardHeight = 160.dp
                         
                         val entryPointStr = when {
                             state.currentVibe != null -> "explore_vibe"
@@ -409,6 +444,20 @@ fun ExploreContent(
                             showGenreChip = showGenreChip,
                             onClick = { onPodcastClick(podcast.id, entryPointStr, state.currentCategory, actualIndex) }
                         )
+                    }
+
+                    // Append background loading shape morphing loader at the end of local matches
+                    if (state.isLoading && (state.isSearching || state.currentVibe != null)) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BoxCastLoader.Expressive(size = 48.dp)
+                            }
+                        }
                     }
 
                     // Loading indicator for pagination
@@ -730,27 +779,27 @@ private fun ExploreSectionHeader(title: String) {
         }
     }
 }
-
 /**
- * Dedicated Material 3 Search Header with optional typo correction
+ * Dedicated Material 3 Search Header
  */
 @Composable
-private fun ExploreSearchHeader(correctedQuery: String?) {
-    Row(
+private fun ExploreSearchHeader() {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 8.dp)
     ) {
-        val icon = if (correctedQuery != null) Icons.Rounded.AutoFixHigh else Icons.Rounded.Search
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = "Search Results",
                 style = MaterialTheme.typography.titleLarge.copy(
@@ -758,19 +807,9 @@ private fun ExploreSearchHeader(correctedQuery: String?) {
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            if (correctedQuery != null) {
-                Text(
-                    text = "Showing results for \"$correctedQuery\"",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
         }
     }
-}
-
-/**
+}/**
  * Podcast card matching HomeScreen's PodcastCard exactly
  */
 @Composable
@@ -847,32 +886,46 @@ fun ExplorePodcastCard(
         }
     }
 }
-
 @Composable
 private fun ExploreEmptyState() {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 16.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "No podcasts found",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Try a different search term",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        // Cute Illustration / Icon Header
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.SearchOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(36.dp)
             )
         }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "No Podcasts Found",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Please try searching for the exact word or name of the podcast you are looking for, and double-check spacing and spelling.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
     }
-}
-
-@Composable
+}@Composable
 fun ExploreVibeCard(
     vibe: Pair<String, String>,
     onClick: () -> Unit,
@@ -968,3 +1021,5 @@ private val EXPLORE_GENRES = listOf(
     ExploreGenreItem("Leisure", "Leisure", Icons.Rounded.Weekend),
     ExploreGenreItem("Govt", "Government", Icons.Rounded.Gavel)
 )
+
+

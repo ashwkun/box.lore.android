@@ -119,6 +119,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Brush
+import cx.aswin.boxcast.core.model.PodrollItem
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -224,6 +227,7 @@ fun PodcastInfoScreen(
     onBack: () -> Unit,
     onEpisodeClick: (Episode, String, Int?) -> Unit,
     onPlayEpisode: (Episode) -> Unit,
+    onPodcastClick: (String) -> Unit,
     bottomContentPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
@@ -956,6 +960,37 @@ fun PodcastInfoScreen(
                                                         }
                                                      }
                                                  )
+                                             }
+                                         }
+                                         
+                                         val podroll = state.podcast.podroll
+                                         if (isDescExpanded && !podroll.isNullOrEmpty()) {
+                                             Spacer(modifier = Modifier.height(12.dp))
+                                             androidx.compose.material3.HorizontalDivider(
+                                                 thickness = 0.5.dp,
+                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                                             )
+                                             Spacer(modifier = Modifier.height(12.dp))
+                                             
+                                             Text(
+                                                 text = "Creator Recommends",
+                                                 style = MaterialTheme.typography.labelLarge,
+                                                 fontWeight = FontWeight.Bold,
+                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                                             )
+                                             
+                                             Spacer(modifier = Modifier.height(12.dp))
+                                             
+                                             LazyRow(
+                                                 modifier = Modifier.fillMaxWidth(),
+                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                             ) {
+                                                 items(podroll) { item ->
+                                                     RecommendedPodcastCard(
+                                                         item = item,
+                                                         onPodcastClick = onPodcastClick
+                                                     )
+                                                 }
                                              }
                                          }
                                      }
@@ -2109,6 +2144,49 @@ fun TrailerStackCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RecommendedPodcastCard(
+    item: cx.aswin.boxcast.core.model.PodrollItem,
+    onPodcastClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .expressiveClickable(isolate = true) {
+                val targetId = if (!item.uuid.isNullOrBlank()) {
+                    "guid:${item.uuid}"
+                } else {
+                    val encoded = Uri.encode(item.url)
+                    "url:$encoded"
+                }
+                onPodcastClick(targetId)
+            },
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Podcasts,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

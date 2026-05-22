@@ -27,3 +27,11 @@ data class Chapter(
     val img: String? = null,
     val url: String? = null
 )
+
+/** A recommended podcast recommendation */
+@Serializable
+data class PodrollItem(
+    val title: String,
+    val url: String,
+    val uuid: String? = null
+)

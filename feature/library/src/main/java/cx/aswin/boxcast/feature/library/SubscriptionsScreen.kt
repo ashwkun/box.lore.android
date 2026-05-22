@@ -425,11 +425,12 @@ private fun ShowsTabContent(
             onExploreClick = onExploreClick
         )
     } else {
+        val distinctPodcasts = remember(podcasts) { podcasts.distinctBy { it.id } }
         LazyColumn(
             contentPadding = PaddingValues(bottom = 180.dp, top = 8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(items = podcasts, key = { it.id }) { podcast ->
+            items(items = distinctPodcasts, key = { it.id }) { podcast ->
                 SubscriptionListRow(
                     podcast = podcast,
                     onClick = { onPodcastClick(podcast.id) },
@@ -449,17 +450,20 @@ private fun LatestTabContent(
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
     onPlayEpisode: ((Episode, Podcast) -> Unit)?
 ) {
-    val episodePodcasts = podcasts
-        .filter { it.latestEpisode != null }
-        .sortedWith(
-            compareBy<Podcast> { podcast ->
-                when (podcast.episodeStatus) {
-                    cx.aswin.boxcast.core.model.EpisodeStatus.UNPLAYED, null -> 0
-                    cx.aswin.boxcast.core.model.EpisodeStatus.IN_PROGRESS -> 1
-                    cx.aswin.boxcast.core.model.EpisodeStatus.COMPLETED -> 2
-                }
-            }.thenByDescending { it.latestEpisode?.publishedDate ?: 0L }
-        )
+    val episodePodcasts = remember(podcasts) {
+        podcasts
+            .filter { it.latestEpisode != null }
+            .sortedWith(
+                compareBy<Podcast> { podcast ->
+                    when (podcast.episodeStatus) {
+                        cx.aswin.boxcast.core.model.EpisodeStatus.UNPLAYED, null -> 0
+                        cx.aswin.boxcast.core.model.EpisodeStatus.IN_PROGRESS -> 1
+                        cx.aswin.boxcast.core.model.EpisodeStatus.COMPLETED -> 2
+                    }
+                }.thenByDescending { it.latestEpisode?.publishedDate ?: 0L }
+            )
+            .distinctBy { it.id }
+    }
 
     if (episodePodcasts.isEmpty()) {
         ExpressiveSolarSystemEmptyState(
