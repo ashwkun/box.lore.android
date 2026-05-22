@@ -250,25 +250,39 @@ class PodcastInfoViewModel(
             }
 
             try {
-                // 2. Fetch details and episodes in parallel using coroutine async
-                val podcastDeferred = async { repository.getPodcastDetails(podcastId) }
-                
                 val initialType = currentPodcast?.type ?: "episodic"
                 val limit = if (initialType == "serial") 200 else PAGE_SIZE
                 val initialSort = if (initialType == "serial") EpisodeSort.OLDEST else EpisodeSort.NEWEST
                 val sortParam = if (initialSort == EpisodeSort.OLDEST) "oldest" else "newest"
                 
-                val episodesDeferred = async { repository.getEpisodesPaginated(podcastId, limit, 0, sortParam) }
+                val apiPodcast: Podcast?
+                val page: cx.aswin.boxcast.core.data.PodcastRepository.EpisodePage
 
-                val apiPodcast = podcastDeferred.await()
-                val page = episodesDeferred.await()
+                if (podcastId.startsWith("url:") || podcastId.startsWith("guid:")) {
+                    // Fetch details first sequentially to resolve the real numeric ID
+                    apiPodcast = repository.getPodcastDetails(podcastId)
+                    if (apiPodcast != null) {
+                        val realId = apiPodcast.id
+                        val episodesDeferred = async { repository.getEpisodesPaginated(realId, limit, 0, sortParam) }
+                        page = episodesDeferred.await()
+                    } else {
+                        page = cx.aswin.boxcast.core.data.PodcastRepository.EpisodePage(emptyList(), false)
+                    }
+                } else {
+                    // Fetch details and episodes in parallel using coroutine async
+                    val podcastDeferred = async { repository.getPodcastDetails(podcastId) }
+                    val episodesDeferred = async { repository.getEpisodesPaginated(podcastId, limit, 0, sortParam) }
+                    apiPodcast = podcastDeferred.await()
+                    page = episodesDeferred.await()
+                }
 
                 if (apiPodcast != null) {
                     currentPodcast = apiPodcast
+                    currentPodcastId = apiPodcast.id // Update to the real numeric ID
                     
                     // Track screen viewed with podcast name
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenViewed(
-                        podcastId = podcastId,
+                        podcastId = apiPodcast.id,
                         podcastName = apiPodcast.title,
                         entryPoint = entryPoint,
                         genreFilter = genreFilter,
@@ -296,12 +310,13 @@ class PodcastInfoViewModel(
                             val meta = repository.getPodcastMeta(podcastId)
                             if (meta != null) {
                                 val state = _uiState.value
-                                if (state is PodcastInfoUiState.Success && state.podcast.id == podcastId) {
+                                if (state is PodcastInfoUiState.Success && (state.podcast.id == podcastId || state.podcast.id == apiPodcast.id)) {
                                     val enrichedPodcast = state.podcast.copy(
                                         location = meta.location,
                                         license = meta.license,
                                         isLocked = meta.locked == 1,
-                                        updateFrequency = meta.updateFrequency
+                                        updateFrequency = meta.updateFrequency,
+                                        podroll = meta.podroll?.map { cx.aswin.boxcast.core.model.PodrollItem(title = it.title, url = it.url, uuid = it.uuid) }
                                     )
                                     _uiState.value = state.copy(podcast = enrichedPodcast)
                                     

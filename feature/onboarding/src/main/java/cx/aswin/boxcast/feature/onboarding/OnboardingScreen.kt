@@ -130,7 +130,6 @@ fun OnboardingScreen(
             OnboardingStep.SEARCH -> {
                 OnboardingSearchScreen(
                     query = uiState.searchQuery,
-                    correctedQuery = uiState.correctedQuery,
                     results = uiState.searchResults,
                     isSearching = uiState.isSearching,
                     subscribedIds = uiState.subscribedPodcastIds,
@@ -518,6 +517,7 @@ private fun PodcastPicksScreen(
                 BoxCastLoader.Expressive()
             }
         } else {
+            val distinctPodcasts = remember(podcasts) { podcasts.distinctBy { it.id } }
             LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Fixed(2),
@@ -577,7 +577,7 @@ private fun PodcastPicksScreen(
                         }
                     }
                 }
-                items(podcasts, key = { it.id }) { podcast ->
+                items(distinctPodcasts, key = { it.id }) { podcast ->
                     PodcastPickCard(
                         podcast = podcast,
                         isSubscribed = podcast.id in subscribedIds,
@@ -723,7 +723,6 @@ private fun GenreChip(
 @Composable
 private fun OnboardingSearchScreen(
     query: String,
-    correctedQuery: String?,
     results: List<Podcast>,
     isSearching: Boolean,
     subscribedIds: Set<String>,
@@ -773,12 +772,12 @@ private fun OnboardingSearchScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    BoxCastLoader.Expressive()
+                    BoxCastLoader.Expressive(size = 100.dp)
                 }
             }
             query.length >= 2 && results.isEmpty() && !isSearching -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -788,11 +787,19 @@ private fun OnboardingSearchScreen(
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "No podcasts found",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "No Podcasts Found",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Please try searching for the exact word or name of the podcast you are looking for, and double-check spacing and spelling.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -811,17 +818,13 @@ private fun OnboardingSearchScreen(
                 }
             }
             else -> {
+                val distinctResults = remember(results) { results.distinctBy { it.id } }
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (correctedQuery != null) {
-                        item {
-                            OnboardingSearchHeader(correctedQuery = correctedQuery)
-                        }
-                    }
-                    items(results, key = { it.id }) { podcast ->
+                    items(distinctResults, key = { it.id }) { podcast ->
                         SearchResultRow(
                             podcast = podcast,
                             isSubscribed = podcast.id in subscribedIds,
@@ -849,37 +852,6 @@ private fun OnboardingSearchScreen(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun OnboardingSearchHeader(correctedQuery: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.AutoFixHigh,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(
-                text = "Search Results",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "Showing results for \"$correctedQuery\"",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }

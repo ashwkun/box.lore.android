@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
 import cx.aswin.boxcast.core.data.PodcastRepository
+import cx.aswin.boxcast.core.data.SearchResult
 import cx.aswin.boxcast.core.data.SubscriptionRepository
 import cx.aswin.boxcast.core.model.Podcast
 import kotlinx.coroutines.FlowPreview
@@ -36,7 +37,6 @@ sealed interface ExploreUiState {
         val isLoading: Boolean = false, // For showing skeleton in grid area only
         val currentVibe: String? = null,
         val suggestedVibes: List<Pair<String, String>> = emptyList(),
-        val correctedQuery: String? = null,
         val isLoadingMore: Boolean = false,
         val hasMore: Boolean = true
     ) : ExploreUiState
@@ -59,12 +59,34 @@ class ExploreViewModel(
     private val _currentCategory = MutableStateFlow(initialCategory ?: "All") // Use it here
     private val _trendingPodcasts = MutableStateFlow<List<Podcast>>(emptyList())
     private val _searchResults = MutableStateFlow<List<Podcast>>(emptyList())
+
+    // Seen/cached podcasts for eager zero-latency substring client-side matching
+    private val _seenPodcasts = java.util.concurrent.ConcurrentHashMap<String, Podcast>()
+    private val _localSubstringResults = MutableStateFlow<List<Podcast>>(emptyList())
+    
+    // Combine local substring matches and remote search results seamlessly
+    private val _combinedSearchResults = combine(_localSubstringResults, _searchResults) { local, remote ->
+        val seenIds = mutableSetOf<String>()
+        val combined = mutableListOf<Podcast>()
+        
+        remote.forEach {
+            if (seenIds.add(it.id)) {
+                combined.add(it)
+            }
+        }
+        local.forEach {
+            if (seenIds.add(it.id)) {
+                combined.add(it)
+            }
+        }
+        combined
+    }
+
     private val _isLoading = MutableStateFlow(true) // Explicit loading state
     
     // Vibe Prompt State
     private val _currentVibe = MutableStateFlow<String?>(null)
     private val _suggestedVibes = MutableStateFlow<List<Pair<String, String>>>(emptyList())
-    private val _correctedQuery = MutableStateFlow<String?>(null)
     
     // Search Job to cancel previous searches
     private var searchJob: Job? = null
@@ -93,13 +115,22 @@ class ExploreViewModel(
 
 
     init {
+        // Preload subscriptions into _seenPodcasts cache to enable instant zero-latency filtering
+        viewModelScope.launch {
+            subscriptionRepository.subscribedPodcasts.collect { subscribed ->
+                subscribed.forEach { podcast ->
+                    _seenPodcasts[podcast.id] = podcast
+                }
+            }
+        }
+
         // Observe Subscriptions for Badging
         viewModelScope.launch {
             combine(
                 subscriptionRepository.subscribedPodcastIds,
                 _currentCategory,
                 _trendingPodcasts,
-                _searchResults,
+                _combinedSearchResults,
                 _searchQuery,
                 _isLoading,
                 _isLoadingMore,
@@ -116,15 +147,15 @@ class ExploreViewModel(
                 // Custom combine to pull all flows
                 Triple(subIds, category, trending) to arrayOf(searchRes, query, pIsLoading, pIsLoadingMore, pHasMore)
             }.combine(
-                combine(_currentVibe, _suggestedVibes, _correctedQuery) { vibe, vibes, corrected -> Triple(vibe, vibes, corrected) }
-            ) { (trip1, trip2), vibeTriple ->
+                combine(_currentVibe, _suggestedVibes) { vibe, vibes -> Pair(vibe, vibes) }
+            ) { (trip1, trip2), vibePair ->
                 val (subIds, category, trending) = trip1
                 val searchRes = trip2[0] as List<Podcast>
                 val query = trip2[1] as String
                 val pIsLoading = trip2[2] as Boolean
                 val pIsLoadingMore = trip2[3] as Boolean
                 val pHasMore = trip2[4] as Boolean
-                val (currentVibe, vibes, corrected) = vibeTriple
+                val (currentVibe, vibes) = vibePair
 
                 val isSearching = query.isNotEmpty() || currentVibe != null
 
@@ -138,7 +169,6 @@ class ExploreViewModel(
                     isLoading = pIsLoading,
                     currentVibe = currentVibe,
                     suggestedVibes = vibes,
-                    correctedQuery = corrected,
                     isLoadingMore = pIsLoadingMore,
                     hasMore = pHasMore
                 )
@@ -211,13 +241,16 @@ class ExploreViewModel(
     @OptIn(FlowPreview::class)
     private fun startSearchObserver() {
         _searchQuery
-            .debounce(500L) // Wait 500ms after last char
+            .debounce(300L) // Wait 300ms after last char (speed up deep network fetch)
             .distinctUntilChanged()
             .onEach { query ->
                 if (query.isNotBlank()) {
                     performSearch(query)
-                } else if (_currentVibe.value == null) {
-                    _searchResults.value = emptyList()
+                } else {
+                    _localSubstringResults.value = emptyList()
+                    if (_currentVibe.value == null) {
+                        _searchResults.value = emptyList()
+                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -228,8 +261,19 @@ class ExploreViewModel(
             _currentVibe.value = null // Stop showing vibe results if they start typing
             _searchResults.value = emptyList()
         }
-        _correctedQuery.value = null // Clear correction when typing
         _searchQuery.value = query
+
+        // Eager, zero-latency local filtering as the user types (0ms delay)
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            _localSubstringResults.value = emptyList()
+        } else {
+            val matches = _seenPodcasts.values.filter { podcast ->
+                podcast.title.contains(trimmed, ignoreCase = true) ||
+                (podcast.artist ?: "").contains(trimmed, ignoreCase = true)
+            }.sortedBy { it.title }
+            _localSubstringResults.value = matches
+        }
     }
 
     fun onCategorySelected(category: String) {
@@ -239,35 +283,48 @@ class ExploreViewModel(
         clearVibe()
         // Clear Search when switching category to browse
         _searchQuery.value = "" 
+        _localSubstringResults.value = emptyList()
         _trendingPodcasts.value = emptyList() // Clear to force Skeleton
     }
     
     fun onVibeSelected(vibeId: String, vibeName: String) {
         vibesClickedCount++
         _searchQuery.value = ""
+        _localSubstringResults.value = emptyList()
         _currentVibe.value = vibeName
         _isLoading.value = true
         _searchResults.value = emptyList()
 
-
         searchJob?.cancel()
-        searchJob = viewModelScope.launch {
+        
+        var myJob: Job? = null
+        myJob = viewModelScope.launch {
             try {
                 // Uses same curated endpoint as HomeScreen!
                 val results = podcastRepository.getCuratedPodcasts(vibeId)
-                _searchResults.value = results
+                if (searchJob == myJob) {
+                    _searchResults.value = results
+                    results.forEach { _seenPodcasts[it.id] = it }
+                }
             } catch (e: Exception) {
-                _searchResults.value = emptyList()
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (searchJob == myJob) {
+                    _searchResults.value = emptyList()
+                }
             } finally {
-                _isLoading.value = false
+                if (searchJob == myJob) {
+                    _isLoading.value = false
+                }
             }
         }
+        searchJob = myJob
     }
     
     fun clearVibe() {
         _currentVibe.value = null
         if (_searchQuery.value.isEmpty()) {
             _searchResults.value = emptyList()
+            _localSubstringResults.value = emptyList()
         }
     }
 
@@ -287,6 +344,7 @@ class ExploreViewModel(
                 offset = 0
             )
             _trendingPodcasts.value = podcasts
+            podcasts.forEach { _seenPodcasts[it.id] = it }
             _hasMorePages.value = podcasts.size >= PAGE_SIZE
             currentOffset = podcasts.size
         } catch (e: Exception) {
@@ -317,6 +375,7 @@ class ExploreViewModel(
                 val existingIds = _trendingPodcasts.value.map { it.id }.toSet()
                 val newPodcasts = morePodcasts.filter { it.id !in existingIds }
                 _trendingPodcasts.value = _trendingPodcasts.value + newPodcasts
+                newPodcasts.forEach { _seenPodcasts[it.id] = it }
             } catch (e: Exception) {
                 android.util.Log.e("ExploreViewModel", "Load more error", e)
             } finally {
@@ -330,30 +389,32 @@ class ExploreViewModel(
 
         searchesPerformedCount++
         searchJob?.cancel()
-        searchJob = viewModelScope.launch {
+        
+        var myJob: Job? = null
+        myJob = viewModelScope.launch {
             _isLoading.value = true
             _searchResults.value = emptyList() // Clear previous results to force Skeleton
             try {
-                android.util.Log.d("ExploreViewModel", "Starting search for: $query")
-                val corrected = query // Spelling is now handled by the Cloudflare Worker
-                if (corrected != query) {
-                    _correctedQuery.value = corrected
-                } else {
-                    _correctedQuery.value = null
+                val searchResult = podcastRepository.searchPodcastsWithCorrection(query)
+                if (searchJob == myJob) {
+                    _searchResults.value = searchResult.podcasts
+                    searchResult.podcasts.forEach { _seenPodcasts[it.id] = it }
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, searchResult.podcasts.size)
                 }
-                
-                val results = podcastRepository.searchPodcasts(corrected)
-                android.util.Log.d("ExploreViewModel", "Search success: ${results.size} results returned")
-                _searchResults.value = results
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, results.size)
             } catch (e: Exception) {
-                android.util.Log.e("ExploreViewModel", "Search error: ${e.message}", e)
-                // Handle error silently for search
-                _searchResults.value = emptyList()
+                if (e is kotlinx.coroutines.CancellationException) {
+                    throw e
+                }
+                if (searchJob == myJob) {
+                    _searchResults.value = emptyList()
+                }
             } finally {
-                _isLoading.value = false
+                if (searchJob == myJob) {
+                    _isLoading.value = false
+                }
             }
         }
+        searchJob = myJob
     }
 
     fun trackPodcastClicked(index: Int) {

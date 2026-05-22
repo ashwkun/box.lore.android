@@ -29,7 +29,6 @@ data class OnboardingUiState(
     val searchResults: List<Podcast> = emptyList(),
     val isSearching: Boolean = false,
     val isCompleting: Boolean = false,
-    val correctedQuery: String? = null,
     val currentRegion: String = "us",
     val initialRegion: String = "us",
     val selectedPodcasts: Map<String, Podcast> = emptyMap()
@@ -264,7 +263,7 @@ class OnboardingViewModel(
     }
     
     fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query, correctedQuery = null) }
+        _uiState.update { it.copy(searchQuery = query) }
         
         // Debounce search
         searchJob?.cancel()
@@ -278,12 +277,7 @@ class OnboardingViewModel(
             _uiState.update { it.copy(isSearching = true) }
             delay(400) // Debounce
             
-            val corrected = cleaned // Spelling handled by Edge API
-            if (corrected != cleaned) {
-                _uiState.update { it.copy(correctedQuery = corrected) }
-            }
-            
-            val results = podcastRepository.searchPodcasts(corrected)
+            val results = podcastRepository.searchPodcasts(cleaned)
             _uiState.update { it.copy(searchResults = results, isSearching = false) }
 
             // Analytics: Track search performed

@@ -85,6 +85,9 @@ data class SearchFeed(
     @SerialName("artwork")
     val artwork: String? = null,
     
+    @SerialName("url")
+    val url: String? = null,
+    
     @SerialName("categories")
     val categories: Map<String, String>? = emptyMap()
 )
@@ -283,7 +286,22 @@ data class PodcastMetaResponse(
     val locked: Int? = null,
 
     @SerialName("updateFrequency")
-    val updateFrequency: String? = null
+    val updateFrequency: String? = null,
+
+    @SerialName("podroll")
+    val podroll: List<NetworkPodrollItem>? = null
+)
+
+@Serializable
+data class NetworkPodrollItem(
+    @SerialName("title")
+    val title: String,
+    
+    @SerialName("url")
+    val url: String,
+    
+    @SerialName("uuid")
+    val uuid: String? = null
 )
 
 // ============== PODCAST 2.0 TYPES ==============

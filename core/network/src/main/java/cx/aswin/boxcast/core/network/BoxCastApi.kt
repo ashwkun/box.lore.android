@@ -77,7 +77,9 @@ interface BoxCastApi {
     @GET("podcast")
     fun getPodcast(
         @Header("X-App-Key") publicKey: String,
-        @Query("id") feedId: String
+        @Query("id") feedId: String? = null,
+        @Query("url") feedUrl: String? = null,
+        @Query("guid") feedGuid: String? = null
     ): retrofit2.Call<PodcastResponse>
     
     @POST("sync")
@@ -102,7 +104,9 @@ interface BoxCastApi {
     @GET("podcast/meta")
     fun getPodcastMeta(
         @Header("X-App-Key") publicKey: String,
-        @Query("id") feedId: String
+        @Query("id") feedId: String? = null,
+        @Query("url") feedUrl: String? = null,
+        @Query("guid") feedGuid: String? = null
     ): retrofit2.Call<cx.aswin.boxcast.core.network.model.PodcastMetaResponse>
 
     // --- RADIO ROUTES ---

@@ -137,7 +137,7 @@ fun YourShowsSection(
         }
 
         // --- Part A: Subscribed Shows Grid ---
-        val combinedPodcasts = subscribedPodcasts + suggestedPodcasts
+        val combinedPodcasts = (subscribedPodcasts + suggestedPodcasts).distinctBy { it.id }
         if (combinedPodcasts.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -227,7 +227,7 @@ fun YourShowsSection(
         }
 
         // --- Part B: Latest Episodes Rail ---
-        val combinedLatestEpisodes = latestEpisodes + suggestedPodcasts.filter { it.latestEpisode != null }
+        val combinedLatestEpisodes = (latestEpisodes + suggestedPodcasts.filter { it.latestEpisode != null }).distinctBy { "${it.id}_${it.latestEpisode?.id}" }
         if (combinedLatestEpisodes.isNotEmpty()) {
             Row(
                 modifier = Modifier

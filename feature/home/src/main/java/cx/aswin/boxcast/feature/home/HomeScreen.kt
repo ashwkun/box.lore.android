@@ -484,7 +484,7 @@ private fun PodcastFeed(
 
         // 5. Masonry Grid Content (Discover Podcasts) - LIMITED TO 6
         if (!isFilterLoading && gridItems.isNotEmpty()) {
-            val limitedItems = gridItems.take(6)
+            val limitedItems = gridItems.distinctBy { it.id }.take(6)
             val showGenreChip = selectedCategory == null // Only show chips for "For You" tab
             itemsIndexed(limitedItems, key = { _, p -> p.id }) { index, podcast ->
                 val isTall = podcast.id.hashCode() % 3 == 0
