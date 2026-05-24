@@ -2,14 +2,25 @@ package cx.aswin.boxcast.feature.home.components
 
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
+import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import androidx.compose.material.icons.rounded.Close
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,20 +29,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Bookmarks
-import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.Badge
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -40,64 +64,186 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
+import coil.compose.AsyncImage
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.ColorFilter
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
-import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
-import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
-import androidx.compose.foundation.layout.fillMaxHeight
 
-/**
- * Merged "Your Shows" Section (formerly LibrarySection + LatestSection)
- *
- * Layout:
- * 1. Header: Icon + "Your Shows" + Arrow (styled like OnTheRise)
- * 2. Part A: Small podcast cover grid (max 2 rows, 4 per row) + "View Library" button
- * 3. Part B: Scrollable row of new episode cards (linked to EpisodeInfo)
- */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun YourShowsSection(
     subscribedPodcasts: List<Podcast>,
-    suggestedPodcasts: List<Podcast> = emptyList(),
-    latestEpisodes: List<Podcast>, // Podcasts with latestEpisode populated
+    latestEpisodes: List<Podcast>, // Enriched with latest episodes
     unplayedEpisodeCount: Int = 0,
+    selectedPodcastId: String?,
+    selectedPodcastEpisodes: List<Episode>,
+    isSelectedPodcastLoading: Boolean,
+    episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
+    onPodcastSelected: (String?) -> Unit,
     onPodcastClick: (Podcast) -> Unit,
-    onEpisodeClick: (Episode, Podcast) -> Unit, // Navigate to EpisodeInfo
+    onEpisodeClick: (Episode, Podcast, String) -> Unit,
+    onPlayMix: () -> Unit,
+    onPlayEpisode: (Episode, Podcast) -> Unit,
     onViewLibrary: () -> Unit,
-    onViewAllLatest: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     LogRecomposition(name = "YourShowsSection")
-    if (subscribedPodcasts.isEmpty() && latestEpisodes.isEmpty()) return
+    if (subscribedPodcasts.isEmpty()) return
+
+    val interleavedPodcasts = remember(subscribedPodcasts) {
+        if (subscribedPodcasts.size > 9) {
+            val result = mutableListOf<Podcast>()
+            var i = 0
+            while (i < subscribedPodcasts.size) {
+                if (i + 1 < subscribedPodcasts.size) {
+                    result.add(subscribedPodcasts[i + 1])
+                }
+                result.add(subscribedPodcasts[i])
+                i += 2
+            }
+            result
+        } else {
+            subscribedPodcasts
+        }
+    }
+
+    val isDark = (0.2126f * MaterialTheme.colorScheme.surface.red + 0.7152f * MaterialTheme.colorScheme.surface.green + 0.0722f * MaterialTheme.colorScheme.surface.blue) < 0.5f
+    val cardContainerColor = if (isDark) {
+        MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.8f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val mixtapeScrollState = rememberScrollState()
+    val mixtapeScrollConnection = remember(mixtapeScrollState) {
+        object : NestedScrollConnection {
+            var isFirstScrollEvent = true
+            var lockToChild = false
+            var wasLocked = false
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    if (isFirstScrollEvent) {
+                        isFirstScrollEvent = false
+                        val isScrollingUp = available.y < 0f // dragging up / scrolling down
+                        val isScrollingDown = available.y > 0f // dragging down / scrolling up
+                        
+                        val isAtTop = mixtapeScrollState.value == 0
+                        val isAtBottom = mixtapeScrollState.value >= mixtapeScrollState.maxValue
+                        
+                        lockToChild = when {
+                            isScrollingUp && isAtBottom -> false
+                            isScrollingDown && isAtTop -> false
+                            else -> true
+                        }
+                        wasLocked = lockToChild
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && lockToChild) {
+                    // Slight pass: pass 10% to parent, consume 90%
+                    return available * 0.9f
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                isFirstScrollEvent = true
+                lockToChild = false
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (wasLocked) {
+                    wasLocked = false
+                    return available // Block momentum from scrolling parent if gesture started inside child
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
+    val filteredScrollState = rememberScrollState()
+    val filteredScrollConnection = remember(filteredScrollState) {
+        object : NestedScrollConnection {
+            var isFirstScrollEvent = true
+            var lockToChild = false
+            var wasLocked = false
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    if (isFirstScrollEvent) {
+                        isFirstScrollEvent = false
+                        val isScrollingUp = available.y < 0f // dragging up / scrolling down
+                        val isScrollingDown = available.y > 0f // dragging down / scrolling up
+                        
+                        val isAtTop = filteredScrollState.value == 0
+                        val isAtBottom = filteredScrollState.value >= filteredScrollState.maxValue
+                        
+                        lockToChild = when {
+                            isScrollingUp && isAtBottom -> false
+                            isScrollingDown && isAtTop -> false
+                            else -> true
+                        }
+                        wasLocked = lockToChild
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && lockToChild) {
+                    // Slight pass: pass 10% to parent, consume 90%
+                    return available * 0.9f
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                isFirstScrollEvent = true
+                lockToChild = false
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (wasLocked) {
+                    wasLocked = false
+                    return available // Block momentum from scrolling parent if gesture started inside child
+                }
+                return Velocity.Zero
+            }
+        }
+    }
 
     Column(modifier = modifier) {
-        // --- Header (Styled like Master Header) ---
+        // --- Header ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -105,7 +251,14 @@ fun YourShowsSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.expressiveClickable {
+                    if (selectedPodcastId != null) {
+                        onPodcastSelected(null) // clear selection
+                    }
+                }
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.Bookmarks,
                     contentDescription = null,
@@ -121,6 +274,34 @@ fun YourShowsSection(
                     ),
                     letterSpacing = (-0.5).sp
                 )
+                if (selectedPodcastId != null && subscribedPodcasts.size > 1) {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f))
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
+                            .clickable { onPodcastSelected(null) }
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Filtered",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Clear Filter",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
             }
 
             FilledTonalIconButton(
@@ -136,411 +317,751 @@ fun YourShowsSection(
             }
         }
 
-        // --- Part A: Subscribed Shows Grid ---
-        val combinedPodcasts = (subscribedPodcasts + suggestedPodcasts).distinctBy { it.id }
-        if (combinedPodcasts.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 0.dp)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val totalColumns = 5
-
-                if (subscribedPodcasts.size > 10) {
-                    val row1Items = subscribedPodcasts.take(totalColumns)
-                    val row2Items = subscribedPodcasts.drop(totalColumns).take(2)
-                    val remainingCount = subscribedPodcasts.size - 7
-
-                    // Row 1
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        row1Items.forEach { podcast ->
-                            Box(modifier = Modifier.weight(1f)) {
-                               ResponsivePodcastCover(podcast = podcast, onClick = { onPodcastClick(podcast) })
-                            }
-                        }
-                    }
-
-                    // Row 2 (2 items + More Button)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        row2Items.forEach { podcast ->
-                            Box(modifier = Modifier.weight(1f)) {
-                                ResponsivePodcastCover(podcast = podcast, onClick = { onPodcastClick(podcast) })
-                            }
-                        }
-                        
-                        Box(modifier = Modifier.weight(3f).fillMaxHeight()) {
-                            androidx.compose.material3.FilledTonalButton(
-                                onClick = onViewLibrary,
-                                modifier = Modifier.fillMaxSize(),
-                                shape = CircleShape,
-                                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                )
-                            ) {
-                                // Let's use a simpler approach for the button content.
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = if (remainingCount > 0) "+$remainingCount" else "More",
-                                        style = MaterialTheme.typography.labelLarge
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // <= 10 subscriptions: fill up to 2 rows of 5, no "More" button needed
-                    val chunked = combinedPodcasts.chunked(totalColumns)
-                    chunked.forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            rowItems.forEach { podcast ->
-                                val isSuggested = suggestedPodcasts.any { it.id == podcast.id }
-                                Box(modifier = Modifier.weight(1f)) {
-                                    ResponsivePodcastCover(podcast = podcast, isSuggested = isSuggested, onClick = { onPodcastClick(podcast) })
-                                }
-                            }
-                            // Fill remaining empty slots in the row
-                            repeat(totalColumns - rowItems.size) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // --- Part B: Latest Episodes Rail ---
-        val combinedLatestEpisodes = (latestEpisodes + suggestedPodcasts.filter { it.latestEpisode != null }).distinctBy { "${it.id}_${it.latestEpisode?.id}" }
-        if (combinedLatestEpisodes.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Latest Episodes",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (unplayedEpisodeCount > 0) {
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Text("$unplayedEpisodeCount")
-                        }
-                    }
-                }
-
-                if (onViewAllLatest != null) {
-                    FilledTonalIconButton(
-                        onClick = onViewAllLatest,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = "View all latest episodes",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-            
+        // --- The Selector Grid ---
+        if (subscribedPodcasts.size <= 4) {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 0.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(combinedLatestEpisodes, key = { "${it.id}_${it.latestEpisode?.id}" }) { podcast ->
-                    val episode = podcast.latestEpisode
-                    if (episode != null) {
-                        val isSuggested = suggestedPodcasts.any { it.id == podcast.id }
-                        NewEpisodeCard(
-                            episode = episode,
-                            podcast = podcast,
-                            isSuggested = isSuggested,
-                            onClick = { onEpisodeClick(episode, podcast) }
+                if (subscribedPodcasts.size > 1) {
+                    item(key = "mixtape") {
+                        MixtapeSelectorCover(
+                            isSelected = selectedPodcastId == null,
+                            isAnyPodcastSelected = selectedPodcastId != null,
+                            onClick = { onPodcastSelected(null) },
+                            modifier = Modifier.size(60.dp).animateItem()
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-/**
- * Responsive podcast cover for weighted grids.
- */
-@Composable
-private fun ResponsivePodcastCover(
-    podcast: Podcast,
-    isSuggested: Boolean = false,
-    onClick: () -> Unit
-) {
-    val grayscaleFilter = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .clip(MaterialTheme.shapes.small)
-            .expressiveClickable(shape = MaterialTheme.shapes.small, onClick = onClick)
-    ) {
-        OptimizedImage(
-            url = podcast.imageUrl,
-            proxyWidth = 250, // Grid items ~60dp * 3x + margin
-            contentDescription = podcast.title,
-            contentScale = ContentScale.Crop,
-            colorFilter = if (isSuggested) grayscaleFilter else null,
-            modifier = Modifier.fillMaxSize()
-        )
-        if (isSuggested) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primary)
-                    .padding(vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Suggested",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Small podcast cover (Fixed 56dp) - Deprecated for new grid
- */
-@Composable
-private fun SmallPodcastCover(
-    podcast: Podcast,
-    onClick: () -> Unit
-) {
-    OptimizedImage(
-        url = podcast.imageUrl,
-        proxyWidth = 150, // 56dp * 3x density
-        contentDescription = podcast.title,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .size(56.dp)
-            .clip(MaterialTheme.shapes.small)
-            .expressiveClickable(onClick = onClick)
-    )
-}
-
-/**
- * New Episode Card for the scrollable rail.
- * Smart visual states: Unplayed (dot badge), In Progress (progress strip), Completed (checkmark + dimmed).
- * Styles reuse the same M3 Expressive patterns from PodcastInfoScreen.
- */
-@Composable
-private fun NewEpisodeCard(
-    episode: Episode,
-    podcast: Podcast,
-    isSuggested: Boolean = false,
-    onClick: () -> Unit
-) {
-    LogRecomposition(name = "NewEpisodeCard")
-    val status = podcast.episodeStatus
-    val progress = podcast.resumeProgress ?: 0f
-    val isCompleted = status == EpisodeStatus.COMPLETED
-    val isInProgress = status == EpisodeStatus.IN_PROGRESS
-
-    // Completed cards are slightly dimmed to de-emphasize
-    val cardAlpha = if (isCompleted) 0.72f else 1f
-    val grayscaleFilter = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) }
-
-    androidx.compose.material3.OutlinedCard(
-        shape = MaterialTheme.shapes.medium,
-        colors = androidx.compose.material3.CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .width(140.dp)
-            .graphicsLayer { alpha = cardAlpha }
-            .expressiveClickable(onClick = onClick)
-    ) {
-        Column {
-            // Image area with overlays
-            Box {
-                OptimizedImage(
-                    url = episode.imageUrl?.takeIf { it.isNotEmpty() } ?: podcast.imageUrl.takeIf { it.isNotEmpty() },
-                    proxyWidth = 300, // 140dp cards
-                    contentDescription = episode.title,
-                    contentScale = ContentScale.Crop,
-                    colorFilter = if (isSuggested) grayscaleFilter else null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
-                )
-
-                // Completed: Checkmark badge at top-right (same style as PodcastInfoScreen)
-                if (isCompleted) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .size(20.dp)
-                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = "Played",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-
-                // Unplayed: Subtle dot badge at top-right
-                if (status == EpisodeStatus.UNPLAYED) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(10.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                items(subscribedPodcasts, key = { it.id }) { podcast ->
+                    SelectorCover(
+                        podcast = podcast,
+                        isSelected = selectedPodcastId == podcast.id,
+                        isAnyPodcastSelected = selectedPodcastId != null,
+                        onClick = {
+                            if (subscribedPodcasts.size > 1) {
+                                onPodcastSelected(if (selectedPodcastId == podcast.id) null else podcast.id)
+                            }
+                        },
+                        modifier = Modifier.size(60.dp).animateItem()
                     )
                 }
-
-                // In Progress: Thin progress strip at bottom of image (same pattern as ExpressivePlayButton)
-                if (isInProgress && progress > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                    ) {
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(3.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                            drawStopIndicator = {}
-                        )
-                    }
+            }
+        } else if (subscribedPodcasts.size <= 9) {
+            val allItems = remember(subscribedPodcasts) {
+                val list = mutableListOf<Any>()
+                if (subscribedPodcasts.size > 1) {
+                    list.add("mixtape")
                 }
+                list.addAll(subscribedPodcasts)
+                list
+            }
+            val row1Items = remember(allItems) { allItems.take(5) }
+            val row2Items = remember(allItems) { allItems.drop(5) }
 
-                // Time left Pill overlay
-                if (isInProgress && episode.duration > 0) {
-                    val remainingSeconds = ((1f - progress) * episode.duration).toInt()
-                    val h = remainingSeconds / 3600
-                    val m = (remainingSeconds % 3600) / 60
-                    val timeLeft = if (h > 0) "${h}h ${m}m" else "${m}m"
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = 6.dp, bottom = 8.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "$timeLeft left",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(156.dp)
+                    .padding(bottom = 16.dp)
+            ) {
+                val containerWidth = maxWidth
+                val availableWidth = containerWidth - 16.dp
+                
+                val itemSize = remember(availableWidth) {
+                    val minSpacing = 6.dp
+                    val neededWidthFor60 = (60.dp * 5) + (minSpacing * 4) // 324.dp
+                    if (availableWidth < neededWidthFor60) {
+                        ((availableWidth - (minSpacing * 4)) / 5).coerceAtLeast(48.dp)
+                    } else {
+                        60.dp
                     }
                 }
                 
-                if (isSuggested) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                val calculatedSpacing = remember(availableWidth, itemSize) {
+                    val remaining = availableWidth - (itemSize * 5)
+                    if (remaining > 0.dp) {
+                        (remaining / 4).coerceAtMost(16.dp).coerceAtLeast(6.dp)
+                    } else {
+                        6.dp
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(calculatedSpacing),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Suggested",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                        row1Items.forEach { item ->
+                            val itemModifier = Modifier.size(itemSize)
+                            if (item is String && item == "mixtape") {
+                                MixtapeSelectorCover(
+                                    isSelected = selectedPodcastId == null,
+                                    isAnyPodcastSelected = selectedPodcastId != null,
+                                    onClick = { onPodcastSelected(null) },
+                                    modifier = itemModifier
+                                )
+                            } else if (item is Podcast) {
+                                val hasRecentNew = remember(item.subscribedAt, item.latestEpisode?.publishedDate) {
+                                    val ep = item.latestEpisode
+                                    if (ep != null && item.subscribedAt > 0L && ep.publishedDate > (item.subscribedAt / 1000L)) {
+                                        val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
+                                        hoursSinceRelease <= 48.0
+                                    } else false
+                                }
+                                SelectorCover(
+                                    podcast = item,
+                                    isSelected = selectedPodcastId == item.id,
+                                    isAnyPodcastSelected = selectedPodcastId != null,
+                                    hasRecentNew = hasRecentNew,
+                                    onClick = {
+                                        onPodcastSelected(if (selectedPodcastId == item.id) null else item.id)
+                                    },
+                                    modifier = itemModifier
+                                )
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(calculatedSpacing),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        row2Items.forEach { item ->
+                            val itemModifier = Modifier.size(itemSize)
+                            if (item is Podcast) {
+                                val hasRecentNew = remember(item.subscribedAt, item.latestEpisode?.publishedDate) {
+                                    val ep = item.latestEpisode
+                                    if (ep != null && item.subscribedAt > 0L && ep.publishedDate > (item.subscribedAt / 1000L)) {
+                                        val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
+                                        hoursSinceRelease <= 48.0
+                                    } else false
+                                }
+                                SelectorCover(
+                                    podcast = item,
+                                    isSelected = selectedPodcastId == item.id,
+                                    isAnyPodcastSelected = selectedPodcastId != null,
+                                    hasRecentNew = hasRecentNew,
+                                    onClick = {
+                                        onPodcastSelected(if (selectedPodcastId == item.id) null else item.id)
+                                    },
+                                    modifier = itemModifier
+                                )
+                            }
+                        }
                     }
                 }
             }
+        } else {
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(2),
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .height(156.dp) // 60 + 60 + 12 + 4 + 4 = 140 + 16 (bottom padding) = 156
+                    .padding(bottom = 16.dp)
+            ) {
+                item(key = "mixtape") {
+                    MixtapeSelectorCover(
+                        isSelected = selectedPodcastId == null,
+                        isAnyPodcastSelected = selectedPodcastId != null,
+                        onClick = { onPodcastSelected(null) },
+                        modifier = Modifier.size(60.dp).animateItem()
+                    )
+                }
+                items(interleavedPodcasts, key = { it.id }) { podcast ->
+                    val hasRecentNew = remember(podcast.subscribedAt, podcast.latestEpisode?.publishedDate) {
+                        val ep = podcast.latestEpisode
+                        if (ep != null && podcast.subscribedAt > 0L && ep.publishedDate > (podcast.subscribedAt / 1000L)) {
+                            val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
+                            hoursSinceRelease <= 48.0
+                        } else false
+                    }
+                    SelectorCover(
+                        podcast = podcast,
+                        isSelected = selectedPodcastId == podcast.id,
+                        isAnyPodcastSelected = selectedPodcastId != null,
+                        hasRecentNew = hasRecentNew,
+                        onClick = {
+                            onPodcastSelected(if (selectedPodcastId == podcast.id) null else podcast.id)
+                        },
+                        modifier = Modifier.size(60.dp).animateItem()
+                    )
+                }
+            }
+        }
+
+        // --- Dynamic Content Area ---
+        if (selectedPodcastId == null && subscribedPodcasts.size > 1) {
+            // Scenario A: Default State (More than 1 Sub, Nothing Selected)
+            // List up to 10 absolute latest episodes across subscriptions
+            val displayList = latestEpisodes
+
+            OutlinedCard(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = cardContainerColor),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = "Mixtape Episodes",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.2).sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Your active and unplayed episodes from shows you follow",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    
+                    if (unplayedEpisodeCount > 0) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .height(44.dp)
+                                .fillMaxWidth()
+                                .expressiveClickable { onPlayMix() }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = "Play Mix",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Play Mix ($unplayedEpisodeCount)",
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.1.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        thickness = 1.dp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(377.6.dp)
+                            .nestedScroll(mixtapeScrollConnection)
+                            .verticalScroll(mixtapeScrollState),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        displayList.forEach { podcast ->
+                            val episode = podcast.latestEpisode!!
+                            DenseEpisodeRow(
+                                episode = episode,
+                                podcast = podcast,
+                                onClick = { onEpisodeClick(episode, podcast, "home_mixtape_episodes") },
+                                onPlay = { onPlayEpisode(episode, podcast) }
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            // Scenario B: Filtered State (A Specific Sub is Selected) / Scenario C: Only 1 Sub Edge Case
+            val activeId = selectedPodcastId ?: subscribedPodcasts.firstOrNull()?.id
+            val selectedPodcast = subscribedPodcasts.find { it.id == activeId }
             
-            Column(modifier = Modifier.padding(10.dp)) {
-                // Episode title
+            if (selectedPodcast == null) {
                 Text(
-                    text = episode.title,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    minLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    text = "No episodes available",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                // Subtitle: podcast name
-                Text(
-                    text = podcast.title,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    minLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            } else {
+                OutlinedCard(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.outlinedCardColors(containerColor = cardContainerColor),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .expressiveClickable { onPodcastClick(selectedPodcast) }
+                        ) {
+                            OptimizedImage(
+                                url = (selectedPodcast.imageUrl.takeIf { it.isNotEmpty() } ?: selectedPodcast.fallbackImageUrl),
+                                proxyWidth = 80,
+                                contentDescription = selectedPodcast.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = selectedPodcast.title,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.2).sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Latest Episodes",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = "Podcast Info",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        androidx.compose.material3.HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            thickness = 1.dp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        if (isSelectedPodcastLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BoxCastLoader.Expressive(size = 48.dp)
+                            }
+                        } else if (selectedPodcastEpisodes.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No episodes available",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(377.6.dp)
+                                    .nestedScroll(filteredScrollConnection)
+                                    .verticalScroll(filteredScrollState),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                selectedPodcastEpisodes.take(15).forEach { episode ->
+                                    val state = episodePlaybackState[episode.id]
+                                    DenseEpisodeRow(
+                                        episode = episode,
+                                        podcast = selectedPodcast,
+                                        onClick = { onEpisodeClick(episode, selectedPodcast, "home_filtered_latest_episodes") },
+                                        onPlay = { onPlayEpisode(episode, selectedPodcast) },
+                                        showPodcastTitle = false,
+                                        overrideStatus = state?.first,
+                                        overrideProgress = state?.second
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .height(40.dp)
+                                        .fillMaxWidth()
+                                        .expressiveClickable { onPodcastClick(selectedPodcast) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "See All Episodes",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.1.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Rounded.ChevronRight,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectorCover(
+    podcast: Podcast,
+    isSelected: Boolean,
+    isAnyPodcastSelected: Boolean,
+    hasRecentNew: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier.size(60.dp)
+) {
+    val scale by animateFloatAsState(targetValue = if (isSelected) 1.05f else 0.95f, label = "scale")
+    val alpha by animateFloatAsState(targetValue = if (isSelected) 1f else if (isAnyPodcastSelected) 0.6f else 1f, label = "alpha")
+    val cornerRadius by animateDpAsState(targetValue = if (isSelected) 16.dp else 12.dp, label = "cornerRadius")
+    val borderStrokeWidth by animateDpAsState(targetValue = if (isSelected) 3.dp else 0.dp, label = "borderStrokeWidth")
+
+    Box(
+        modifier = modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(cornerRadius))
+            .expressiveClickable(onClick = onClick)
+    ) {
+        OptimizedImage(
+            url = podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl,
+            proxyWidth = 120,
+            contentDescription = podcast.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().alpha(alpha)
+        )
+        
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(borderStrokeWidth, MaterialTheme.colorScheme.primary, RoundedCornerShape(cornerRadius))
+            )
+        }
+
+        // New episode dot indicator
+        if (hasRecentNew && !isSelected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = 2.dp)
+                    .size(8.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DenseEpisodeRow(
+    episode: Episode,
+    podcast: Podcast,
+    onClick: () -> Unit,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+    showPodcastTitle: Boolean = true,
+    overrideStatus: EpisodeStatus? = null,
+    overrideProgress: Float? = null
+) {
+    val status = overrideStatus ?: podcast.episodeStatus
+    val progress = overrideProgress ?: podcast.resumeProgress ?: 0f
+    val isCompleted = status == EpisodeStatus.COMPLETED
+    val isInProgress = status == EpisodeStatus.IN_PROGRESS
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(56.dp)) {
+            OptimizedImage(
+                url = (episode.imageUrl?.takeIf { it.isNotEmpty() } ?: podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl),
+                proxyWidth = 112,
+                contentDescription = episode.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
+
+            if (isCompleted) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(3.dp)
+                        .size(16.dp)
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = "Played",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
+            }
+
+            if (isInProgress && progress > 0f) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    drawStopIndicator = {}
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = episode.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (showPodcastTitle) {
+                    Text(
+                        text = podcast.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+                val isNew = podcast.subscribedAt > 0L && episode.publishedDate > (podcast.subscribedAt / 1000L)
+                if (isNew) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "NEW",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 8.sp,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                val dateText = formatRelativeDate(episode.publishedDate)
+                if (dateText.isNotEmpty()) {
+                    val prefix = if (showPodcastTitle || isNew) "• " else ""
+                    Text(
+                        text = "$prefix$dateText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+                if (episode.duration > 0) {
+                    val h = episode.duration / 3600
+                    val m = (episode.duration % 3600) / 60
+                    val displayText = if (isInProgress && progress > 0f) {
+                        val remaining = ((1f - progress) * episode.duration).toInt()
+                        val rh = remaining / 3600
+                        val rm = (remaining % 3600) / 60
+                        if (rh > 0) "${rh}h ${rm}m left" else "${rm}m left"
+                    } else {
+                        if (h > 0) "${h}h ${m}m" else "${m}m"
+                    }
+                    Text(
+                        text = "• $displayText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isInProgress) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        fontWeight = if (isInProgress) FontWeight.Medium else FontWeight.Normal
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        val interactionSource = remember { MutableInteractionSource() }
+        val isPressed by interactionSource.collectIsPressedAsState()
+        val btnColor by animateColorAsState(
+            targetValue = if (isPressed) MaterialTheme.colorScheme.primary
+                         else MaterialTheme.colorScheme.primaryContainer,
+            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+            label = "btnColor"
+        )
+        val iconColor by animateColorAsState(
+            targetValue = if (isPressed) MaterialTheme.colorScheme.onPrimary
+                         else MaterialTheme.colorScheme.primary,
+            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+            label = "iconColor"
+        )
+
+        Surface(
+            shape = CircleShape,
+            color = btnColor,
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onPlay
+                )
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = "Play episode",
+                    tint = iconColor,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
     }
 }
 
-// Keep backward compatibility - deprecated, use YourShowsSection
-@Deprecated("Use YourShowsSection instead", ReplaceWith("YourShowsSection"))
-@Composable
-fun LibrarySection(
-    podcasts: List<Podcast>,
-    onPodcastClick: (Podcast) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    YourShowsSection(
-        subscribedPodcasts = podcasts,
-        latestEpisodes = emptyList(),
-        onPodcastClick = onPodcastClick,
-        onEpisodeClick = { _, _ -> },
-        onViewLibrary = {},
-        modifier = modifier
-    )
+private fun formatRelativeDate(timestampSeconds: Long): String {
+    if (timestampSeconds == 0L) return ""
+    val now = System.currentTimeMillis() / 1000
+    val diff = now - timestampSeconds
+    return when {
+        diff < 3600 -> "${diff / 60}m ago"
+        diff < 86400 -> "${diff / 3600}h ago"
+        diff < 604800 -> "${diff / 86400}d ago"
+        diff < 2592000 -> "${diff / 604800}w ago"
+        diff < 31536000 -> "${diff / 2592000}mo ago"
+        else -> "${diff / 31536000}y ago"
+    }
 }
+
+@Composable
+private fun MixtapeSelectorCover(
+    isSelected: Boolean,
+    isAnyPodcastSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier.size(60.dp)
+) {
+    val scale by animateFloatAsState(targetValue = if (isSelected) 1.05f else 0.95f, label = "scale")
+    val alpha by animateFloatAsState(targetValue = if (isSelected) 1f else if (isAnyPodcastSelected) 0.6f else 1f, label = "alpha")
+    val cornerRadius by animateDpAsState(targetValue = if (isSelected) 16.dp else 12.dp, label = "cornerRadius")
+    val borderStrokeWidth by animateDpAsState(targetValue = if (isSelected) 3.dp else 0.dp, label = "borderStrokeWidth")
+
+    Box(
+        modifier = modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(cornerRadius))
+            .expressiveClickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .alpha(alpha),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                contentDescription = "Mixtape",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(borderStrokeWidth, MaterialTheme.colorScheme.primary, RoundedCornerShape(cornerRadius))
+            )
+        }
+    }
+}
+

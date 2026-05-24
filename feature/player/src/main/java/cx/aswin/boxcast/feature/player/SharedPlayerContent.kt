@@ -7,11 +7,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.automirrored.rounded.Toc
+import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.ZoomOutMap
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,9 +41,19 @@ import coil.request.ImageRequest
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Person
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.model.Chapter
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import cx.aswin.boxcast.core.designsystem.components.AdvancedPlayerControls
+import cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState
 import cx.aswin.boxcast.feature.player.components.SimplePlayerControls
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -76,12 +93,25 @@ fun SharedPlayerContent(
     showTitleTip: Boolean = false,
     onTitleTipDismissed: () -> Unit = {},
     isExpanded: Boolean = true,
+    chapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
+    transcript: List<cx.aswin.boxcast.core.data.TranscriptSegment> = emptyList(),
+    onChaptersClick: () -> Unit = {},
+    onFullscreenTranscriptClick: () -> Unit = {},
+    isChaptersLoading: Boolean = false,
+    autoTranscriptState: AutoTranscriptState = AutoTranscriptState.NONE,
+    autoChaptersState: AutoTranscriptState = AutoTranscriptState.NONE,
+    autoTranscriptLimitLeft: Int? = null,
+    onGenerateTranscript: () -> Unit = {},
+    isSyncEnabled: Boolean = true,
+    onSyncEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     extraContent: @Composable () -> Unit = {},
     footerContent: @Composable ColumnScope.() -> Unit = {}
 ) {
     val controlTint = colorScheme.primary
     val context = LocalContext.current
+    var showTranscript by remember(episode?.id) { mutableStateOf(false) }
+    var showGenerateConfirmation by remember { mutableStateOf(false) }
     
     MaterialTheme(colorScheme = colorScheme) {
 
@@ -90,10 +120,9 @@ fun SharedPlayerContent(
         ) {
             // Responsive breakpoints based on available height
             val isCompact = maxHeight < 600.dp
-            val isMedium = maxHeight in 600.dp..700.dp
             
             // Calculate exact safe size for artwork to maximize space without clipping
-            val controlsEstimatedHeight = if (isCompact) 320.dp else 380.dp
+            val controlsEstimatedHeight = if (isCompact) 300.dp else 350.dp
             val availableHeightForArtwork = maxHeight - controlsEstimatedHeight
             
             // Maximize artwork up to 85% of screen width, bounded by available vertical space 
@@ -109,53 +138,132 @@ fun SharedPlayerContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
-                Spacer(modifier = Modifier.weight(0.01f))
-                // 1. Album Art - responsive sizing
-                val imageUrl = episode?.imageUrl?.takeIf { it.isNotBlank() } ?: podcast.imageUrl
+                Spacer(modifier = Modifier.height(4.dp))
                 
-                Surface(
-                    modifier = Modifier
-                        .size(optimalArtworkSize)
-                        .shadow(
-                            12.dp, 
-                            RoundedCornerShape(28.dp), 
-                            ambientColor = controlTint.copy(alpha = 0.3f), 
-                            spotColor = controlTint.copy(alpha = 0.5f)
-                        )
-                        .pointerInput(isExpanded) {
-                            if (!isExpanded) return@pointerInput
+                AnimatedContent(
+                    targetState = showTranscript,
+                    transitionSpec = {
+                        if (targetState) {
+                            (slideInVertically { height -> height / 12 } + fadeIn(animationSpec = tween(350))) togetherWith 
+                            (scaleOut(targetScale = 0.96f) + fadeOut(animationSpec = tween(250)))
+                        } else {
+                            (scaleIn(initialScale = 0.96f) + fadeIn(animationSpec = tween(350))) togetherWith 
+                            (slideOutVertically { height -> height / 12 } + fadeOut(animationSpec = tween(250)))
+                        }
+                    },
+                    label = "transcriptToggleTransition",
+                    modifier = if (showTranscript) {
+                        Modifier.fillMaxWidth().weight(1f)
+                    } else {
+                        Modifier.fillMaxWidth().wrapContentHeight()
+                    }
+                ) { isTranscriptVisible ->
+                    if (isTranscriptVisible) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 12.dp)
+                        ) {
+                            TranscriptView(
+                                transcript = transcript,
+                                positionMs = positionMs,
+                                colorScheme = colorScheme,
+                                onSeek = { seekPos ->
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("transcript_tap")
+                                    onSeek(seekPos)
+                                },
+                                isSyncEnabled = isSyncEnabled,
+                                onSyncEnabledChange = onSyncEnabledChange,
+                                modifier = Modifier.fillMaxSize(),
+                                transcriptUrl = episode?.transcriptUrl
+                            )
                             
-                            var totalDrag = 0f
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    if (totalDrag > 100f) {
-                                        onSkipPreviousEpisode() // Swipe Right -> Prev Episode
-                                    } else if (totalDrag < -100f) {
-                                        onSkipNextEpisode() // Swipe Left -> Next Episode
-                                    }
-                                    totalDrag = 0f
+                            // Buttons row on top-right of the transcript view
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Fullscreen Button
+                                IconButton(
+                                    onClick = onFullscreenTranscriptClick,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(colorScheme.surface.copy(alpha = 0.8f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ZoomOutMap,
+                                        contentDescription = "Fullscreen Transcript",
+                                        tint = colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
-                            ) { change, dragAmount ->
-                                change.consume()
-                                totalDrag += dragAmount
                             }
-                        },
-                shape = RoundedCornerShape(28.dp),
-                color = colorScheme.surfaceVariant
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .allowHardware(false) // Required for Palette if needed, safe to keep
-                        .build(),
-                    contentDescription = "Album Art",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(spacingSmall))
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top
+                        ) {
+                            Spacer(modifier = Modifier.height(spacingSmall))
+                            // 1. Album Art - responsive sizing
+                            val activeChapter = remember(chapters, positionMs) {
+                                chapters.lastOrNull { (it.startTime * 1000).toLong() <= positionMs }
+                              }
+                              val artworkUrl = activeChapter?.img?.takeIf { it.isNotBlank() } ?: episode?.imageUrl?.takeIf { it.isNotBlank() } ?: podcast.imageUrl
+                              
+                              Surface(
+                                  modifier = Modifier
+                                      .size(optimalArtworkSize)
+                                      .shadow(
+                                          12.dp, 
+                                          RoundedCornerShape(28.dp), 
+                                          ambientColor = controlTint.copy(alpha = 0.3f), 
+                                          spotColor = controlTint.copy(alpha = 0.5f)
+                                      ),
+                                  shape = RoundedCornerShape(28.dp),
+                                  color = colorScheme.surfaceVariant
+                              ) {
+                                  AsyncImage(
+                                      model = ImageRequest.Builder(context)
+                                          .data(artworkUrl)
+                                          .crossfade(true)
+                                          .allowHardware(false) // Required for Palette if needed, safe to keep
+                                          .build(),
+                                      contentDescription = "Album Art",
+                                      contentScale = ContentScale.Crop,
+                                      modifier = Modifier
+                                          .fillMaxSize()
+                                          .pointerInput(isExpanded) {
+                                              if (!isExpanded) return@pointerInput
+                                              
+                                              var totalDrag = 0f
+                                              detectHorizontalDragGestures(
+                                                  onDragEnd = {
+                                                      if (totalDrag > 100f) {
+                                                          onSkipPreviousEpisode() // Swipe Right -> Prev Episode
+                                                      } else if (totalDrag < -100f) {
+                                                          onSkipNextEpisode() // Swipe Left -> Next Episode
+                                                      }
+                                                      totalDrag = 0f
+                                                  }
+                                              ) { change, dragAmount ->
+                                                  change.consume()
+                                                  totalDrag += dragAmount
+                                              }
+                                          }
+                                  )
+                              }
+                              
+                              Spacer(modifier = Modifier.height(if (isCompact) 4.dp else 8.dp))
+                          }
+                      }
+                  }
+                  
+                  Spacer(modifier = Modifier.weight(0.02f))
         
             // 2. Metadata - removed fixed height for responsiveness
             Column(
@@ -212,7 +320,7 @@ fun SharedPlayerContent(
                 }
             }
             
-            Spacer(modifier = Modifier.weight(0.01f))
+            Spacer(modifier = Modifier.weight(0.015f))
             
             // 3. Linear Buffered Slider
             if (durationMs > 0) {
@@ -223,7 +331,8 @@ fun SharedPlayerContent(
                     duration = durationMs,
                     bufferedPercentage = bufferedPercentage,
                     onSeek = onSeek,
-                    color = controlTint
+                    color = controlTint,
+                    chapters = chapters
                 )
             }
             
@@ -232,7 +341,7 @@ fun SharedPlayerContent(
             // Slot for Visualizer or other content
             extraContent()
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             // 4. Player Controls (Play/Pause/Skip)
             PlayerControls(
@@ -246,7 +355,7 @@ fun SharedPlayerContent(
                 height = controlRowHeight
             )
             
-            Spacer(modifier = Modifier.weight(0.02f))
+            Spacer(modifier = Modifier.height(if (isCompact) 8.dp else 16.dp))
             
             // 5. Controls Section
             // Row 1: Playback Modifiers (Speed, Timer)
@@ -261,9 +370,9 @@ fun SharedPlayerContent(
                  modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
             )
             
-            Spacer(modifier = Modifier.height(16.dp)) // Reduced gap for small screens
+            Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 18.dp))
             
-            // Row 2: Actions (Like, Download, Queue)
+            // Row 2: Actions (Like, Download, Queue, Chapters, Transcript)
             AdvancedPlayerControls(
                  isLiked = isLiked, 
                  isDownloaded = isDownloaded,
@@ -272,16 +381,231 @@ fun SharedPlayerContent(
                  onLikeClick = onLikeClick,
                  onDownloadClick = onDownloadClick,
                  onQueueClick = onQueueClick,
+                 hasChapters = !episode?.chaptersUrl.isNullOrEmpty() || chapters.isNotEmpty(),
+                 isChaptersLoading = isChaptersLoading,
+                 autoTranscriptState = autoTranscriptState,
+                 autoChaptersState = autoChaptersState,
+                 isTranscriptActive = showTranscript,
+                 onChaptersClick = onChaptersClick,
+                 onTranscriptClick = {
+                     if (transcript.isNotEmpty()) {
+                         showTranscript = !showTranscript
+                         if (showTranscript) {
+                             cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
+                         }
+                     } else {
+                         when (autoTranscriptState) {
+                             AutoTranscriptState.NOT_GENERATED, AutoTranscriptState.FAILED -> {
+                                 showGenerateConfirmation = true
+                             }
+                             AutoTranscriptState.NONE, AutoTranscriptState.COMPLETED -> {
+                                 showTranscript = !showTranscript
+                                 if (showTranscript) {
+                                     cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
+                                 }
+                             }
+                             else -> { /* CHECKING/GENERATING — do nothing */ }
+                         }
+                     }
+                 },
                  style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.Squircle,
                  controlSize = actionButtonSize,
                  modifier = Modifier.fillMaxWidth()
             )
             
-            Spacer(modifier = Modifier.weight(0.02f))
+            Spacer(modifier = Modifier.height(if (isCompact) 8.dp else 12.dp))
 
             
             // Footer (e.g. Up Next List)
             footerContent()
+            }
+        }
+    }
+
+    // AI Transcript Generation Confirmation Dialog
+    if (showGenerateConfirmation) {
+        val estimatedTime = remember(episode?.duration, durationMs) {
+            val durationSec = if (durationMs > 0) {
+                durationMs / 1000
+            } else {
+                (episode?.duration ?: 0).toLong()
+            }
+            when {
+                durationSec <= 0 -> "~1-2 min"
+                durationSec < 600 -> "~30s"
+                durationSec < 1800 -> "~1 min"
+                durationSec < 3600 -> "~1-2 min"
+                else -> "~2-3 min"
+            }
+        }
+
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showGenerateConfirmation = false }
+        ) {
+            Surface(
+                shape = racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape(
+                    cornerRadiusTL = 28.dp, smoothnessAsPercentTL = 60,
+                    cornerRadiusTR = 28.dp, smoothnessAsPercentTR = 60,
+                    cornerRadiusBL = 28.dp, smoothnessAsPercentBL = 60,
+                    cornerRadiusBR = 28.dp, smoothnessAsPercentBR = 60
+                ),
+                color = colorScheme.surfaceContainerHigh,
+                tonalElevation = 6.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Icon with tinted background circle
+                    Surface(
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = colorScheme.tertiaryContainer,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Title
+                    Text(
+                        "Generate Transcript",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colorScheme.onSurface
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Subtitle
+                    Text(
+                        if (autoTranscriptLimitLeft == 0) {
+                            "Daily AI limit reached. Please try again tomorrow."
+                        } else {
+                            "AI transcription is in beta and may contain errors."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (autoTranscriptLimitLeft == 0) colorScheme.error else colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Estimated time pill
+                        Surface(
+                            shape = racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape(
+                                cornerRadiusTL = 12.dp, smoothnessAsPercentTL = 60,
+                                cornerRadiusTR = 12.dp, smoothnessAsPercentTR = 60,
+                                cornerRadiusBL = 12.dp, smoothnessAsPercentBL = 60,
+                                cornerRadiusBR = 12.dp, smoothnessAsPercentBR = 60
+                            ),
+                            color = colorScheme.surfaceContainerHighest
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Timer,
+                                    contentDescription = null,
+                                    tint = colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Est. $estimatedTime",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Credits remaining pill
+                        if (autoTranscriptLimitLeft != null) {
+                            Surface(
+                                shape = racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape(
+                                    cornerRadiusTL = 12.dp, smoothnessAsPercentTL = 60,
+                                    cornerRadiusTR = 12.dp, smoothnessAsPercentTR = 60,
+                                    cornerRadiusBL = 12.dp, smoothnessAsPercentBL = 60,
+                                    cornerRadiusBR = 12.dp, smoothnessAsPercentBR = 60
+                                ),
+                                color = if (autoTranscriptLimitLeft == 0) colorScheme.errorContainer else colorScheme.tertiaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = if (autoTranscriptLimitLeft == 0) colorScheme.onErrorContainer else colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (autoTranscriptLimitLeft == 0) "0 left for the day" else "$autoTranscriptLimitLeft left for the day",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (autoTranscriptLimitLeft == 0) colorScheme.onErrorContainer else colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Buttons
+                    val canGenerate = autoTranscriptLimitLeft == null || autoTranscriptLimitLeft > 0
+                    Button(
+                        enabled = canGenerate,
+                        onClick = {
+                            showGenerateConfirmation = false
+                            onGenerateTranscript()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape(
+                            cornerRadiusTL = 14.dp, smoothnessAsPercentTL = 60,
+                            cornerRadiusTR = 14.dp, smoothnessAsPercentTR = 60,
+                            cornerRadiusBL = 14.dp, smoothnessAsPercentBL = 60,
+                            cornerRadiusBR = 14.dp, smoothnessAsPercentBR = 60
+                        ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorScheme.primary,
+                            disabledContainerColor = colorScheme.onSurface.copy(alpha = 0.12f),
+                            disabledContentColor = colorScheme.onSurface.copy(alpha = 0.38f)
+                        )
+                    ) {
+                        Text(
+                            if (canGenerate) "Generate" else "Limit Reached",
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TextButton(
+                        onClick = { showGenerateConfirmation = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Cancel",
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
@@ -293,28 +617,69 @@ fun LinearBufferedSlider(
     duration: Long,
     bufferedPercentage: Float,
     onSeek: (Long) -> Unit,
-    color: Color
+    color: Color,
+    chapters: List<Chapter> = emptyList()
 ) {
+    var dragValue by remember { mutableStateOf<Float?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // M3 Slider with buffer visualization
+        // Floating seek/chapter preview pill
+        AnimatedVisibility(
+            visible = dragValue != null,
+            enter = fadeIn(tween(150)) + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut(tween(250)) + slideOutVertically(targetOffsetY = { it / 2 })
+        ) {
+            dragValue?.let { value ->
+                val seekTime = value.toLong()
+                val matchingChapter = chapters.lastOrNull { (it.startTime * 1000).toLong() <= seekTime }
+                val previewText = if (matchingChapter != null) {
+                    "${formatTime(seekTime)} • ${matchingChapter.title}"
+                } else {
+                    formatTime(seekTime)
+                }
+                
+                Surface(
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .wrapContentSize(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    shadowElevation = 6.dp
+                ) {
+                    Text(
+                        text = previewText,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // M3 Slider with buffer and notch visualization
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp), 
             contentAlignment = Alignment.Center
         ) {
-            // Buffer track
+            // 1. Buffer track (behind)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp)
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(color.copy(alpha = 0.15f))
+                    .background(color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.CenterStart
             ) {
                 // Buffered portion
                 Box(
@@ -328,10 +693,16 @@ fun LinearBufferedSlider(
                 )
             }
             
-            // Slider
+            // 2. Slider (middle - draws native thick active M3 track and thumb)
             Slider(
-                value = position.toFloat(),
-                onValueChange = { onSeek(it.toLong()) },
+                value = dragValue ?: position.toFloat(),
+                onValueChange = { 
+                    dragValue = it
+                    onSeek(it.toLong())
+                },
+                onValueChangeFinished = {
+                    dragValue = null
+                },
                 valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
@@ -340,6 +711,43 @@ fun LinearBufferedSlider(
                     inactiveTrackColor = Color.Transparent
                 )
             )
+
+            // 3. Chapter Ticks / Differentiators (on top of Slider track)
+            if (chapters.isNotEmpty() && duration > 0) {
+                val tickColor = MaterialTheme.colorScheme.surface
+                val thumbTime = dragValue ?: position.toFloat()
+                val thumbPct = thumbTime / duration.toFloat().coerceAtLeast(1f)
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp)
+                        .height(6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        chapters.forEach { chapter ->
+                            val startTimeMs = (chapter.startTime * 1000).toLong()
+                            if (startTimeMs > 0 && startTimeMs < duration) {
+                                val pct = startTimeMs.toFloat() / duration.toFloat()
+                                
+                                // Skip drawing if notch is under or very close to active seek thumb
+                                if (Math.abs(pct - thumbPct) > 0.015f) {
+                                    val x = size.width * pct
+                                    drawLine(
+                                        color = tickColor,
+                                        start = androidx.compose.ui.geometry.Offset(x = x, y = 0f),
+                                        end = androidx.compose.ui.geometry.Offset(x = x, y = size.height),
+                                        strokeWidth = 1.5.dp.toPx()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         
         Spacer(modifier = Modifier.height(4.dp))

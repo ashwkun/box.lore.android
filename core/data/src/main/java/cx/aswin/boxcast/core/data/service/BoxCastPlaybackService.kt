@@ -53,6 +53,8 @@ class BoxCastPlaybackService : MediaLibraryService() {
     // Pending seek position for resume playback (set in onAddMediaItems, consumed in onIsPlayingChanged)
     @Volatile
     private var pendingSeekMs: Long = 0L
+    @Volatile
+    private var pendingSeekEpisodeId: String? = null
 
     private val firedHeartbeats = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private var activePlaybackStartTimeMs: Long = 0L
@@ -68,6 +70,8 @@ class BoxCastPlaybackService : MediaLibraryService() {
     private var playbackSessionIsRepeating: Boolean = false
     private var playbackSessionEntryPoint: String? = null
     private var playbackSessionEntryPointContext: Map<String, Any>? = null
+    private var playbackSessionContextType: String? = null
+    private var playbackSessionContextSourceId: String? = null
     
     private var playbackSessionBufferingStartTimeMs: Long = 0L
     private var playbackSessionTotalBufferedTimeMs: Long = 0L
@@ -162,6 +166,8 @@ class BoxCastPlaybackService : MediaLibraryService() {
             ) {
                 android.util.Log.d("BoxCastPlayer", "onPositionDiscontinuity: reason=$reason, from ${oldPosition.positionMs} to ${newPosition.positionMs}")
                 if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                    pendingSeekMs = 0L // Cancel any queued auto-resume seek on manual/UI seek
+                    pendingSeekEpisodeId = null
                     updateHeartbeatsForPosition(newPosition.positionMs, playbackSessionTotalDurationMs)
                     val source = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.consumeSeekSource()
                     android.util.Log.d("BoxCastPlayer", "onPositionDiscontinuity (SEEK): source=$source, reason=$reason, from ${oldPosition.positionMs} to ${newPosition.positionMs}")
@@ -186,7 +192,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 // Telemetry: Transition implies the previous item stopped
                 val wasAutoCompleted = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
-                endPlaybackSession(forceCompleted = wasAutoCompleted)
+                endPlaybackSession(forceCompleted = wasAutoCompleted, isTransition = true)
                 
                 if (player.isPlaying) {
                     val episodeId = mediaItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
@@ -248,10 +254,12 @@ class BoxCastPlaybackService : MediaLibraryService() {
 
                     // Apply any pending resume-seek BEFORE starting progress saver
                     val seekTo = pendingSeekMs
+                    val seekEpisodeId = pendingSeekEpisodeId
                     pendingSeekMs = 0L
+                    pendingSeekEpisodeId = null
                     
-                    if (seekTo > 2000) {
-                        android.util.Log.d("AutoBrowse", "Resume-seek: seeking to ${seekTo}ms (${seekTo/1000}s)")
+                    if (seekTo > 2000 && episodeId != null && episodeId == seekEpisodeId) {
+                        android.util.Log.d("AutoBrowse", "Resume-seek: seeking to ${seekTo}ms (${seekTo/1000}s) for episode $episodeId")
                         player.seekTo(seekTo)
                         // Delay progress saver to avoid overwriting the seek position
                         progressSaverJob?.cancel()
@@ -419,6 +427,20 @@ class BoxCastPlaybackService : MediaLibraryService() {
         }
         
         serviceScope.launch {
+            try {
+                val queueItem = database.queueDao().getQueueItemByEpisodeId(episodeId)
+                if (queueItem != null) {
+                    playbackSessionContextType = queueItem.contextType
+                    playbackSessionContextSourceId = queueItem.contextSourceId
+                } else {
+                    playbackSessionContextType = null
+                    playbackSessionContextSourceId = null
+                }
+            } catch (e: Exception) {
+                playbackSessionContextType = null
+                playbackSessionContextSourceId = null
+            }
+
             val podcastId = findPodcastIdForEpisode(episodeId)
             playbackSessionPodcastId = podcastId
             
@@ -501,7 +523,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
         }
     }
 
-    private fun endPlaybackSession(forceCompleted: Boolean = false) {
+    private fun endPlaybackSession(forceCompleted: Boolean = false, isTransition: Boolean = false) {
         if (playbackSessionStartTimeMs > 0 && playbackSessionEpisodeId != null) {
             val durationPlayedMs = System.currentTimeMillis() - playbackSessionStartTimeMs
             val durationPlayedSeconds = durationPlayedMs / 1000f
@@ -519,8 +541,14 @@ class BoxCastPlaybackService : MediaLibraryService() {
             if (!isCompleted) {
                 try {
                     val pos = mediaSession?.player?.currentPosition ?: 0L
-                    if (totalDurationMs > 0 && pos >= totalDurationMs - 5000) {
-                        isCompleted = true // within 5 seconds of end
+                    if (totalDurationMs > 0) {
+                        val isWithin5Seconds = pos >= totalDurationMs - 5000
+                        val is95PercentPlay = pos >= totalDurationMs * 0.95
+                        val isLongEpisodeAndNearEnd = totalDurationMs >= 900_000L && (totalDurationMs - pos <= 300_000L)
+                        
+                        if (isWithin5Seconds || is95PercentPlay || isLongEpisodeAndNearEnd) {
+                            isCompleted = true
+                        }
                     }
                 } catch (e: Exception) {}
             }
@@ -572,6 +600,15 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     queueSize = currentQueueSize,
                     pauseReason = pauseReason
                 )
+
+                // Track skip if it's a transition skip within 30 seconds for an AUTO_FILL episode
+                if (isTransition && durationPlayedSeconds <= 30f && playbackSessionContextType == "AUTO_FILL") {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
+                        episodeId = currentEpisodeId,
+                        recommendationSource = playbackSessionContextSourceId ?: "unknown",
+                        positionInQueue = 0
+                    )
+                }
             }
             
             // Flush events immediately to prevent losses during backgrounding/shutdown
@@ -672,6 +709,9 @@ class BoxCastPlaybackService : MediaLibraryService() {
         android.util.Log.d("AutoQueue", "SmartQueue returned ${nextEntries.size} episodes")
         
         if (nextEntries.isNotEmpty()) {
+            val refilledEpisodeIds = mutableListOf<String>()
+            val recommendationSources = mutableListOf<String>()
+
             // Collect existing mediaIds to avoid duplicates
             val existingIds = kotlinx.coroutines.withContext(Dispatchers.Main) {
                 (0 until player.mediaItemCount).map { 
@@ -715,17 +755,38 @@ class BoxCastPlaybackService : MediaLibraryService() {
                         .build()
                     
                     player.addMediaItem(mediaItem)
+                    refilledEpisodeIds.add(epIdStr)
+                    recommendationSources.add(entry.source)
                 }
-                android.util.Log.d("AutoQueue", "Added ${nextEntries.size} items. Queue now: ${player.mediaItemCount}")
+                android.util.Log.d("AutoQueue", "Added ${refilledEpisodeIds.size} items. Queue now: ${player.mediaItemCount}")
             }
             
             // Persist to QueueRepository so PlaybackRepository and UI stay in sync (C2 fix)
             nextEntries.forEach { entry ->
-                try {
-                    queueRepository.addToQueue(entry.episode, entry.podcast)
-                } catch (e: Exception) {
-                    android.util.Log.e("AutoQueue", "Failed to persist queue item: ${entry.episode.title}", e)
+                val epIdStr = entry.episode.id.toString()
+                if (epIdStr in refilledEpisodeIds) {
+                    try {
+                        queueRepository.addToQueue(
+                            episode = entry.episode,
+                            podcast = entry.podcast,
+                            contextType = "AUTO_FILL",
+                            contextSourceId = entry.source
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("AutoQueue", "Failed to persist queue item: ${entry.episode.title}", e)
+                    }
                 }
+            }
+
+            if (refilledEpisodeIds.isNotEmpty()) {
+                val uniqueSources = recommendationSources.distinct()
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueRefilled(
+                    triggeringEpisodeId = episodeId,
+                    triggeringPodcastGenre = podcast.genre ?: "Podcast",
+                    refilledCount = refilledEpisodeIds.size,
+                    recommendationSources = uniqueSources,
+                    refilledEpisodeIds = refilledEpisodeIds
+                )
             }
         }
     }
@@ -832,13 +893,32 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 val hasBeenPlayingFor10s = activePlaybackStartTimeMs > 0 && 
                         (System.currentTimeMillis() - activePlaybackStartTimeMs >= 10_000)
                 val lastPlayed = if (hasBeenPlayingFor10s) System.currentTimeMillis() else existing.lastPlayedAt
-                database.listeningHistoryDao().updateProgress(
-                    episodeId = episodeId,
-                    progressMs = positionMs,
-                    durationMs = if (durationMs > 0) durationMs else existing.durationMs,
-                    lastPlayedAt = lastPlayed
+                
+                val isCompleted = durationMs > 0 && (
+                    positionMs >= durationMs - 5000 ||
+                    positionMs >= durationMs * 0.95 ||
+                    (durationMs >= 900_000L && durationMs - positionMs <= 300_000L)
                 )
-                android.util.Log.d("AutoProgress", "Saved: $episodeId @ ${positionMs/1000}s / ${durationMs/1000}s")
+
+                if (isCompleted) {
+                    val updated = existing.copy(
+                        isCompleted = true,
+                        progressMs = 0L, // reset progress on completion
+                        durationMs = if (durationMs > 0) durationMs else existing.durationMs,
+                        lastPlayedAt = lastPlayed,
+                        isDirty = true
+                    )
+                    database.listeningHistoryDao().upsert(updated)
+                    android.util.Log.d("AutoProgress", "Saved completed: $episodeId")
+                } else {
+                    database.listeningHistoryDao().updateProgress(
+                        episodeId = episodeId,
+                        progressMs = positionMs,
+                        durationMs = if (durationMs > 0) durationMs else existing.durationMs,
+                        lastPlayedAt = lastPlayed
+                    )
+                    android.util.Log.d("AutoProgress", "Saved progress: $episodeId @ ${positionMs/1000}s / ${durationMs/1000}s")
+                }
                 
                 // Notify Auto to refresh browse tree so lists reorder by recency
                 kotlinx.coroutines.withContext(Dispatchers.Main) {
@@ -1187,6 +1267,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                         if (lastSession != null) {
                             android.util.Log.d("AutoBrowse", "Vague query → resuming last: ${lastSession.episodeTitle}")
                             pendingSeekMs = lastSession.progressMs
+                            pendingSeekEpisodeId = lastSession.episodeId
                             val artworkUri = (lastSession.episodeImageUrl ?: lastSession.podcastImageUrl)
                                 ?.let { android.net.Uri.parse(it) }
                             return@future mutableListOf(
@@ -1273,6 +1354,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     val fallback = database.listeningHistoryDao().getLastPlayedSession()
                     if (fallback != null) {
                         pendingSeekMs = fallback.progressMs
+                        pendingSeekEpisodeId = fallback.episodeId
                         return@future mutableListOf(
                             MediaItem.Builder()
                                 .setMediaId("episode:${fallback.episodeId}")
@@ -1334,9 +1416,11 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
                 if (historyItem != null && historyItem.progressMs > 2000 && !historyItem.isCompleted) {
                     pendingSeekMs = historyItem.progressMs
-                    android.util.Log.d("AutoBrowse", "Queued resume-seek: ${historyItem.progressMs}ms (${historyItem.progressMs/1000}s)")
+                    pendingSeekEpisodeId = episodeId
+                    android.util.Log.d("AutoBrowse", "Queued resume-seek: ${historyItem.progressMs}ms (${historyItem.progressMs/1000}s) for episodeId $episodeId")
                 } else {
                     pendingSeekMs = 0L
+                    pendingSeekEpisodeId = null
                 }
                 
                 // Launch background job to fetch all other episodes and silently append to queue

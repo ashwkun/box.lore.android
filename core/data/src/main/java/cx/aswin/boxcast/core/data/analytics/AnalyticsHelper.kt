@@ -905,12 +905,202 @@ object AnalyticsHelper {
         )
     }
 
+    fun trackPlayMixClicked(count: Int) {
+        PostHog.capture(
+            event = "play_mix_clicked",
+            properties = mapOf("episode_count" to count)
+        )
+    }
+
+    fun trackHomePodcastFiltered(podcastId: String, title: String) {
+        PostHog.capture(
+            event = "home_podcast_filtered",
+            properties = mapOf("podcast_id" to podcastId, "podcast_title" to title)
+        )
+    }
+
+    fun trackLibrarySubscriptionsLayoutToggled(isGridView: Boolean) {
+        PostHog.capture(
+            event = "library_subscriptions_layout_toggled",
+            properties = mapOf(
+                "layout_type" to if (isGridView) "grid" else "list"
+            )
+        )
+    }
+
+    fun trackLibrarySubscriptionsSortChanged(sortMethod: String, tab: String) {
+        PostHog.capture(
+            event = "library_subscriptions_sort_changed",
+            properties = mapOf(
+                "sort_method" to sortMethod,
+                "tab" to tab
+            )
+        )
+    }
+
+    fun trackLibrarySubscriptionsGenreFiltered(genreName: String, tab: String) {
+        PostHog.capture(
+            event = "library_subscriptions_genre_filtered",
+            properties = mapOf(
+                "genre_name" to genreName,
+                "tab" to tab
+            )
+        )
+    }
+
     fun resetIdentity() {
         PostHog.reset()
     }
 
     fun getDistinctId(): String {
         return PostHog.distinctId()
+    }
+
+    fun trackLateNightSafeguardDecision(decision: String, durationMinutes: Int? = null) {
+        val props = mutableMapOf<String, Any>(
+            "decision" to decision
+        )
+        if (durationMinutes != null) {
+            props["duration_minutes"] = durationMinutes
+        }
+        PostHog.capture(
+            event = "late_night_safeguard_decision",
+            properties = props
+        )
+    }
+
+    fun trackSmartQueueRefilled(
+        triggeringEpisodeId: String,
+        triggeringPodcastGenre: String,
+        refilledCount: Int,
+        recommendationSources: List<String>,
+        refilledEpisodeIds: List<String>
+    ) {
+        PostHog.capture(
+            event = "smart_queue_refilled",
+            properties = mapOf(
+                "triggering_episode_id" to triggeringEpisodeId,
+                "triggering_podcast_genre" to triggeringPodcastGenre,
+                "refilled_count" to refilledCount,
+                "recommendation_sources" to recommendationSources,
+                "refilled_episode_ids" to refilledEpisodeIds
+            )
+        )
+    }
+
+    fun trackSmartQueueEpisodeSkipped(
+        episodeId: String,
+        recommendationSource: String,
+        positionInQueue: Int
+    ) {
+        PostHog.capture(
+            event = "smart_queue_episode_skipped",
+            properties = mapOf(
+                "episode_id" to episodeId,
+                "recommendation_source" to recommendationSource,
+                "position_in_queue" to positionInQueue
+            )
+        )
+    }
+
+    fun trackOfflineModeEntered() {
+        PostHog.capture(
+            event = "offline_mode_entered"
+        )
+    }
+
+    fun trackDiscoverCategoryFiltered(categoryName: String) {
+        PostHog.capture(
+            event = "discover_category_filtered",
+            properties = mapOf("category_name" to categoryName)
+        )
+    }
+
+    fun trackTimeBlockTapped(blockId: String, activeVibeIds: List<String>, userLocalHour: Int) {
+        PostHog.capture(
+            event = "time_block_tapped",
+            properties = mapOf(
+                "block_id" to blockId,
+                "active_vibe_ids" to activeVibeIds,
+                "user_local_hour" to userLocalHour
+            )
+        )
+    }
+
+    fun trackTimeBlockTapped() {
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val blockId = when (hour) {
+            in 5..11 -> "morning_news"
+            in 12..16 -> "afternoon_break"
+            in 17..22 -> "evening_unwind"
+            else -> "late_night_listen"
+        }
+        val activeVibeIds = when (hour) {
+            in 5..11 -> listOf("morning_news", "morning_motivation", "business_insider")
+            in 12..16 -> listOf("science_explainer", "tech_culture", "creative_focus")
+            in 17..22 -> listOf("comedy_gold", "tv_film_buff", "sports_fan")
+            else -> listOf("true_crime_sleep", "history_buff", "mystery_thriller")
+        }
+        trackTimeBlockTapped(blockId, activeVibeIds, hour)
+    }
+
+    // ── 14. AI Chapters & Transcripts ──────────────────────────────
+
+    fun trackAutoChaptersRequested(episodeId: String, podcastId: String?, audioUrl: String) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "audio_url" to audioUrl
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        PostHog.capture(event = "auto_chapters_requested", properties = props)
+    }
+
+    fun trackAutoChaptersCompleted(episodeId: String, podcastId: String?, durationSeconds: Float, chaptersCount: Int) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "duration_seconds" to durationSeconds,
+            "chapters_count" to chaptersCount
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        PostHog.capture(event = "auto_chapters_completed", properties = props)
+    }
+
+    fun trackAutoChaptersFailed(episodeId: String, podcastId: String?, errorMessage: String) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "error_message" to errorMessage
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        PostHog.capture(event = "auto_chapters_failed", properties = props)
+    }
+
+    fun trackAutoTranscriptRequested(episodeId: String, podcastId: String?, audioUrl: String) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "audio_url" to audioUrl
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        PostHog.capture(event = "auto_transcript_requested", properties = props)
+    }
+
+    fun trackAutoTranscriptCompleted(episodeId: String, podcastId: String?, durationSeconds: Float, linesCount: Int) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "duration_seconds" to durationSeconds,
+            "lines_count" to linesCount
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        PostHog.capture(event = "auto_transcript_completed", properties = props)
+    }
+
+    fun trackAutoTranscriptFailed(episodeId: String, podcastId: String?, errorMessage: String) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "error_message" to errorMessage
+        )
+        podcastId?.let { props["podcast_id"] = it }
+        PostHog.capture(event = "auto_transcript_failed", properties = props)
     }
 
     fun flush() {
@@ -921,3 +1111,4 @@ object AnalyticsHelper {
         }
     }
 }
+

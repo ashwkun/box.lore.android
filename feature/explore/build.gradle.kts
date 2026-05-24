@@ -66,5 +66,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
     // PostHog
-    implementation("com.posthog:posthog-android:3.8.2")
+    implementation(libs.posthog.android)
 }

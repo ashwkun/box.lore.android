@@ -27,4 +27,7 @@ interface PodcastDao {
     
     @Query("UPDATE podcasts SET latestEpisode = :episode WHERE podcastId = :id")
     suspend fun updateLatestEpisode(id: String, episode: cx.aswin.boxcast.core.model.Episode?)
+
+    @Query("UPDATE podcasts SET preferredSort = :sort, type = :type WHERE podcastId = :id")
+    suspend fun updatePreferredSortAndType(id: String, sort: String?, type: String)
 }

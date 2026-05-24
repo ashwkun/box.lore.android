@@ -15,7 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
@@ -65,6 +67,7 @@ class PodcastInfoViewModel(
     val uiState: StateFlow<PodcastInfoUiState> = _uiState.asStateFlow()
 
     private var currentPodcastId: String = ""
+    private val _currentPodcastIdFlow = MutableStateFlow("")
     private var currentOffset: Int = 0
     private var searchJob: Job? = null
 
@@ -207,6 +210,7 @@ class PodcastInfoViewModel(
         }
         
         currentPodcastId = podcastId
+        _currentPodcastIdFlow.value = podcastId
         currentOffset = 0
         viewModelScope.launch {
             // 1. Instantly load from local database if available
@@ -222,6 +226,7 @@ class PodcastInfoViewModel(
                     genre = entity.genre ?: "Podcast",
                     type = entity.type,
                     latestEpisode = entity.latestEpisode,
+                    subscribedAt = entity.subscribedAt,
                     podcastGuid = entity.podcastGuid,
                     fundingUrl = entity.fundingUrl,
                     fundingMessage = entity.fundingMessage,
@@ -251,8 +256,13 @@ class PodcastInfoViewModel(
 
             try {
                 val initialType = currentPodcast?.type ?: "episodic"
-                val limit = if (initialType == "serial") 200 else PAGE_SIZE
-                val initialSort = if (initialType == "serial") EpisodeSort.OLDEST else EpisodeSort.NEWEST
+                // Use persisted sort preference if available, otherwise fall back to type-based default
+                val initialSort = when (localPodcastEntity?.preferredSort) {
+                    "oldest" -> EpisodeSort.OLDEST
+                    "newest" -> EpisodeSort.NEWEST
+                    else -> if (initialType == "serial") EpisodeSort.OLDEST else EpisodeSort.NEWEST
+                }
+                val limit = if (initialSort == EpisodeSort.OLDEST) 200 else PAGE_SIZE
                 val sortParam = if (initialSort == EpisodeSort.OLDEST) "oldest" else "newest"
                 
                 val apiPodcast: Podcast?
@@ -279,6 +289,7 @@ class PodcastInfoViewModel(
                 if (apiPodcast != null) {
                     currentPodcast = apiPodcast
                     currentPodcastId = apiPodcast.id // Update to the real numeric ID
+                    _currentPodcastIdFlow.value = apiPodcast.id
                     
                     // Track screen viewed with podcast name
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenViewed(
@@ -322,6 +333,8 @@ class PodcastInfoViewModel(
                                     
                                     // If subscribed, persist enriched values in database
                                     if (isSubscribed) {
+                                        val preferredSortVal = localPodcastEntity?.preferredSort ?: "newest"
+                                        val typeVal = if (preferredSortVal == "oldest") "serial" else "episodic"
                                         val updatedEntity = cx.aswin.boxcast.core.data.database.PodcastEntity(
                                             podcastId = enrichedPodcast.id,
                                             title = enrichedPodcast.title,
@@ -329,8 +342,9 @@ class PodcastInfoViewModel(
                                             imageUrl = enrichedPodcast.imageUrl,
                                             description = enrichedPodcast.description,
                                             genre = enrichedPodcast.genre,
-                                            type = enrichedPodcast.type,
+                                            type = typeVal,
                                             isSubscribed = true,
+                                            subscribedAt = enrichedPodcast.subscribedAt,
                                             lastRefreshed = System.currentTimeMillis(),
                                             latestEpisode = enrichedPodcast.latestEpisode,
                                             podcastGuid = enrichedPodcast.podcastGuid,
@@ -341,7 +355,8 @@ class PodcastInfoViewModel(
                                             updateFrequency = enrichedPodcast.updateFrequency,
                                             location = enrichedPodcast.location,
                                             license = enrichedPodcast.license,
-                                            isLocked = enrichedPodcast.isLocked
+                                            isLocked = enrichedPodcast.isLocked,
+                                            preferredSort = preferredSortVal
                                         )
                                         database.podcastDao().upsert(updatedEntity)
                                     }
@@ -393,7 +408,7 @@ class PodcastInfoViewModel(
 
         viewModelScope.launch {
             try {
-                val limit = if (currentState.podcast.type == "serial") 200 else PAGE_SIZE
+                val limit = if (currentState.currentSort == EpisodeSort.OLDEST) 200 else PAGE_SIZE
                 val sortParam = if (currentState.currentSort == EpisodeSort.OLDEST) "oldest" else "newest"
                 val page = repository.getEpisodesPaginated(currentPodcastId, limit, currentOffset, sortParam)
                 currentOffset += page.episodes.size
@@ -427,8 +442,14 @@ class PodcastInfoViewModel(
         )
 
         viewModelScope.launch {
+            // Persist sort preference for subscribed podcasts
+            if (currentState.isSubscribed) {
+                val sortString = if (newSort == EpisodeSort.OLDEST) "oldest" else "newest"
+                subscriptionRepository.updatePreferredSort(currentPodcastId, sortString)
+            }
+
             try {
-                val limit = if (currentState.podcast.type == "serial") 200 else PAGE_SIZE
+                val limit = if (newSort == EpisodeSort.OLDEST) 200 else PAGE_SIZE
                 val sortParam = if (newSort == EpisodeSort.OLDEST) "oldest" else "newest"
                 val page = repository.getEpisodesPaginated(currentPodcastId, limit, 0, sortParam)
                 currentOffset = page.episodes.size
@@ -503,7 +524,13 @@ class PodcastInfoViewModel(
                 subscriptionRepository.toggleSubscription(currentState.podcast)
                 // Refresh state
                 val isSubscribed = subscriptionRepository.isSubscribed(currentState.podcast.id)
-                _uiState.value = currentState.copy(isSubscribed = isSubscribed)
+                val updatedPodcast = currentState.podcast.copy(
+                    subscribedAt = if (isSubscribed) System.currentTimeMillis() else 0L
+                )
+                _uiState.value = currentState.copy(
+                    podcast = updatedPodcast,
+                    isSubscribed = isSubscribed
+                )
                 
                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastSubscriptionToggled(
                     podcastId = currentState.podcast.id,
@@ -557,8 +584,9 @@ class PodcastInfoViewModel(
     // Combine player state and history to provide per-episode state
     val episodePlaybackState: StateFlow<Map<String, EpisodePlaybackState>> = kotlinx.coroutines.flow.combine(
         playbackRepository.playerState,
-        playbackRepository.getAllHistory()
-    ) { player, historyList ->
+        playbackRepository.getAllHistory(),
+        _currentPodcastIdFlow
+    ) { player: cx.aswin.boxcast.core.data.PlayerState, historyList: List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>, loadedId: String? ->
         val map = mutableMapOf<String, EpisodePlaybackState>()
         
         // 1. Map History (Resume State)
@@ -581,9 +609,9 @@ class PodcastInfoViewModel(
             }
         }
         
-        // 2. Override with Active Player State
+        // 2. Override with Active Player State ONLY if the playing episode belongs to this podcast
         val currentEp = player.currentEpisode
-        if (currentEp != null) {
+        if (currentEp != null && (currentEp.podcastId == loadedId || player.currentPodcast?.id == loadedId)) {
             val progress = if (player.duration > 0) (player.position.toFloat() / player.duration).coerceIn(0f, 1f) else 0f
             val remainingSeconds = if (player.duration > 0) (player.duration - player.position) / 1000 else 0
              val timeLeft = if (remainingSeconds > 0) {
@@ -601,7 +629,9 @@ class PodcastInfoViewModel(
         }
         
         map
-    }.stateIn(
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .distinctUntilChanged()
+    .stateIn(
         scope = viewModelScope,
         started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyMap()
@@ -627,6 +657,7 @@ class PodcastInfoViewModel(
     // Track queued episodes
     val queuedEpisodeIds: StateFlow<Set<String>> = playbackRepository.playerState
         .map { state -> state.queue.map { it.id }.toSet() }
+        .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

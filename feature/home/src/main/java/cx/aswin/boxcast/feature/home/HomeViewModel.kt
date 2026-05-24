@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.awaitAll
 import java.util.Calendar
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -34,6 +35,19 @@ import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material.icons.rounded.Bedtime
+
+private const val MAX_MIXTAPE_ITEMS = 15
+private const val MIXTAPE_AFFINITY_WEIGHT = 0.8
+
+private data class MixtapeCandidate(
+    val episodeId: String,
+    val score: Double,
+    val isProgress: Boolean,
+    val podcast: Podcast,
+    val episode: Episode,
+    val progressMs: Long = 0L,
+    val durationMs: Long = 0L
+)
 
 @Immutable
 data class SmartHeroItem(
@@ -76,14 +90,19 @@ data class HomeUiState(
     val isError: Boolean = false,
     val showRegionNudge: Boolean = false,
     val systemRegionCode: String = "",
-    val activeRegionCode: String = ""
+    val activeRegionCode: String = "",
+    val selectedPodcastId: String? = null,
+    val selectedPodcastEpisodes: List<Episode> = emptyList(),
+    val isSelectedPodcastLoading: Boolean = false,
+    val episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap()
 )
 
 data class HomeDataWrapper(
     val trending: List<Podcast>,
     val resume: List<cx.aswin.boxcast.core.data.PlaybackSession>,
     val subs: List<Podcast>,
-    val history: List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>
+    val history: List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>,
+    val resolvedSerial: Map<String, Episode>
 )
 
 /**
@@ -152,7 +171,123 @@ class HomeViewModel(
     // Store current region for use in other scopes
     private var activeRegion = "us"
 
+    private val _selectedPodcastId = MutableStateFlow<String?>(null)
+    private val _selectedPodcastEpisodes = MutableStateFlow<List<Episode>>(emptyList())
+    private val _isSelectedPodcastLoading = MutableStateFlow(false)
+    private var currentUnplayedEpisodes: List<Episode> = emptyList()
+    private val _resolvedSerialEpisodes = MutableStateFlow<Map<String, Episode>>(emptyMap())
+    private val inFlightResolutions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    fun selectPodcast(podcastId: String?) {
+        _selectedPodcastId.value = podcastId
+        if (podcastId != null) {
+            val title = uiState.value.subscribedPodcasts.find { it.id == podcastId }?.title ?: ""
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomePodcastFiltered(podcastId, title)
+        }
+    }
+
+    fun playUnplayedMix() {
+        val episodes = currentUnplayedEpisodes
+        if (episodes.isEmpty()) return
+        
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlayMixClicked(episodes.size)
+        
+        val dummyPodcast = Podcast(
+            id = "unplayed_mix",
+            title = "Your Shows Mix",
+            artist = "Various Artists",
+            imageUrl = "",
+            fallbackImageUrl = null,
+            description = "Mixed playlist of unplayed episodes",
+            genre = "Mix"
+        )
+        viewModelScope.launch {
+            playbackRepository.playQueue(episodes, dummyPodcast, 0)
+        }
+    }
+
+    fun playEpisode(episode: Episode, podcast: Podcast) {
+        viewModelScope.launch {
+            playbackRepository.playQueue(listOf(episode), podcast, 0)
+        }
+    }
+
+    private fun observeSelectedPodcast() {
+        viewModelScope.launch {
+            // Derive a distinct signal from history & subscriptions: (podcastId, lastPlayedEpisodeId, preferredSort) for the selected podcast.
+            // This only changes when the selected podcast changes, the last played episode ID changes, or the subscription preferredSort changes.
+            val historySignal = combine(
+                _selectedPodcastId,
+                playbackRepository.getAllHistory(),
+                subscriptionRepository.subscribedPodcasts
+            ) { podcastId, allHistory, subs ->
+                if (podcastId == null) {
+                    null
+                } else {
+                    val lastPlayed = allHistory
+                        .filter { it.podcastId == podcastId }
+                        .maxByOrNull { it.lastPlayedAt }
+                    val podcast = subs.find { it.id == podcastId }
+                    val preferredSort = podcast?.preferredSort ?: "newest"
+                    Triple(podcastId, lastPlayed?.episodeId, preferredSort)
+                }
+            }.distinctUntilChanged()
+
+            historySignal.collectLatest { info ->
+                if (info == null) {
+                    _selectedPodcastEpisodes.value = emptyList()
+                    _isSelectedPodcastLoading.value = false
+                } else {
+                    val (podcastId, lastPlayedEpisodeId, sort) = info
+                    _isSelectedPodcastLoading.value = true
+                    try {
+                        if (sort == "oldest") {
+                            // Fetch all episodes of the podcast (up to 500) to find the index of the last played episode
+                            val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 500, offset = 0, sort = "oldest")
+                            val allEpisodes = page.episodes
+                            
+                            val lastPlayedIndex = if (lastPlayedEpisodeId != null) {
+                                allEpisodes.indexOfFirst { it.id == lastPlayedEpisodeId }
+                            } else -1
+                            
+                            val offset = if (lastPlayedIndex != -1) {
+                                (lastPlayedIndex - 2).coerceAtLeast(0)
+                            } else 0
+                            
+                            _selectedPodcastEpisodes.value = allEpisodes.drop(offset).take(15)
+                        } else {
+                            val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 5, offset = 0, sort = "newest")
+                            _selectedPodcastEpisodes.value = page.episodes
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeViewModel", "Failed to fetch episodes for filter: $podcastId", e)
+                        _selectedPodcastEpisodes.value = emptyList()
+                    } finally {
+                        _isSelectedPodcastLoading.value = false
+                    }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                _selectedPodcastId,
+                _selectedPodcastEpisodes,
+                _isSelectedPodcastLoading
+            ) { id, eps, loading ->
+                Triple(id, eps, loading)
+            }.collect { (id, eps, loading) ->
+                _uiState.update { it.copy(
+                    selectedPodcastId = id,
+                    selectedPodcastEpisodes = eps,
+                    isSelectedPodcastLoading = loading
+                ) }
+            }
+        }
+    }
+
     init {
+        observeSelectedPodcast()
         loadData()
         startBackgroundSync()
     }
@@ -234,19 +369,92 @@ class HomeViewModel(
                 
                 combine(
                     trendingState, // Hot StateFlow — never completes
-                    playbackRepository.resumeSessions
-                        .onStart { emit(emptyList()) },
-                    subscriptionRepository.subscribedPodcasts
-                        .onStart { emit(emptyList()) },
-                    playbackRepository.getAllHistory()
-                        .onStart { emit(emptyList()) }
-                ) { trendingList, resumeList, subs, allHistory ->
-                     HomeDataWrapper(trendingList, resumeList, subs, allHistory)
+                    playbackRepository.resumeSessions,
+                    subscriptionRepository.subscribedPodcasts,
+                    playbackRepository.getAllHistory(),
+                    _resolvedSerialEpisodes
+                ) { trendingList, resumeList, subs, allHistory, resolvedSerial ->
+                     HomeDataWrapper(trendingList, resumeList, subs, allHistory, resolvedSerial)
                 }.collect { wrapper ->
-                    val trendingList = wrapper.trending
-                    val resumeList = wrapper.resume
-                    val subs = wrapper.subs
-                    val allHistory = wrapper.history
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        val trendingList = wrapper.trending
+                        val resumeList = wrapper.resume
+                        val subs = wrapper.subs
+                        val allHistory = wrapper.history
+                        val resolvedSerial = wrapper.resolvedSerial
+
+                        // Asynchronously resolve next episodes for oldest-sort podcasts
+                        val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet()
+                        val inProgressEpIdsForResolve = allHistory.filter { !it.isCompleted && it.progressMs > 0L }.map { it.episodeId }.toSet()
+
+                        android.util.Log.d("HomeViewModelResolve", "Completed Ep IDs: $completedEpIdsForResolve")
+
+                        val serialPodsToResolve = subs.filter { (it.preferredSort ?: "newest") == "oldest" }.filter { pod ->
+                            val currentResolved = resolvedSerial[pod.id]
+                            val needsResolve = currentResolved == null || currentResolved.id in completedEpIdsForResolve || currentResolved.id in inProgressEpIdsForResolve
+                            needsResolve && pod.id !in inFlightResolutions
+                        }
+
+                        if (serialPodsToResolve.isNotEmpty()) {
+                            serialPodsToResolve.forEach { inFlightResolutions.add(it.id) }
+                            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                            try {
+                                val newResolved = _resolvedSerialEpisodes.value.toMutableMap()
+                                var changed = false
+                                for (pod in serialPodsToResolve) {
+                                    try {
+                                         val ongoingId = allHistory.filter { h -> h.podcastId == pod.id && !h.isCompleted && h.progressMs > 0L }.maxByOrNull { it.lastPlayedAt }?.episodeId
+                                         val lastCompletedId = allHistory.filter { h -> h.podcastId == pod.id && h.isCompleted }.maxByOrNull { it.lastPlayedAt }?.episodeId
+                                         
+                                         android.util.Log.d("HomeViewModelResolve", "Resolving pod=${pod.title} id=${pod.id} ongoingId=$ongoingId lastCompletedId=$lastCompletedId")
+                                         
+                                         // Fetch all episodes chronologically oldest to newest
+                                         val page = podcastRepository.getEpisodesPaginated(pod.id, limit = 200, offset = 0, sort = "oldest")
+                                         val allEpisodes = page.episodes
+                                         
+                                         val nextEp = when {
+                                             ongoingId != null -> {
+                                                 val ongoingIndex = allEpisodes.indexOfFirst { it.id == ongoingId }
+                                                 android.util.Log.d("HomeViewModelResolve", "Ongoing ep index in feed: $ongoingIndex")
+                                                 if (ongoingIndex != -1 && ongoingIndex < allEpisodes.lastIndex) {
+                                                     allEpisodes[ongoingIndex + 1]
+                                                 } else {
+                                                     null
+                                                 }
+                                             }
+                                             lastCompletedId != null -> {
+                                                 val completedIndex = allEpisodes.indexOfFirst { it.id == lastCompletedId }
+                                                 android.util.Log.d("HomeViewModelResolve", "Last completed ep index in feed: $completedIndex")
+                                                 if (completedIndex != -1 && completedIndex < allEpisodes.lastIndex) {
+                                                     allEpisodes[completedIndex + 1]
+                                                 } else {
+                                                     null
+                                                 }
+                                             }
+                                             else -> {
+                                                 allEpisodes.firstOrNull()
+                                             }
+                                         } ?: allEpisodes.firstOrNull { ep ->
+                                             ep.id !in completedEpIdsForResolve && ep.id !in inProgressEpIdsForResolve
+                                         }
+                                         
+                                         android.util.Log.d("HomeViewModelResolve", "Resolved next episode: ${nextEp?.title ?: "NULL"}")
+                                         if (nextEp != null) {
+                                             newResolved[pod.id] = nextEp
+                                             changed = true
+                                         }          
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("HomeViewModel", "Failed to resolve next episode for serial pod ${pod.id}", e)
+                                    }
+                                }
+                                if (changed) {
+                                    _resolvedSerialEpisodes.value = newResolved
+                                }
+                            } finally {
+                                serialPodsToResolve.forEach { inFlightResolutions.remove(it.id) }
+                            }
+                        }
+                    }
                     
                     // Compute completed count for review prompt logic
                     val completedCount = allHistory.count { it.isCompleted }
@@ -300,7 +508,9 @@ class HomeViewModel(
                                         imageUrl = epImage ?: "",
                                         audioUrl = session.audioUrl ?: "",
                                         duration = (session.durationMs / 1000).toInt(),
-                                        publishedDate = 0L
+                                        publishedDate = 0L,
+                                        podcastTitle = session.podcastTitle.ifEmpty { "Unknown Podcast" },
+                                        podcastId = session.podcastId
                                     )
                                 )
                             }
@@ -374,14 +584,23 @@ class HomeViewModel(
                                 
                                 if (candidates.isNotEmpty()) {
                                     for (pod in candidates) {
-                                        val freshEpisode = pod.latestEpisode ?: continue
-                                        val history = allHistory.find { it.episodeId == freshEpisode.id }
+                                        val sort = pod.preferredSort ?: "newest"
+                                        val freshEpisode = if (sort == "oldest") {
+                                            resolvedSerial[pod.id] ?: pod.latestEpisode
+                                        } else {
+                                            pod.latestEpisode
+                                        } ?: continue
+                                        val freshEpisodeWithContext = freshEpisode.copy(
+                                            podcastTitle = pod.title,
+                                            podcastId = pod.id
+                                        )
+                                        val history = allHistory.find { it.episodeId == freshEpisodeWithContext.id }
                                         
                                         when {
                                             // Never touched
                                             history == null || (history.progressMs == 0L && !history.isCompleted) -> {
                                                 unplayedBucket.add(pod.copy(
-                                                    latestEpisode = freshEpisode,
+                                                    latestEpisode = freshEpisodeWithContext,
                                                     episodeStatus = EpisodeStatus.UNPLAYED
                                                 ))
                                             }
@@ -392,7 +611,7 @@ class HomeViewModel(
                                                 else 0f
                                                 inProgressBucket.add(
                                                     pod.copy(
-                                                        latestEpisode = freshEpisode,
+                                                        latestEpisode = freshEpisodeWithContext,
                                                         resumeProgress = progress,
                                                         episodeStatus = EpisodeStatus.IN_PROGRESS
                                                     ) to history.lastPlayedAt
@@ -402,7 +621,7 @@ class HomeViewModel(
                                             history.isCompleted -> {
                                                 completedBucket.add(
                                                     pod.copy(
-                                                        latestEpisode = freshEpisode,
+                                                        latestEpisode = freshEpisodeWithContext,
                                                         resumeProgress = 1f,
                                                         episodeStatus = EpisodeStatus.COMPLETED
                                                     ) to history.lastPlayedAt
@@ -414,11 +633,273 @@ class HomeViewModel(
                             } catch (e: Exception) { e.printStackTrace() }
                         }
 
-                        // Build smart catch-up list: Unplayed first → In Progress by recency → All Completed by recency
-                        val catchUpList = buildList {
-                            addAll(unplayedBucket)
-                            addAll(inProgressBucket.sortedByDescending { it.second }.map { it.first })
-                            addAll(completedBucket.sortedByDescending { it.second }.map { it.first })
+
+                        // Calculate score map for all subscribed podcasts
+                        val podScoresMap = subs.associate { pod ->
+                            val playCount = allHistory.count { it.podcastId == pod.id }
+                            val likeCount = allHistory.count { it.podcastId == pod.id && it.isLiked }
+                            val playScore = 12.0 * playCount
+                            val likeScore = 25.0 * likeCount
+
+                            val lastPlayTime = allHistory.filter { it.podcastId == pod.id }.maxOfOrNull { it.lastPlayedAt }
+                            val playRecencyScore = if (lastPlayTime != null) {
+                                val hoursSinceLastPlay = (System.currentTimeMillis() - lastPlayTime).toDouble() / (1000.0 * 3600.0)
+                                250.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
+                            } else {
+                                0.0
+                            }
+
+                            val latestEp = pod.latestEpisode
+                            val freshnessScore = if (latestEp != null) {
+                                val latestEpHistory = allHistory.find { it.episodeId == latestEp.id }
+                                val isUnplayed = latestEpHistory == null || (latestEpHistory.progressMs == 0L && !latestEpHistory.isCompleted)
+                                val releasedAfterSub = latestEp.publishedDate > (pod.subscribedAt / 1000L)
+                                if (isUnplayed && releasedAfterSub) {
+                                    val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
+                                    (150.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)) + 80.0
+                                } else {
+                                    0.0
+                                }
+                            } else {
+                                0.0
+                            }
+
+                            val subRecencyScore = if (pod.subscribedAt > 0L) {
+                                val hoursSinceSubscribed = (System.currentTimeMillis() - pod.subscribedAt).toDouble() / (1000.0 * 3600.0)
+                                100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
+                            } else {
+                                0.0
+                            }
+
+                            pod.id to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore)
+                        }
+
+                        val sortedSubs = subs.map { pod ->
+                            pod to (podScoresMap[pod.id] ?: 0.0)
+                        }.sortedWith(
+                            compareByDescending<Pair<Podcast, Double>> { it.second }
+                                .thenBy { it.first.title }
+                        ).map { it.first }
+
+                        // 2. Mixtape Episodes Calculation & Scoring
+                        val subIds = subs.map { it.id }.toSet()
+
+                        // A. In-Progress Episodes (Deduplicated per podcast: take the most recently played)
+                        val inProgressCandidates = allHistory.filter { history ->
+                            history.podcastId in subIds && !history.isCompleted && history.progressMs > 0L
+                        }.groupBy { it.podcastId }
+                         .mapValues { (_, eps) -> eps.maxByOrNull { it.lastPlayedAt } }
+                         .values.filterNotNull()
+
+                        val inProgressMixtapeCandidates = inProgressCandidates.mapNotNull { history ->
+                            val parentPod = subs.find { it.id == history.podcastId } ?: return@mapNotNull null
+                            val hoursSinceLastPlay = (System.currentTimeMillis() - history.lastPlayedAt).toDouble() / (1000.0 * 3600.0)
+                            val score = 1000.0 + 500.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
+
+                            val inProgressEpisode = Episode(
+                                id = history.episodeId,
+                                title = history.episodeTitle,
+                                description = "",
+                                audioUrl = history.episodeAudioUrl ?: "",
+                                imageUrl = history.episodeImageUrl,
+                                podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl,
+                                podcastTitle = history.podcastName.ifEmpty { parentPod.title },
+                                podcastId = history.podcastId,
+                                duration = (history.durationMs / 1000).toInt(),
+                                publishedDate = 0L
+                            )
+
+                            MixtapeCandidate(
+                                episodeId = history.episodeId,
+                                score = score,
+                                isProgress = true,
+                                podcast = parentPod,
+                                episode = inProgressEpisode,
+                                progressMs = history.progressMs,
+                                durationMs = history.durationMs
+                            )
+                        }
+
+                        val unplayedDropsCandidates = subs.mapNotNull { pod ->
+                            // Serial listener: find next unplayed episode in chronological order
+                            val sort = pod.preferredSort ?: "newest"
+                            if (sort == "oldest") {
+                                val resolved = resolvedSerial[pod.id]
+                                if (resolved != null) {
+                                    pod to resolved.copy(podcastTitle = pod.title, podcastId = pod.id)
+                                } else {
+                                    // Fallback synchronously to latest episode
+                                    val latestEp = pod.latestEpisode ?: return@mapNotNull null
+                                    val history = allHistory.find { it.episodeId == latestEp.id }
+                                    val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
+                                    if (isUnplayed) pod to latestEp.copy(podcastTitle = pod.title, podcastId = pod.id) else null
+                                }
+                            } else {
+                                // Standard: use latest episode
+                                val latestEp = pod.latestEpisode ?: return@mapNotNull null
+                                val history = allHistory.find { it.episodeId == latestEp.id }
+                                val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
+                                if (isUnplayed) {
+                                    pod to latestEp.copy(podcastTitle = pod.title, podcastId = pod.id)
+                                } else {
+                                    null
+                                }
+                            }
+                        }
+
+                        val unplayedDropsMixtapeCandidates = unplayedDropsCandidates.map { (pod, ep) ->
+                            val releasedAfterSub = ep.publishedDate > (pod.subscribedAt / 1000L)
+                            val freshnessBoost = if (releasedAfterSub) {
+                                val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
+                                300.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)
+                            } else {
+                                0.0
+                            }
+                            // New-tagged episodes get an extra score boost
+                            val newTagBoost = if (releasedAfterSub) 200.0 else 0.0
+                            // Serial listeners get a consistent boost so their "next episode" surfaces well
+                            val sort = pod.preferredSort ?: "newest"
+                            val serialBoost = if (sort == "oldest") 150.0 else 0.0
+
+                            val parentPodScore = podScoresMap[pod.id] ?: 0.0
+                            val score = 500.0 + freshnessBoost + newTagBoost + serialBoost + MIXTAPE_AFFINITY_WEIGHT * parentPodScore
+
+                            MixtapeCandidate(
+                                episodeId = ep.id,
+                                score = score,
+                                isProgress = false,
+                                podcast = pod,
+                                episode = ep
+                            )
+                        }
+
+                        // C. Combine & Deduplicate
+                        // Allow 2 eps from the same podcast if one is a resume (in-progress)
+                        // and the other is a new-tagged unplayed drop.
+                        val allMixtapeCandidates = (inProgressMixtapeCandidates + unplayedDropsMixtapeCandidates)
+                            .sortedByDescending { it.score }
+
+                        val deduplicatedCandidates = mutableListOf<MixtapeCandidate>()
+                        val seenEpisodeIds = mutableSetOf<String>()
+                        // Track per-podcast: which "slot types" we've already taken
+                        // A podcast can have at most one isProgress=true and one isProgress=false (if new-tagged)
+                        val podcastSlots = mutableMapOf<String, MutableSet<Boolean>>() // podcastId -> set of isProgress values seen
+                        for (cand in allMixtapeCandidates) {
+                            if (cand.episodeId in seenEpisodeIds) continue
+                            val podId = cand.podcast.id
+                            val slots = podcastSlots.getOrPut(podId) { mutableSetOf() }
+                            if (cand.isProgress !in slots) {
+                                // First entry for this slot type (resume or unplayed drop)
+                                slots.add(cand.isProgress)
+                                seenEpisodeIds.add(cand.episodeId)
+                                deduplicatedCandidates.add(cand)
+                            } else if (slots.size < 2) {
+                                // Only one slot used so far — allow the other type
+                                // but only if this is a new-tagged unplayed drop alongside a resume
+                                val isNewTagged = !cand.isProgress && cand.episode.publishedDate > (cand.podcast.subscribedAt / 1000L)
+                                if (isNewTagged && slots.contains(true)) {
+                                    slots.add(cand.isProgress)
+                                    seenEpisodeIds.add(cand.episodeId)
+                                    deduplicatedCandidates.add(cand)
+                                }
+                                // Also allow resume if we already have an unplayed new drop
+                                else if (cand.isProgress && slots.contains(false)) {
+                                    slots.add(cand.isProgress)
+                                    seenEpisodeIds.add(cand.episodeId)
+                                    deduplicatedCandidates.add(cand)
+                                }
+                            }
+                        }
+
+                        // Re-order final candidates: place next unplayed episode directly after its in-progress counterpart if both exist
+                        val orderedCandidates = mutableListOf<MixtapeCandidate>()
+                        val inProgressList = deduplicatedCandidates.filter { it.isProgress }
+                        val unplayedList = deduplicatedCandidates.filter { !it.isProgress }.toMutableList()
+
+                        for (ipCand in inProgressList) {
+                            orderedCandidates.add(ipCand)
+                            // Find the corresponding unplayed next episode for this podcast
+                            val nextEpCand = unplayedList.find { it.podcast.id == ipCand.podcast.id }
+                            if (nextEpCand != null) {
+                                orderedCandidates.add(nextEpCand)
+                                unplayedList.remove(nextEpCand)
+                            }
+                        }
+                        // Add the remaining unplayed candidates
+                        orderedCandidates.addAll(unplayedList)
+
+                        val top10Candidates = orderedCandidates.take(MAX_MIXTAPE_ITEMS)
+
+                        // D. Fallback to completed episodes of subscribed podcasts if empty
+                        val finalCandidates = if (top10Candidates.isNotEmpty()) {
+                            top10Candidates
+                        } else {
+                            val completedCandidates = allHistory.filter { history ->
+                                history.podcastId in subIds && history.isCompleted
+                            }
+                            completedCandidates.sortedByDescending { it.lastPlayedAt }.take(MAX_MIXTAPE_ITEMS).mapNotNull { history ->
+                                val parentPod = subs.find { it.id == history.podcastId } ?: return@mapNotNull null
+                                val completedEpisode = Episode(
+                                    id = history.episodeId,
+                                    title = history.episodeTitle,
+                                    description = "",
+                                    audioUrl = history.episodeAudioUrl ?: "",
+                                    imageUrl = history.episodeImageUrl,
+                                    podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl,
+                                    podcastTitle = history.podcastName.ifEmpty { parentPod.title },
+                                    podcastId = history.podcastId,
+                                    duration = (history.durationMs / 1000).toInt(),
+                                    publishedDate = 0L
+                                )
+                                MixtapeCandidate(
+                                    episodeId = history.episodeId,
+                                    score = 0.0,
+                                    isProgress = false,
+                                    podcast = parentPod,
+                                    episode = completedEpisode,
+                                    progressMs = history.progressMs,
+                                    durationMs = history.durationMs
+                                )
+                            }
+                        }
+
+                        // E. Map to Podcast objects
+                        android.util.Log.d("HomeViewModelResolve", "Mixtape Final Candidates List: size=${finalCandidates.size}")
+                        val mixtapePodcasts = finalCandidates.mapIndexed { idx, cand ->
+                            val ratio = if (cand.durationMs > 0) {
+                                (cand.progressMs.toFloat() / cand.durationMs.toFloat()).coerceIn(0f, 1f)
+                            } else if (cand.isProgress) {
+                                0.5f
+                            } else {
+                                0.0f
+                            }
+
+                            val status = when {
+                                cand.isProgress -> EpisodeStatus.IN_PROGRESS
+                                allHistory.find { it.episodeId == cand.episodeId }?.isCompleted == true -> EpisodeStatus.COMPLETED
+                                else -> EpisodeStatus.UNPLAYED
+                            }
+
+                            android.util.Log.d("HomeViewModelResolve", "Mixtape Candidate[$idx]: pod=${cand.podcast.title} ep=${cand.episode.title} status=$status isProgress=${cand.isProgress} ratio=$ratio")
+
+                            cand.podcast.copy(
+                                latestEpisode = cand.episode,
+                                resumeProgress = if (status == EpisodeStatus.IN_PROGRESS) ratio else if (status == EpisodeStatus.COMPLETED) 1f else null,
+                                episodeStatus = status
+                            )
+                        }
+
+                        val mixtapeCount = finalCandidates.count { cand ->
+                            val isCompleted = allHistory.find { it.episodeId == cand.episodeId }?.isCompleted == true
+                            !isCompleted
+                        }
+
+                        currentUnplayedEpisodes = finalCandidates.map { it.episode }
+                        if (subs.size == 1 && _selectedPodcastId.value == null) {
+                            viewModelScope.launch {
+                                kotlinx.coroutines.delay(500)
+                                selectPodcast(subs.first().id)
+                            }
                         }
 
                         // B. New Episodes — Same Progressive Density
@@ -427,11 +908,12 @@ class HomeViewModel(
                         // 3-5 unplayed → 1 full card + 1 grid card (2-4 items)
                         if (unplayedBucket.isNotEmpty()) {
                             val first = unplayedBucket.first()
+                            val firstSort = first.preferredSort ?: "newest"
                             heroList.add(
                                 SmartHeroItem(
                                     type = HeroType.JUMP_BACK_IN,
                                     podcast = first,
-                                    label = if (unplayedBucket.size == 1) "NEW EPISODE" else "FRESH DROP",
+                                    label = if (firstSort == "oldest") "NEXT" else if (unplayedBucket.size == 1) "NEW EPISODE" else "FRESH DROP",
                                     description = first.latestEpisode?.title
                                 )
                             )
@@ -440,11 +922,12 @@ class HomeViewModel(
                             if (unplayedBucket.size == 2) {
                                 // 2 unplayed → second also gets a full card
                                 val second = unplayedBucket[1]
+                                val secondSort = second.preferredSort ?: "newest"
                                 heroList.add(
                                     SmartHeroItem(
                                         type = HeroType.JUMP_BACK_IN,
                                         podcast = second,
-                                        label = "NEW EPISODE",
+                                        label = if (secondSort == "oldest") "NEXT" else "NEW EPISODE",
                                         description = second.latestEpisode?.title
                                     )
                                 )
@@ -519,20 +1002,29 @@ class HomeViewModel(
                             cachedForYouTrending = trendingList
                             cachedHeroItems = heroList
                             cachedTimeBlock = timeBlock
-                            cachedLatestEpisodes = catchUpList
+                            cachedLatestEpisodes = mixtapePodcasts
                         }
 
-                        val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                            if (it == "us" || it == "in" || it == "gb") it else "us"
+                        val episodePlaybackState = allHistory.associate { history ->
+                            val ratio = if (history.durationMs > 0) {
+                                (history.progressMs.toFloat() / history.durationMs.toFloat()).coerceIn(0f, 1f)
+                            } else 0f
+                            val status = when {
+                                history.isCompleted -> EpisodeStatus.COMPLETED
+                                history.progressMs > 0L -> EpisodeStatus.IN_PROGRESS
+                                else -> EpisodeStatus.UNPLAYED
+                            }
+                            history.episodeId to (status to ratio)
                         }
+
                         val shouldShowNudge = !hasDismissed && (systemCountry != region)
 
                         _uiState.value = HomeUiState(
                             heroItems = heroList,
-                            latestEpisodes = catchUpList,
-                            unplayedEpisodeCount = unplayedBucket.size,
+                            latestEpisodes = mixtapePodcasts,
+                            unplayedEpisodeCount = mixtapeCount,
                             completedEpisodeCount = completedCount,
-                            subscribedPodcasts = subs,
+                            subscribedPodcasts = sortedSubs,
                             selectedCategory = _selectedCategory.value,
                             timeBlock = timeBlock,
                             discoverPodcasts = discover,
@@ -541,10 +1033,13 @@ class HomeViewModel(
                             isError = false,
                             showRegionNudge = shouldShowNudge,
                             systemRegionCode = systemCountry,
-                            activeRegionCode = region
+                            activeRegionCode = region,
+                            selectedPodcastId = _selectedPodcastId.value,
+                            selectedPodcastEpisodes = _selectedPodcastEpisodes.value,
+                            isSelectedPodcastLoading = _isSelectedPodcastLoading.value,
+                            episodePlaybackState = episodePlaybackState
                         )
-                        
-
+                    }
                 }
             }
         }
@@ -623,6 +1118,7 @@ class HomeViewModel(
     
     fun selectCategory(category: String?) {
         _selectedCategory.value = category
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDiscoverCategoryFiltered(category ?: "All")
     }
     
     fun toggleSubscription(podcastId: String) {
@@ -751,7 +1247,6 @@ class HomeViewModel(
         val day = cal.get(Calendar.DAY_OF_WEEK) // Sun=1...
         
         val isWeekend = day == Calendar.SATURDAY || day == Calendar.SUNDAY
-        val isMonday = day == Calendar.MONDAY
         val isFriday = day == Calendar.FRIDAY
 
         return when (hour) {

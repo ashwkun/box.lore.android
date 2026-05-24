@@ -10,7 +10,7 @@ import cx.aswin.boxcast.core.data.database.dao.QueueDao
 
 @Database(
     entities = [ListeningHistoryEntity::class, PodcastEntity::class, DownloadedEpisodeEntity::class, QueueItem::class],
-    version = 17, // Add location, license, isLocked to podcasts table
+    version = 19, // Add preferredSort to podcasts table
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -59,6 +59,18 @@ abstract class BoxCastDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN subscribedAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN preferredSort TEXT")
+            }
+        }
+
         @Volatile
         private var INSTANCE: BoxCastDatabase? = null
 
@@ -69,7 +81,7 @@ abstract class BoxCastDatabase : RoomDatabase() {
                     BoxCastDatabase::class.java,
                     "boxcast_database"
                 )
-                .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                 .fallbackToDestructiveMigration() // For development simplicity on older versions
                 .build()
                 INSTANCE = instance

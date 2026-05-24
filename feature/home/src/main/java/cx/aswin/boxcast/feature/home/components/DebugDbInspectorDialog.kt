@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.data.database.PodcastEntity
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 
@@ -34,6 +37,8 @@ fun DebugDbInspectorDialog(
     podcasts: List<PodcastEntity>,
     onDeleteHistoryItem: (String) -> Unit,
     onResetFeatureFlag: () -> Unit,
+    onResetSleepNudge: () -> Unit,
+    onClearSleepTimer: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
@@ -48,14 +53,39 @@ fun DebugDbInspectorDialog(
                 var selectedTabIndex by remember { mutableIntStateOf(0) }
                 val tabs = listOf("History (${history.size})", "Subs (${podcasts.size})")
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text("Debug Tools", style = MaterialTheme.typography.titleMedium)
-                    androidx.compose.material3.OutlinedButton(onClick = onResetFeatureFlag) {
-                        Text("Reset Dialog Flag")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Text("Debug Tools", style = MaterialTheme.typography.titleMedium)
+                        androidx.compose.material3.IconButton(onClick = onDismissRequest) {
+                            androidx.compose.material3.Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Filled.Close,
+                                contentDescription = "Close"
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        androidx.compose.material3.OutlinedButton(onClick = onClearSleepTimer) {
+                            Text("Clear Sleep Timer")
+                        }
+                        androidx.compose.material3.OutlinedButton(onClick = onResetSleepNudge) {
+                            Text("Clear Sleep Nudge")
+                        }
+                        androidx.compose.material3.OutlinedButton(onClick = onResetFeatureFlag) {
+                            Text("Reset Dialog Flag")
+                        }
                     }
                 }
 

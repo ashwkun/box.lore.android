@@ -80,6 +80,18 @@ fun FullPlayerContent(
     var showQueueSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
+    // Chapters bottom sheet state
+    var showChaptersSheet by remember { mutableStateOf(false) }
+    val chaptersSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    // Fullscreen Transcript State
+    var showFullscreenTranscript by remember(episode.id) { mutableStateOf(false) }
+    var isSyncEnabled by remember(episode.id) { mutableStateOf(true) }
+    
+    androidx.activity.compose.BackHandler(enabled = showFullscreenTranscript) {
+        showFullscreenTranscript = false
+    }
+    
     SideEffect {
         window?.let { win ->
              val insetsController = androidx.core.view.WindowCompat.getInsetsController(win, win.decorView)
@@ -88,14 +100,15 @@ fun FullPlayerContent(
         }
     }
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(containerColor)
-            .padding(top = statusBarPadding, bottom = navBarPadding)
-    ) {
-        // Top bar
-        Row(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(containerColor)
+                .padding(top = statusBarPadding, bottom = navBarPadding)
+        ) {
+            // Top bar
+            Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 8.dp),
@@ -246,6 +259,23 @@ fun FullPlayerContent(
             showTitleTip = showTitleTip,
             onTitleTipDismissed = onTitleTipDismissed,
             isExpanded = isExpanded,
+            chapters = state.currentChapters,
+            transcript = state.currentTranscript,
+            isChaptersLoading = state.isChaptersLoading,
+            autoTranscriptState = state.autoTranscriptState,
+            autoChaptersState = state.autoChaptersState,
+            autoTranscriptLimitLeft = state.autoTranscriptLimitLeft,
+            onGenerateTranscript = { playbackRepository.generateAutoTranscript() },
+            isSyncEnabled = isSyncEnabled,
+            onSyncEnabledChange = { isSyncEnabled = it },
+            onChaptersClick = {
+                showChaptersSheet = true
+                cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("chapters_sheet")
+            },
+            onFullscreenTranscriptClick = {
+                showFullscreenTranscript = true
+                cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
@@ -303,4 +333,66 @@ fun FullPlayerContent(
             )
         }
     }
+
+    // Chapters Bottom Sheet
+    if (showChaptersSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showChaptersSheet = false },
+            sheetState = chaptersSheetState,
+            containerColor = colorScheme.surface,
+            contentColor = colorScheme.onSurface,
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+            }
+        ) {
+            ChaptersSheetContent(
+                chapters = state.currentChapters,
+                positionMs = state.position,
+                colorScheme = colorScheme,
+                onSeek = { seekPos ->
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("chapters_list")
+                    playbackRepository.seekTo(seekPos)
+                    showChaptersSheet = false
+                },
+                onClose = { showChaptersSheet = false },
+                chaptersUrl = state.currentEpisode?.chaptersUrl,
+                isChaptersLoading = state.isChaptersLoading,
+                onGenerateChapters = { playbackRepository.generateAutoChapters() }
+            )
+        }
+    }
+    
+    // Fullscreen Transcript Overlay
+    androidx.compose.animation.AnimatedVisibility(
+        visible = showFullscreenTranscript,
+        enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
+        exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+    ) {
+        FullscreenTranscriptScreen(
+            transcript = state.currentTranscript,
+            positionMs = state.position,
+            isPlaying = state.isPlaying,
+            isLoading = state.isLoading,
+            durationMs = state.duration,
+            colorScheme = colorScheme,
+            isSyncEnabled = isSyncEnabled,
+            onSyncEnabledChange = { isSyncEnabled = it },
+            onSeek = { seekPos ->
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("transcript_tap")
+                playbackRepository.seekTo(seekPos)
+            },
+            onPlayPause = {
+                if (state.isPlaying) playbackRepository.pause() else playbackRepository.resume()
+            },
+            onClose = { showFullscreenTranscript = false },
+            transcriptUrl = state.currentEpisode?.transcriptUrl
+        )
+    }
+}
 }

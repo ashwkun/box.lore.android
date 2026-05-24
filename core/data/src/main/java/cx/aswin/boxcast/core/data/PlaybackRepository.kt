@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.model.Chapter
 import cx.aswin.boxcast.core.data.service.BoxCastPlaybackService
+import cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
@@ -49,13 +51,21 @@ data class PlayerState(
     val sleepTimerEnd: Long? = null,
     val sleepAtEndOfEpisode: Boolean = false, // Dynamic mode: sleep when episode ends
     val queue: List<Episode> = emptyList(),
-    val isLiked: Boolean = false
+    val isLiked: Boolean = false,
+    val showLateNightNudge: Boolean = false,
+    val currentChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
+    val isChaptersLoading: Boolean = false,
+    val currentTranscript: List<TranscriptSegment> = emptyList(),
+    val autoTranscriptState: AutoTranscriptState = AutoTranscriptState.NONE,
+    val autoChaptersState: AutoTranscriptState = AutoTranscriptState.NONE,
+    val autoTranscriptLimitLeft: Int? = null
 )
 
 class PlaybackRepository(
     private val context: Context,
     private val listeningHistoryDao: cx.aswin.boxcast.core.data.database.ListeningHistoryDao,
-    private val queueRepository: cx.aswin.boxcast.core.data.QueueRepository
+    private val queueRepository: cx.aswin.boxcast.core.data.QueueRepository,
+    private val podcastRepository: PodcastRepository
 ) {
 
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
@@ -67,6 +77,17 @@ class PlaybackRepository(
     // Preferences for session state
     private val prefs = context.getSharedPreferences("boxcast_player", Context.MODE_PRIVATE)
     private val KEY_PLAYER_DISMISSED = "player_dismissed"
+
+    fun getOrCreateDeviceUuid(): String {
+        val key = "device_uuid"
+        var uuid = prefs.getString(key, null)
+        if (uuid == null) {
+            uuid = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(key, uuid).apply()
+        }
+        android.util.Log.d("BoxCastDeviceUuid", "Your physical Device UUID is: $uuid")
+        return uuid
+    }
     
     // Scope for progress updates
     private val repositoryScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main + kotlinx.coroutines.SupervisorJob())
@@ -80,8 +101,325 @@ class PlaybackRepository(
     var queueRefillCallback: ((currentEpisode: Episode, podcast: Podcast) -> Unit)? = null
 
     init {
+        getOrCreateDeviceUuid()
         initializeMediaController()
         monitorLikeState()
+        monitorChaptersAndTranscripts()
+    }
+
+    private var chaptersAndTranscriptFetchJob: Job? = null
+    private var autoTranscriptGenerationJob: Job? = null
+    private var lastLoadedEpisodeId: String? = null
+
+    private fun monitorChaptersAndTranscripts() {
+        repositoryScope.launch {
+            playerState
+                .map { it.currentEpisode?.id }
+                .distinctUntilChanged()
+                .collect { episodeId ->
+                    if (episodeId == null) {
+                        lastLoadedEpisodeId = null
+                        chaptersAndTranscriptFetchJob?.cancel()
+                        _playerState.value = _playerState.value.copy(
+                            currentChapters = emptyList(),
+                            isChaptersLoading = false,
+                            currentTranscript = emptyList()
+                        )
+                    } else {
+                        if (episodeId == lastLoadedEpisodeId) {
+                            return@collect
+                        }
+                        lastLoadedEpisodeId = episodeId
+                        chaptersAndTranscriptFetchJob?.cancel()
+                        chaptersAndTranscriptFetchJob = launch {
+                            var episode = _playerState.value.currentEpisode
+                            
+                            // If missing metadata, try to enrich from PodcastRepository
+                            if (episode != null && (episode.chaptersUrl == null || episode.transcriptUrl == null)) {
+                                try {
+                                    val enriched = podcastRepository.getEpisode(episodeId)
+                                    if (enriched != null && _playerState.value.currentEpisode?.id == episodeId) {
+                                        val updatedEpisode = episode.copy(
+                                            description = if (episode.description.isBlank()) enriched.description else episode.description,
+                                            chaptersUrl = enriched.chaptersUrl,
+                                            transcriptUrl = enriched.transcriptUrl,
+                                            transcripts = enriched.transcripts,
+                                            persons = enriched.persons,
+                                            seasonNumber = enriched.seasonNumber,
+                                            episodeNumber = enriched.episodeNumber,
+                                            episodeType = enriched.episodeType,
+                                            podcastImageUrl = episode.podcastImageUrl ?: enriched.podcastImageUrl,
+                                            podcastTitle = episode.podcastTitle ?: enriched.podcastTitle,
+                                            podcastArtist = episode.podcastArtist ?: enriched.podcastArtist
+                                        )
+                                        val updatedQueue = _playerState.value.queue.map {
+                                            if (it.id == episodeId) updatedEpisode else it
+                                        }
+                                        _playerState.value = _playerState.value.copy(
+                                            currentEpisode = updatedEpisode,
+                                            queue = updatedQueue
+                                        )
+                                        episode = updatedEpisode
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("PlaybackRepo", "Failed to enrich episode $episodeId", e)
+                                }
+                            }
+
+                                val chaptersUrl = episode?.chaptersUrl
+                            val transcriptUrl = episode?.transcriptUrl
+                            
+                            // Fetch chapters
+                            if (chaptersUrl != null) {
+                                _playerState.value = _playerState.value.copy(
+                                    isChaptersLoading = true,
+                                    currentChapters = emptyList(),
+                                    autoChaptersState = AutoTranscriptState.NONE
+                                )
+                                launch {
+                                    val chapters = ChapterRepository.getChapters(chaptersUrl)
+                                    if (_playerState.value.currentEpisode?.id == episode?.id) {
+                                        _playerState.value = _playerState.value.copy(
+                                            currentChapters = chapters,
+                                            isChaptersLoading = false
+                                        )
+                                    }
+                                }
+                            } else {
+                                val autoChapters = ChapterRepository.getCachedChapters("auto_${episode?.id}") ?: emptyList()
+                                _playerState.value = _playerState.value.copy(
+                                    currentChapters = autoChapters,
+                                    isChaptersLoading = false,
+                                    autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                )
+                            }
+                            
+                            // Fetch transcript
+                            if (transcriptUrl != null) {
+                                // RSS transcript available — fetch normally, no AI state
+                                _playerState.value = _playerState.value.copy(autoTranscriptState = AutoTranscriptState.NONE)
+                                launch {
+                                    val transcript = TranscriptRepository.getTranscript(transcriptUrl)
+                                    if (_playerState.value.currentEpisode?.id == episodeId) {
+                                        _playerState.value = _playerState.value.copy(currentTranscript = transcript)
+                                    }
+                                }
+                            } else if (episode != null && episode.audioUrl.isNotEmpty()) {
+                                // No RSS transcript — check auto-transcript status
+                                _playerState.value = _playerState.value.copy(
+                                    autoTranscriptState = AutoTranscriptState.CHECKING,
+                                    currentTranscript = emptyList()
+                                )
+                                launch {
+                                     val deviceUuid = getOrCreateDeviceUuid()
+                                     val response = TranscriptRepository.checkAutoTranscriptStatus(
+                                         api = podcastRepository.api,
+                                         publicKey = podcastRepository.publicKey,
+                                         deviceUuid = deviceUuid,
+                                         episodeId = episodeId,
+                                         audioUrl = episode.audioUrl,
+                                         transcriptUrl = episode.transcriptUrl
+                                     )
+                                     if (_playerState.value.currentEpisode?.id != episodeId) return@launch
+ 
+                                     val status = response?.status
+                                     val limitLeft = response?.limitLeft
+                                     val chapters = response?.chapters
+                                     
+                                     _playerState.value = _playerState.value.copy(
+                                         autoTranscriptLimitLeft = limitLeft
+                                     )
+                                     
+                                     if (chapters != null && _playerState.value.currentEpisode?.id == episodeId) {
+                                         _playerState.value = _playerState.value.copy(
+                                             currentChapters = chapters,
+                                             autoChaptersState = if (chapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                         )
+                                     }
+ 
+                                     when (status) {
+                                         "completed" -> {
+                                             // Transcript exists — fetch the full SRT
+                                             _playerState.value = _playerState.value.copy(
+                                                 autoTranscriptState = AutoTranscriptState.COMPLETED
+                                             )
+                                             val transcript = TranscriptRepository.getAutoTranscript(
+                                                 api = podcastRepository.api,
+                                                 publicKey = podcastRepository.publicKey,
+                                                 deviceUuid = deviceUuid,
+                                                 episodeId = episodeId,
+                                                 audioUrl = episode.audioUrl,
+                                                 transcriptUrl = episode.transcriptUrl
+                                             )
+                                             if (_playerState.value.currentEpisode?.id == episodeId) {
+                                                 val autoChapters = ChapterRepository.getCachedChapters("auto_$episodeId") ?: emptyList()
+                                                 _playerState.value = _playerState.value.copy(
+                                                     currentTranscript = transcript,
+                                                     currentChapters = if (autoChapters.isNotEmpty()) autoChapters else _playerState.value.currentChapters,
+                                                     autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                                 )
+                                             }
+                                         }
+                                         "pending", "uploaded" -> {
+                                             // Already in progress — start polling
+                                             val wasTranscriptGenerating = _playerState.value.autoTranscriptState == AutoTranscriptState.GENERATING
+                                             val wasChaptersGenerating = _playerState.value.autoChaptersState == AutoTranscriptState.GENERATING
+                                             
+                                             val nextTranscriptState = if (wasTranscriptGenerating) {
+                                                 AutoTranscriptState.GENERATING
+                                             } else {
+                                                 _playerState.value.autoTranscriptState
+                                             }
+                                             val nextChaptersState = if (wasChaptersGenerating) {
+                                                 AutoTranscriptState.GENERATING
+                                             } else {
+                                                 _playerState.value.autoChaptersState
+                                             }
+
+                                             _playerState.value = _playerState.value.copy(
+                                                 autoTranscriptState = nextTranscriptState,
+                                                 autoChaptersState = nextChaptersState
+                                             )
+                                             startAutoTranscriptGeneration(episodeId, episode.audioUrl, episode.transcriptUrl, isTranscriptRequested = wasTranscriptGenerating)
+                                         }
+                                         "failed" -> {
+                                             _playerState.value = _playerState.value.copy(
+                                                 autoTranscriptState = AutoTranscriptState.FAILED
+                                             )
+                                         }
+                                         else -> {
+                                             // "not_started" or null — eligible for generation
+                                             _playerState.value = _playerState.value.copy(
+                                                 autoTranscriptState = AutoTranscriptState.NOT_GENERATED,
+                                                 autoChaptersState = if (_playerState.value.currentChapters.isEmpty()) AutoTranscriptState.NOT_GENERATED else _playerState.value.autoChaptersState
+                                             )
+                                         }
+                                     }
+                                 }
+                            } else {
+                                _playerState.value = _playerState.value.copy(
+                                    currentTranscript = emptyList(),
+                                    autoTranscriptState = AutoTranscriptState.NONE
+                                )
+                            }
+                        }
+                    }
+                }
+        }
+    }
+
+    /**
+     * Called from the UI when the user confirms transcript generation.
+     * Transitions to GENERATING and kicks off the actual API call.
+     */
+    fun generateAutoTranscript() {
+        val episode = _playerState.value.currentEpisode ?: return
+        if (episode.audioUrl.isEmpty()) return
+        val episodeId = episode.id
+
+        val isChaptersEmpty = _playerState.value.currentChapters.isEmpty()
+        _playerState.value = _playerState.value.copy(
+            autoTranscriptState = AutoTranscriptState.GENERATING,
+            autoChaptersState = if (isChaptersEmpty) AutoTranscriptState.GENERATING else _playerState.value.autoChaptersState
+        )
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoTranscriptRequested(episodeId, episode.podcastId, episode.audioUrl)
+        if (isChaptersEmpty) {
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoChaptersRequested(episodeId, episode.podcastId, episode.audioUrl)
+        }
+        startAutoTranscriptGeneration(episodeId, episode.audioUrl, episode.transcriptUrl, isTranscriptRequested = true)
+    }
+
+    /**
+     * Called from the UI when the user clicks "Generate AI Chapters".
+     * Sets only autoChaptersState to GENERATING (not transcript state).
+     */
+    fun generateAutoChapters() {
+        val episode = _playerState.value.currentEpisode ?: return
+        if (episode.audioUrl.isEmpty()) return
+        val episodeId = episode.id
+
+        _playerState.value = _playerState.value.copy(
+            autoChaptersState = AutoTranscriptState.GENERATING
+        )
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoChaptersRequested(episodeId, episode.podcastId, episode.audioUrl)
+        startAutoTranscriptGeneration(episodeId, episode.audioUrl, episode.transcriptUrl, isTranscriptRequested = false)
+    }
+
+    /**
+     * Starts the background polling/streaming call to generate and retrieve
+     * the auto-transcript. Cancels any previous generation job.
+     */
+    private fun startAutoTranscriptGeneration(episodeId: String, audioUrl: String, transcriptUrl: String?, isTranscriptRequested: Boolean) {
+        val deviceUuid = getOrCreateDeviceUuid()
+        autoTranscriptGenerationJob?.cancel()
+        autoTranscriptGenerationJob = repositoryScope.launch {
+            try {
+                val transcript = TranscriptRepository.getAutoTranscript(
+                    api = podcastRepository.api,
+                    publicKey = podcastRepository.publicKey,
+                    deviceUuid = deviceUuid,
+                    episodeId = episodeId,
+                    audioUrl = audioUrl,
+                    transcriptUrl = transcriptUrl
+                )
+                val currentEp = _playerState.value.currentEpisode
+                if (currentEp?.id == episodeId) {
+                    if (transcript.isNotEmpty()) {
+                        val autoChapters = ChapterRepository.getCachedChapters("auto_$episodeId") ?: emptyList()
+                        _playerState.value = _playerState.value.copy(
+                            currentTranscript = transcript,
+                            currentChapters = if (autoChapters.isNotEmpty()) autoChapters else _playerState.value.currentChapters,
+                            autoTranscriptState = if (isTranscriptRequested) AutoTranscriptState.COMPLETED else _playerState.value.autoTranscriptState,
+                            autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else AutoTranscriptState.FAILED
+                        )
+                        if (isTranscriptRequested) {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoTranscriptCompleted(
+                                episodeId, currentEp.podcastId, currentEp.duration.toFloat(), transcript.size
+                            )
+                        }
+                        if (autoChapters.isNotEmpty()) {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoChaptersCompleted(
+                                episodeId, currentEp.podcastId, currentEp.duration.toFloat(), autoChapters.size
+                            )
+                        } else {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoChaptersFailed(
+                                episodeId, currentEp.podcastId, "Chapters empty or generation failed"
+                            )
+                        }
+                    } else {
+                        _playerState.value = _playerState.value.copy(
+                            autoTranscriptState = if (isTranscriptRequested) AutoTranscriptState.FAILED else _playerState.value.autoTranscriptState,
+                            autoChaptersState = AutoTranscriptState.FAILED
+                        )
+                        if (isTranscriptRequested) {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoTranscriptFailed(
+                                episodeId, currentEp.podcastId, "Transcript empty or generation failed"
+                            )
+                        }
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoChaptersFailed(
+                            episodeId, currentEp.podcastId, "Transcript empty or generation failed (required for chapters)"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PlaybackRepo", "Auto-transcript generation failed for $episodeId", e)
+                val currentEp = _playerState.value.currentEpisode
+                if (currentEp?.id == episodeId) {
+                    _playerState.value = _playerState.value.copy(
+                        autoTranscriptState = if (isTranscriptRequested) AutoTranscriptState.FAILED else _playerState.value.autoTranscriptState,
+                        autoChaptersState = AutoTranscriptState.FAILED
+                    )
+                    if (isTranscriptRequested) {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoTranscriptFailed(
+                            episodeId, currentEp.podcastId, e.message ?: "Unknown error"
+                        )
+                    }
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoChaptersFailed(
+                        episodeId, currentEp.podcastId, e.message ?: "Unknown error"
+                    )
+                }
+            }
+        }
     }
 
     private fun monitorLikeState() {
@@ -432,17 +770,25 @@ class PlaybackRepository(
         val wasCompleted = existing?.isCompleted ?: false
         val lastPlayed = if (updateLastPlayedAt) System.currentTimeMillis() else (existing?.lastPlayedAt ?: System.currentTimeMillis())
         
+        val isCompletedNow = state.duration > 0 && (
+            state.position >= state.duration - 5000 ||
+            state.position >= state.duration * 0.95 ||
+            (state.duration >= 900_000L && state.duration - state.position <= 300_000L)
+        )
+        val finalCompleted = wasCompleted || isCompletedNow
+        val finalPosition = if (isCompletedNow && !wasCompleted) 0L else state.position
+
         savePlaybackState(
             podcastId = podcast.id,
             episodeId = episode.id,
-            positionMs = state.position,
+            positionMs = finalPosition,
             durationMs = state.duration,
             episodeTitle = episode.title,
             episodeImageUrl = episode.imageUrl,
             podcastImageUrl = podcast.imageUrl,
             episodeAudioUrl = episode.audioUrl,
             podcastName = podcast.title,
-            isCompleted = wasCompleted, // Persist completion!
+            isCompleted = finalCompleted,
             isLiked = state.isLiked,
             lastPlayedAt = lastPlayed
         )
@@ -517,14 +863,26 @@ class PlaybackRepository(
             // Update local state BEFORE setMediaItems (onMediaItemTransition reads this)
             val currentEp = episodes.getOrNull(startIndex)
             if (currentEp != null) {
-                 _playerState.value = _playerState.value.copy(
+                var showNudge = false
+                if (isLateNight()) {
+                    val lastShown = prefs.getLong("last_late_night_nudge_timestamp", 0L)
+                    val now = System.currentTimeMillis()
+                    // 12 hours = 43,200,000 milliseconds
+                    if (now - lastShown > 43_200_000L) {
+                        showNudge = true
+                        prefs.edit().putLong("last_late_night_nudge_timestamp", now).apply()
+                    }
+                }
+                
+                _playerState.value = _playerState.value.copy(
                     currentEpisode = currentEp,
                     currentPodcast = podcast,
                     isPlaying = true,
                     position = startPosMs,
                     duration = currentEp.duration.toLong() * 1000,
                     queue = episodes, // Update queue BEFORE Media3 triggers callbacks
-                    isLiked = initialLikeState
+                    isLiked = initialLikeState,
+                    showLateNightNudge = showNudge
                 )
             }
             
@@ -670,6 +1028,28 @@ class PlaybackRepository(
             mediaController = mediaControllerFuture?.await()
         }
         
+        try {
+            val queueItem = queueRepository.getQueueItemByEpisodeId(episodeId)
+            if (queueItem != null && queueItem.contextType == "AUTO_FILL") {
+                var positionInQueue = -1
+                mediaController?.let { controller ->
+                    for (i in 0 until controller.mediaItemCount) {
+                        if (controller.getMediaItemAt(i).mediaId == episodeId) {
+                            positionInQueue = i
+                            break
+                        }
+                    }
+                }
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
+                    episodeId = episodeId,
+                    recommendationSource = queueItem.contextSourceId ?: "unknown",
+                    positionInQueue = positionInQueue
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlaybackRepo", "Failed to track skip for $episodeId", e)
+        }
+
         mediaController?.let { controller ->
             for (i in 0 until controller.mediaItemCount) {
                 val item = controller.getMediaItemAt(i)
@@ -680,6 +1060,9 @@ class PlaybackRepository(
                     val currentQueue = _playerState.value.queue
                     val newQueue = currentQueue.filter { it.id != episodeId }
                     _playerState.value = _playerState.value.copy(queue = newQueue)
+                    
+                    // Sync the updated queue to the database
+                    syncQueueToDb()
                     break
                 }
             }
@@ -979,13 +1362,17 @@ class PlaybackRepository(
         _playerState.value = _playerState.value.copy(playbackSpeed = speed)
     }
 
-    fun setSleepTimer(durationMinutes: Int) {
-        Log.d("PlaybackRepo", "setSleepTimer called: $durationMinutes minutes")
+    fun setSleepTimer(durationMinutes: Int, dismissNudge: Boolean = true) {
+        Log.d("PlaybackRepo", "setSleepTimer called: $durationMinutes minutes, dismissNudge=$dismissNudge")
         sleepTimerJob?.cancel()
         
         if (durationMinutes <= 0) {
             Log.d("PlaybackRepo", "Sleep timer: OFF")
-            _playerState.value = _playerState.value.copy(sleepTimerEnd = null, sleepAtEndOfEpisode = false)
+            _playerState.value = _playerState.value.copy(
+                sleepTimerEnd = null, 
+                sleepAtEndOfEpisode = false,
+                showLateNightNudge = if (dismissNudge) false else _playerState.value.showLateNightNudge
+            )
             return
         }
 
@@ -994,7 +1381,11 @@ class PlaybackRepository(
             Log.d("PlaybackRepo", "Sleep timer: End of Episode mode ENABLED")
             // Just set the flag — the actual pause is handled by onMediaItemTransition
             // and onPlaybackStateChanged(STATE_ENDED) in the Media3 listener
-            _playerState.value = _playerState.value.copy(sleepAtEndOfEpisode = true, sleepTimerEnd = null)
+            _playerState.value = _playerState.value.copy(
+                sleepAtEndOfEpisode = true, 
+                sleepTimerEnd = null,
+                showLateNightNudge = if (dismissNudge) false else _playerState.value.showLateNightNudge
+            )
             
             // Background job only updates the countdown display (no action logic)
             sleepTimerJob = repositoryScope.launch {
@@ -1015,7 +1406,11 @@ class PlaybackRepository(
             // Fixed timer mode
             val endTime = System.currentTimeMillis() + (durationMinutes * 60 * 1000L)
             Log.d("PlaybackRepo", "Sleep timer: Fixed ${durationMinutes}m, endTime=$endTime")
-            _playerState.value = _playerState.value.copy(sleepTimerEnd = endTime, sleepAtEndOfEpisode = false)
+            _playerState.value = _playerState.value.copy(
+                sleepTimerEnd = endTime, 
+                sleepAtEndOfEpisode = false,
+                showLateNightNudge = if (dismissNudge) false else _playerState.value.showLateNightNudge
+            )
 
             sleepTimerJob = repositoryScope.launch {
                 val waitMs = endTime - System.currentTimeMillis()
@@ -1026,10 +1421,34 @@ class PlaybackRepository(
                 mediaController?.pause()
                 stopProgressTicker()
                 _playerState.value = _playerState.value.copy(
-                    sleepTimerEnd = null, isPlaying = false
+                    sleepTimerEnd = null, 
+                    isPlaying = false,
+                    showLateNightNudge = false
                 )
             }
         }
+    }
+
+    private fun isLateNight(): Boolean {
+        val calendar = java.util.Calendar.getInstance()
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(java.util.Calendar.MINUTE)
+        val timeInMinutes = hour * 60 + minute
+        
+        val startLateNight = 22 * 60 + 30 // 10:30 PM (1350 minutes)
+        val endLateNight = 4 * 60 // 4:00 AM (240 minutes)
+        
+        return timeInMinutes >= startLateNight || timeInMinutes < endLateNight
+    }
+
+    fun dismissLateNightNudge() {
+        Log.d("PlaybackRepo", "dismissLateNightNudge() called, current showLateNightNudge=${_playerState.value.showLateNightNudge}")
+        _playerState.value = _playerState.value.copy(showLateNightNudge = false)
+    }
+
+    fun resetSleepNudgeForTesting() {
+        prefs.edit().putLong("last_late_night_nudge_timestamp", 0L).apply()
+        setSleepTimer(0)
     }
 
     val lastPlayedSession: Flow<PlaybackSession?> = listeningHistoryDao.getResumeItems()

@@ -147,7 +147,7 @@ dependencies {
     
     
     // PostHog
-    implementation("com.posthog:posthog-android:3.8.2")
+    implementation(libs.posthog.android)
 
     // Play Core
     implementation("com.google.android.play:review:2.0.2")
