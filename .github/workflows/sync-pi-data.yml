@@ -80,7 +80,8 @@ jobs:
               p.itunesType as type,
               p.episodeCount,
               p.newestItemPubdate,
-              p.lastUpdate
+              p.lastUpdate,
+              p.medium
             FROM podcasts p
             WHERE p.itunesId IN (SELECT itunes_id FROM chart_ids);
           " > podcasts_export.csv

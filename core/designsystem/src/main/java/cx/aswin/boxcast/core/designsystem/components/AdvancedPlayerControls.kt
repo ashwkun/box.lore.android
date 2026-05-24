@@ -141,9 +141,9 @@ fun AdvancedPlayerControls(
                 inactiveIcon = Icons.AutoMirrored.Rounded.Toc,
                 contentDescription = "Chapters",
                 activeTint = baseActiveTint,
-                inactiveTint = if (hasChapters || isChaptersAnimating) baseInactiveTint else baseInactiveTint.copy(alpha = 0.3f),
+                inactiveTint = if (hasChapters || isChaptersAnimating) baseInactiveTint else baseInactiveTint.copy(alpha = 0.4f),
                 controlSize = controlSize,
-                onClick = { if (hasChapters && !isChaptersAnimating) onChaptersClick() }
+                onClick = { if (!isChaptersAnimating) onChaptersClick() }
             )
         }
 

@@ -50,6 +50,9 @@ data class TrendingFeed(
     @SerialName("newestItemPublishTime")
     val newestItemPublishTime: Long? = null,
     
+    @SerialName("medium")
+    val medium: String? = null,
+    
     @SerialName("latestEpisode")
     val latestEpisode: EpisodeItem? = null
 )
@@ -87,6 +90,9 @@ data class SearchFeed(
     
     @SerialName("url")
     val url: String? = null,
+    
+    @SerialName("medium")
+    val medium: String? = null,
     
     @SerialName("categories")
     val categories: Map<String, String>? = emptyMap()

@@ -194,6 +194,7 @@ fun FullPlayerContent(
             sleepTimerEnd = state.sleepTimerEnd,
             isLiked = state.isLiked,
             colorScheme = colorScheme,
+            controller = playbackRepository.controller,
             onPlayPause = {
                 cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("play_pause")
                 if (state.isPlaying) playbackRepository.pause() else playbackRepository.resume()

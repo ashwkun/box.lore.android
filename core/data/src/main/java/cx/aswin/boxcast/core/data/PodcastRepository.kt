@@ -112,7 +112,8 @@ class PodcastRepository(
                                     imageUrl = (feed.artwork ?: feed.image).toHttps(),
                                     description = feed.description,
                                     genre = resolvePrimaryGenre(feed.categories),
-                                    latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) }
+                                    latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) },
+                                    medium = feed.medium
                                 )
                                 podcasts.add(podcast)
                                 
@@ -181,7 +182,8 @@ class PodcastRepository(
                 imageUrl = (feed.artwork ?: feed.image).toHttps(),
                 description = feed.description,
                 genre = resolvePrimaryGenre(feed.categories),
-                latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) }
+                latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) },
+                medium = feed.medium
             )
         }
     }
@@ -205,7 +207,8 @@ class PodcastRepository(
                         artist = feed.author ?: "Unknown",
                         imageUrl = (feed.artwork ?: feed.image).toHttps(),
                         description = feed.description,
-                        genre = resolvePrimaryGenre(feed.categories)
+                        genre = resolvePrimaryGenre(feed.categories),
+                        medium = feed.medium
                     )
                 }
                 SearchResult(podcasts, null)
@@ -407,7 +410,8 @@ class PodcastRepository(
             persons = item.persons?.map { Person(name = it.name, role = it.role, group = it.group, img = it.img, href = it.href) },
             seasonNumber = item.season,
             episodeNumber = item.episodeNumber,
-            episodeType = item.episodeType
+            episodeType = item.episodeType,
+            enclosureType = item.enclosureType
         )
     }
     suspend fun getPodcastType(feedId: String): String = withContext(Dispatchers.IO) {
