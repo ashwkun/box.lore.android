@@ -178,12 +178,13 @@ async function main() {
     const CUTOFF_NEWS = Date.now() - FOUR_HOURS_MS;
 
     let sql = `
-        SELECT DISTINCT p.id, p.itunes_id, p.last_ep_sync
+        SELECT DISTINCT p.id, p.itunes_id, p.title, p.last_ep_sync, p.medium, c.category
         FROM charts c
         JOIN podcasts p ON c.itunes_id = p.itunes_id
         WHERE 
             (
                 p.last_ep_sync IS NULL 
+                OR p.medium IS NULL
                 OR (c.category = 'News' AND p.last_ep_sync < ?)
                 OR (p.last_ep_sync < ?)
             )
@@ -203,21 +204,51 @@ async function main() {
 
     console.log("Fetching sync candidates...");
     const res = await executeSQL(sql, args);
-    const podcasts = res?.results?.[0]?.response?.result?.rows?.map(r => ({
-        id: r[0].value,
-        itunesId: r[1].value,
-        lastSync: r[2].value
-    })) || [];
+    const podcasts = res?.results?.[0]?.response?.result?.rows?.map(r => {
+        const id = r[0].value;
+        const itunesId = r[1].value;
+        const title = r[2].value || "Unknown Title";
+        const lastSync = r[3].value ? parseInt(r[3].value) : null;
+        const medium = r[4].value;
+        const category = r[5].value;
+        return { id, itunesId, title, lastSync, medium, category };
+    }) || [];
 
-    const newCount = podcasts.filter(p => !p.lastSync).length;
-    const staleCount = podcasts.length - newCount;
-    console.log(`\n=== Sync Plan ===`);
+    let neverSyncedCount = 0;
+    let missingMediumCount = 0;
+    let staleNewsCount = 0;
+    let staleRegularCount = 0;
+
+    const podcastReasons = {};
+
+    for (const p of podcasts) {
+        const reasonsList = [];
+        if (p.lastSync === null) {
+            reasonsList.push("Never Synced");
+            neverSyncedCount++;
+        } else {
+            if (p.medium === null) {
+                reasonsList.push("Missing Medium Field");
+                missingMediumCount++;
+            }
+            if (p.category === 'News' && p.lastSync < CUTOFF_NEWS) {
+                reasonsList.push(`Stale News Feed (last synced ${Math.round((Date.now() - p.lastSync) / 3600000)}h ago)`);
+                staleNewsCount++;
+            } else if (p.lastSync < CUTOFF_STANDARD) {
+                reasonsList.push(`Stale Regular Feed (last synced ${Math.round((Date.now() - p.lastSync) / 3600000)}h ago)`);
+                staleRegularCount++;
+            }
+        }
+        podcastReasons[p.id] = reasonsList.join(", ") || "Forced update / other reasons";
+    }
+
+    console.log(`\n=== Detailed Sync Plan ===`);
     console.log(`Total Candidates: ${podcasts.length}`);
-    console.log(`- New Podcasts (Never Synced): ${newCount}`);
-    console.log(`- Stale Podcasts (>24h old):   ${staleCount}`);
-    console.log(`=================\n`);
-
-    console.log(`Found ${podcasts.length} podcasts needing sync (New or Stale > 24h).`);
+    console.log(`- Never Synced:                ${neverSyncedCount}`);
+    console.log(`- Missing Medium Column:       ${missingMediumCount}`);
+    console.log(`- Stale News Feeds (>4h old):  ${staleNewsCount}`);
+    console.log(`- Stale Regular Feeds (>24h):  ${staleRegularCount}`);
+    console.log(`==========================\n`);
 
     // 4. Process in batches
     let totalPodcastsUpdated = 0;
@@ -235,12 +266,17 @@ async function main() {
             console.log(`[${new Date().toISOString()}] Progress: ${i}/${podcasts.length} (${Math.round((i / podcasts.length) * 100)}%) | Rate: ${rate} pods/s | Errors: ${errors}`);
         }
 
-        await Promise.all(batch.map(async (pod) => {
+        await Promise.all(batch.map(async (pod, idx) => {
+            const seqNum = i + idx + 1;
+            console.log(`[SYNC] [${seqNum}/${podcasts.length}] Syncing podcast ${pod.id} ("${pod.title}") | Reason: ${podcastReasons[pod.id]}`);
             const [episodes, feedInfo] = await Promise.all([
                 fetchEpisodes(pod.id),
                 fetchFeedInfo(pod.id)
             ]);
-            if (episodes.length === 0) return;
+            if (episodes.length === 0) {
+                console.log(`[SYNC] [${seqNum}/${podcasts.length}] Podcast ${pod.id} ("${pod.title}") has 0 episodes. Skipping update.`);
+                return;
+            }
 
             // Find the latest episode (usually first, but ensure by date)
             const latestEp = episodes[0];
@@ -293,9 +329,10 @@ async function main() {
                 ]);
 
                 totalPodcastsUpdated++;
+                console.log(`[SYNC] [${seqNum}/${podcasts.length}] Successfully updated podcast ${pod.id} ("${pod.title}") | Medium: ${medium} | Latest Ep: "${latestEp.title}"`);
             } catch (err) {
                 errors++;
-                console.error(`Error updating podcast ${pod.id}: ${err.message}`);
+                console.error(`[SYNC] [${seqNum}/${podcasts.length}] Error updating podcast ${pod.id} ("${pod.title}"): ${err.message}`);
             }
         }));
 

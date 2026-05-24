@@ -6,6 +6,9 @@ on:
     - cron: '30 */6 * * *'
   workflow_dispatch: # Allow manual trigger
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   sync-pi-data:
     runs-on: ubuntu-latest
@@ -22,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Download Podcast Index Database
         run: |
@@ -51,19 +54,23 @@ jobs:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: |
+          echo "[WORKFLOW] Fetching active iTunes IDs from Turso DB charts table for country: ${{ matrix.country }}..."
           node scripts/get-chart-itunes-ids.js --country ${{ matrix.country }} > chart_itunes_ids.txt
-          echo "Got $(wc -l < chart_itunes_ids.txt) iTunes IDs from charts"
+          echo "[WORKFLOW] Successfully retrieved $(wc -l < chart_itunes_ids.txt) iTunes IDs from Turso charts."
+          echo "[WORKFLOW] First few iTunes IDs retrieved:"
           head -5 chart_itunes_ids.txt
           
       - name: Export podcasts from PI dump
         run: |
-          # Create temp table with iTunes IDs
+          echo "[WORKFLOW] Creating temporary SQLite table 'chart_ids' inside podcastindex_feeds.db..."
           sqlite3 podcastindex_feeds.db "CREATE TABLE chart_ids (itunes_id INTEGER);"
+          
+          echo "[WORKFLOW] Importing retrieved chart iTunes IDs from 'chart_itunes_ids.txt' into SQLite..."
           sqlite3 -csv podcastindex_feeds.db ".import chart_itunes_ids.txt chart_ids"
-          echo "Imported $(sqlite3 podcastindex_feeds.db 'SELECT COUNT(*) FROM chart_ids;') iTunes IDs"
+          echo "[WORKFLOW] SQLite Database status: $(sqlite3 podcastindex_feeds.db 'SELECT COUNT(*) FROM chart_ids;') iTunes IDs successfully imported into temporary table."
           
           # Export podcasts - using correct column names from PI dump
-          echo "Exporting podcasts..."
+          echo "[WORKFLOW] Querying and exporting podcast feeds matching chart IDs from sqlite dump to CSV format..."
           sqlite3 -header -csv podcastindex_feeds.db "
             SELECT 
               p.id,
@@ -84,7 +91,7 @@ jobs:
             FROM podcasts p
             WHERE p.itunesId IN (SELECT itunes_id FROM chart_ids);
           " > podcasts_export.csv
-          echo "Exported $(wc -l < podcasts_export.csv) podcasts"
+          echo "[WORKFLOW] Successfully generated 'podcasts_export.csv' with $(wc -l < podcasts_export.csv) lines including headers."
           
 
 
@@ -92,7 +99,9 @@ jobs:
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: node scripts/import-pi-data.js
+        run: |
+          echo "[WORKFLOW] Starting import-pi-data.js to load podcasts into Turso DB..."
+          node scripts/import-pi-data.js
 
       - name: Sync Episodes via API
         env:
@@ -100,16 +109,22 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
           PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
-        run: node scripts/sync-episodes.js --country ${{ matrix.country }}
+        run: |
+          echo "[WORKFLOW] Starting sync-episodes.js to fetch latest episode details and medium flags from API..."
+          node scripts/sync-episodes.js --country ${{ matrix.country }}
 
       - name: Install Vectorization Dependencies
-        run: npm install
+        run: |
+          echo "[WORKFLOW] Running npm install to configure dependencies for vectorization model..."
+          npm install
 
       - name: Generate Vector Embeddings
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: node scripts/vectorize.js --country ${{ matrix.country }}
+        run: |
+          echo "[WORKFLOW] Running vectorize.js to calculate and store embedding vectors for country ${{ matrix.country }}..."
+          node scripts/vectorize.js --country ${{ matrix.country }}
 
           
       - name: Cleanup

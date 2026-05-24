@@ -22,9 +22,10 @@ async function main() {
     if (country) {
         sql = "SELECT DISTINCT itunes_id FROM charts WHERE country = ?";
         args = [{ type: "text", value: country }];
-        console.warn(`Filtering charts for country: ${country}`);
+        console.warn(`[CHARTS] Filtering charts for country: ${country}`);
     }
 
+    console.warn(`[CHARTS] Fetching unique iTunes IDs from charts table in Turso...`);
     const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
         method: "POST",
         headers: {
@@ -41,14 +42,18 @@ async function main() {
 
     const result = await response.json();
     const rows = result?.results?.[0]?.response?.result?.rows || [];
+    console.warn(`[CHARTS] Received ${rows.length} total rows from Turso DB.`);
 
     // Output one iTunes ID per line
+    let validCount = 0;
     for (const row of rows) {
         const itunesId = row[0]?.value;
         if (itunesId) {
             console.log(itunesId);
+            validCount++;
         }
     }
+    console.warn(`[CHARTS] Successfully wrote ${validCount} valid iTunes IDs to stdout.`);
 }
 
 main().catch(err => {

@@ -148,20 +148,14 @@ async function main() {
     console.log("Processing podcasts...");
 
     for (let i = 0; i < rows.length; i++) {
-        // Periodic Progress Update
-        if (i % 20 === 0 && i > 0) {
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            const rate = (i / elapsed).toFixed(1);
-            const percent = Math.round((i / rows.length) * 100);
-            console.log(`[${new Date().toISOString()}] Progress: ${i}/${rows.length} (${percent}%) | Rate: ${rate} pods/s | Errors: ${errors}`);
-        }
-
         const row = rows[i];
         const id = row[0].value;
         const title = row[1].value || "";
         const desc = row[2].value || "";
         const epTitle = row[3].value || "";
         const epDesc = row[4].value || "";
+
+        console.log(`[VECTOR] [${i+1}/${rows.length}] Starting vectorization for podcast ${id} ("${title}") | Reason: Missing embedding (new or updated feed)`);
 
         // Construct Text
         const text = `Podcast: ${title}. ${desc}. Latest Episode: ${epTitle}. ${epDesc}`
@@ -174,8 +168,9 @@ async function main() {
 
             await executeVectorUpdate(id, embedding);
             success++;
+            console.log(`[VECTOR] [${i+1}/${rows.length}] Successfully vectorized podcast ${id} ("${title}")`);
         } catch (e) {
-            console.error(`\n[ERROR] Failed to vectorize ${id} (${title}):`, e.message);
+            console.error(`[VECTOR] [${i+1}/${rows.length}] Failed to vectorize ${id} ("${title}"): ${e.message}`);
             errors++;
         }
     }

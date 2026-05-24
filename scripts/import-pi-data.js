@@ -154,16 +154,18 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
         const batch = dataLines.slice(i, i + BATCH_SIZE);
         const statements = [];
 
-        for (const line of batch) {
+        batch.forEach((line, batchIndex) => {
             const values = parseCSVLine(line);
+            const rowSeq = i + batchIndex + 1;
 
-            // SPECIAL LOGIC: Reorder categories for podcasts table
-            // Also ensure we don't overwrite existing rich metadata (description, vector) if we are just re-importing the base CSV
-            // But import-pi-data.js is usually for bulk initial load.
-            // If we re-run it, we want to update base fields but maybe preserve vector?
-            // "INSERT OR IGNORE" preserves everything if ID exists.
-            // If we change to REPLACE, we lose the vector.
-            // We use INSERT OR IGNORE, so we are safe.
+            const idIndex = headers.indexOf('id');
+            const titleIndex = headers.indexOf('title');
+            const id = idIndex !== -1 ? values[idIndex] : "unknown";
+            const title = titleIndex !== -1 ? values[titleIndex] : "Unknown Title";
+
+            let reordered = false;
+            let originalCats = "";
+            let reorderedCats = "";
 
             if (tableName === 'podcasts' && headers.includes('categories')) {
                 const catIndex = headers.indexOf('categories');
@@ -188,6 +190,11 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
                         })
                         .join(', ');
 
+                    if (sortedCats !== rawCats) {
+                        reordered = true;
+                        originalCats = rawCats;
+                        reorderedCats = sortedCats;
+                    }
                     values[catIndex] = sortedCats;
                 }
             }
@@ -196,7 +203,7 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
             if (limitPerGroupCol && limitCount > 0) {
                 const groupVal = values[headers.indexOf(limitPerGroupCol)];
                 groupCounts[groupVal] = (groupCounts[groupVal] || 0) + 1;
-                if (groupCounts[groupVal] > limitCount) continue;
+                if (groupCounts[groupVal] > limitCount) return;
             }
 
             const placeholders = values.map(() => '?').join(',');
@@ -204,16 +211,23 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
             if (tableName === 'podcasts' && headers.includes('id') && headers.includes('medium')) {
                 sql = `INSERT INTO ${tableName} (${headers.join(',')}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET medium = excluded.medium`;
             }
+            
+            console.log(`[IMPORT] [${rowSeq}/${dataLines.length}] Staging row for ${tableName}: id=${id} ("${title}") | Action: ${sql.includes('ON CONFLICT') ? 'UPSERT (SET medium)' : 'INSERT OR IGNORE'}`);
+            if (reordered) {
+                console.log(`[IMPORT]   -> Reordered categories for podcast ${id}: "${originalCats}" -> "${reorderedCats}"`);
+            }
+
             statements.push({
                 sql,
                 args: values
             });
-        }
+        });
 
         if (statements.length > 0) {
             await executeBatch(statements);
+            const prevImported = imported;
             imported += statements.length;
-            if (imported % 1000 === 0) console.log(`  Imported ${imported} rows...`);
+            console.log(`[IMPORT] Successfully executed batch. Total imported so far: ${imported}/${dataLines.length}`);
         }
     }
 
