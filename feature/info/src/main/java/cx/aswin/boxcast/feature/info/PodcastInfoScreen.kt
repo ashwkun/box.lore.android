@@ -865,7 +865,7 @@ fun PodcastInfoScreen(
                                 }
 
                                 // 5. Medium (if non-standard)
-                                val medium = state.podcast.medium
+                                val medium = if (state.podcast.medium == "podcast" && state.podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) "video" else state.podcast.medium
                                 if (!medium.isNullOrEmpty() && medium != "podcast") {
                                     item {
                                         val mediumIcon = when (medium.lowercase()) {
@@ -1565,6 +1565,38 @@ fun EpisodeListItem(
                                     else MaterialTheme.colorScheme.onSecondaryContainer,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
+                            }
+                        }
+                        
+                        // Video Badge inside Metadata Row
+                        if (episode.enclosureType?.startsWith("video/") == true) {
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                            Surface(
+                                shape = ExpressiveShapes.Pill,
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Videocam,
+                                        contentDescription = "Video",
+                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = "VIDEO",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
                             }
                         }
                     }

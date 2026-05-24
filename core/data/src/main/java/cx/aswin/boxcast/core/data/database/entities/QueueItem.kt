@@ -38,7 +38,8 @@ data class QueueItem(
     // Episode metadata
     val episodeType: String? = null,
     val seasonNumber: Int? = null,
-    val episodeNumber: Int? = null
+    val episodeNumber: Int? = null,
+    val enclosureType: String? = null
 ) {
     fun toEpisodeItem(): EpisodeItem {
         return EpisodeItem(
@@ -52,7 +53,8 @@ data class QueueItem(
             feedImage = podcastImageUrl, // Podcast artwork fallback
             episodeType = episodeType,
             season = seasonNumber,
-            episodeNumber = episodeNumber
+            episodeNumber = episodeNumber,
+            enclosureType = enclosureType
         )
     }
 }

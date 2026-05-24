@@ -150,7 +150,8 @@ class QueueManager @Inject constructor(
             transcriptUrl = this.transcriptUrl,
             persons = this.persons?.map { cx.aswin.boxcast.core.network.model.PersonItem(name = it.name, role = it.role, img = it.img, href = it.href) },
             transcripts = this.transcripts?.map { cx.aswin.boxcast.core.network.model.TranscriptItem(url = it.url, type = it.type) },
-            episodeType = this.episodeType
+            episodeType = this.episodeType,
+            enclosureType = this.enclosureType
         )
     }
 
@@ -190,7 +191,8 @@ class QueueManager @Inject constructor(
             transcriptUrl = resolvedTranscriptUrl,
             persons = this.persons?.map { cx.aswin.boxcast.core.model.Person(name = it.name, role = it.role, img = it.img, href = it.href) },
             transcripts = this.transcripts?.map { cx.aswin.boxcast.core.model.Transcript(url = it.url, type = it.type) },
-            episodeType = this.episodeType
+            episodeType = this.episodeType,
+            enclosureType = this.enclosureType
         )
     }
 }

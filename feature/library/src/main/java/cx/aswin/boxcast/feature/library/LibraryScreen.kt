@@ -447,7 +447,7 @@ fun LibraryPodcastCard(
                 )
 
                 // Video Badge overlay on image
-                if (podcast.medium == "video") {
+                if (podcast.medium == "video" || podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
