@@ -33,10 +33,9 @@ captures/
 .cxx
 API_GUIDE.md
 node_modules/
-proxy/node_modules/
-proxy/.wrangler/
-proxy/public/
-
+# Standalone Proxy - Moved to standalone ashwkun/Proxy repository.
+# Do NOT recreate or commit a proxy/ directory inside this repository.
+proxy/
 # Sensitive files
 *.keystore
 *.jks
