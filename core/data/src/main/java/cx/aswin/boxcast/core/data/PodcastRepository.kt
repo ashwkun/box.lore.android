@@ -39,10 +39,10 @@ data class SearchResult(
  */
 class PodcastRepository(
     private val baseUrl: String,
-    private val publicKey: String,
+    val publicKey: String,
     context: android.content.Context
 ) {
-    private val api: BoxCastApi = NetworkModule.createBoxCastApi(baseUrl, context)
+    val api: BoxCastApi = NetworkModule.createBoxCastApi(baseUrl, context)
 
     suspend fun getTrendingPodcasts(country: String = "us", limit: Int = 50, category: String? = null, offset: Int = 0): List<Podcast> = withContext(Dispatchers.IO) {
         // Fallback or non-streaming implementation
@@ -263,6 +263,8 @@ class PodcastRepository(
         }
     }
 
+    private val episodesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<EpisodePage, Long>>()
+
     data class EpisodePage(
         val episodes: List<Episode>,
         val hasMore: Boolean
@@ -274,13 +276,23 @@ class PodcastRepository(
         offset: Int = 0,
         sort: String = "newest"
     ): EpisodePage = withContext(Dispatchers.IO) {
+        val cacheKey = "$feedId|$limit|$offset|$sort"
+        val cached = episodesCache[cacheKey]
+        val now = System.currentTimeMillis()
+        if (cached != null && now - cached.second < 300_000L) { // 5-minute cache
+            android.util.Log.d("PodcastRepository", "Cache HIT for getEpisodesPaginated: $cacheKey")
+            return@withContext cached.first
+        }
+        android.util.Log.d("PodcastRepository", "Cache MISS for getEpisodesPaginated: $cacheKey. Fetching from network.")
         try {
             val response = api.getEpisodesPaginated(publicKey, feedId, limit, offset, sort).execute()
             if (response.isSuccessful && response.body() != null) {
-                EpisodePage(
+                val page = EpisodePage(
                     episodes = response.body()!!.items.mapNotNull { mapToEpisode(it) },
                     hasMore = response.body()!!.hasMore
                 )
+                episodesCache[cacheKey] = Pair(page, now)
+                page
             } else {
                 EpisodePage(emptyList(), false)
             }
@@ -365,6 +377,19 @@ class PodcastRepository(
     private fun mapToEpisode(item: cx.aswin.boxcast.core.network.model.EpisodeItem): Episode? {
         val audioUrl = item.enclosureUrl ?: return null
         android.util.Log.d("BoxCastRepo", "mapToEpisode: ${item.title} | persons=${item.persons?.size} | chaptersUrl=${item.chaptersUrl != null} | transcripts=${item.transcripts?.size}")
+        val resolvedTranscriptUrl = item.transcripts?.firstOrNull { 
+            it.type == "application/srt" || 
+            it.type == "text/vtt" || 
+            it.type == "application/x-subrip" ||
+            it.url.contains(".srt", ignoreCase = true) ||
+            it.url.contains(".vtt", ignoreCase = true)
+        }?.url
+        ?: item.transcriptUrl?.takeIf { 
+            it.contains(".srt", ignoreCase = true) || 
+            it.contains(".vtt", ignoreCase = true) 
+        }
+        ?: item.transcriptUrl
+        ?: item.transcripts?.firstOrNull()?.url
         return Episode(
             id = item.id.toString(),
             title = item.title,
@@ -377,7 +402,7 @@ class PodcastRepository(
             publishedDate = item.datePublished ?: 0L,
             // Podcast 2.0
             chaptersUrl = item.chaptersUrl,
-            transcriptUrl = item.transcriptUrl,
+            transcriptUrl = resolvedTranscriptUrl,
             transcripts = item.transcripts?.map { Transcript(url = it.url, type = it.type) },
             persons = item.persons?.map { Person(name = it.name, role = it.role, group = it.group, img = it.img, href = it.href) },
             seasonNumber = item.season,

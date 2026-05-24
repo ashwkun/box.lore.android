@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
+
+enum class SubscriptionSort { SmartRank, RecentlyUpdated, Alphabetical, MostListened }
 
 sealed interface LibraryUiState {
     data object Loading : LibraryUiState
@@ -21,7 +24,9 @@ sealed interface LibraryUiState {
         val subscribedPodcasts: List<Podcast> = emptyList(),
         val likedEpisodes: List<ListeningHistoryEntity> = emptyList(),
         val downloadedEpisodes: List<cx.aswin.boxcast.core.data.database.DownloadedEpisodeEntity> = emptyList(),
-        val recentHistory: List<ListeningHistoryEntity> = emptyList()
+        val recentHistory: List<ListeningHistoryEntity> = emptyList(),
+        val currentSort: SubscriptionSort = SubscriptionSort.SmartRank,
+        val allHistory: List<ListeningHistoryEntity> = emptyList()
     ) : LibraryUiState
     data class Error(val message: String) : LibraryUiState
 }
@@ -32,14 +37,21 @@ class LibraryViewModel(
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository
 ) : ViewModel() {
 
+    private val _subscriptionSort = MutableStateFlow(SubscriptionSort.SmartRank)
+
+    fun setSubscriptionSort(sort: SubscriptionSort) {
+        _subscriptionSort.value = sort
+    }
+
     // Combine subscriptions, liked episodes, downloads, AND listening history
     // so we can enrich each podcast's latestEpisode with play status
     val uiState: StateFlow<LibraryUiState> = combine(
         subscriptionRepository.subscribedPodcasts,
         playbackRepository.likedEpisodes,
         downloadRepository.downloads,
-        playbackRepository.getAllHistory()
-    ) { podcasts, liked, downloads, allHistory ->
+        playbackRepository.getAllHistory(),
+        _subscriptionSort
+    ) { podcasts: List<Podcast>, liked: List<ListeningHistoryEntity>, downloads: List<cx.aswin.boxcast.core.data.database.DownloadedEpisodeEntity>, allHistory: List<ListeningHistoryEntity>, sort: SubscriptionSort ->
         // Enrich podcasts with episode status from listening history
         val enrichedPodcasts = podcasts.map { podcast ->
             val episode = podcast.latestEpisode ?: return@map podcast
@@ -71,13 +83,76 @@ class LibraryViewModel(
             }
         }
 
+        // Apply sorting
+        val sortedPodcasts = when (sort) {
+            SubscriptionSort.SmartRank -> {
+                val podScoresMap = enrichedPodcasts.associate { pod ->
+                    val playCount = allHistory.count { it.podcastId == pod.id }
+                    val likeCount = allHistory.count { it.podcastId == pod.id && it.isLiked }
+                    val playScore = 12.0 * playCount
+                    val likeScore = 25.0 * likeCount
+
+                    val lastPlayTime = allHistory.filter { it.podcastId == pod.id }.maxOfOrNull { it.lastPlayedAt }
+                    val playRecencyScore = if (lastPlayTime != null) {
+                        val hoursSinceLastPlay = (System.currentTimeMillis() - lastPlayTime).toDouble() / (1000.0 * 3600.0)
+                        250.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
+                    } else {
+                        0.0
+                    }
+
+                    val latestEp = pod.latestEpisode
+                    val freshnessScore = if (latestEp != null) {
+                        val latestEpHistory = allHistory.find { it.episodeId == latestEp.id }
+                        val isUnplayed = latestEpHistory == null || (latestEpHistory.progressMs == 0L && !latestEpHistory.isCompleted)
+                        val releasedAfterSub = latestEp.publishedDate > (pod.subscribedAt / 1000L)
+                        if (isUnplayed && releasedAfterSub) {
+                            val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
+                            (150.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)) + 80.0
+                        } else {
+                            0.0
+                        }
+                    } else {
+                        0.0
+                    }
+
+                    val subRecencyScore = if (pod.subscribedAt > 0L) {
+                        val hoursSinceSubscribed = (System.currentTimeMillis() - pod.subscribedAt).toDouble() / (1000.0 * 3600.0)
+                        100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
+                    } else {
+                        0.0
+                    }
+
+                    pod.id to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore)
+                }
+
+                enrichedPodcasts.map { pod ->
+                    pod to (podScoresMap[pod.id] ?: 0.0)
+                }.sortedWith(
+                    compareByDescending<Pair<Podcast, Double>> { it.second }
+                        .thenBy { it.first.title }
+                ).map { it.first }
+            }
+            SubscriptionSort.RecentlyUpdated -> {
+                enrichedPodcasts.sortedByDescending { it.latestEpisode?.publishedDate ?: 0L }
+            }
+            SubscriptionSort.Alphabetical -> {
+                enrichedPodcasts.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+            }
+            SubscriptionSort.MostListened -> {
+                val historyCounts = allHistory.groupBy { it.podcastId }.mapValues { it.value.size }
+                enrichedPodcasts.sortedByDescending { historyCounts[it.id] ?: 0 }
+            }
+        }
+
         LibraryUiState.Success(
-            subscribedPodcasts = enrichedPodcasts,
+            subscribedPodcasts = sortedPodcasts,
             likedEpisodes = liked,
             downloadedEpisodes = downloads,
-            recentHistory = allHistory.take(3)
+            recentHistory = allHistory.take(3),
+            currentSort = sort,
+            allHistory = allHistory
         )
-    }
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),

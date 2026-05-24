@@ -31,8 +31,14 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +57,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +68,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.net.URLEncoder
 import java.net.URLDecoder
 import androidx.compose.ui.Modifier
@@ -194,10 +203,29 @@ class MainActivity : ComponentActivity() {
                     .build()
             }
             .okHttpClient {
-                OkHttpClient.Builder()
-                    .connectTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(20, TimeUnit.SECONDS)
-                    .build()
+                OkHttpClient.Builder().apply {
+                    connectTimeout(15, TimeUnit.SECONDS)
+                    readTimeout(20, TimeUnit.SECONDS)
+                    if (cx.aswin.boxcast.BuildConfig.DEBUG) {
+                        try {
+                            val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(
+                                object : javax.net.ssl.X509TrustManager {
+                                    override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                                    override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                                    override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+                                }
+                            )
+                            
+                            val sslContext = javax.net.ssl.SSLContext.getInstance("SSL")
+                            sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+                            
+                            sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as javax.net.ssl.X509TrustManager)
+                            hostnameVerifier { _, _ -> true }
+                        } catch (e: Exception) {
+                            android.util.Log.e("CoilLoader", "Failed to configure trust-all certificates for debug", e)
+                        }
+                    }
+                }.build()
             }
             .crossfade(true)
             .respectCacheHeaders(false) // Force caching even if servers say no
@@ -241,7 +269,7 @@ class MainActivity : ComponentActivity() {
             val queueRepository = remember { cx.aswin.boxcast.core.data.QueueRepository(database, podcastRepository) }
 
             // 3. Playback Repository (Depends on QueueRepo)
-            val playbackRepository = remember { cx.aswin.boxcast.core.data.PlaybackRepository(application, database.listeningHistoryDao(), queueRepository) }
+            val playbackRepository = remember { cx.aswin.boxcast.core.data.PlaybackRepository(application, database.listeningHistoryDao(), queueRepository, podcastRepository) }
             val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
             
             // 4. Subscription Repository
@@ -283,7 +311,15 @@ class MainActivity : ComponentActivity() {
             val hasLoggedFirstPlay by userPrefs.hasLoggedFirstPlay.collectAsState(initial = true)
             val activeAnnouncement by userPrefs.activeAnnouncementStream.collectAsState(initial = null)
             val dismissedFeatureVersion by userPrefs.dismissedFeatureVersion.collectAsState(initial = "")
-            val playerState by playbackRepository.playerState.collectAsState()
+            val isPlaying by remember(playbackRepository) {
+                playbackRepository.playerState.map { it.isPlaying }.distinctUntilChanged()
+            }.collectAsState(initial = false)
+            val showLateNightNudge by remember(playbackRepository) {
+                playbackRepository.playerState.map { it.showLateNightNudge }.distinctUntilChanged()
+            }.collectAsState(initial = false)
+            val currentEpisode by remember(playbackRepository) {
+                playbackRepository.playerState.map { it.currentEpisode }.distinctUntilChanged()
+            }.collectAsState(initial = null)
             val isRadioMode by userPrefs.isRadioModeStream.collectAsState(initial = false)
             val isModeSwitching by cx.aswin.boxcast.feature.home.ModeSwitchState.isSwitching.collectAsState()
             
@@ -328,8 +364,8 @@ class MainActivity : ComponentActivity() {
             }
 
             // Activation Tracking (first_episode_played)
-            LaunchedEffect(playerState.isPlaying, hasLoggedFirstPlay) {
-                if (playerState.isPlaying && !hasLoggedFirstPlay) {
+            LaunchedEffect(isPlaying, hasLoggedFirstPlay) {
+                if (isPlaying && !hasLoggedFirstPlay) {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFirstEpisodePlayed()
                     userPrefs.markFirstPlayLogged()
                 }
@@ -591,15 +627,22 @@ class MainActivity : ComponentActivity() {
                             
                             fun getRouteIndex(route: String?): Int {
                                 if (route == null) return 0
+                                if (route == "home") return 0
+                                if (route.startsWith("explore")) return 1
+                                if (route == "library" || route.startsWith("library/subscriptions")) return 2
+                                
                                 // Detail screens are "deeper" -> higher index
                                 if (route.startsWith("podcast/")) return 10
                                 if (route.startsWith("episode/")) return 11
                                 if (route.startsWith("library/")) return 12 // Library sub-screens
                                 
-                                // Direct matches or parametrized base routes
-                                if (route.startsWith("explore")) return 1
-                                
                                 return routeOrder[route] ?: 0
+                            }
+
+                            fun isTabToTab(fromRoute: String?, toRoute: String?): Boolean {
+                                val fromIndex = getRouteIndex(fromRoute)
+                                val toIndex = getRouteIndex(toRoute)
+                                return fromIndex < 10 && toIndex < 10
                             }
 
                             NavHost(
@@ -607,47 +650,87 @@ class MainActivity : ComponentActivity() {
                                 startDestination = if (onboardingCompleted) "home" else "onboarding",
                                 modifier = Modifier, // No padding(innerPadding) -> Fixes GAP issue
                                 enterTransition = {
-                                    val fromIndex = getRouteIndex(initialState.destination.route)
-                                    val toIndex = getRouteIndex(targetState.destination.route)
-                                    if (toIndex > fromIndex) {
-                                        // Moving Right (Push Left)
-                                        slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
+                                    val fromRoute = initialState.destination.route
+                                    val toRoute = targetState.destination.route
+                                    val fromIndex = getRouteIndex(fromRoute)
+                                    val toIndex = getRouteIndex(toRoute)
+                                    if (isTabToTab(fromRoute, toRoute)) {
+                                        if (toIndex > fromIndex) {
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
+                                        } else {
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
+                                        }
                                     } else {
-                                        // Moving Left (Push Right)
-                                        slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
+                                        if (toIndex > fromIndex) {
+                                            // Moving Right (Push Left)
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
+                                        } else {
+                                            // Moving Left (Push Right)
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
+                                        }
                                     }
                                 },
                                 exitTransition = {
-                                    val fromIndex = getRouteIndex(initialState.destination.route)
-                                    val toIndex = getRouteIndex(targetState.destination.route)
-                                    if (toIndex > fromIndex) {
-                                        // Moving Right (Push Left) -> Exit to Left
-                                        slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { -it / 3 }) + fadeOut(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING))
+                                    val fromRoute = initialState.destination.route
+                                    val toRoute = targetState.destination.route
+                                    val fromIndex = getRouteIndex(fromRoute)
+                                    val toIndex = getRouteIndex(toRoute)
+                                    if (isTabToTab(fromRoute, toRoute)) {
+                                        if (toIndex > fromIndex) {
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { -it })
+                                        } else {
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { it })
+                                        }
                                     } else {
-                                        // Moving Left (Push Right) -> Exit to Right
-                                        slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { it / 3 }) + fadeOut(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING))
+                                        if (toIndex > fromIndex) {
+                                            // Moving Right (Push Left) -> Exit to Left
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { -it / 3 }) + fadeOut(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING))
+                                        } else {
+                                            // Moving Left (Push Right) -> Exit to Right
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { it / 3 }) + fadeOut(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING))
+                                        }
                                     }
                                 },
                                 popEnterTransition = {
-                                    val fromIndex = getRouteIndex(initialState.destination.route)
-                                    val toIndex = getRouteIndex(targetState.destination.route)
-                                    if (toIndex > fromIndex) {
-                                        // Popping "Forward" (rare, usually popping back) -> Slide In Right
-                                         slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) + fadeIn(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                    val fromRoute = initialState.destination.route
+                                    val toRoute = targetState.destination.route
+                                    val fromIndex = getRouteIndex(fromRoute)
+                                    val toIndex = getRouteIndex(toRoute)
+                                    if (isTabToTab(fromRoute, toRoute)) {
+                                        if (toIndex > fromIndex) {
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it })
+                                        } else {
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
+                                        }
                                     } else {
-                                        // Popping Back (e.g. Back from Detail) -> Slide In Left (or Center)
-                                        slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it / 3 }) + fadeIn(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                        if (toIndex > fromIndex) {
+                                            // Popping "Forward" (rare, usually popping back) -> Slide In Right
+                                             slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) + fadeIn(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                        } else {
+                                            // Popping Back (e.g. Back from Detail) -> Slide In Left (or Center)
+                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it / 3 }) + fadeIn(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                        }
                                     }
                                 },
                                 popExitTransition = {
-                                    val fromIndex = getRouteIndex(initialState.destination.route)
-                                    val toIndex = getRouteIndex(targetState.destination.route)
-                                     if (toIndex > fromIndex) {
-                                        // Popping Forward -> Exit Left
-                                        slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { -it }) + fadeOut(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                    val fromRoute = initialState.destination.route
+                                    val toRoute = targetState.destination.route
+                                    val fromIndex = getRouteIndex(fromRoute)
+                                    val toIndex = getRouteIndex(toRoute)
+                                    if (isTabToTab(fromRoute, toRoute)) {
+                                        if (toIndex > fromIndex) {
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { -it })
+                                        } else {
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { it })
+                                        }
                                     } else {
-                                        // Popping Back -> Exit Right
-                                        slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { it }) + fadeOut(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                         if (toIndex > fromIndex) {
+                                            // Popping Forward -> Exit Left
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { -it }) + fadeOut(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                        } else {
+                                            // Popping Back -> Exit Right
+                                            slideOutHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), targetOffsetX = { it }) + fadeOut(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
+                                        }
                                     }
                                 }
                             ) {
@@ -722,7 +805,11 @@ class MainActivity : ComponentActivity() {
                                     apiBaseUrl = apiBaseUrl,
                                     publicKey = publicKey,
                                     playbackRepository = playbackRepository,
+                                    navController = navController,
                                     onPodcastClick = { podcast, entryPointStr, genreStr, depthVal ->
+                                        if (entryPointStr == "home_hero_card") {
+                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTimeBlockTapped()
+                                        }
                                         var route = "podcast/${podcast.id}"
                                         val params = mutableListOf<String>()
                                         if (entryPointStr != null) params.add("entryPoint=$entryPointStr")
@@ -732,6 +819,7 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate(route)
                                     },
                                     onPlayClick = { podcast, bundle -> 
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTimeBlockTapped()
                                         // Start Playback via QueueManager (Smart Queue)
                                         val episode = podcast.latestEpisode
                                         if (episode != null) {
@@ -742,6 +830,7 @@ class MainActivity : ComponentActivity() {
                                         // Do not navigate, just play. Mini player appears.
                                     },
                                     onHeroArrowClick = { heroItem, carouselPos ->
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTimeBlockTapped()
                                         val ep = heroItem.podcast.latestEpisode
                                         if (ep != null) {
                                             fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
@@ -760,6 +849,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onEpisodeClick = { episode, podcast, entryPointStr ->
+                                        if (entryPointStr == "home_hero_card") {
+                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTimeBlockTapped()
+                                        }
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         val entryPointQuery = if (entryPointStr != null) "?entryPoint=$entryPointStr" else ""
                                         navController.navigate(
@@ -773,6 +865,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                     },
                                     onCuratedEpisodeClick = { episode, podcast, vibeId, carouselPos ->
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTimeBlockTapped()
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         navController.navigate(
                                             "episode/${encode(episode.id)}/${encode(episode.title)}/" +
@@ -855,7 +948,9 @@ class MainActivity : ComponentActivity() {
                                                 false
                                             }
                                         }
-                                    }
+                                    },
+                                    onResetSleepNudge = { playbackRepository.resetSleepNudgeForTesting() },
+                                    onClearSleepTimer = { playbackRepository.setSleepTimer(0) }
                                 )
                             }
                             
@@ -1216,15 +1311,16 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 )
-                                    // Calculate bottom padding for Mini Player
-                                    // PlayerState is a data class. If currentEpisode is not null, player is active.
-                                    val playerState by playbackRepository.playerState.collectAsState()
-                                    val isPlayerVisible = playerState.currentEpisode != null
-                                    
-                                    // Base: NavBar clearance (64dp) + optional MiniPlayer (56dp)
-                                    val miniPlayerPadding = if (isPlayerVisible) (64 + 56).dp else 64.dp
-                                    
-                                    cx.aswin.boxcast.feature.info.PodcastInfoScreen(
+                                     // Calculate bottom padding for Mini Player
+                                     // PlayerState is a data class. If currentEpisode is not null, player is active.
+                                     val isPlayerVisible by remember(playbackRepository) {
+                                         playbackRepository.playerState.map { it.currentEpisode != null }.distinctUntilChanged()
+                                      }.collectAsState(initial = false)
+                                      
+                                      // Base: NavBar clearance (62dp) + optional MiniPlayer (64dp) + MiniPlayer bottom margin (8dp)
+                                      val miniPlayerPadding = if (isPlayerVisible) (62 + 64 + 8).dp else 62.dp
+                                     
+                                     cx.aswin.boxcast.feature.info.PodcastInfoScreen(
                                         podcastId = podcastId,
                                         viewModel = viewModel,
                                         onBack = { navController.popBackStack() },
@@ -1438,7 +1534,13 @@ class MainActivity : ComponentActivity() {
                                     
                                     // Navigating to Home
                                     route == "home" -> {
-                                        navController.popBackStack("home", inclusive = false)
+                                        navController.navigate("home") {
+                                            popUpTo("home") {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                     
                                     // Default: Navigate to the new tab
@@ -1457,6 +1559,235 @@ class MainActivity : ComponentActivity() {
                             },
                             modifier = Modifier.align(Alignment.BottomCenter)
                         )
+                    }
+
+                    // Late Night Sleep Timer Nudge
+                    val isPlayerActive = currentEpisode != null
+                    
+                    var isTimerSetConfirmation by remember { mutableStateOf(false) }
+                    
+                    LaunchedEffect(showLateNightNudge) {
+                        android.util.Log.d("LateNightNudge", "LaunchedEffect(showLateNightNudge) triggered: $showLateNightNudge")
+                        if (!showLateNightNudge) {
+                            isTimerSetConfirmation = false
+                        }
+                    }
+                    
+                    // Confirmation auto-dismiss: when timer is set, delay 2.5 seconds and dismiss nudge cleanly
+                    LaunchedEffect(isTimerSetConfirmation) {
+                        android.util.Log.d("LateNightNudge", "LaunchedEffect(isTimerSetConfirmation) triggered: $isTimerSetConfirmation")
+                        if (isTimerSetConfirmation) {
+                            android.util.Log.d("LateNightNudge", "Starting 2500ms delay for confirmation auto-dismiss")
+                            kotlinx.coroutines.delay(2500)
+                            android.util.Log.d("LateNightNudge", "Delay finished. Calling dismissLateNightNudge()")
+                            playbackRepository.dismissLateNightNudge()
+                            isTimerSetConfirmation = false
+                        }
+                    }
+                    
+                    // Reactive Auto-hide: dismiss nudge after 8 seconds of inactivity (extended from 5s)
+                    LaunchedEffect(showLateNightNudge, currentEpisode?.id, isTimerSetConfirmation) {
+                        android.util.Log.d("LateNightNudge", "LaunchedEffect(auto-hide) triggered: showLateNightNudge=$showLateNightNudge, episodeId=${currentEpisode?.id}, isTimerSetConfirmation=$isTimerSetConfirmation")
+                        if (showLateNightNudge && !isTimerSetConfirmation) {
+                            android.util.Log.d("LateNightNudge", "Starting 8000ms inactivity delay")
+                            kotlinx.coroutines.delay(8000)
+                            android.util.Log.d("LateNightNudge", "Inactivity delay finished. Calling dismissLateNightNudge()")
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("ignore")
+                            playbackRepository.dismissLateNightNudge()
+                        }
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showLateNightNudge && isPlayerActive && !isRadioMode && !isModeSwitching,
+                        enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(400)) + 
+                                androidx.compose.animation.slideInVertically(
+                                    initialOffsetY = { it }, 
+                                    animationSpec = androidx.compose.animation.core.spring(
+                                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                                        stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                                    )
+                                ),
+                        exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300)) + 
+                               androidx.compose.animation.slideOutVertically(targetOffsetY = { it }),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(
+                                bottom = appNavBarHeight + systemNavBarHeight + cx.aswin.boxcast.feature.player.MiniPlayerHeight + miniPlayerBottomMargin + 16.dp,
+                                start = 16.dp,
+                                end = 16.dp
+                            )
+                            .zIndex(10f)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            ),
+                            shadowElevation = 8.dp
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                if (isTimerSetConfirmation) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Timer set. Good night!",
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                                letterSpacing = 0.15.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                } else {
+                                    // Row 1: Text on Left, Dismiss Cross on Right
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Late Night Listening?",
+                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "Set a timer to prevent episodes from playing all night.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                                                .clickable {
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("dismiss")
+                                                    playbackRepository.dismissLateNightNudge() // Manually dismiss
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "✕",
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                fontSize = 12.sp,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    
+                                    // Row 2: "Start timer:" label + [30m] [1hr] [2hr] option pills
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Start timer:",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                            modifier = Modifier.padding(end = 4.dp)
+                                        )
+                                        
+                                        // 30m Button
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                                .border(
+                                                    1.dp, 
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), 
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("timer_set", 30)
+                                                    playbackRepository.setSleepTimer(30, dismissNudge = false)
+                                                    isTimerSetConfirmation = true
+                                                }
+                                                .padding(vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "30m",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                        }
+                                        
+                                        // 1hr Button
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                                .border(
+                                                    1.dp, 
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), 
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("timer_set", 60)
+                                                    playbackRepository.setSleepTimer(60, dismissNudge = false)
+                                                    isTimerSetConfirmation = true
+                                                }
+                                                .padding(vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "1hr",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                        }
+                                        
+                                        // 2hr Button
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                                .border(
+                                                    1.dp, 
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), 
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("timer_set", 120)
+                                                    playbackRepository.setSleepTimer(120, dismissNudge = false)
+                                                    isTimerSetConfirmation = true
+                                                }
+                                                .padding(vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "2hr",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Unified Player Sheet - PixelPlayer architecture (Last so it draws ON TOP)

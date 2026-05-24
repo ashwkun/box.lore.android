@@ -35,6 +35,10 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.navigation.NavController
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
@@ -46,6 +50,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.Alignment
 import cx.aswin.boxcast.feature.home.components.GridSkeletonItems
+import cx.aswin.boxcast.feature.home.components.YourShowsSkeleton
+import cx.aswin.boxcast.feature.home.components.TimeBlockSkeleton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +60,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cx.aswin.boxcast.core.model.Episode
+import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 
@@ -90,6 +97,9 @@ fun HomeRoute(
     onNavigateToSettings: (() -> Unit)? = null,
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
+    onResetSleepNudge: () -> Unit = {},
+    onClearSleepTimer: () -> Unit = {},
+    navController: NavController? = null,
     modifier: Modifier = Modifier
 ) {
     val application = LocalContext.current.applicationContext as android.app.Application
@@ -101,8 +111,29 @@ fun HomeRoute(
             }
         }
     )
+
+    if (navController != null) {
+        DisposableEffect(navController) {
+            val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+                val route = destination.route
+                if (route != null && route != "home" && !route.startsWith("episode")) {
+                    viewModel.selectPodcast(null)
+                }
+            }
+            navController.addOnDestinationChangedListener(listener)
+            onDispose {
+                navController.removeOnDestinationChangedListener(listener)
+            }
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
-    val playerState by viewModel.playerState.collectAsState()
+    val isPlaying by remember(viewModel) {
+        viewModel.playerState.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsState(initial = false)
+    val currentPlayingPodcastId by remember(viewModel) {
+        viewModel.playerState.map { it.currentPodcast?.id }.distinctUntilChanged()
+    }.collectAsState(initial = null)
     val debugHistory by viewModel.debugHistory.collectAsState(initial = emptyList())
     val debugPodcasts by viewModel.debugPodcasts.collectAsState(initial = emptyList())
 
@@ -114,8 +145,8 @@ fun HomeRoute(
     
     HomeScreen(
         uiState = uiState,
-        currentPlayingPodcastId = playerState.currentPodcast?.id,
-        isPlaying = playerState.isPlaying,
+        currentPlayingPodcastId = currentPlayingPodcastId,
+        isPlaying = isPlaying,
         debugHistory = debugHistory,
         debugPodcasts = debugPodcasts,
         onPodcastClick = onPodcastClick,
@@ -130,6 +161,9 @@ fun HomeRoute(
         onToggleSubscription = viewModel::toggleSubscription,
         onTogglePlayback = viewModel::togglePlayback,
         onSelectCategory = viewModel::selectCategory,
+        onPodcastSelected = viewModel::selectPodcast,
+        onPlayMix = viewModel::playUnplayedMix,
+        onPlayEpisode = viewModel::playEpisode,
         onDeleteHistoryItem = viewModel::deleteHistoryItem,
         onNavigateToSettings = onNavigateToSettings,
         onFeedbackClick = viewModel::triggerFeedback,
@@ -150,6 +184,8 @@ fun HomeRoute(
         },
         onSubmitFeedback = onSubmitFeedback,
         onResetFeatureFlag = viewModel::resetFeatureFlag,
+        onResetSleepNudge = onResetSleepNudge,
+        onClearSleepTimer = onClearSleepTimer,
         onSwitchRegion = viewModel::setRegion,
         onDismissNudge = viewModel::dismissRegionNudge,
 
@@ -191,8 +227,13 @@ fun HomeScreen(
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
     onResetFeatureFlag: () -> Unit = {},
+    onResetSleepNudge: () -> Unit = {},
+    onClearSleepTimer: () -> Unit = {},
     onSwitchRegion: (String) -> Unit = {},
     onDismissNudge: () -> Unit = {},
+    onPodcastSelected: (String?) -> Unit = {},
+    onPlayMix: () -> Unit = {},
+    onPlayEpisode: (Episode, Podcast) -> Unit = { _, _ -> },
 
     modifier: Modifier = Modifier
 ) {
@@ -221,6 +262,8 @@ fun HomeScreen(
             podcasts = debugPodcasts,
             onDeleteHistoryItem = onDeleteHistoryItem,
             onResetFeatureFlag = onResetFeatureFlag,
+            onResetSleepNudge = onResetSleepNudge,
+            onClearSleepTimer = onClearSleepTimer,
             onDismissRequest = { showDebugDialog = false }
         )
     }
@@ -268,6 +311,14 @@ fun HomeScreen(
                             currentPlayingPodcastId = currentPlayingPodcastId,
                             isPlaying = isPlaying,
                             isFilterLoading = uiState.isFilterLoading,
+                            selectedPodcastId = uiState.selectedPodcastId,
+                            selectedPodcastEpisodes = uiState.selectedPodcastEpisodes,
+                            isSelectedPodcastLoading = uiState.isSelectedPodcastLoading,
+                            episodePlaybackState = uiState.episodePlaybackState,
+                            isLoading = uiState.isLoading,
+                            onPodcastSelected = onPodcastSelected,
+                            onPlayMix = onPlayMix,
+                            onPlayEpisode = onPlayEpisode,
                             onPodcastClick = onPodcastClick,
                             onHeroArrowClick = onHeroArrowClick,
                             onEpisodeClick = onEpisodeClick,
@@ -352,6 +403,14 @@ private fun PodcastFeed(
     currentPlayingPodcastId: String?,
     isPlaying: Boolean,
     isFilterLoading: Boolean,
+    selectedPodcastId: String? = null,
+    selectedPodcastEpisodes: List<Episode> = emptyList(),
+    isSelectedPodcastLoading: Boolean = false,
+    episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
+    isLoading: Boolean,
+    onPodcastSelected: (String?) -> Unit = {},
+    onPlayMix: () -> Unit = {},
+    onPlayEpisode: (Episode, Podcast) -> Unit = { _, _ -> },
     showRegionNudge: Boolean = false,
     systemRegionCode: String = "",
     activeRegionCode: String = "",
@@ -385,7 +444,9 @@ private fun PodcastFeed(
         // 1. Smart Hero (Personalized Content) and Region Nudge
         item(span = StaggeredGridItemSpan.FullLine) {
             Column {
-                if (heroItems.isNotEmpty()) {
+                if (isLoading || heroItems.isEmpty()) {
+                    cx.aswin.boxcast.feature.home.components.HeroSkeleton()
+                } else {
                     HeroCarousel(
                         heroItems = heroItems,
                         currentPlayingPodcastId = currentPlayingPodcastId,
@@ -404,8 +465,6 @@ private fun PodcastFeed(
                         onTogglePlayback = onTogglePlayback,
                         modifier = Modifier.padding(horizontal = 8.dp) 
                     )
-                } else {
-                    cx.aswin.boxcast.feature.home.components.HeroSkeleton()
                 }
 
                 AnimatedVisibility(
@@ -431,39 +490,39 @@ private fun PodcastFeed(
         }
 
         // 2. "Your Shows" (Merged: Subscribed + New Episodes) - MOVED ABOVE "On The Rise"
-        if (subscribedItems.isNotEmpty() || latestItems.isNotEmpty()) {
+        // 2. "Your Shows" (Interactive selector grid & filtered stack)
+        if (isLoading) {
             item(span = StaggeredGridItemSpan.FullLine) {
-                val suggestedItems = remember(subscribedItems, gridItems) {
-                    val subSize = subscribedItems.size
-                    if (subSize in 1..4 || subSize in 6..9) {
-                        val needed = if (subSize < 5) 5 - subSize else 10 - subSize
-                        val subGenres = subscribedItems.map { it.genre }.filter { it.isNotEmpty() }.toSet()
-                        val matchingGenre = gridItems.filter { it.genre in subGenres && !subscribedItems.any { sub -> sub.id == it.id } }
-                        if (matchingGenre.size >= needed) {
-                            matchingGenre.take(needed)
-                        } else {
-                            (matchingGenre + gridItems.filter { it !in matchingGenre && !subscribedItems.any { sub -> sub.id == it.id } }).take(needed)
-                        }
-                    } else emptyList()
-                }
-
+                YourShowsSkeleton()
+            }
+        } else if (subscribedItems.isNotEmpty()) {
+            item(span = StaggeredGridItemSpan.FullLine) {
                 YourShowsSection(
                     subscribedPodcasts = subscribedItems,
-                    suggestedPodcasts = suggestedItems,
                     latestEpisodes = latestItems,
                     unplayedEpisodeCount = unplayedEpisodeCount,
+                    selectedPodcastId = selectedPodcastId,
+                    selectedPodcastEpisodes = selectedPodcastEpisodes,
+                    isSelectedPodcastLoading = isSelectedPodcastLoading,
+                    episodePlaybackState = episodePlaybackState,
+                    onPodcastSelected = onPodcastSelected,
                     onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
-                    onEpisodeClick = { episode, podcast ->
-                        onEpisodeClick?.invoke(episode, podcast, "home_new_episodes")
+                    onEpisodeClick = { episode, podcast, entryPoint ->
+                        onEpisodeClick?.invoke(episode, podcast, entryPoint)
                     },
-                    onViewLibrary = { onNavigateToLibrary?.invoke() },
-                    onViewAllLatest = onNavigateToLatestEpisodes
+                    onPlayMix = onPlayMix,
+                    onPlayEpisode = onPlayEpisode,
+                    onViewLibrary = { onNavigateToLibrary?.invoke() }
                 )
             }
         }
 
         // 3. Time-Based Curated Block
-        if (timeBlock != null) {
+        if (isLoading) {
+            item(span = StaggeredGridItemSpan.FullLine) {
+                TimeBlockSkeleton()
+            }
+        } else if (timeBlock != null) {
             item(span = StaggeredGridItemSpan.FullLine) {
                 TimeBlockSection(
                     data = timeBlock,
@@ -483,7 +542,7 @@ private fun PodcastFeed(
         }
 
         // 5. Masonry Grid Content (Discover Podcasts) - LIMITED TO 6
-        if (!isFilterLoading && gridItems.isNotEmpty()) {
+        if (!isLoading && !isFilterLoading && gridItems.isNotEmpty()) {
             val limitedItems = gridItems.distinctBy { it.id }.take(6)
             val showGenreChip = selectedCategory == null // Only show chips for "For You" tab
             itemsIndexed(limitedItems, key = { _, p -> p.id }) { index, podcast ->

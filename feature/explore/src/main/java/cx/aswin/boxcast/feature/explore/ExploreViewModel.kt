@@ -51,7 +51,21 @@ class ExploreViewModel(
     initialCategory: String? = null // New param
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
-    private val _uiState = MutableStateFlow<ExploreUiState>(ExploreUiState.Loading)
+    private val _uiState = MutableStateFlow<ExploreUiState>(
+        ExploreUiState.Success(
+            trending = emptyList(),
+            searchResults = emptyList(),
+            subscribedIds = emptySet(),
+            currentCategory = initialCategory ?: "All",
+            searchQuery = "",
+            isSearching = false,
+            isLoading = true,
+            currentVibe = null,
+            suggestedVibes = emptyList(),
+            isLoadingMore = false,
+            hasMore = true
+        )
+    )
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
 
     // Internal state to combine

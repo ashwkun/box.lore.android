@@ -19,8 +19,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +47,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyRow
@@ -106,6 +109,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -273,22 +279,12 @@ fun PodcastInfoScreen(
     }
 
     var autoScrolledEpisodeId by remember(podcastId) { mutableStateOf<String?>(null) }
+    var targetJumpIndex by remember(podcastId) { mutableStateOf(-1) }
+    var targetJumpEpisode by remember(podcastId) { mutableStateOf<Episode?>(null) }
+    var isTargetOngoing by remember(podcastId) { mutableStateOf(false) }
     val completedEpisodeIds by viewModel.completedEpisodesState.collectAsState()
 
-    LaunchedEffect(uiState, completedEpisodeIds) {
-        val state = uiState
-        if (state is PodcastInfoUiState.Success && state.podcast.type == "serial" && autoScrolledEpisodeId == null) {
-            val firstUnplayedIndex = state.episodes.indexOfFirst { !completedEpisodeIds.contains(it.id) }
-            // Only scroll if there are actually completed episodes (don't scroll if they are on episode 1)
-            if (firstUnplayedIndex > 0) {
-                // Offset by 2 because of header + toolbar items in LazyColumn
-                listState.scrollToItem(firstUnplayedIndex + 2)
-                autoScrolledEpisodeId = state.episodes[firstUnplayedIndex].id
-            } else if (firstUnplayedIndex == 0) {
-                autoScrolledEpisodeId = "first_so_no_badge"
-            }
-        }
-    }
+
     
     // Scroll state for floating title animation (like Episode Info)
     val scrollOffset by remember {
@@ -350,7 +346,11 @@ fun PodcastInfoScreen(
     val likedEpisodeIds by viewModel.likedEpisodesState.collectAsState()
 
     // Playback state
-    val episodePlaybackState by viewModel.episodePlaybackState.collectAsState()
+    val ongoingEpisodeIds by remember(viewModel) {
+        viewModel.episodePlaybackState.map { map ->
+            map.filterValues { it.isResume }.keys
+        }.distinctUntilChanged()
+    }.collectAsState(initial = emptySet())
     
 
 
@@ -413,6 +413,83 @@ fun PodcastInfoScreen(
                 
                 val displayEpisodes = state.searchResults ?: state.episodes
                 val feedItems = remember(displayEpisodes) { groupEpisodes(displayEpisodes) }
+                
+                LaunchedEffect(state, completedEpisodeIds, feedItems, ongoingEpisodeIds) {
+                    android.util.Log.d("PodcastInfoScreenScroll", "Target check triggered: currentSort=${state.currentSort}, autoScrolledEpisodeId=$autoScrolledEpisodeId, feedItemsSize=${feedItems.size}")
+                    if (state.currentSort == EpisodeSort.OLDEST && feedItems.isNotEmpty()) {
+                        // 1. Look for an in-progress/ongoing episode first
+                        var targetIndex = feedItems.indexOfFirst { item ->
+                            val episodeId = when (item) {
+                                is FeedItem.NormalEpisode -> item.episode.id
+                                is FeedItem.SingleTrailer -> item.episode.id
+                                is FeedItem.TrailerGroup -> item.trailers.firstOrNull()?.first?.id
+                            }
+                            episodeId != null && ongoingEpisodeIds.contains(episodeId)
+                        }
+                        val isOngoingMatched = targetIndex != -1
+                        android.util.Log.d("PodcastInfoScreenScroll", "Step 1 Ongoing Index: $targetIndex")
+
+                        // 2. If nothing is ongoing, look for the episode just after the last completed one
+                        if (targetIndex == -1) {
+                            val lastCompletedIndex = feedItems.indexOfLast { item ->
+                                when (item) {
+                                    is FeedItem.NormalEpisode -> completedEpisodeIds.contains(item.episode.id)
+                                    is FeedItem.SingleTrailer -> completedEpisodeIds.contains(item.episode.id)
+                                    is FeedItem.TrailerGroup -> item.trailers.any { completedEpisodeIds.contains(it.first.id) }
+                                }
+                            }
+                            android.util.Log.d("PodcastInfoScreenScroll", "Step 2 Last Completed Index: $lastCompletedIndex")
+                            if (lastCompletedIndex != -1) {
+                                targetIndex = lastCompletedIndex + 1
+                            }
+                        }
+
+                        // 3. Fallback to first episode (index 0) if nothing completed or ongoing
+                        if (targetIndex == -1) {
+                            targetIndex = 0
+                        }
+
+                        // Coerce to ensure we stay inside bounds
+                        val resolvedIndex = targetIndex.coerceIn(0, feedItems.size - 1)
+                        android.util.Log.d("PodcastInfoScreenScroll", "Resolved Scroll Target Index: $resolvedIndex")
+
+                        targetJumpIndex = resolvedIndex
+                        isTargetOngoing = isOngoingMatched
+
+                        // UP NEXT tag should go to the episode immediately following the ongoing/in-progress one
+                        val badgeIndex = if (isOngoingMatched && resolvedIndex < feedItems.size - 1) {
+                            resolvedIndex + 1
+                        } else {
+                            resolvedIndex
+                        }
+                        android.util.Log.d("PodcastInfoScreenScroll", "Resolved Badge Target Index: $badgeIndex")
+
+                        // Find the target episode object to jump to
+                        val jumpEp = feedItems.getOrNull(resolvedIndex)?.let { item ->
+                            when (item) {
+                                is FeedItem.NormalEpisode -> item.episode
+                                is FeedItem.SingleTrailer -> item.episode
+                                is FeedItem.TrailerGroup -> item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
+                            }
+                        }
+                        targetJumpEpisode = jumpEp
+
+                        // Set the UP NEXT badge episode ID immediately on load so it appears on the row
+                        val badgeEp = feedItems.getOrNull(badgeIndex)?.let { item ->
+                            when (item) {
+                                is FeedItem.NormalEpisode -> item.episode
+                                is FeedItem.SingleTrailer -> item.episode
+                                is FeedItem.TrailerGroup -> item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
+                            }
+                        }
+                        autoScrolledEpisodeId = badgeEp?.id
+                    } else {
+                        targetJumpIndex = -1
+                        targetJumpEpisode = null
+                        isTargetOngoing = false
+                        autoScrolledEpisodeId = null
+                    }
+                }
                 
                 val strippedDesc = remember(state.podcast.description) { stripHtml(state.podcast.description) }
                 var isDescExpanded by remember { mutableStateOf(false) }
@@ -1021,44 +1098,48 @@ fun PodcastInfoScreen(
                             is FeedItem.NormalEpisode -> {
                                 val index = feedItem.globalIndex
                                 val episode = feedItem.episode
-                                val playState = episodePlaybackState[episode.id]
                                 val isDownloaded = downloadedEpisodeIds.contains(episode.id)
                                 val isDownloading = downloadingEpisodeIds.contains(episode.id)
                                 val isCompleted = completedEpisodeIds.contains(episode.id)
                                 
-                                EpisodeListItem(
-                                    episode = episode,
-                                    isLiked = likedEpisodeIds.contains(episode.id),
-                                    accentColor = accentColor,
-                                    // Playback State
-                                    isPlaying = playState?.isPlaying == true,
-                                    isResume = playState?.isResume == true,
-                                    progress = playState?.progress ?: 0f,
-                                    timeLeft = playState?.timeLeft,
-                                    // Download State
-                                    isDownloaded = isDownloaded,
-                                    isDownloading = isDownloading,
-                                    isQueued = queuedEpisodeIds.contains(episode.id),
-                                    isCompleted = isCompleted,
-                                    isUpNext = episode.id == autoScrolledEpisodeId,
-                                    onClick = { 
-                                        viewModel.recordEpisodeClick(episode.id)
-                                        onEpisodeClick(episode, "podcast_info_episodes_list", index) 
-                                    },
-                                    onPlayClick = { viewModel.onPlayClick(episode) },
-                                    onToggleLike = { viewModel.onToggleLike(episode) },
-                                    onQueueClick = { viewModel.toggleQueue(episode) },
-                                    onDownloadClick = { viewModel.toggleDownload(episode) },
-                                    onMarkPlayedClick = { viewModel.onToggleCompletion(episode) },
-                                    showMarkPlayedButton = false, // Hide in list view
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
+                                EpisodePlayStateWrapper(
+                                    episodeId = episode.id,
+                                    playbackStateFlow = viewModel.episodePlaybackState
+                                ) { playState ->
+                                    EpisodeListItem(
+                                        episode = episode,
+                                        isLiked = likedEpisodeIds.contains(episode.id),
+                                        accentColor = accentColor,
+                                        // Playback State
+                                        isPlaying = playState?.isPlaying == true,
+                                        isResume = playState?.isResume == true,
+                                        progress = playState?.progress ?: 0f,
+                                        timeLeft = playState?.timeLeft,
+                                        // Download State
+                                        isDownloaded = isDownloaded,
+                                        isDownloading = isDownloading,
+                                        isQueued = queuedEpisodeIds.contains(episode.id),
+                                        isCompleted = isCompleted,
+                                        isUpNext = episode.id == autoScrolledEpisodeId,
+                                        onClick = { 
+                                            viewModel.recordEpisodeClick(episode.id)
+                                            onEpisodeClick(episode, "podcast_info_episodes_list", index) 
+                                        },
+                                        onPlayClick = { viewModel.onPlayClick(episode) },
+                                        onToggleLike = { viewModel.onToggleLike(episode) },
+                                        onQueueClick = { viewModel.toggleQueue(episode) },
+                                        onDownloadClick = { viewModel.toggleDownload(episode) },
+                                        onMarkPlayedClick = { viewModel.onToggleCompletion(episode) },
+                                        showMarkPlayedButton = false, // Hide in list view
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
                             }
                             is FeedItem.SingleTrailer -> {
                                 SingleTrailerCard(
                                     episode = feedItem.episode,
                                     globalIndex = feedItem.globalIndex,
-                                    episodePlaybackState = episodePlaybackState,
+                                    playbackStateFlow = viewModel.episodePlaybackState,
                                     onEpisodeClick = { ep, globalIndex ->
                                         viewModel.recordEpisodeClick(ep.id)
                                         onEpisodeClick(ep, "podcast_info_episodes_list", globalIndex)
@@ -1070,7 +1151,7 @@ fun PodcastInfoScreen(
                             is FeedItem.TrailerGroup -> {
                                 TrailerStackCard(
                                     group = feedItem,
-                                    episodePlaybackState = episodePlaybackState,
+                                    playbackStateFlow = viewModel.episodePlaybackState,
                                     onEpisodeClick = { ep, globalIndex ->
                                         viewModel.recordEpisodeClick(ep.id)
                                         onEpisodeClick(ep, "podcast_info_episodes_list", globalIndex)
@@ -1160,6 +1241,113 @@ fun PodcastInfoScreen(
                         }
                 )
 
+                // Derived visibility check for floating action pill
+                val isTargetVisible by remember(feedItems, listState, targetJumpIndex) {
+                    derivedStateOf {
+                        if (targetJumpIndex == -1 || feedItems.isEmpty()) {
+                            true
+                        } else {
+                            val listIndex = targetJumpIndex + 2
+                            val visibleItems = listState.layoutInfo.visibleItemsInfo
+                            if (visibleItems.isEmpty()) {
+                                true
+                            } else {
+                                val firstVisible = visibleItems.firstOrNull()?.index ?: 0
+                                val lastVisible = visibleItems.lastOrNull()?.index ?: 0
+                                listIndex in firstVisible..lastVisible || firstVisible >= listIndex
+                            }
+                        }
+                    }
+                }
+
+                // Track scroll direction to show/hide FAB
+                var isFabVisible by remember { mutableStateOf(true) }
+                LaunchedEffect(Unit) {
+                    var lastIndex = listState.firstVisibleItemIndex
+                    var lastOffset = listState.firstVisibleItemScrollOffset
+                    androidx.compose.runtime.snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+                        .collect { (currentIndex, currentOffset) ->
+                            if (currentIndex > lastIndex) {
+                                isFabVisible = false
+                            } else if (currentIndex < lastIndex) {
+                                isFabVisible = true
+                            } else if (currentOffset > lastOffset) {
+                                isFabVisible = false
+                            } else if (currentOffset < lastOffset) {
+                                isFabVisible = true
+                            }
+                            lastIndex = currentIndex
+                            lastOffset = currentOffset
+                        }
+                }
+
+                // Floating Jump-To Pill overlay
+                val systemBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = systemBottomPadding + bottomContentPadding + 16.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    AnimatedVisibility(
+                        visible = targetJumpEpisode != null && !isTargetVisible && isFabVisible,
+                        enter = slideInVertically(
+                            initialOffsetY = { it },
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.8f)
+                        ) + fadeIn(),
+                        exit = slideOutVertically(
+                            targetOffsetY = { it },
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.8f)
+                        ) + fadeOut()
+                    ) {
+                        Surface(
+                            onClick = {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(targetJumpIndex + 2)
+                                }
+                            },
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            shadowElevation = 6.dp,
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp)
+                                .widthIn(max = 320.dp)
+                                .height(48.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isTargetOngoing) Icons.Rounded.PlayArrow else Icons.Rounded.ArrowDownward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isTargetOngoing) "Resume: " else "Jump to: ",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                                Text(
+                                    text = targetJumpEpisode?.title ?: "",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .weight(1f, fill = false)
+                                        .basicMarquee(iterations = Int.MAX_VALUE)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // SEARCH OVERLAY (Nested inside Success)
                 AnimatedVisibility(
                     visible = isSearchActive,
@@ -1187,7 +1375,7 @@ fun PodcastInfoScreen(
                         likedEpisodeIds = likedEpisodeIds,
                         completedEpisodeIds = completedEpisodeIds,
                         queuedEpisodeIds = queuedEpisodeIds,
-                        episodePlaybackState = episodePlaybackState,
+                        playbackStateFlow = viewModel.episodePlaybackState,
                         isSearching = state.isSearching,
                         accentColor = accentColor,
                         downloadedEpisodeIds = downloadedEpisodeIds,
@@ -1712,7 +1900,7 @@ fun PodcastInfoSearchOverlay(
     likedEpisodeIds: Set<String>,
     completedEpisodeIds: Set<String>,
     queuedEpisodeIds: Set<String>,
-    episodePlaybackState: Map<String, cx.aswin.boxcast.feature.info.PodcastInfoViewModel.EpisodePlaybackState>,
+    playbackStateFlow: kotlinx.coroutines.flow.Flow<Map<String, cx.aswin.boxcast.feature.info.PodcastInfoViewModel.EpisodePlaybackState>>,
     isSearching: Boolean,
     accentColor: Color,
     downloadedEpisodeIds: Set<String>,
@@ -1834,35 +2022,39 @@ fun PodcastInfoSearchOverlay(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     itemsIndexed(displayList, key = { _, ep -> ep.id }) { index, episode ->
-                        val playState = episodePlaybackState[episode.id]
                         val isDownloaded = downloadedEpisodeIds.contains(episode.id)
                         val isDownloading = downloadingEpisodeIds.contains(episode.id)
                         val isCompleted = completedEpisodeIds.contains(episode.id)
                         
-                        EpisodeListItem(
-                            episode = episode,
-                            isLiked = likedEpisodeIds.contains(episode.id),
-                            accentColor = accentColor,
-                            isPlaying = playState?.isPlaying == true,
-                            isResume = playState?.isResume == true,
-                            progress = playState?.progress ?: 0f,
-                            timeLeft = playState?.timeLeft,
+                        EpisodePlayStateWrapper(
+                            episodeId = episode.id,
+                            playbackStateFlow = playbackStateFlow
+                        ) { playState ->
+                            EpisodeListItem(
+                                episode = episode,
+                                isLiked = likedEpisodeIds.contains(episode.id),
+                                accentColor = accentColor,
+                                isPlaying = playState?.isPlaying == true,
+                                isResume = playState?.isResume == true,
+                                progress = playState?.progress ?: 0f,
+                                timeLeft = playState?.timeLeft,
 
-                            isDownloaded = isDownloaded,
-                            isDownloading = isDownloading,
-                            isQueued = queuedEpisodeIds.contains(episode.id),
-                            isCompleted = isCompleted,
-                            onClick = { 
-                                onEpisodeClick(episode, index)
-                                onClose() // Close search on nav
-                            },
-                            onPlayClick = { onPlayClick(episode) },
-                            onToggleLike = { onToggleLike(episode) },
-                            onQueueClick = { onQueueClick(episode) },
-                            onDownloadClick = { onDownloadClick(episode) },
-                            onMarkPlayedClick = { onToggleCompletion(episode) },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
+                                isDownloaded = isDownloaded,
+                                isDownloading = isDownloading,
+                                isQueued = queuedEpisodeIds.contains(episode.id),
+                                isCompleted = isCompleted,
+                                onClick = { 
+                                    onEpisodeClick(episode, index)
+                                    onClose() // Close search on nav
+                                },
+                                onPlayClick = { onPlayClick(episode) },
+                                onToggleLike = { onToggleLike(episode) },
+                                onQueueClick = { onQueueClick(episode) },
+                                onDownloadClick = { onDownloadClick(episode) },
+                                onMarkPlayedClick = { onToggleCompletion(episode) },
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1923,88 +2115,89 @@ fun groupEpisodes(episodes: List<Episode>): List<FeedItem> {
 fun SingleTrailerCard(
     episode: Episode,
     globalIndex: Int,
-    episodePlaybackState: Map<String, PodcastInfoViewModel.EpisodePlaybackState>,
+    playbackStateFlow: kotlinx.coroutines.flow.Flow<Map<String, PodcastInfoViewModel.EpisodePlaybackState>>,
     onEpisodeClick: (Episode, Int) -> Unit,
     onPlayClick: (Episode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val playState = episodePlaybackState[episode.id]
-    val isPlaying = playState?.isPlaying == true
-    val isResume = playState?.isResume == true
+    EpisodePlayStateWrapper(episodeId = episode.id, playbackStateFlow = playbackStateFlow) { playState ->
+        val isPlaying = playState?.isPlaying == true
+        val isResume = playState?.isResume == true
 
-    ElevatedCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .expressiveClickable { onEpisodeClick(episode, globalIndex) },
-        shape = MaterialTheme.shapes.large,
-        colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Row(
-            modifier = Modifier
+        ElevatedCard(
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .expressiveClickable { onEpisodeClick(episode, globalIndex) },
+            shape = MaterialTheme.shapes.large,
+            colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
         ) {
-            // Play Button
-            Surface(
-                shape = CircleShape,
-                color = if (isPlaying || isResume) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+            Row(
                 modifier = Modifier
-                    .size(40.dp) // Slightly larger play button for a better hit target
-                    .expressiveClickable(isolate = true) { onPlayClick(episode) }
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = if (isPlaying || isResume) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(10.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(14.dp))
-            
-            // Text
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = episode.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Play Button
+                Surface(
+                    shape = CircleShape,
+                    color = if (isPlaying || isResume) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .size(40.dp) // Slightly larger play button for a better hit target
+                        .expressiveClickable(isolate = true) { onPlayClick(episode) }
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = if (isPlaying || isResume) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
                 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(14.dp))
                 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = ExpressiveShapes.Pill,
-                        color = MaterialTheme.colorScheme.tertiaryContainer 
-                    ) {
-                        Text(
-                            text = "Trailer",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                // Text
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = episode.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     
-                    val durationText = if (episode.duration > 0) {
-                        val h = episode.duration / 3600
-                        val m = (episode.duration % 3600) / 60
-                        if (h > 0) "${h}hr ${m}min" else "${m}min"
-                    } else ""
+                    Spacer(modifier = Modifier.height(4.dp))
                     
-                    if (durationText.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = durationText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = ExpressiveShapes.Pill,
+                            color = MaterialTheme.colorScheme.tertiaryContainer 
+                        ) {
+                            Text(
+                                text = "Trailer",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        
+                        val durationText = if (episode.duration > 0) {
+                            val h = episode.duration / 3600
+                            val m = (episode.duration % 3600) / 60
+                            if (h > 0) "${h}hr ${m}min" else "${m}min"
+                        } else ""
+                        
+                        if (durationText.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = durationText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -2015,7 +2208,7 @@ fun SingleTrailerCard(
 @Composable
 fun TrailerStackCard(
     group: FeedItem.TrailerGroup,
-    episodePlaybackState: Map<String, PodcastInfoViewModel.EpisodePlaybackState>,
+    playbackStateFlow: kotlinx.coroutines.flow.Flow<Map<String, PodcastInfoViewModel.EpisodePlaybackState>>,
     onEpisodeClick: (Episode, Int) -> Unit,
     onPlayClick: (Episode) -> Unit,
     modifier: Modifier = Modifier
@@ -2083,55 +2276,56 @@ fun TrailerStackCard(
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
                 ) {
                     group.trailers.forEachIndexed { index, (episode, globalIndex) ->
-                        val playState = episodePlaybackState[episode.id]
-                        val isPlaying = playState?.isPlaying == true
-                        val isResume = playState?.isResume == true
-                        
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .expressiveClickable { onEpisodeClick(episode, globalIndex) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Play Button
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isPlaying || isResume) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        EpisodePlayStateWrapper(episodeId = episode.id, playbackStateFlow = playbackStateFlow) { playState ->
+                            val isPlaying = playState?.isPlaying == true
+                            val isResume = playState?.isResume == true
+                            
+                            Row(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .expressiveClickable(isolate = true) { onPlayClick(episode) }
+                                    .fillMaxWidth()
+                                    .expressiveClickable { onEpisodeClick(episode, globalIndex) }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    contentDescription = if (isPlaying) "Pause" else "Play",
-                                    tint = if (isPlaying || isResume) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.width(12.dp))
-                            
-                            // Text
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = episode.title,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                val durationText = if (episode.duration > 0) {
-                                    val h = episode.duration / 3600
-                                    val m = (episode.duration % 3600) / 60
-                                    if (h > 0) "${h}hr ${m}min" else "${m}min"
-                                } else "Trailer"
+                                // Play Button
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isPlaying || isResume) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .expressiveClickable(isolate = true) { onPlayClick(episode) }
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                        tint = if (isPlaying || isResume) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
                                 
-                                Text(
-                                    text = durationText,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                // Text
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = episode.title,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val durationText = if (episode.duration > 0) {
+                                        val h = episode.duration / 3600
+                                        val m = (episode.duration % 3600) / 60
+                                        if (h > 0) "${h}hr ${m}min" else "${m}min"
+                                    } else "Trailer"
+                                    
+                                    Text(
+                                        text = durationText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                         
@@ -2189,4 +2383,17 @@ private fun RecommendedPodcastCard(
             )
         }
     }
+}
+
+@Composable
+fun EpisodePlayStateWrapper(
+    episodeId: String,
+    playbackStateFlow: kotlinx.coroutines.flow.Flow<Map<String, PodcastInfoViewModel.EpisodePlaybackState>>,
+    content: @Composable (PodcastInfoViewModel.EpisodePlaybackState?) -> Unit
+) {
+    val playStateFlow = remember(episodeId, playbackStateFlow) {
+        playbackStateFlow.map { it[episodeId] }.distinctUntilChanged()
+    }
+    val playState by playStateFlow.collectAsState(initial = null)
+    content(playState)
 }

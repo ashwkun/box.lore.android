@@ -55,5 +55,5 @@ dependencies {
     implementation(libs.firebase.database)
 
     // PostHog
-    implementation("com.posthog:posthog-android:3.8.2")
+    implementation(libs.posthog.android)
 }

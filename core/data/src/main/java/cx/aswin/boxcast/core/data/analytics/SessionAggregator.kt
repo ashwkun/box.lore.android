@@ -65,7 +65,9 @@ object PlayerSessionAggregator {
             "download_count" to (actionCounts["download"] ?: 0),
             "queue_count" to (actionCounts["queue"] ?: 0),
             "episode_info_clicks" to (actionCounts["episode_info"] ?: 0),
-            "podcast_info_clicks" to (actionCounts["podcast_info"] ?: 0)
+            "podcast_info_clicks" to (actionCounts["podcast_info"] ?: 0),
+            "chapters_sheet_toggles" to (actionCounts["chapters_sheet"] ?: 0),
+            "transcript_view_toggles" to (actionCounts["transcript_view"] ?: 0)
         )
 
         // Include any terminal property values (like the final speed or sleep timer duration)

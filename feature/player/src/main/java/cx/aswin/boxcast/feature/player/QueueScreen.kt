@@ -2,7 +2,7 @@ package cx.aswin.boxcast.feature.player
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
@@ -90,7 +90,7 @@ fun QueueSheetContent(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 32.dp)
             ) {
-                items(queue, key = { it.id }) { episode ->
+                itemsIndexed(queue, key = { index, episode -> "${episode.id}_$index" }) { _, episode ->
                     QueueItemRow(
                         episode = episode,
                         podcast = currentPodcast,

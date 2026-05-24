@@ -147,4 +147,14 @@ interface BoxCastApi {
         @Query("limit") limit: Int = 50
     ): retrofit2.Call<cx.aswin.boxcast.core.network.model.RadioStationResponse>
 
+    @GET("api/transcript")
+    fun getAutoTranscript(
+        @Header("X-App-Key") publicKey: String,
+        @Header("X-Device-UUID") deviceUuid: String,
+        @Query("episodeId") episodeId: String,
+        @Query("audioUrl") audioUrl: String,
+        @Query("transcriptUrl") transcriptUrl: String? = null,
+        @Query("checkOnly") checkOnly: Boolean? = null
+    ): retrofit2.Call<cx.aswin.boxcast.core.network.model.AutoTranscriptResponse>
+
 }

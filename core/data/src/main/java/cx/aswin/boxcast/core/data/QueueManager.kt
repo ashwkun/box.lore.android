@@ -159,6 +159,19 @@ class QueueManager @Inject constructor(
      * Ensures ALL podcast metadata fields are populated.
      */
     private fun EpisodeItem.toDomain(podcast: cx.aswin.boxcast.core.model.Podcast): cx.aswin.boxcast.core.model.Episode {
+        val resolvedTranscriptUrl = this.transcripts?.firstOrNull { 
+            it.type == "application/srt" || 
+            it.type == "text/vtt" || 
+            it.type == "application/x-subrip" ||
+            it.url.contains(".srt", ignoreCase = true) ||
+            it.url.contains(".vtt", ignoreCase = true)
+        }?.url
+        ?: this.transcriptUrl?.takeIf { 
+            it.contains(".srt", ignoreCase = true) || 
+            it.contains(".vtt", ignoreCase = true) 
+        }
+        ?: this.transcriptUrl
+        ?: this.transcripts?.firstOrNull()?.url
         return cx.aswin.boxcast.core.model.Episode(
             id = this.id.toString(),
             title = this.title,
@@ -174,7 +187,7 @@ class QueueManager @Inject constructor(
             publishedDate = this.datePublished ?: 0L,
             // Podcast 2.0
             chaptersUrl = this.chaptersUrl,
-            transcriptUrl = this.transcriptUrl,
+            transcriptUrl = resolvedTranscriptUrl,
             persons = this.persons?.map { cx.aswin.boxcast.core.model.Person(name = it.name, role = it.role, img = it.img, href = it.href) },
             transcripts = this.transcripts?.map { cx.aswin.boxcast.core.model.Transcript(url = it.url, type = it.type) },
             episodeType = this.episodeType

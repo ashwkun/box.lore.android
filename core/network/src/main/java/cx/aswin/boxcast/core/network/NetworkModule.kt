@@ -22,12 +22,32 @@ object NetworkModule {
         }
     }
     
-    private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .build()
+    private val okHttpClient = OkHttpClient.Builder().apply {
+        addInterceptor(loggingInterceptor)
+        connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        
+        if (cx.aswin.boxcast.core.network.BuildConfig.DEBUG) {
+            try {
+                val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(
+                    object : javax.net.ssl.X509TrustManager {
+                        override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                        override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                        override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+                    }
+                )
+                
+                val sslContext = javax.net.ssl.SSLContext.getInstance("SSL")
+                sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+                
+                sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as javax.net.ssl.X509TrustManager)
+                hostnameVerifier { _, _ -> true }
+            } catch (e: Exception) {
+                Log.e("NetworkModule", "Failed to configure trust-all certificates for debug", e)
+            }
+        }
+    }.build()
 
     /**
      * BoxCast API via Cloudflare Worker proxy

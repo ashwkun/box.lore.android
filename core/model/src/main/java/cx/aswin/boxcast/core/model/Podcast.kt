@@ -18,6 +18,7 @@ data class Podcast(
     val latestEpisode: Episode? = null,
     val resumeProgress: Float? = null, // 0.0 - 1.0
     val episodeStatus: EpisodeStatus = EpisodeStatus.UNPLAYED,
+    val subscribedAt: Long = 0L,
     // --- Podcast 2.0 ---
     val fundingUrl: String? = null,
     val fundingMessage: String? = null,
@@ -29,5 +30,7 @@ data class Podcast(
     val location: String? = null,
     val license: String? = null,
     val isLocked: Boolean = false,
-    val podroll: List<PodrollItem>? = null
+    val podroll: List<PodrollItem>? = null,
+    // User listening style: "newest" / "oldest" / null (default by type)
+    val preferredSort: String? = null
 )

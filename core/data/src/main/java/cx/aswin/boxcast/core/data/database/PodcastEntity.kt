@@ -15,6 +15,7 @@ data class PodcastEntity(
     
     // Subscription State
     val isSubscribed: Boolean = false,
+    val subscribedAt: Long = 0L,
     
     val genre: String? = null,
     val type: String = "episodic",
@@ -33,5 +34,8 @@ data class PodcastEntity(
     val updateFrequency: String? = null,
     val location: String? = null,
     val license: String? = null,
-    val isLocked: Boolean = false
+    val isLocked: Boolean = false,
+    
+    // User listening style preference: "newest" / "oldest" / null (use type-based default)
+    val preferredSort: String? = null
 )

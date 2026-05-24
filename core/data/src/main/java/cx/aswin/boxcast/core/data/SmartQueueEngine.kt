@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.first
  */
 data class QueueEntry(
     val episode: EpisodeItem,
-    val podcast: Podcast
+    val podcast: Podcast,
+    val source: String
 )
 
 interface SmartQueueEngine {
@@ -106,7 +107,7 @@ class DefaultSmartQueueEngine @Inject constructor(
                 feedImage = domainEp.podcastImageUrl,
                 episodeType = domainEp.episodeType
             )
-            QueueEntry(episode = episodeItem, podcast = podcast)
+            QueueEntry(episode = episodeItem, podcast = podcast, source = "same_podcast")
         }
     }
 
@@ -144,7 +145,7 @@ class DefaultSmartQueueEngine @Inject constructor(
             if (subEpisodes.isNotEmpty()) {
                 android.util.Log.d("SmartQueue", "Fallback: Found unplayed episode in '${sub.title}'")
                 val nextEp = subEpisodes.first()
-                return listOf(nextEp.toQueueEntry(sub))
+                return listOf(nextEp.toQueueEntry(sub, "subscription"))
             }
         }
 
@@ -178,7 +179,7 @@ class DefaultSmartQueueEngine @Inject constructor(
             if (trendingEpisodes.isNotEmpty()) {
                 android.util.Log.d("SmartQueue", "Fallback: Found trending '${trendingPod.title}' with unplayed")
                 val nextEp = trendingEpisodes.first()
-                return listOf(nextEp.toQueueEntry(trendingPod))
+                return listOf(nextEp.toQueueEntry(trendingPod, "trending"))
             }
         }
 
@@ -189,7 +190,7 @@ class DefaultSmartQueueEngine @Inject constructor(
     /**
      * Convert Episode to QueueEntry with its associated podcast.
      */
-    private fun Episode.toQueueEntry(podcast: Podcast): QueueEntry {
+    private fun Episode.toQueueEntry(podcast: Podcast, source: String): QueueEntry {
         val episodeItem = EpisodeItem(
             id = this.id.toLongOrNull() ?: 0L,
             title = this.title,
@@ -200,6 +201,6 @@ class DefaultSmartQueueEngine @Inject constructor(
             image = this.imageUrl,
             feedImage = this.podcastImageUrl ?: podcast.imageUrl
         )
-        return QueueEntry(episode = episodeItem, podcast = podcast)
+        return QueueEntry(episode = episodeItem, podcast = podcast, source = source)
     }
 }

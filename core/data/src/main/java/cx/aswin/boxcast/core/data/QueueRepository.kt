@@ -25,8 +25,13 @@ class QueueRepository @Inject constructor(
             items.map { it.toEpisodeItem() }
         }
 
-    suspend fun addToQueue(episode: EpisodeItem, podcast: cx.aswin.boxcast.core.model.Podcast?) {
-        android.util.Log.d(TAG, "addToQueue: episodeId=${episode.id}, title=${episode.title}")
+    suspend fun addToQueue(
+        episode: EpisodeItem,
+        podcast: cx.aswin.boxcast.core.model.Podcast?,
+        contextType: String? = null,
+        contextSourceId: String? = null
+    ) {
+        android.util.Log.d(TAG, "addToQueue: episodeId=${episode.id}, title=${episode.title}, contextType=$contextType, contextSourceId=$contextSourceId")
         val maxPos = queueDao.getMaxPosition() ?: 0
 
         // Check for duplicates using String ID
@@ -39,6 +44,20 @@ class QueueRepository @Inject constructor(
         
         val podcastTitle = podcast?.title ?: "Unknown Podcast"
         val podcastId = podcast?.id ?: ""
+
+        val resolvedTranscriptUrl = episode.transcripts?.firstOrNull { 
+            it.type == "application/srt" || 
+            it.type == "text/vtt" || 
+            it.type == "application/x-subrip" ||
+            it.url.contains(".srt", ignoreCase = true) ||
+            it.url.contains(".vtt", ignoreCase = true)
+        }?.url
+        ?: episode.transcriptUrl?.takeIf { 
+            it.contains(".srt", ignoreCase = true) || 
+            it.contains(".vtt", ignoreCase = true) 
+        }
+        ?: episode.transcriptUrl
+        ?: episode.transcripts?.firstOrNull()?.url
 
         val newItem = QueueItem(
             episodeId = episodeIdStr,
@@ -54,9 +73,11 @@ class QueueRepository @Inject constructor(
             pubDate = episode.datePublished ?: 0L,
             description = episode.description,
             position = maxPos + 1,
+            contextType = contextType ?: "MANUAL",
+            contextSourceId = contextSourceId,
             // Podcast 2.0
             chaptersUrl = episode.chaptersUrl,
-            transcriptUrl = episode.transcriptUrl,
+            transcriptUrl = resolvedTranscriptUrl,
             personsJson = encodePersons(episode.persons?.map { Person(name = it.name, role = it.role, img = it.img, href = it.href) }),
             transcriptsJson = encodeTranscripts(episode.transcripts?.map { Transcript(url = it.url, type = it.type) }),
             episodeType = episode.episodeType,
@@ -93,6 +114,8 @@ class QueueRepository @Inject constructor(
                 pubDate = ep.publishedDate,
                 description = ep.description,
                 position = index,
+                contextType = ep.contextType ?: "MANUAL",
+                contextSourceId = ep.contextSourceId,
                 // Podcast 2.0
                 chaptersUrl = ep.chaptersUrl,
                 transcriptUrl = ep.transcriptUrl,
@@ -134,7 +157,9 @@ class QueueRepository @Inject constructor(
             transcripts = decodeTranscripts(this.transcriptsJson),
             episodeType = this.episodeType,
             seasonNumber = this.seasonNumber,
-            episodeNumber = this.episodeNumber
+            episodeNumber = this.episodeNumber,
+            contextType = this.contextType,
+            contextSourceId = this.contextSourceId
         )
     }
     
@@ -194,6 +219,10 @@ class QueueRepository @Inject constructor(
                 )
             }
         } catch (e: Exception) { null }
+    }
+
+    suspend fun getQueueItemByEpisodeId(episodeId: String): cx.aswin.boxcast.core.data.database.entities.QueueItem? {
+        return queueDao.getQueueItemByEpisodeId(episodeId)
     }
 
     suspend fun reorderQueue(items: List<EpisodeItem>) {

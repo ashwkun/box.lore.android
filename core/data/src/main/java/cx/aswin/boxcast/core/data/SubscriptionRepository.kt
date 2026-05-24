@@ -29,6 +29,7 @@ class SubscriptionRepository(
                     genre = entity.genre ?: "Podcast", // Use stored genre
                     type = entity.type,
                     latestEpisode = entity.latestEpisode,
+                    subscribedAt = entity.subscribedAt,
                     podcastGuid = entity.podcastGuid,
                     fundingUrl = entity.fundingUrl,
                     fundingMessage = entity.fundingMessage,
@@ -37,7 +38,8 @@ class SubscriptionRepository(
                     updateFrequency = entity.updateFrequency,
                     location = entity.location,
                     license = entity.license,
-                    isLocked = entity.isLocked
+                    isLocked = entity.isLocked,
+                    preferredSort = entity.preferredSort
                 )
             }
         }
@@ -48,7 +50,10 @@ class SubscriptionRepository(
 
         if (isCurrentlySubscribed) {
             // Unsubscribe
-            podcastDao.setSubscribed(podcast.id, false)
+            existing?.let {
+                val updated = it.copy(isSubscribed = false, subscribedAt = 0L)
+                podcastDao.upsert(updated)
+            } ?: podcastDao.setSubscribed(podcast.id, false)
         } else {
             // Subscribe (Upsert to ensure we have data for offline/Jump Back In)
             val entity = PodcastEntity(
@@ -58,6 +63,7 @@ class SubscriptionRepository(
                 imageUrl = podcast.imageUrl,
                 description = podcast.description,
                 isSubscribed = true,
+                subscribedAt = System.currentTimeMillis(),
                 genre = podcast.genre, // Persist genre for Smart Queue matching
                 type = podcast.type,
                 lastRefreshed = System.currentTimeMillis(),
@@ -70,7 +76,8 @@ class SubscriptionRepository(
                 updateFrequency = podcast.updateFrequency,
                 location = podcast.location,
                 license = podcast.license,
-                isLocked = podcast.isLocked
+                isLocked = podcast.isLocked,
+                preferredSort = existing?.preferredSort // Preserve existing sort preference
             )
             podcastDao.upsert(entity)
         }
@@ -82,6 +89,8 @@ class SubscriptionRepository(
 
     suspend fun subscribe(podcast: Podcast) {
         val existing = podcastDao.getPodcast(podcast.id)
+        val preferredSortVal = existing?.preferredSort ?: if (podcast.type == "serial") "oldest" else "newest"
+        val typeVal = if (preferredSortVal == "oldest" || podcast.type == "serial") "serial" else "episodic"
         val entity = PodcastEntity(
             podcastId = podcast.id,
             title = podcast.title,
@@ -89,8 +98,9 @@ class SubscriptionRepository(
             imageUrl = podcast.imageUrl,
             description = podcast.description,
             isSubscribed = true,
+            subscribedAt = if (existing?.isSubscribed == true) existing.subscribedAt else System.currentTimeMillis(),
             genre = podcast.genre,
-            type = podcast.type,
+            type = typeVal,
             lastRefreshed = existing?.lastRefreshed ?: System.currentTimeMillis(),
             latestEpisode = podcast.latestEpisode ?: existing?.latestEpisode,
             podcastGuid = existing?.podcastGuid ?: podcast.podcastGuid,
@@ -101,12 +111,18 @@ class SubscriptionRepository(
             updateFrequency = existing?.updateFrequency ?: podcast.updateFrequency,
             location = existing?.location ?: podcast.location,
             license = existing?.license ?: podcast.license,
-            isLocked = existing?.isLocked ?: podcast.isLocked
+            isLocked = existing?.isLocked ?: podcast.isLocked,
+            preferredSort = preferredSortVal
         )
         podcastDao.upsert(entity)
     }
 
     suspend fun updateLatestEpisode(podcastId: String, episode: cx.aswin.boxcast.core.model.Episode?) {
         podcastDao.updateLatestEpisode(podcastId, episode)
+    }
+
+    suspend fun updatePreferredSort(podcastId: String, sort: String?) {
+        val type = if (sort == "oldest") "serial" else "episodic"
+        podcastDao.updatePreferredSortAndType(podcastId, sort, type)
     }
 }

@@ -14,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.Toc
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.ui.graphics.Color
@@ -25,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
 
 
 
@@ -56,6 +60,13 @@ fun AdvancedPlayerControls(
     showMarkPlayedButton: Boolean = true,
     onMarkPlayedClick: (() -> Unit)? = null,
     controlSize: androidx.compose.ui.unit.Dp? = null,
+    hasChapters: Boolean = false,
+    isChaptersLoading: Boolean = false,
+    autoTranscriptState: AutoTranscriptState = AutoTranscriptState.NONE,
+    autoChaptersState: AutoTranscriptState = AutoTranscriptState.NONE,
+    isTranscriptActive: Boolean = false,
+    onChaptersClick: (() -> Unit)? = null,
+    onTranscriptClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val defaultArrangement = if (style == ControlStyle.Outlined) {
@@ -117,6 +128,78 @@ fun AdvancedPlayerControls(
                  onClick = { /* TODO layer */ }
              )
          }
+
+        // 1.5. CHAPTERS
+        if (onChaptersClick != null) {
+            val isChaptersAnimating = isChaptersLoading || autoChaptersState == AutoTranscriptState.GENERATING
+            AdaptiveControlButton(
+                style = style,
+                isActive = false,
+                isLoading = isChaptersAnimating,
+                colorScheme = colorScheme,
+                activeIcon = Icons.AutoMirrored.Rounded.Toc,
+                inactiveIcon = Icons.AutoMirrored.Rounded.Toc,
+                contentDescription = "Chapters",
+                activeTint = baseActiveTint,
+                inactiveTint = if (hasChapters || isChaptersAnimating) baseInactiveTint else baseInactiveTint.copy(alpha = 0.3f),
+                controlSize = controlSize,
+                onClick = { if (hasChapters && !isChaptersAnimating) onChaptersClick() }
+            )
+        }
+
+        // 1.6. TRANSCRIPT
+        if (onTranscriptClick != null) {
+            // Determine loading/active/tint based on auto-transcript state
+            val isTranscriptLoading = autoTranscriptState == AutoTranscriptState.GENERATING
+            val hasTranscript = autoTranscriptState == AutoTranscriptState.NONE || autoTranscriptState == AutoTranscriptState.COMPLETED || isTranscriptActive
+            val transcriptBadge: (@Composable () -> Unit)? = when (autoTranscriptState) {
+                AutoTranscriptState.NOT_GENERATED, AutoTranscriptState.FAILED -> {{
+                    Icon(
+                        imageVector = Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = colorScheme.tertiary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }}
+                AutoTranscriptState.COMPLETED -> {{
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(10.dp)
+                    )
+                }}
+                else -> null
+            }
+
+            AdaptiveControlButton(
+                style = style,
+                isActive = isTranscriptActive,
+                isLoading = isTranscriptLoading,
+                colorScheme = colorScheme,
+                activeIcon = Icons.Rounded.Description,
+                inactiveIcon = Icons.Rounded.Description,
+                contentDescription = "Transcript",
+                activeTint = if (style == ControlStyle.TonalSquircle && overrideColor == null) {
+                    colorScheme.onTertiaryContainer
+                } else if (style == ControlStyle.Squircle) {
+                    colorScheme.onPrimary
+                } else {
+                    baseActiveTint
+                },
+                inactiveTint = if (hasTranscript || isTranscriptLoading) baseInactiveTint else baseInactiveTint.copy(alpha = 0.3f),
+                activeContainerColor = if (style == ControlStyle.TonalSquircle) {
+                    if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
+                } else if (style == ControlStyle.Squircle) {
+                    colorScheme.primary
+                } else {
+                    Color.Unspecified
+                },
+                controlSize = controlSize,
+                badge = transcriptBadge,
+                onClick = { onTranscriptClick() }
+            )
+        }
 
         // 2. LIKE
         AdaptiveControlButton(
@@ -199,6 +282,7 @@ fun AdaptiveControlButton(
     inactiveTint: Color,
     activeContainerColor: Color = Color.Unspecified,
     controlSize: androidx.compose.ui.unit.Dp? = null,
+    badge: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     if (style == ControlStyle.Transparent) {
@@ -220,18 +304,26 @@ fun AdaptiveControlButton(
                     label = "loader_transition"
                 ) { loading ->
                     if (loading) {
+                        val loaderColor = inactiveTint
                         cx.aswin.boxcast.core.designsystem.components.BoxCastLoader.CircularWavy(
                             modifier = Modifier.size(24.dp),
-                            color = activeTint,
-                            trackColor = activeTint.copy(alpha = 0.2f)
+                            color = loaderColor,
+                            trackColor = loaderColor.copy(alpha = 0.2f)
                         )
                     } else {
-                        Icon(
-                            imageVector = if (isActive) activeIcon else inactiveIcon,
-                            contentDescription = contentDescription,
-                            tint = if (isActive) activeTint else inactiveTint,
-                            modifier = Modifier.size((controlSize ?: 48.dp) * 0.58f)
-                        )
+                        Box {
+                            Icon(
+                                imageVector = if (isActive) activeIcon else inactiveIcon,
+                                contentDescription = contentDescription,
+                                tint = if (isActive) activeTint else inactiveTint,
+                                modifier = Modifier.size((controlSize ?: 48.dp) * 0.58f)
+                            )
+                            if (badge != null) {
+                                Box(modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)) {
+                                    badge()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -240,7 +332,7 @@ fun AdaptiveControlButton(
     }
 
     if (style == ControlStyle.Material3) {
-        val containerColor = if (isActive) {
+        val containerColor = if (!isLoading && isActive) {
             if (activeContainerColor != Color.Unspecified) activeContainerColor
             else colorScheme.primaryContainer // Standard M3 active state
         } else {
@@ -267,18 +359,26 @@ fun AdaptiveControlButton(
                     label = "loader_transition"
                 ) { loading ->
                     if (loading) {
+                        val loaderColor = inactiveTint
                         cx.aswin.boxcast.core.designsystem.components.BoxCastLoader.CircularWavy(
                             modifier = Modifier.size(iconSize - 2.dp),
-                            color = activeTint,
-                            trackColor = activeTint.copy(alpha = 0.2f)
+                            color = loaderColor,
+                            trackColor = loaderColor.copy(alpha = 0.2f)
                         )
                     } else {
-                        Icon(
-                            imageVector = if (isActive) activeIcon else inactiveIcon,
-                            contentDescription = contentDescription,
-                            tint = if (isActive) activeTint else inactiveTint,
-                            modifier = Modifier.size(iconSize)
-                        )
+                        Box {
+                            Icon(
+                                imageVector = if (isActive) activeIcon else inactiveIcon,
+                                contentDescription = contentDescription,
+                                tint = if (isActive) activeTint else inactiveTint,
+                                modifier = Modifier.size(iconSize)
+                            )
+                            if (badge != null) {
+                                Box(modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)) {
+                                    badge()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -300,7 +400,7 @@ fun AdaptiveControlButton(
             cornerRadiusBR = cornerRadius, smoothnessAsPercentBR = 60
         )
         
-        val containerColor = if (isActive && activeContainerColor != Color.Unspecified) {
+        val containerColor = if (!isLoading && isActive && activeContainerColor != Color.Unspecified) {
             activeContainerColor 
         } else {
              if (style == ControlStyle.TonalSquircle) colorScheme.surfaceContainerHigh else colorScheme.primary.copy(alpha = 0.15f)
@@ -326,18 +426,26 @@ fun AdaptiveControlButton(
                     label = "loader_transition"
                 ) { loading ->
                     if (loading) {
+                        val loaderColor = inactiveTint
                         cx.aswin.boxcast.core.designsystem.components.BoxCastLoader.CircularWavy(
                             modifier = Modifier.size(iconSize - 2.dp),
-                            color = activeTint,
-                            trackColor = activeTint.copy(alpha = 0.2f)
+                            color = loaderColor,
+                            trackColor = loaderColor.copy(alpha = 0.2f)
                         )
                     } else {
-                        Icon(
-                            imageVector = if (isActive) activeIcon else inactiveIcon,
-                            contentDescription = contentDescription,
-                            tint = if (isActive) activeTint else inactiveTint,
-                            modifier = Modifier.size(iconSize)
-                        )
+                        Box {
+                            Icon(
+                                imageVector = if (isActive) activeIcon else inactiveIcon,
+                                contentDescription = contentDescription,
+                                tint = if (isActive) activeTint else inactiveTint,
+                                modifier = Modifier.size(iconSize)
+                            )
+                            if (badge != null) {
+                                Box(modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)) {
+                                    badge()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -359,15 +467,22 @@ fun AdaptiveControlButton(
                 if (loading) {
                      cx.aswin.boxcast.core.designsystem.components.BoxCastLoader.CircularWavy(
                         modifier = Modifier.size(20.dp),
-                        color = colorScheme.primary,
-                        trackColor = colorScheme.primary.copy(alpha = 0.2f)
+                        color = inactiveTint,
+                        trackColor = inactiveTint.copy(alpha = 0.2f)
                     )
                 } else {
-                    Icon(
-                        imageVector = if (isActive) activeIcon else inactiveIcon,
-                        contentDescription = contentDescription,
-                        tint = if (isActive) activeTint else inactiveTint
-                    )
+                    Box {
+                        Icon(
+                            imageVector = if (isActive) activeIcon else inactiveIcon,
+                            contentDescription = contentDescription,
+                            tint = if (isActive) activeTint else inactiveTint
+                        )
+                        if (badge != null) {
+                            Box(modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)) {
+                                badge()
+                            }
+                        }
+                    }
                 }
             }
         }

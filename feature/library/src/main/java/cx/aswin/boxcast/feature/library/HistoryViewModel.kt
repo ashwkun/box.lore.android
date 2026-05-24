@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -55,7 +56,7 @@ class HistoryViewModel(
         playbackRepository.getAllHistory(),
         _expandedDates,
         _selectedFilterDate
-    ) { historyList, expandedDates, selectedFilterDate ->
+    ) { historyList: List<ListeningHistoryEntity>, expandedDates: Set<LocalDate>, selectedFilterDate: LocalDate? ->
         if (historyList.isEmpty()) {
             HistoryUiState.Empty
         } else {
@@ -181,7 +182,8 @@ class HistoryViewModel(
                 selectedFilterDate = selectedFilterDate
             )
         }
-    }.stateIn(
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = HistoryUiState.Loading

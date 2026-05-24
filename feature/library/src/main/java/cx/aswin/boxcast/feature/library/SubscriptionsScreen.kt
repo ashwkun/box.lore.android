@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,7 +29,17 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -38,8 +49,14 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.ViewList
+import androidx.compose.runtime.saveable.rememberSaveable
+import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import androidx.compose.material3.Badge
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -60,6 +77,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -68,6 +86,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -86,7 +107,12 @@ import coil.compose.AsyncImage
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 /**
  * Unified Subscriptions screen with M3 Expressive tab switcher.
@@ -111,6 +137,9 @@ fun SubscriptionsScreen(
     
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
+    var isGridView by rememberSaveable { mutableStateOf(true) }
+    var useSmartRank by rememberSaveable { mutableStateOf(true) }
+    var showSortMenu by remember { mutableStateOf(false) }
     
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -170,6 +199,9 @@ fun SubscriptionsScreen(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "headerBg"
     )
+
+    val successState = uiState as? LibraryUiState.Success
+    val hasSubscribedPodcasts = successState?.subscribedPodcasts?.isNotEmpty() == true
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -236,6 +268,111 @@ fun SubscriptionsScreen(
                             }
                         },
                         actions = {
+                            if (pagerState.currentPage == 0 && hasSubscribedPodcasts) {
+                                IconButton(onClick = {
+                                    isGridView = !isGridView
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsLayoutToggled(isGridView)
+                                }) {
+                                    Icon(
+                                        imageVector = if (isGridView) Icons.Rounded.ViewList else Icons.Rounded.GridView,
+                                        contentDescription = if (isGridView) "List View" else "Grid View"
+                                    )
+                                }
+                            }
+                            if (hasSubscribedPodcasts) {
+                                Box {
+                                    IconButton(onClick = { showSortMenu = true }) {
+                                        Icon(Icons.Rounded.Sort, contentDescription = "Sort")
+                                    }
+                                    DropdownMenu(
+                                        expanded = showSortMenu,
+                                        onDismissRequest = { showSortMenu = false }
+                                    ) {
+                                        if (pagerState.currentPage == 0) {
+                                            val currentSort = successState?.currentSort ?: SubscriptionSort.SmartRank
+                                            DropdownMenuItem(
+                                                text = { Text("Smart Sort") },
+                                                onClick = {
+                                                    viewModel.setSubscriptionSort(SubscriptionSort.SmartRank)
+                                                    showSortMenu = false
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "shows")
+                                                },
+                                                trailingIcon = {
+                                                    if (currentSort == SubscriptionSort.SmartRank) {
+                                                        Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                                                    }
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Recently Updated") },
+                                                onClick = {
+                                                    viewModel.setSubscriptionSort(SubscriptionSort.RecentlyUpdated)
+                                                    showSortMenu = false
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("recently_updated", "shows")
+                                                },
+                                                trailingIcon = {
+                                                    if (currentSort == SubscriptionSort.RecentlyUpdated) {
+                                                        Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                                                    }
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("A-Z") },
+                                                onClick = {
+                                                    viewModel.setSubscriptionSort(SubscriptionSort.Alphabetical)
+                                                    showSortMenu = false
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("alphabetical", "shows")
+                                                },
+                                                trailingIcon = {
+                                                    if (currentSort == SubscriptionSort.Alphabetical) {
+                                                        Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                                                    }
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Most Listened") },
+                                                onClick = {
+                                                    viewModel.setSubscriptionSort(SubscriptionSort.MostListened)
+                                                    showSortMenu = false
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("most_listened", "shows")
+                                                },
+                                                trailingIcon = {
+                                                    if (currentSort == SubscriptionSort.MostListened) {
+                                                        Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                                                    }
+                                                }
+                                            )
+                                        } else {
+                                            DropdownMenuItem(
+                                                text = { Text("Smart Sort") },
+                                                onClick = {
+                                                    useSmartRank = true
+                                                    showSortMenu = false
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "latest")
+                                                },
+                                                trailingIcon = {
+                                                    if (useSmartRank) {
+                                                        Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                                                    }
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Chronological") },
+                                                onClick = {
+                                                    useSmartRank = false
+                                                    showSortMenu = false
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("chronological", "latest")
+                                                },
+                                                trailingIcon = {
+                                                    if (!useSmartRank) {
+                                                        Icon(Icons.Rounded.Check, contentDescription = "Selected")
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             IconButton(onClick = { isSearchActive = true }) {
                                 Icon(Icons.Rounded.Search, contentDescription = "Search")
                             }
@@ -245,11 +382,7 @@ fun SubscriptionsScreen(
                 }
 
                 // Expressive Tab Switcher
-                val latestCount = when (uiState) {
-                    is LibraryUiState.Success -> (uiState as LibraryUiState.Success).subscribedPodcasts
-                        .count { it.latestEpisode != null }
-                    else -> 0
-                }
+                val latestCount = successState?.subscribedPodcasts?.count { it.latestEpisode != null } ?: 0
 
                 ExpressiveTabSwitcher(
                     tabs = listOf("Shows", "New Episodes"),
@@ -298,10 +431,12 @@ fun SubscriptionsScreen(
                                     viewModel.subPodcastsClickedCount++
                                     onPodcastClick(it)
                                 },
-                                onPlayEpisode = onPlayEpisode
+                                isGridView = isGridView
                             )
                             1 -> LatestTabContent(
                                 podcasts = podcasts,
+                                allHistory = (uiState as LibraryUiState.Success).allHistory,
+                                useSmartRank = useSmartRank,
                                 onExploreClick = onExploreClick,
                                 onEpisodeClick = { ep, pod, entry ->
                                     viewModel.subEpisodesClickedCount++
@@ -411,11 +546,150 @@ private fun ExpressiveTabSwitcher(
 // ─── Tab Contents ────────────────────────────────────────────────────────────
 
 @Composable
+private fun SubscriptionSortChips(
+    currentSort: SubscriptionSort,
+    onSortChange: (SubscriptionSort) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues()
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = contentPadding,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            FilterChip(
+                selected = currentSort == SubscriptionSort.SmartRank,
+                onClick = { onSortChange(SubscriptionSort.SmartRank) },
+                label = { Text("Smart Rank") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = currentSort == SubscriptionSort.SmartRank,
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+        item {
+            FilterChip(
+                selected = currentSort == SubscriptionSort.RecentlyUpdated,
+                onClick = { onSortChange(SubscriptionSort.RecentlyUpdated) },
+                label = { Text("Recently Updated") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = currentSort == SubscriptionSort.RecentlyUpdated,
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+        item {
+            FilterChip(
+                selected = currentSort == SubscriptionSort.Alphabetical,
+                onClick = { onSortChange(SubscriptionSort.Alphabetical) },
+                label = { Text("A-Z") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = currentSort == SubscriptionSort.Alphabetical,
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+        item {
+            FilterChip(
+                selected = currentSort == SubscriptionSort.MostListened,
+                onClick = { onSortChange(SubscriptionSort.MostListened) },
+                label = { Text("Most Listened") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = currentSort == SubscriptionSort.MostListened,
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionGenreChips(
+    selectedGenre: String,
+    onGenreChange: (String) -> Unit,
+    distinctGenres: List<String>,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues()
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = contentPadding,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            FilterChip(
+                selected = selectedGenre == "All",
+                onClick = { onGenreChange("All") },
+                label = { Text("All") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedGenre == "All",
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+        items(distinctGenres) { genre ->
+            FilterChip(
+                selected = selectedGenre == genre,
+                onClick = { onGenreChange(genre) },
+                label = { Text(genre) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedGenre == genre,
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    }
+}
+
+@Composable
 private fun ShowsTabContent(
     podcasts: List<Podcast>,
     onExploreClick: () -> Unit,
     onPodcastClick: (String) -> Unit,
-    onPlayEpisode: ((Episode, Podcast) -> Unit)?
+    isGridView: Boolean
 ) {
     if (podcasts.isEmpty()) {
         ExpressiveSolarSystemEmptyState(
@@ -425,44 +699,111 @@ private fun ShowsTabContent(
             onExploreClick = onExploreClick
         )
     } else {
-        val distinctPodcasts = remember(podcasts) { podcasts.distinctBy { it.id } }
-        LazyColumn(
-            contentPadding = PaddingValues(bottom = 180.dp, top = 8.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(items = distinctPodcasts, key = { it.id }) { podcast ->
-                SubscriptionListRow(
-                    podcast = podcast,
-                    onClick = { onPodcastClick(podcast.id) },
-                    onPlayLatest = if (onPlayEpisode != null && podcast.latestEpisode != null) {
-                        { onPlayEpisode(podcast.latestEpisode!!, podcast) }
-                    } else null
-                )
+        val distinctGenres = remember(podcasts) {
+            podcasts.flatMap { pod ->
+                pod.genre.split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.equals("podcast", ignoreCase = true) }
+                    .map { genre ->
+                        genre.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+            }.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER)
+        }
+
+        var selectedGenre by rememberSaveable { mutableStateOf("All") }
+
+        val filteredPodcasts = remember(podcasts, selectedGenre) {
+            if (selectedGenre == "All") {
+                podcasts
+            } else {
+                podcasts.filter { pod ->
+                    pod.genre.split(",")
+                        .map { it.trim() }
+                        .any { it.equals(selectedGenre, ignoreCase = true) }
+                }
+            }
+        }
+
+        val distinctPodcasts = remember(filteredPodcasts) { filteredPodcasts.distinctBy { it.id } }
+
+        if (isGridView) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 180.dp, top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        SubscriptionGenreChips(
+                            selectedGenre = selectedGenre,
+                            onGenreChange = {
+                                selectedGenre = it
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "shows")
+                            },
+                            distinctGenres = distinctGenres
+                        )
+                    }
+                }
+
+                items(items = distinctPodcasts, key = { it.id }) { podcast ->
+                    SubscriptionGridCard(
+                        podcast = podcast,
+                        onClick = { onPodcastClick(podcast.id) }
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 180.dp, top = 8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        SubscriptionGenreChips(
+                            selectedGenre = selectedGenre,
+                            onGenreChange = {
+                                selectedGenre = it
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "shows")
+                            },
+                            distinctGenres = distinctGenres,
+                            contentPadding = PaddingValues(horizontal = 16.dp)
+                        )
+                    }
+                }
+
+                items(items = distinctPodcasts, key = { it.id }) { podcast ->
+                    SubscriptionListRow(
+                        podcast = podcast,
+                        onClick = { onPodcastClick(podcast.id) }
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LatestTabContent(
     podcasts: List<Podcast>,
+    allHistory: List<ListeningHistoryEntity>,
+    useSmartRank: Boolean,
     onExploreClick: () -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
     onPlayEpisode: ((Episode, Podcast) -> Unit)?
 ) {
     val episodePodcasts = remember(podcasts) {
-        podcasts
-            .filter { it.latestEpisode != null }
-            .sortedWith(
-                compareBy<Podcast> { podcast ->
-                    when (podcast.episodeStatus) {
-                        cx.aswin.boxcast.core.model.EpisodeStatus.UNPLAYED, null -> 0
-                        cx.aswin.boxcast.core.model.EpisodeStatus.IN_PROGRESS -> 1
-                        cx.aswin.boxcast.core.model.EpisodeStatus.COMPLETED -> 2
-                    }
-                }.thenByDescending { it.latestEpisode?.publishedDate ?: 0L }
-            )
-            .distinctBy { it.id }
+        podcasts.filter { it.latestEpisode != null }
     }
 
     if (episodePodcasts.isEmpty()) {
@@ -473,21 +814,199 @@ private fun LatestTabContent(
             onExploreClick = onExploreClick
         )
     } else {
+        val distinctGenres = remember(episodePodcasts) {
+            episodePodcasts.flatMap { pod ->
+                pod.genre.split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.equals("podcast", ignoreCase = true) }
+                    .map { genre ->
+                        genre.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+            }.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER)
+        }
+
+        var selectedGenre by remember { mutableStateOf("All") }
+
+        val filteredEpisodePodcasts = remember(episodePodcasts, selectedGenre) {
+            if (selectedGenre == "All") {
+                episodePodcasts
+            } else {
+                episodePodcasts.filter { pod ->
+                    pod.genre.split(",")
+                        .map { it.trim() }
+                        .any { it.equals(selectedGenre, ignoreCase = true) }
+                }
+            }
+        }
+
+        val episodeScores = remember(filteredEpisodePodcasts, allHistory) {
+            filteredEpisodePodcasts.associate { pod ->
+                val playCount = allHistory.count { it.podcastId == pod.id }
+                val likeCount = allHistory.count { it.podcastId == pod.id && it.isLiked }
+                val playScore = 12.0 * playCount
+                val likeScore = 25.0 * likeCount
+
+                val lastPlayTime = allHistory.filter { it.podcastId == pod.id }.maxOfOrNull { it.lastPlayedAt }
+                val playRecencyScore = lastPlayTime?.let { time ->
+                    val hoursSinceLastPlay = (System.currentTimeMillis() - time).toDouble() / (1000.0 * 3600.0)
+                    250.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
+                } ?: 0.0
+
+                val latestEp = pod.latestEpisode
+                val freshnessScore = if (latestEp != null) {
+                    val latestEpHistory = allHistory.find { it.episodeId == latestEp.id }
+                    val isUnplayed = latestEpHistory == null || (latestEpHistory.progressMs == 0L && !latestEpHistory.isCompleted)
+                    val releasedAfterSub = latestEp.publishedDate > (pod.subscribedAt / 1000L)
+                    if (isUnplayed && releasedAfterSub) {
+                        val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
+                        (150.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)) + 80.0
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                }
+
+                val subRecencyScore = if (pod.subscribedAt > 0L) {
+                    val hoursSinceSubscribed = (System.currentTimeMillis() - pod.subscribedAt).toDouble() / (1000.0 * 3600.0)
+                    100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
+                } else {
+                    0.0
+                }
+
+                val podScore = playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore
+
+                // Episode recency boost
+                val episodeRecencyBoost = if (latestEp != null) {
+                    val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
+                    500.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)
+                } else {
+                    0.0
+                }
+
+                pod.id to (podScore + episodeRecencyBoost)
+            }
+        }
+
+        val displayPodcasts = remember(filteredEpisodePodcasts, useSmartRank, episodeScores) {
+            if (useSmartRank) {
+                filteredEpisodePodcasts.sortedByDescending { episodeScores[it.id] ?: 0.0 }
+            } else {
+                filteredEpisodePodcasts.sortedByDescending { it.latestEpisode!!.publishedDate }
+            }
+        }
+
+        val groupedEpisodes = remember(displayPodcasts, useSmartRank) {
+            if (useSmartRank) {
+                emptyMap()
+            } else {
+                displayPodcasts.groupBy { getChronologicalHeader(it.latestEpisode!!.publishedDate) }
+            }
+        }
+
         LazyColumn(
             contentPadding = PaddingValues(bottom = 180.dp, top = 4.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(items = episodePodcasts, key = { "${it.id}_latest" }) { podcast ->
-                val episode = podcast.latestEpisode!!
-                LatestEpisodeRow(
-                    episode = episode,
-                    podcast = podcast,
-                    onClick = { onEpisodeClick?.invoke(episode, podcast, "library_latest_episodes") },
-                    onPlay = if (onPlayEpisode != null) {
-                        { onPlayEpisode(episode, podcast) }
-                    } else null
+            item {
+                SubscriptionGenreChips(
+                    selectedGenre = selectedGenre,
+                    onGenreChange = {
+                        selectedGenre = it
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "latest")
+                    },
+                    distinctGenres = distinctGenres,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
                 )
             }
+
+            if (useSmartRank) {
+                items(items = displayPodcasts, key = { "${it.id}_latest_smart" }) { podcast ->
+                    val episode = podcast.latestEpisode!!
+                    LatestEpisodeRow(
+                        episode = episode,
+                        podcast = podcast,
+                        onClick = { onEpisodeClick?.invoke(episode, podcast, "library_latest_episodes") },
+                        onPlay = if (onPlayEpisode != null) {
+                            { onPlayEpisode(episode, podcast) }
+                        } else null
+                    )
+                }
+            } else {
+                groupedEpisodes.forEach { (header, podcastsInGroup) ->
+                    stickyHeader {
+                        DateHeader(text = header)
+                    }
+                    items(items = podcastsInGroup, key = { "${it.id}_latest_chrono" }) { podcast ->
+                        val episode = podcast.latestEpisode!!
+                        LatestEpisodeRow(
+                            episode = episode,
+                            podcast = podcast,
+                            onClick = { onEpisodeClick?.invoke(episode, podcast, "library_latest_episodes") },
+                            onPlay = if (onPlayEpisode != null) {
+                                { onPlayEpisode(episode, podcast) }
+                            } else null
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateHeader(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        )
+    }
+}
+
+private fun getChronologicalHeader(timestampSeconds: Long): String {
+    if (timestampSeconds == 0L) return "Older"
+    val timestampMs = timestampSeconds * 1000L
+    
+    val now = Calendar.getInstance()
+    val time = Calendar.getInstance().apply { timeInMillis = timestampMs }
+    
+    val nowDay = now.clone() as Calendar
+    nowDay.set(Calendar.HOUR_OF_DAY, 0)
+    nowDay.set(Calendar.MINUTE, 0)
+    nowDay.set(Calendar.SECOND, 0)
+    nowDay.set(Calendar.MILLISECOND, 0)
+    
+    val timeDay = time.clone() as Calendar
+    timeDay.set(Calendar.HOUR_OF_DAY, 0)
+    timeDay.set(Calendar.MINUTE, 0)
+    timeDay.set(Calendar.SECOND, 0)
+    timeDay.set(Calendar.MILLISECOND, 0)
+    
+    val diffDays = (nowDay.timeInMillis - timeDay.timeInMillis) / (24 * 60 * 60 * 1000L)
+    
+    return when {
+        diffDays == 0L -> "Today"
+        diffDays == 1L -> "Yesterday"
+        diffDays < 7L -> {
+            SimpleDateFormat("EEEE", Locale.getDefault()).format(Date(timestampMs))
+        }
+        else -> {
+            SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(timestampMs))
         }
     }
 }
@@ -498,54 +1017,52 @@ private fun LatestTabContent(
 private fun SubscriptionListRow(
     podcast: Podcast,
     onClick: () -> Unit,
-    onPlayLatest: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = (podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl)?.optimizedImageUrl(400),
             contentDescription = podcast.title,
             modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(48.dp)
+                .clip(RoundedCornerShape(8.dp))
         )
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = podcast.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = podcast.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = podcast.artist.takeIf { it.isNotEmpty() } ?: "Podcast",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-
-            val latestEpisode = podcast.latestEpisode
-            if (latestEpisode != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                LatestEpisodeChip(
-                    episodeTitle = latestEpisode.title,
-                    isPlayable = onPlayLatest != null,
-                    onPlay = onPlayLatest
-                )
-            }
         }
 
         Spacer(modifier = Modifier.width(4.dp))
@@ -554,72 +1071,8 @@ private fun SubscriptionListRow(
             imageVector = Icons.Rounded.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(16.dp)
         )
-    }
-}
-
-@Composable
-private fun LatestEpisodeChip(
-    episodeTitle: String,
-    isPlayable: Boolean,
-    onPlay: (() -> Unit)?
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val chipColor by animateColorAsState(
-        targetValue = if (isPressed)
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-        else
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "chipColor"
-    )
-
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = chipColor,
-        modifier = Modifier.padding(top = 2.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .then(
-                    if (isPlayable && onPlay != null)
-                        Modifier.clickable(
-                            interactionSource = interactionSource,
-                            indication = null,
-                            onClick = onPlay
-                        )
-                    else Modifier
-                )
-                .padding(start = 6.dp, end = 10.dp, top = 5.dp, bottom = 5.dp)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlayable) "Play latest episode" else null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier
-                        .padding(2.dp)
-                        .size(16.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = episodeTitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
     }
 }
 
@@ -656,33 +1109,22 @@ private fun LatestEpisodeRow(
                     .clip(RoundedCornerShape(10.dp))
             )
 
-            when {
-                status == EpisodeStatus.UNPLAYED -> {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(10.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+            if (isCompleted) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(3.dp)
+                        .size(18.dp)
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = "Played",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(12.dp)
                     )
-                }
-                isCompleted -> {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(3.dp)
-                            .size(18.dp)
-                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = "Played",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
                 }
             }
 
@@ -788,6 +1230,51 @@ private fun LatestEpisodeRow(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionGridCard(
+    podcast: Podcast,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val latestEp = podcast.latestEpisode
+    val hasNewEpisode = latestEp != null &&
+                        podcast.episodeStatus == EpisodeStatus.UNPLAYED &&
+                        latestEp.publishedDate > (podcast.subscribedAt / 1000L)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .expressiveClickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = (podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl)?.optimizedImageUrl(400),
+            contentDescription = podcast.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+        )
+
+        // New Episode Badge (Vibrant solid blue dot on the top right)
+        if (hasNewEpisode) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(10.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
+            )
         }
     }
 }

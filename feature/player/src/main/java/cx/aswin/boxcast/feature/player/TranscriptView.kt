@@ -1,0 +1,369 @@
+package cx.aswin.boxcast.feature.player
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import cx.aswin.boxcast.core.data.TranscriptSegment
+
+@Composable
+fun TranscriptView(
+    transcript: List<TranscriptSegment>,
+    positionMs: Long,
+    colorScheme: ColorScheme,
+    onSeek: (Long) -> Unit,
+    isSyncEnabled: Boolean,
+    onSyncEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    transcriptUrl: String? = null
+) {
+    val listState = rememberLazyListState()
+    var clickedIndex by remember { mutableStateOf<Int?>(null) }
+    
+    val activeIndex = remember(transcript, positionMs, clickedIndex) {
+        clickedIndex ?: transcript.indexOfFirst { positionMs >= it.startMs && positionMs <= it.endMs }
+    }
+
+    val isUserDragging by listState.interactionSource.collectIsDraggedAsState()
+
+    LaunchedEffect(isUserDragging) {
+        if (isUserDragging) {
+            onSyncEnabledChange(false)
+        }
+    }
+    
+    LaunchedEffect(positionMs) {
+        clickedIndex?.let { idx ->
+            val segment = transcript.getOrNull(idx)
+            if (segment != null && positionMs >= segment.startMs && positionMs <= segment.endMs) {
+                clickedIndex = null
+            }
+        }
+    }
+    
+    LaunchedEffect(clickedIndex) {
+        if (clickedIndex != null) {
+            delay(1000)
+            clickedIndex = null
+        }
+    }
+    
+    LaunchedEffect(activeIndex, isSyncEnabled) {
+        if (activeIndex != -1 && isSyncEnabled) {
+            val layoutInfo = listState.layoutInfo
+            val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            if (viewportHeight > 0) {
+                // Find if the item is already visible to get its actual height, otherwise estimate
+                val itemInfo = layoutInfo.visibleItemsInfo.find { it.index == activeIndex }
+                val itemHeight = itemInfo?.size ?: 100 // fallback estimate in pixels
+                // Focus slightly above the center (28% of the viewport height from the top)
+                val focusOffset = - (viewportHeight * 0.28f).toInt() + (itemHeight / 2)
+                listState.animateScrollToItem(activeIndex, focusOffset)
+            } else {
+                // Fallback if layout hasn't completed yet
+                val scrollIndex = (activeIndex - 2).coerceAtLeast(0)
+                listState.animateScrollToItem(scrollIndex)
+            }
+        }
+    }
+    
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        if (transcript.isEmpty()) {
+            if (transcriptUrl != null) {
+                CircularProgressIndicator(
+                    color = colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+            } else {
+                Text(
+                    text = "No transcript available",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.99f }
+                    .drawWithContent {
+                        drawContent()
+                        val fadeHeight = 48.dp.toPx()
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black),
+                                startY = 0f,
+                                endY = fadeHeight
+                            ),
+                            blendMode = BlendMode.DstIn
+                        )
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Black, Color.Transparent),
+                                startY = size.height - fadeHeight,
+                                endY = size.height
+                            ),
+                            blendMode = BlendMode.DstIn
+                        )
+                    },
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                itemsIndexed(transcript) { index, segment ->
+                    val isActive = index == activeIndex
+                    
+                    val textColor by animateColorAsState(
+                        targetValue = if (isActive) colorScheme.primary else colorScheme.onSurface,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "textColor"
+                    )
+                    
+                    val textScale by animateFloatAsState(
+                        targetValue = if (isActive) 1.03f else 1.0f,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "textScale"
+                    )
+                    val textOpacity by animateFloatAsState(
+                        targetValue = if (isActive) 1.0f else 0.35f,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "textOpacity"
+                    )
+                    
+                    val textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSeek(segment.startMs)
+                                clickedIndex = index
+                                onSyncEnabledChange(true)
+                            }
+                            .padding(vertical = 4.dp)
+                            .graphicsLayer {
+                                scaleX = textScale
+                                scaleY = textScale
+                                alpha = textOpacity
+                                transformOrigin = TransformOrigin(0f, 0.5f)
+                            }
+                    ) {
+                        Text(
+                            text = segment.text,
+                            style = textStyle,
+                            color = textColor
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = !isSyncEnabled,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .shadow(4.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(colorScheme.secondaryContainer.copy(alpha = 0.85f))
+                        .border(
+                            width = 1.dp,
+                            color = colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
+                            shape = CircleShape
+                        )
+                        .clickable { onSyncEnabledChange(true) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = null,
+                            tint = colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Sync Scroll",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FullscreenTranscriptScreen(
+    transcript: List<TranscriptSegment>,
+    positionMs: Long,
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    durationMs: Long,
+    colorScheme: ColorScheme,
+    isSyncEnabled: Boolean,
+    onSyncEnabledChange: (Boolean) -> Unit,
+    onSeek: (Long) -> Unit,
+    onPlayPause: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    transcriptUrl: String? = null
+) {
+    val containerColor = colorScheme.surface
+    
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(containerColor)
+            .padding(
+                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            )
+    ) {
+        // Top bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Close",
+                    tint = colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Transcript",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = colorScheme.onSurface
+            )
+            
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        
+        // Transcript View (Expanded)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            TranscriptView(
+                transcript = transcript,
+                positionMs = positionMs,
+                colorScheme = colorScheme,
+                onSeek = onSeek,
+                isSyncEnabled = isSyncEnabled,
+                onSyncEnabledChange = onSyncEnabledChange,
+                modifier = Modifier.fillMaxSize(),
+                transcriptUrl = transcriptUrl
+            )
+        }
+        
+        // Bottom controls (Pause/Play and Seek only)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            // Seek bar
+            if (durationMs > 0) {
+                Slider(
+                    value = positionMs.toFloat(),
+                    onValueChange = { onSeek(it.toLong()) },
+                    valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = colorScheme.primary,
+                        activeTrackColor = colorScheme.primary,
+                        inactiveTrackColor = colorScheme.primary.copy(alpha = 0.2f)
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = formatTime(positionMs),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = colorScheme.primary.copy(alpha = 0.85f)
+                    )
+                    Text(
+                        text = "-" + formatTime((durationMs - positionMs).coerceAtLeast(0)),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = colorScheme.primary.copy(alpha = 0.85f)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            PlayerControls(
+                isPlaying = isPlaying,
+                isLoading = isLoading,
+                colorScheme = colorScheme,
+                controlTint = colorScheme.primary,
+                onPlayPause = onPlayPause,
+                onPrevious = { onSeek((positionMs - 10000L).coerceAtLeast(0L)) },
+                onNext = { onSeek((positionMs + 30000L).coerceAtMost(durationMs)) },
+                height = 72.dp
+            )
+        }
+    }
+}
