@@ -200,8 +200,12 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
             }
 
             const placeholders = values.map(() => '?').join(',');
+            let sql = `INSERT OR IGNORE INTO ${tableName} (${headers.join(',')}) VALUES (${placeholders})`;
+            if (tableName === 'podcasts' && headers.includes('id') && headers.includes('medium')) {
+                sql = `INSERT INTO ${tableName} (${headers.join(',')}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET medium = excluded.medium`;
+            }
             statements.push({
-                sql: `INSERT OR IGNORE INTO ${tableName} (${headers.join(',')}) VALUES (${placeholders})`,
+                sql,
                 args: values
             });
         }

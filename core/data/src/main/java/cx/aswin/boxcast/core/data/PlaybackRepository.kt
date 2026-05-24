@@ -70,6 +70,7 @@ class PlaybackRepository(
 
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
+    val controller: MediaController? get() = mediaController
     
     private val _playerState = kotlinx.coroutines.flow.MutableStateFlow(PlayerState())
     val playerState = _playerState.asStateFlow()
@@ -202,6 +203,61 @@ class PlaybackRepository(
                                     val transcript = TranscriptRepository.getTranscript(transcriptUrl)
                                     if (_playerState.value.currentEpisode?.id == episodeId) {
                                         _playerState.value = _playerState.value.copy(currentTranscript = transcript)
+                                    }
+                                }
+
+                                // But if chaptersUrl is empty, check if we have auto chapters in Turso
+                                if (chaptersUrl.isNullOrEmpty() && episode != null && episode.audioUrl.isNotEmpty()) {
+                                    launch {
+                                        val deviceUuid = getOrCreateDeviceUuid()
+                                        val response = TranscriptRepository.checkAutoTranscriptStatus(
+                                            api = podcastRepository.api,
+                                            publicKey = podcastRepository.publicKey,
+                                            deviceUuid = deviceUuid,
+                                            episodeId = episodeId,
+                                            audioUrl = episode.audioUrl,
+                                            transcriptUrl = episode.transcriptUrl
+                                        )
+                                        if (_playerState.value.currentEpisode?.id != episodeId) return@launch
+                                        
+                                        val status = response?.status
+                                        val limitLeft = response?.limitLeft
+                                        val chapters = response?.chapters
+                                        
+                                        _playerState.value = _playerState.value.copy(
+                                            autoTranscriptLimitLeft = limitLeft
+                                        )
+                                        
+                                        if (chapters != null) {
+                                            _playerState.value = _playerState.value.copy(
+                                                currentChapters = chapters,
+                                                autoChaptersState = if (chapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                            )
+                                        }
+                                        
+                                        when (status) {
+                                            "completed" -> {
+                                                _playerState.value = _playerState.value.copy(
+                                                    autoChaptersState = AutoTranscriptState.COMPLETED
+                                                )
+                                            }
+                                            "pending", "uploaded" -> {
+                                                _playerState.value = _playerState.value.copy(
+                                                    autoChaptersState = AutoTranscriptState.GENERATING
+                                                )
+                                                startAutoTranscriptGeneration(episodeId, episode.audioUrl, episode.transcriptUrl, isTranscriptRequested = false)
+                                            }
+                                            "failed" -> {
+                                                _playerState.value = _playerState.value.copy(
+                                                    autoChaptersState = AutoTranscriptState.FAILED
+                                                )
+                                            }
+                                            else -> {
+                                                _playerState.value = _playerState.value.copy(
+                                                    autoChaptersState = if (_playerState.value.currentChapters.isEmpty()) AutoTranscriptState.NOT_GENERATED else _playerState.value.autoChaptersState
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             } else if (episode != null && episode.audioUrl.isNotEmpty()) {

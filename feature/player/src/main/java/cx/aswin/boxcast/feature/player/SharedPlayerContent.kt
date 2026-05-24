@@ -106,7 +106,8 @@ fun SharedPlayerContent(
     onSyncEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     extraContent: @Composable () -> Unit = {},
-    footerContent: @Composable ColumnScope.() -> Unit = {}
+    footerContent: @Composable ColumnScope.() -> Unit = {},
+    controller: androidx.media3.common.Player? = null
 ) {
     val controlTint = colorScheme.primary
     val context = LocalContext.current
@@ -227,35 +228,70 @@ fun SharedPlayerContent(
                                   shape = RoundedCornerShape(28.dp),
                                   color = colorScheme.surfaceVariant
                               ) {
-                                  AsyncImage(
-                                      model = ImageRequest.Builder(context)
-                                          .data(artworkUrl)
-                                          .crossfade(true)
-                                          .allowHardware(false) // Required for Palette if needed, safe to keep
-                                          .build(),
-                                      contentDescription = "Album Art",
-                                      contentScale = ContentScale.Crop,
-                                      modifier = Modifier
-                                          .fillMaxSize()
-                                          .pointerInput(isExpanded) {
-                                              if (!isExpanded) return@pointerInput
-                                              
-                                              var totalDrag = 0f
-                                              detectHorizontalDragGestures(
-                                                  onDragEnd = {
-                                                      if (totalDrag > 100f) {
-                                                          onSkipPreviousEpisode() // Swipe Right -> Prev Episode
-                                                      } else if (totalDrag < -100f) {
-                                                          onSkipNextEpisode() // Swipe Left -> Next Episode
-                                                      }
-                                                      totalDrag = 0f
-                                                  }
-                                              ) { change, dragAmount ->
-                                                  change.consume()
-                                                  totalDrag += dragAmount
+                                  if (episode?.enclosureType?.startsWith("video/") == true && controller != null) {
+                                      androidx.compose.ui.viewinterop.AndroidView(
+                                          factory = { ctx ->
+                                              androidx.media3.ui.PlayerView(ctx).apply {
+                                                  player = controller
+                                                  useController = false // Use BoxCast controls instead of default overlay
+                                                  resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                               }
-                                          }
-                                  )
+                                          },
+                                          update = { playerView ->
+                                              playerView.player = controller
+                                          },
+                                          modifier = Modifier
+                                              .fillMaxSize()
+                                              .pointerInput(isExpanded) {
+                                                  if (!isExpanded) return@pointerInput
+                                                  
+                                                  var totalDrag = 0f
+                                                  detectHorizontalDragGestures(
+                                                      onDragEnd = {
+                                                          if (totalDrag > 100f) {
+                                                              onSkipPreviousEpisode()
+                                                          } else if (totalDrag < -100f) {
+                                                              onSkipNextEpisode()
+                                                          }
+                                                          totalDrag = 0f
+                                                      }
+                                                  ) { change, dragAmount ->
+                                                      change.consume()
+                                                      totalDrag += dragAmount
+                                                  }
+                                              }
+                                      )
+                                  } else {
+                                      AsyncImage(
+                                          model = ImageRequest.Builder(context)
+                                              .data(artworkUrl)
+                                              .crossfade(true)
+                                              .allowHardware(false) // Required for Palette if needed, safe to keep
+                                              .build(),
+                                          contentDescription = "Album Art",
+                                          contentScale = ContentScale.Crop,
+                                          modifier = Modifier
+                                              .fillMaxSize()
+                                              .pointerInput(isExpanded) {
+                                                  if (!isExpanded) return@pointerInput
+                                                  
+                                                  var totalDrag = 0f
+                                                  detectHorizontalDragGestures(
+                                                      onDragEnd = {
+                                                          if (totalDrag > 100f) {
+                                                              onSkipPreviousEpisode() // Swipe Right -> Prev Episode
+                                                          } else if (totalDrag < -100f) {
+                                                              onSkipNextEpisode() // Swipe Left -> Next Episode
+                                                          }
+                                                          totalDrag = 0f
+                                                      }
+                                                  ) { change, dragAmount ->
+                                                      change.consume()
+                                                      totalDrag += dragAmount
+                                                  }
+                                              }
+                                      )
+                                  }
                               }
                               
                               Spacer(modifier = Modifier.height(if (isCompact) 4.dp else 8.dp))

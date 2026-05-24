@@ -70,6 +70,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
+import androidx.media3.common.Player
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 import cx.aswin.boxcast.feature.player.components.SimplePlayerControls
@@ -115,6 +116,7 @@ fun PlayerRoute(
     PlayerScreen(
         uiState = uiState,
         downloadRepository = downloadRepository,
+        controller = viewModel.controller,
         onBackClick = onBackClick,
         onPlayPause = viewModel::togglePlayPause,
         onEpisodeClick = viewModel::playEpisode,
@@ -133,6 +135,7 @@ fun PlayerRoute(
 fun PlayerScreen(
     uiState: PlayerUiState,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
+    controller: Player?,
     onBackClick: () -> Unit,
     onPlayPause: () -> Unit,
     onEpisodeClick: (Episode) -> Unit,
@@ -196,6 +199,7 @@ fun PlayerScreen(
                             playbackSpeed = uiState.playbackSpeed,
                             sleepTimerEnd = uiState.sleepTimerEnd,
                             downloadRepository = downloadRepository, // Pass down
+                            controller = controller,
 
                             isLiked = uiState.isLiked,
                             onPlayPause = onPlayPause, // Pass down
@@ -231,6 +235,7 @@ fun PlayerContent(
     sleepTimerEnd: Long?,
     isLiked: Boolean,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
+    controller: Player?,
     onPlayPause: () -> Unit,
     onEpisodeClick: (Episode) -> Unit,
     onSeek: (Long) -> Unit,
@@ -302,14 +307,12 @@ fun PlayerContent(
         onPrevious = onSkipBackward,
         onNext = onSkipForward,
         onSetSpeed = onSetSpeed,
-
         onSetSleepTimer = onSetSleepTimer,
-        // Updated: Pass the passed isLiked state
         isLiked = isLiked,
         onLikeClick = onToggleLike,
-        // Download Support
         isDownloaded = isDownloaded,
         isDownloading = isDownloading,
+        controller = controller,
         onDownloadClick = {
             if (currentEpisode != null) {
                 coroutineScope.launch {

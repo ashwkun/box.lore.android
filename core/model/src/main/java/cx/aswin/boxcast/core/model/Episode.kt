@@ -25,5 +25,6 @@ data class Episode(
     val episodeNumber: Int? = null,
     val episodeType: String? = null,  // "full", "trailer", "bonus"
     val contextType: String? = null,
-    val contextSourceId: String? = null
+    val contextSourceId: String? = null,
+    val enclosureType: String? = null
 )

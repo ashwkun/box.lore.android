@@ -48,7 +48,7 @@ dependencies {
     // Media
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
-    implementation("androidx.media3:media3-ui:1.2.1")
+    implementation(libs.androidx.media3.ui)
     
     // Firebase (database only)
     implementation(platform(libs.firebase.bom))

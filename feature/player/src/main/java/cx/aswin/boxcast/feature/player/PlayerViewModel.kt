@@ -44,6 +44,7 @@ class PlayerViewModel(
         publicKey = publicKey,
         context = application
     )
+    val controller: Player? get() = playbackRepository.controller
     private val database = cx.aswin.boxcast.core.data.database.BoxCastDatabase.getDatabase(application)
     // Removed internal instantiation of PlaybackRepository
     
