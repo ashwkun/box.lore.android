@@ -12,6 +12,9 @@ interface ListeningHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(history: ListeningHistoryEntity)
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(historyItems: List<ListeningHistoryEntity>)
+    
     // Fetch Top 7 items for the new Split UI (1st is Hero, 2-7 are Grid)
     @Query("SELECT * FROM listening_history WHERE isCompleted = 0 AND progressMs > 0 ORDER BY lastPlayedAt DESC LIMIT 7")
     fun getResumeItems(): Flow<List<ListeningHistoryEntity>>
@@ -20,7 +23,7 @@ interface ListeningHistoryDao {
     @Query("SELECT * FROM listening_history WHERE isCompleted = 0 AND progressMs > 0 ORDER BY lastPlayedAt DESC LIMIT 20")
     suspend fun getResumeItemsList(): List<ListeningHistoryEntity>
     
-    @Query("SELECT * FROM listening_history ORDER BY lastPlayedAt DESC")
+    @Query("SELECT * FROM listening_history WHERE isManualCompletion = 0 AND isBulkCompletion = 0 ORDER BY lastPlayedAt DESC")
     fun getAllHistory(): Flow<List<ListeningHistoryEntity>>
     
     @Query("SELECT * FROM listening_history WHERE isDirty = 1")

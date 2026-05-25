@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,6 +49,26 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.Forward30
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material3.*
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +77,8 @@ fun FullPlayerContent(
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
     isDarkTheme: Boolean,
     colorScheme: ColorScheme,
+    isFullscreenVideo: Boolean = false,
+    onFullscreenVideoChange: (Boolean) -> Unit = {},
     onCollapse: () -> Unit,
     onEpisodeInfoClick: (Episode) -> Unit = {},
     onPodcastInfoClick: (Podcast) -> Unit = {},
@@ -87,6 +111,51 @@ fun FullPlayerContent(
     // Fullscreen Transcript State
     var showFullscreenTranscript by remember(episode.id) { mutableStateOf(false) }
     var isSyncEnabled by remember(episode.id) { mutableStateOf(true) }
+    
+    var isLandscape by rememberSaveable {
+        android.util.Log.d("BoxCastPlayer", "isLandscape initialized to true in FullPlayerContent")
+        mutableStateOf(true)
+    }
+    var controlsVisible by rememberSaveable {
+        android.util.Log.d("BoxCastPlayer", "controlsVisible initialized to true in FullPlayerContent")
+        mutableStateOf(true)
+    }
+
+    if (isFullscreenVideo) {
+        val activity = LocalContext.current as? android.app.Activity
+        DisposableEffect(isFullscreenVideo, isLandscape) {
+            android.util.Log.d("BoxCastPlayer", "DisposableEffect running in FullPlayerContent: isFullscreenVideo=$isFullscreenVideo, isLandscape=$isLandscape")
+            val originalOrientation = activity?.requestedOrientation ?: android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            
+            activity?.requestedOrientation = if (isLandscape) {
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            } else {
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+            
+            // Hide system UI (immersive fullscreen mode)
+            val window = activity?.window
+            if (window != null) {
+                val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                insetsController.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                insetsController.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+            
+            onDispose {
+                android.util.Log.d("BoxCastPlayer", "DisposableEffect onDispose in FullPlayerContent: forcing portrait orientation")
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                if (window != null) {
+                    val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                    insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                }
+            }
+        }
+        
+        BackHandler {
+            android.util.Log.d("BoxCastPlayer", "BackHandler triggered in FullPlayerContent! Setting isFullscreenVideo = false")
+            onFullscreenVideoChange(false)
+        }
+    }
     
     androidx.activity.compose.BackHandler(enabled = showFullscreenTranscript) {
         showFullscreenTranscript = false
@@ -277,9 +346,9 @@ fun FullPlayerContent(
                 showFullscreenTranscript = true
                 cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
             },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
+            isFullscreenVideo = isFullscreenVideo,
+            onFullscreenVideoChange = onFullscreenVideoChange,
+            modifier = Modifier.fillMaxSize()
         )
     }
     
@@ -394,6 +463,226 @@ fun FullPlayerContent(
             onClose = { showFullscreenTranscript = false },
             transcriptUrl = state.currentEpisode?.transcriptUrl
         )
+    }
+
+    // Fullscreen video overlay (bypassing parent paddings/top bar entirely)
+    androidx.compose.animation.AnimatedVisibility(
+        visible = isFullscreenVideo,
+        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400)) + 
+                androidx.compose.animation.scaleIn(initialScale = 0.95f, animationSpec = androidx.compose.animation.core.tween(400)),
+        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)) + 
+               androidx.compose.animation.scaleOut(targetScale = 0.95f, animationSpec = androidx.compose.animation.core.tween(300)),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Controls visibility auto-fade timer
+        LaunchedEffect(controlsVisible, state.isPlaying) {
+            if (controlsVisible && state.isPlaying) {
+                delay(3000)
+                controlsVisible = false
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.Black
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                controlsVisible = !controlsVisible
+                            }
+                        )
+                    }
+            ) {
+                // Video View (rebound to same controller)
+                val controller = playbackRepository.controller
+                if (controller != null) {
+                    var playerViewRef by remember { mutableStateOf<androidx.media3.ui.PlayerView?>(null) }
+                    DisposableEffect(controller) {
+                        onDispose {
+                            playerViewRef?.player = null
+                        }
+                    }
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        factory = { ctx ->
+                            androidx.media3.ui.PlayerView(ctx).apply {
+                                player = controller
+                                useController = false // Custom overlay instead
+                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                playerViewRef = this
+                            }
+                        },
+                        update = { playerView ->
+                            if (playerView.player != controller) {
+                                playerView.player = controller
+                            }
+                            playerViewRef = playerView
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // Controls HUD
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = controlsVisible,
+                    enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)),
+                    exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f))
+                    ) {
+                        // Top Bar: Back, Title, Rotate Toggle
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(horizontal = 24.dp, vertical = 20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                IconButton(
+                                    onClick = { onFullscreenVideoChange(false) },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FullscreenExit,
+                                        contentDescription = "Exit Fullscreen",
+                                        tint = Color.White
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = (episode.title).replace("+", " "),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            
+                            // Rotation toggle
+                            IconButton(
+                                onClick = { isLandscape = !isLandscape },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ScreenRotation,
+                                    contentDescription = "Toggle Orientation",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+
+                        // Central Playback Controls
+                        Row(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalArrangement = Arrangement.spacedBy(40.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Skip Back 10s
+                            IconButton(
+                                onClick = { playbackRepository.skipBackward() },
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Replay10,
+                                    contentDescription = "Replay 10s",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+
+                            // Play / Pause
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(CircleShape)
+                                    .background(colorScheme.primaryContainer)
+                                    .clickable { if (state.isPlaying) playbackRepository.pause() else playbackRepository.resume() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    contentDescription = if (state.isPlaying) "Pause" else "Play",
+                                    modifier = Modifier.size(36.dp),
+                                    tint = colorScheme.onPrimaryContainer
+                                )
+                            }
+
+                            // Skip Forward 30s
+                            IconButton(
+                                onClick = { playbackRepository.skipForward() },
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Forward30,
+                                    contentDescription = "Forward 30s",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+
+                        // Bottom section: Progress Bar + Time labels
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = 24.dp, vertical = 24.dp)
+                        ) {
+                            val durationMs = state.duration
+                            val positionMs = state.position
+                            if (durationMs > 0) {
+                                Slider(
+                                    value = positionMs.toFloat(),
+                                    onValueChange = { playbackRepository.seekTo(it.toLong()) },
+                                    valueRange = 0f..durationMs.toFloat(),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = colorScheme.primary,
+                                        activeTrackColor = colorScheme.primary,
+                                        inactiveTrackColor = Color.White.copy(alpha = 0.24f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = formatTime(positionMs),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "-" + formatTime((durationMs - positionMs).coerceAtLeast(0)),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 }

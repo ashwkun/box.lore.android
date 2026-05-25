@@ -707,30 +707,21 @@ private fun ExploreHeroCard(
                 // Video Badge overlay on image
                 if (podcast.medium == "video" || podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
                         modifier = Modifier
                             .padding(8.dp)
                             .align(Alignment.TopEnd)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier.padding(6.dp),
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Rounded.Videocam,
-                                contentDescription = "Video Podcast",
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = "VIDEO",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
+                                imageVector = Icons.Rounded.Videocam,
+                                contentDescription = "Video",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -900,30 +891,21 @@ fun ExplorePodcastCard(
                 // Video Badge overlay on image
                 if (podcast.medium == "video" || podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
                         modifier = Modifier
                             .padding(8.dp)
                             .align(Alignment.TopEnd)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier.padding(6.dp),
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Rounded.Videocam,
-                                contentDescription = "Video Podcast",
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = "VIDEO",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
+                                imageVector = Icons.Rounded.Videocam,
+                                contentDescription = "Video",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }

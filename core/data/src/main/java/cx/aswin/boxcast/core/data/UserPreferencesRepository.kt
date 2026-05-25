@@ -39,7 +39,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.REGION] ?: run {
                 val localeCountry = java.util.Locale.getDefault().country.lowercase()
-                if (localeCountry == "in" || localeCountry == "gb") {
+                if (localeCountry == "in" || localeCountry == "gb" || localeCountry == "uk") {
                     localeCountry
                 } else {
                     "us"

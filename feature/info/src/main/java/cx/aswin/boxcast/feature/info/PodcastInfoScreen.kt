@@ -81,6 +81,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SearchBar
@@ -129,6 +132,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Brush
 import cx.aswin.boxcast.core.model.PodrollItem
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
@@ -248,6 +252,8 @@ fun PodcastInfoScreen(
     
     // Search State
     var isSearchActive by remember { mutableStateOf(false) }
+    var showMarkAllPlayedDialog by remember { mutableStateOf(false) }
+    var showMarkAllUnplayedDialog by remember { mutableStateOf(false) }
 
     // Use theme primary color (no dynamic extraction)
     val accentColor = MaterialTheme.colorScheme.primary
@@ -384,7 +390,7 @@ fun PodcastInfoScreen(
                         .alpha(1f - scrollFraction)
                 ) {
                     OptimizedImage(
-                        url = state.podcast.imageUrl,
+                        url = state.podcast.imageUrl.takeIf { it.isNotEmpty() } ?: state.podcast.fallbackImageUrl,
                         proxyWidth = 200,
                         contentDescription = null,
                         modifier = Modifier
@@ -537,7 +543,7 @@ fun PodcastInfoScreen(
                                 shadowElevation = 8.dp
                             ) {
                                 OptimizedImage(
-                                    url = state.podcast.imageUrl,
+                                    url = state.podcast.imageUrl.takeIf { it.isNotEmpty() } ?: state.podcast.fallbackImageUrl,
                                     proxyWidth = 600, // 180dp * ~3x density
                                     contentDescription = state.podcast.title,
                                     modifier = Modifier.fillMaxSize(),
@@ -1218,6 +1224,52 @@ fun PodcastInfoScreen(
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
+
+                    // More Options Dropdown Menu (Top Right)
+                    var showMenu by remember { mutableStateOf(false) }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 4.dp)
+                    ) {
+                        IconButton(
+                            onClick = { showMenu = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = "More Options",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            shape = RoundedCornerShape(20.dp),
+                            offset = DpOffset(x = (-12).dp, y = 4.dp)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Mark all as played") },
+                                onClick = {
+                                    showMenu = false
+                                    showMarkAllPlayedDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.DoneAll, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Mark all as unplayed") },
+                                onClick = {
+                                    showMenu = false
+                                    showMarkAllUnplayedDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.RadioButtonUnchecked, contentDescription = null)
+                                }
+                            )
+                        }
+                    }
                 }
                 
                 // SNACKBAR HOST (Overlay)
@@ -1382,6 +1434,119 @@ fun PodcastInfoScreen(
                         downloadingEpisodeIds = downloadingEpisodeIds
                     )
                 }
+            }
+        }
+
+        // --- Beautiful M3 Confirmation Dialogs ---
+        if (showMarkAllPlayedDialog) {
+            val currentState = uiState
+            if (currentState is PodcastInfoUiState.Success) {
+                AlertDialog(
+                    onDismissRequest = { showMarkAllPlayedDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.DoneAll,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = "Mark all as played?",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "This will mark all episodes of \"${currentState.podcast.title}\" as played.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showMarkAllPlayedDialog = false
+                                viewModel.markAllAsCompleted()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = ExpressiveShapes.Pill
+                        ) {
+                            Text("Confirm")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showMarkAllPlayedDialog = false }
+                        ) {
+                            Text("Cancel")
+                        }
+                    },
+                    shape = MaterialTheme.shapes.extraLarge,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            }
+        }
+
+        if (showMarkAllUnplayedDialog) {
+            val currentState = uiState
+            if (currentState is PodcastInfoUiState.Success) {
+                AlertDialog(
+                    onDismissRequest = { showMarkAllUnplayedDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = "Mark all as unplayed?",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "This will reset all episodes of \"${currentState.podcast.title}\" to unplayed.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showMarkAllUnplayedDialog = false
+                                viewModel.markAllAsUncompleted()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            shape = ExpressiveShapes.Pill
+                        ) {
+                            Text("Confirm")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showMarkAllUnplayedDialog = false }
+                        ) {
+                            Text("Cancel")
+                        }
+                    },
+                    shape = MaterialTheme.shapes.extraLarge,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
             }
         }
     }
@@ -1575,29 +1740,12 @@ fun EpisodeListItem(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
-                            Surface(
-                                shape = ExpressiveShapes.Pill,
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Videocam,
-                                        contentDescription = "Video",
-                                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = "VIDEO",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            }
+                            Icon(
+                                imageVector = Icons.Rounded.Videocam,
+                                contentDescription = "Video",
+                                tint = accentColor,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                     

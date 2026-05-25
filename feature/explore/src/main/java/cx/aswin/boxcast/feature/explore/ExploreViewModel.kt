@@ -209,7 +209,7 @@ class ExploreViewModel(
         // Only show for non-mismatch users (mismatch users already get the Home nudge)
         viewModelScope.launch {
             val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                if (it == "us" || it == "in" || it == "gb") it else "us"
+                if (it == "us" || it == "in" || it == "gb" || it == "uk") it else "us"
             }
             
             // Persist the initial match check to survive VM recreation

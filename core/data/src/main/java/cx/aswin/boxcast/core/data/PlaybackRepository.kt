@@ -36,7 +36,8 @@ data class PlaybackSession(
     val podcastTitle: String,
     val imageUrl: String?, // Primary (Episode) Art
     val podcastImageUrl: String?, // Fallback (Podcast) Art
-    val audioUrl: String?
+    val audioUrl: String?,
+    val enclosureType: String? = null
 )
 
 data class PlayerState(
@@ -636,17 +637,59 @@ class PlaybackRepository(
                         return
                     }
                     
-                    if (slotIndex == -1) {
-                        android.util.Log.w("PlaybackRepo", "onMediaItemTransition: Episode $episodeId NOT found in local queue. Ignoring.")
-                        return
-                    }
-                    
-                    val newEpisode = queue[slotIndex]
-                    android.util.Log.d("PlaybackRepo", "Media transition to: ${newEpisode.title}")
-
                     // Launch a single coroutine to handle the transition logic sequentially
                     // This ensures DB updates finish BEFORE we trigger SmartQueue refill
                     repositoryScope.launch {
+                        val finalQueue: List<Episode>
+                        val finalSlotIndex: Int
+                        
+                        if (slotIndex == -1) {
+                            android.util.Log.w("PlaybackRepo", "onMediaItemTransition: Episode $episodeId NOT found in local queue. Attempting recovery from DB...")
+                            val dbQueue = queueRepository.getQueueSnapshot()
+                            val dbSlotIndex = dbQueue.indexOfFirst { it.id == episodeId }
+                            android.util.Log.d("PlaybackRepo", "onMediaItemTransition (Recovery): dbSlotIndex=$dbSlotIndex, dbQueueSize=${dbQueue.size}")
+                            
+                            val resolvedEpisode = if (dbSlotIndex != -1) {
+                                dbQueue[dbSlotIndex]
+                            } else {
+                                // Fallback: construct Episode directly from mediaItem's MediaMetadata
+                                val metadata = mediaItem.mediaMetadata
+                                val resolvedPodcastId = findPodcastIdForEpisode(episodeId) ?: ""
+                                Episode(
+                                    id = episodeId,
+                                    title = metadata.title?.toString() ?: "Unknown Episode",
+                                    description = "",
+                                    audioUrl = mediaItem.localConfiguration?.uri?.toString() ?: "",
+                                    imageUrl = metadata.artworkUri?.toString(),
+                                    podcastImageUrl = metadata.artworkUri?.toString(),
+                                    podcastTitle = metadata.subtitle?.toString() ?: metadata.artist?.toString() ?: "Unknown Podcast",
+                                    podcastId = resolvedPodcastId,
+                                    podcastGenre = metadata.genre?.toString() ?: "Podcast",
+                                    podcastArtist = metadata.artist?.toString() ?: "",
+                                    duration = 0,
+                                    publishedDate = 0L
+                                )
+                            }
+                            
+                            if (dbSlotIndex != -1) {
+                                finalQueue = dbQueue
+                                finalSlotIndex = dbSlotIndex
+                            } else {
+                                val mutable = queue.toMutableList()
+                                if (mutable.none { it.id == episodeId }) {
+                                    mutable.add(resolvedEpisode)
+                                }
+                                finalQueue = mutable.toList()
+                                finalSlotIndex = finalQueue.indexOfFirst { it.id == episodeId }.coerceAtLeast(0)
+                            }
+                        } else {
+                            finalQueue = queue
+                            finalSlotIndex = slotIndex
+                        }
+                        
+                        val newEpisode = finalQueue[finalSlotIndex]
+                        android.util.Log.d("PlaybackRepo", "Media transition to: ${newEpisode.title}")
+                        
                         // 1. Mark PREVIOUS episode as completed (if distinct)
                         val previousEpisode = oldState.currentEpisode
                         val previousPodcast = oldState.currentPodcast 
@@ -671,20 +714,13 @@ class PlaybackRepository(
                         }
 
                         // 3. QUEUE CONSUMPTION: Drop items before current
-                        if (slotIndex > 0) {
-                             val newQueue = queue.drop(slotIndex)
-                             android.util.Log.d("PlaybackRepo", "Consuming queue: Dropped $slotIndex items. New size: ${newQueue.size}")
-                             _playerState.value = _playerState.value.copy(
-                                 currentEpisode = newEpisode,
-                                 currentPodcast = newPodcast,
-                                 queue = newQueue
-                             )
-                        } else {
-                             _playerState.value = _playerState.value.copy(
-                                 currentEpisode = newEpisode,
-                                 currentPodcast = newPodcast
-                             )
-                        }
+                        val newQueue = finalQueue.drop(finalSlotIndex)
+                        android.util.Log.d("PlaybackRepo", "Consuming queue: Dropped $finalSlotIndex items. New size: ${newQueue.size}")
+                        _playerState.value = _playerState.value.copy(
+                            currentEpisode = newEpisode,
+                            currentPodcast = newPodcast,
+                            queue = newQueue
+                        )
 
                         // 4. Sync queue to DB for restart recovery
                         syncQueueToDb()
@@ -730,7 +766,8 @@ class PlaybackRepository(
                         audioUrl = lastSession.episodeAudioUrl ?: "",
                         imageUrl = lastSession.episodeImageUrl,
                         duration = (lastSession.durationMs / 1000).toInt(),
-                        publishedDate = 0L
+                        publishedDate = 0L,
+                        enclosureType = lastSession.enclosureType
                     )
                     val podcast = Podcast(
                         id = lastSession.podcastId,
@@ -846,7 +883,8 @@ class PlaybackRepository(
             podcastName = podcast.title,
             isCompleted = finalCompleted,
             isLiked = state.isLiked,
-            lastPlayedAt = lastPlayed
+            lastPlayedAt = lastPlayed,
+            enclosureType = episode.enclosureType
         )
     }
     
@@ -1173,7 +1211,8 @@ class PlaybackRepository(
             podcastGenre = "Podcast",
             podcastArtist = "",
             duration = (lastSession.durationMs / 1000).toInt(),
-            publishedDate = 0L
+            publishedDate = 0L,
+            enclosureType = lastSession.enclosureType
         )
         
         val podcast = Podcast(
@@ -1521,7 +1560,8 @@ class PlaybackRepository(
                     podcastTitle = latest.podcastName,
                     imageUrl = latest.episodeImageUrl,
                     podcastImageUrl = latest.podcastImageUrl,
-                    audioUrl = latest.episodeAudioUrl
+                    audioUrl = latest.episodeAudioUrl,
+                    enclosureType = latest.enclosureType
                 )
             } else {
                 null
@@ -1541,7 +1581,8 @@ class PlaybackRepository(
                     podcastTitle = entity.podcastName,
                     imageUrl = entity.episodeImageUrl,
                     podcastImageUrl = entity.podcastImageUrl,
-                    audioUrl = entity.episodeAudioUrl
+                    audioUrl = entity.episodeAudioUrl,
+                    enclosureType = entity.enclosureType
                 )
             }
         }
@@ -1593,7 +1634,8 @@ class PlaybackRepository(
                 isCompleted = false,
                 isLiked = newStatus,
                 lastPlayedAt = System.currentTimeMillis(),
-                isDirty = true
+                isDirty = true,
+                enclosureType = episode.enclosureType
             )
             listeningHistoryDao.upsert(entity)
         }
@@ -1604,7 +1646,14 @@ class PlaybackRepository(
         val newStatus = !(existing?.isCompleted ?: false)
         
         if (existing != null) {
-            listeningHistoryDao.setCompletionStatus(episode.id, newStatus)
+            val updated = existing.copy(
+                isCompleted = newStatus,
+                isManualCompletion = newStatus,
+                progressMs = 0L,
+                lastPlayedAt = System.currentTimeMillis(),
+                isDirty = true
+            )
+            listeningHistoryDao.upsert(updated)
         } else {
              // Create new entry
             val entity = cx.aswin.boxcast.core.data.database.ListeningHistoryEntity(
@@ -1620,7 +1669,10 @@ class PlaybackRepository(
                 isCompleted = newStatus,
                 isLiked = false,
                 lastPlayedAt = System.currentTimeMillis(),
-                isDirty = true
+                isDirty = true,
+                enclosureType = episode.enclosureType,
+                isManualCompletion = newStatus,
+                isBulkCompletion = false
             )
             listeningHistoryDao.upsert(entity)
         }
@@ -1661,7 +1713,8 @@ class PlaybackRepository(
                 isCompleted = true,
                 isLiked = false, // We don't know
                 lastPlayedAt = System.currentTimeMillis(),
-                isDirty = true
+                isDirty = true,
+                enclosureType = episode.enclosureType
             )
             listeningHistoryDao.upsert(entity)
         } else {
@@ -1693,7 +1746,8 @@ class PlaybackRepository(
         podcastName: String,
         isCompleted: Boolean,
         isLiked: Boolean,
-        lastPlayedAt: Long = System.currentTimeMillis()
+        lastPlayedAt: Long = System.currentTimeMillis(),
+        enclosureType: String? = null
     ) {
         android.util.Log.v("PlaybackRepo", "Saving playback state: $episodeTitle, pos=$positionMs, completed=$isCompleted")
         val entity = cx.aswin.boxcast.core.data.database.ListeningHistoryEntity(
@@ -1709,7 +1763,10 @@ class PlaybackRepository(
             isCompleted = isCompleted,
             isLiked = isLiked,
             lastPlayedAt = lastPlayedAt,
-            isDirty = true
+            isDirty = true,
+            enclosureType = enclosureType,
+            isManualCompletion = false,
+            isBulkCompletion = false
         )
         listeningHistoryDao.upsert(entity)
     }
@@ -1739,7 +1796,74 @@ class PlaybackRepository(
             podcastTitle = entity.podcastName,
             imageUrl = entity.episodeImageUrl,
             podcastImageUrl = entity.podcastImageUrl,
-            audioUrl = entity.episodeAudioUrl
+            audioUrl = entity.episodeAudioUrl,
+            enclosureType = entity.enclosureType
         )
+    }
+
+    suspend fun markAllEpisodesCompleted(episodes: List<Episode>, podcastId: String, podcastTitle: String, podcastImageUrl: String?) {
+        val currentTime = System.currentTimeMillis()
+        val entitiesToUpsert = episodes.map { episode ->
+            val existing = listeningHistoryDao.getHistoryItem(episode.id)
+            if (existing != null) {
+                existing.copy(
+                    isCompleted = true,
+                    progressMs = 0L,
+                    isBulkCompletion = true,
+                    lastPlayedAt = currentTime,
+                    isDirty = true
+                )
+            } else {
+                cx.aswin.boxcast.core.data.database.ListeningHistoryEntity(
+                    episodeId = episode.id,
+                    podcastId = podcastId,
+                    episodeTitle = episode.title,
+                    episodeImageUrl = episode.imageUrl,
+                    podcastImageUrl = podcastImageUrl,
+                    episodeAudioUrl = episode.audioUrl,
+                    podcastName = podcastTitle,
+                    progressMs = 0L,
+                    durationMs = episode.duration * 1000L,
+                    isCompleted = true,
+                    isLiked = false,
+                    lastPlayedAt = currentTime,
+                    isDirty = true,
+                    enclosureType = episode.enclosureType,
+                    isManualCompletion = false,
+                    isBulkCompletion = true
+                )
+            }
+        }
+        listeningHistoryDao.upsertAll(entitiesToUpsert)
+    }
+
+    suspend fun markAllEpisodesUncompleted(episodes: List<Episode>) {
+        val currentTime = System.currentTimeMillis()
+        val entitiesToUpsert = episodes.mapNotNull { episode ->
+            val existing = listeningHistoryDao.getHistoryItem(episode.id)
+            if (existing != null && existing.isCompleted) {
+                existing.copy(
+                    isCompleted = false,
+                    progressMs = 0L,
+                    isManualCompletion = false,
+                    isBulkCompletion = false,
+                    lastPlayedAt = currentTime,
+                    isDirty = true
+                )
+            } else {
+                null
+            }
+        }
+        if (entitiesToUpsert.isNotEmpty()) {
+            listeningHistoryDao.upsertAll(entitiesToUpsert)
+        }
+    }
+
+    private suspend fun findPodcastIdForEpisode(episodeId: String): String? {
+        val historyItem = listeningHistoryDao.getHistoryItem(episodeId)
+        if (historyItem != null) return historyItem.podcastId
+        
+        val episode = podcastRepository.getEpisode(episodeId)
+        return episode?.podcastId
     }
 }

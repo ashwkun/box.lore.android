@@ -166,6 +166,43 @@ class PodcastInfoViewModel(
         }
     }
 
+    fun markAllAsCompleted() {
+        val currentState = uiState.value
+        if (currentState is PodcastInfoUiState.Success) {
+            viewModelScope.launch {
+                val allEpisodes = try {
+                    repository.getEpisodes(currentState.podcast.id)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                val targetEpisodes = if (allEpisodes.isNotEmpty()) allEpisodes else currentState.episodes
+                playbackRepository.markAllEpisodesCompleted(
+                    episodes = targetEpisodes,
+                    podcastId = currentState.podcast.id,
+                    podcastTitle = currentState.podcast.title,
+                    podcastImageUrl = currentState.podcast.imageUrl
+                )
+            }
+        }
+    }
+
+    fun markAllAsUncompleted() {
+        val currentState = uiState.value
+        if (currentState is PodcastInfoUiState.Success) {
+            viewModelScope.launch {
+                val allEpisodes = try {
+                    repository.getEpisodes(currentState.podcast.id)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                val targetEpisodes = if (allEpisodes.isNotEmpty()) allEpisodes else currentState.episodes
+                playbackRepository.markAllEpisodesUncompleted(
+                    episodes = targetEpisodes
+                )
+            }
+        }
+    }
+
     fun toggleDownload(episode: Episode) {
         val currentState = _uiState.value
         android.util.Log.d("PodcastInfoVM", "toggleDownload: title=${episode.title}, state=$currentState")
@@ -222,6 +259,7 @@ class PodcastInfoViewModel(
                     title = entity.title,
                     artist = entity.author ?: "Unknown",
                     imageUrl = entity.imageUrl ?: "",
+                    fallbackImageUrl = entity.latestEpisode?.imageUrl ?: "",
                     description = entity.description,
                     genre = entity.genre ?: "Podcast",
                     type = entity.type,
@@ -287,14 +325,19 @@ class PodcastInfoViewModel(
                 }
 
                 if (apiPodcast != null) {
-                    currentPodcast = apiPodcast
-                    currentPodcastId = apiPodcast.id // Update to the real numeric ID
-                    _currentPodcastIdFlow.value = apiPodcast.id
+                    val apiPodcastWithFallback = apiPodcast.copy(
+                        fallbackImageUrl = apiPodcast.fallbackImageUrl.takeIf { !it.isNullOrBlank() }
+                            ?: currentPodcast?.fallbackImageUrl
+                            ?: page.episodes.firstOrNull()?.imageUrl
+                    )
+                    currentPodcast = apiPodcastWithFallback
+                    currentPodcastId = apiPodcastWithFallback.id // Update to the real numeric ID
+                    _currentPodcastIdFlow.value = apiPodcastWithFallback.id
                     
                     // Track screen viewed with podcast name
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenViewed(
-                        podcastId = apiPodcast.id,
-                        podcastName = apiPodcast.title,
+                        podcastId = apiPodcastWithFallback.id,
+                        podcastName = apiPodcastWithFallback.title,
                         entryPoint = entryPoint,
                         genreFilter = genreFilter,
                         scrollDepth = scrollDepth,
@@ -307,7 +350,7 @@ class PodcastInfoViewModel(
 
                     currentOffset = page.episodes.size
                     _uiState.value = PodcastInfoUiState.Success(
-                        podcast = apiPodcast,
+                        podcast = apiPodcastWithFallback,
                         episodes = page.episodes,
                         isSubscribed = isSubscribed,
                         hasMoreEpisodes = page.hasMore,
@@ -339,7 +382,7 @@ class PodcastInfoViewModel(
                                             podcastId = enrichedPodcast.id,
                                             title = enrichedPodcast.title,
                                             author = enrichedPodcast.artist,
-                                            imageUrl = enrichedPodcast.imageUrl,
+                                            imageUrl = enrichedPodcast.imageUrl.takeIf { it.isNotEmpty() } ?: localPodcastEntity?.imageUrl ?: "",
                                             description = enrichedPodcast.description,
                                             genre = enrichedPodcast.genre,
                                             type = typeVal,

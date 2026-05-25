@@ -123,12 +123,6 @@ fun YourShowsSection(
         }
     }
 
-    val isDark = (0.2126f * MaterialTheme.colorScheme.surface.red + 0.7152f * MaterialTheme.colorScheme.surface.green + 0.0722f * MaterialTheme.colorScheme.surface.blue) < 0.5f
-    val cardContainerColor = if (isDark) {
-        MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.8f)
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
 
     val mixtapeScrollState = rememberScrollState()
     val mixtapeScrollConnection = remember(mixtapeScrollState) {
@@ -505,9 +499,9 @@ fun YourShowsSection(
             val displayList = latestEpisodes
 
             OutlinedCard(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.outlinedCardColors(containerColor = cardContainerColor),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
@@ -518,6 +512,7 @@ fun YourShowsSection(
                         .padding(20.dp)
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -528,7 +523,7 @@ fun YourShowsSection(
                             modifier = Modifier.size(22.dp)
                         )
                         Text(
-                            text = "Mixtape Episodes",
+                            text = "For You",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = (-0.2).sp
@@ -537,38 +532,39 @@ fun YourShowsSection(
                         )
                     }
                     Spacer(modifier = Modifier.height(2.dp))
+                    val isAllCaughtUp = unplayedEpisodeCount == 0 && displayList.isNotEmpty()
                     Text(
-                        text = "Your active and unplayed episodes from shows you follow",
+                        text = if (isAllCaughtUp) "All caught up! Discover new shows in Explore" else "A personalized playlist of active and recent episodes",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = if (isAllCaughtUp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     
                     if (unplayedEpisodeCount > 0) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
+                        Spacer(modifier = Modifier.height(12.dp))
                         Surface(
                             color = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                             shape = CircleShape,
                             modifier = Modifier
-                                .height(44.dp)
                                 .fillMaxWidth()
                                 .expressiveClickable { onPlayMix() }
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.PlayArrow,
                                     contentDescription = "Play Mix",
                                     tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Play Mix ($unplayedEpisodeCount)",
+                                    text = "Play ($unplayedEpisodeCount)",
                                     style = MaterialTheme.typography.labelLarge.copy(
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.1.sp
@@ -622,9 +618,9 @@ fun YourShowsSection(
                 )
             } else {
                 OutlinedCard(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.outlinedCardColors(containerColor = cardContainerColor),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
@@ -639,6 +635,7 @@ fun YourShowsSection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .expressiveClickable { onPodcastClick(selectedPodcast) }
+                                .padding(vertical = 4.dp)
                         ) {
                             OptimizedImage(
                                 url = (selectedPodcast.imageUrl.takeIf { it.isNotEmpty() } ?: selectedPodcast.fallbackImageUrl),
@@ -646,7 +643,7 @@ fun YourShowsSection(
                                 contentDescription = selectedPodcast.title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(44.dp)
                                     .clip(RoundedCornerShape(8.dp))
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -662,19 +659,42 @@ fun YourShowsSection(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
+                                val isOldest = (selectedPodcast.preferredSort ?: "newest") == "oldest"
                                 Text(
-                                    text = "Latest Episodes",
+                                    text = if (isOldest) "Next Episodes" else "Latest Episodes",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = "Podcast Info",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(20.dp)
-                            )
+                            
+                            // Sleek Capsule View Show Button
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp)
+                                ) {
+                                    Text(
+                                        text = "View Show",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.2.sp
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
                         }
                         
                         Spacer(modifier = Modifier.height(16.dp))
@@ -1049,7 +1069,7 @@ private fun MixtapeSelectorCover(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                contentDescription = "Mixtape",
+                contentDescription = "For You",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )

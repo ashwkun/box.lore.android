@@ -33,6 +33,12 @@ data class DetailedHistoryStats(
     val activeDays: Set<LocalDate> = emptySet()
 )
 
+enum class HistoryFilter {
+    ALL,
+    IN_PROGRESS,
+    COMPLETED
+}
+
 sealed interface HistoryUiState {
     object Loading : HistoryUiState
     object Empty : HistoryUiState
@@ -40,7 +46,8 @@ sealed interface HistoryUiState {
         val stats: DetailedHistoryStats,
         val groupedHistory: Map<LocalDate, List<ListeningHistoryEntity>>,
         val expandedDates: Set<LocalDate>,
-        val selectedFilterDate: LocalDate? = null
+        val selectedFilterDate: LocalDate? = null,
+        val selectedHistoryFilter: HistoryFilter = HistoryFilter.ALL
     ) : HistoryUiState
 }
 
@@ -50,13 +57,15 @@ class HistoryViewModel(
 
     private val _expandedDates = MutableStateFlow<Set<LocalDate>>(emptySet())
     private val _selectedFilterDate = MutableStateFlow<LocalDate?>(null)
+    private val _selectedHistoryFilter = MutableStateFlow(HistoryFilter.ALL)
     private var hasInitializedExpansions = false
 
     val uiState: StateFlow<HistoryUiState> = combine(
         playbackRepository.getAllHistory(),
         _expandedDates,
-        _selectedFilterDate
-    ) { historyList: List<ListeningHistoryEntity>, expandedDates: Set<LocalDate>, selectedFilterDate: LocalDate? ->
+        _selectedFilterDate,
+        _selectedHistoryFilter
+    ) { historyList: List<ListeningHistoryEntity>, expandedDates: Set<LocalDate>, selectedFilterDate: LocalDate?, selectedHistoryFilter: HistoryFilter ->
         if (historyList.isEmpty()) {
             HistoryUiState.Empty
         } else {
@@ -92,7 +101,13 @@ class HistoryViewModel(
                 hourlyCount[hour]++
             }
 
-            val groupedByDate = historyList.groupBy { entity ->
+            val filteredHistoryList = when (selectedHistoryFilter) {
+                HistoryFilter.ALL -> historyList
+                HistoryFilter.IN_PROGRESS -> historyList.filter { !it.isCompleted }
+                HistoryFilter.COMPLETED -> historyList.filter { it.isCompleted }
+            }
+
+            val groupedByDate = filteredHistoryList.groupBy { entity ->
                 Instant.ofEpochMilli(entity.lastPlayedAt).atZone(ZoneId.systemDefault()).toLocalDate()
             }.toSortedMap(reverseOrder())
 
@@ -165,7 +180,8 @@ class HistoryViewModel(
                     stats = stats,
                     groupedHistory = currentGrouped,
                     expandedDates = initialExpand,
-                    selectedFilterDate = selectedFilterDate
+                    selectedFilterDate = selectedFilterDate,
+                    selectedHistoryFilter = selectedHistoryFilter
                 )
             }
 
@@ -179,7 +195,8 @@ class HistoryViewModel(
                 stats = stats,
                 groupedHistory = currentGrouped,
                 expandedDates = finalExpandedDates,
-                selectedFilterDate = selectedFilterDate
+                selectedFilterDate = selectedFilterDate,
+                selectedHistoryFilter = selectedHistoryFilter
             )
         }
     }.flowOn(kotlinx.coroutines.Dispatchers.Default)
@@ -191,6 +208,10 @@ class HistoryViewModel(
 
     fun setFilterDate(date: LocalDate?) {
         _selectedFilterDate.value = date
+    }
+
+    fun setHistoryFilter(filter: HistoryFilter) {
+        _selectedHistoryFilter.value = filter
     }
 
     fun toggleDateExpansion(date: LocalDate) {

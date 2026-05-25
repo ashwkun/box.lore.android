@@ -241,6 +241,60 @@ fun HistoryScreen(
                             )
                         }
 
+                        // Status Filter Row
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FilterChip(
+                                    selected = state.selectedHistoryFilter == HistoryFilter.ALL,
+                                    onClick = { viewModel.setHistoryFilter(HistoryFilter.ALL) },
+                                    label = { Text("All") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = state.selectedHistoryFilter == HistoryFilter.ALL,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                )
+                                FilterChip(
+                                    selected = state.selectedHistoryFilter == HistoryFilter.IN_PROGRESS,
+                                    onClick = { viewModel.setHistoryFilter(HistoryFilter.IN_PROGRESS) },
+                                    label = { Text("In Progress") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = state.selectedHistoryFilter == HistoryFilter.IN_PROGRESS,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                )
+                                FilterChip(
+                                    selected = state.selectedHistoryFilter == HistoryFilter.COMPLETED,
+                                    onClick = { viewModel.setHistoryFilter(HistoryFilter.COMPLETED) },
+                                    label = { Text("Completed") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = state.selectedHistoryFilter == HistoryFilter.COMPLETED,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                )
+                            }
+                        }
+
                         // Empty Filtered State
                         if (state.groupedHistory.isEmpty()) {
                             item {
@@ -254,14 +308,26 @@ fun HistoryScreen(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
+                                        val emptyTitle = when {
+                                            state.selectedFilterDate != null -> "No activity on this day"
+                                            state.selectedHistoryFilter == HistoryFilter.IN_PROGRESS -> "No episodes in progress"
+                                            state.selectedHistoryFilter == HistoryFilter.COMPLETED -> "No completed episodes"
+                                            else -> "No listening history found"
+                                        }
+                                        val emptyDesc = when {
+                                            state.selectedFilterDate != null -> "Select another date or reset the filter."
+                                            state.selectedHistoryFilter == HistoryFilter.IN_PROGRESS -> "Episodes you start listening to will appear here."
+                                            state.selectedHistoryFilter == HistoryFilter.COMPLETED -> "Episodes you finish listening to will appear here."
+                                            else -> "Start playing episodes to build your history."
+                                        }
                                         Text(
-                                            "No activity on this day",
+                                            emptyTitle,
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            "Select another date or reset the filter.",
+                                            emptyDesc,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

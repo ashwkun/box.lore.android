@@ -330,9 +330,7 @@ fun PlayerContent(
              }
         },
 
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxSize(),
 
         footerContent = {
              Spacer(modifier = Modifier.height(32.dp))
