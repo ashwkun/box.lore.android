@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.feature.library
 
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -77,6 +78,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.TopAppBar
@@ -286,7 +288,9 @@ fun SubscriptionsScreen(
                                     }
                                     DropdownMenu(
                                         expanded = showSortMenu,
-                                        onDismissRequest = { showSortMenu = false }
+                                        onDismissRequest = { showSortMenu = false },
+                                        shape = RoundedCornerShape(20.dp),
+                                        offset = DpOffset(x = (-12).dp, y = 4.dp)
                                     ) {
                                         if (pagerState.currentPage == 0) {
                                             val currentSort = successState?.currentSort ?: SubscriptionSort.SmartRank
@@ -1026,8 +1030,9 @@ private fun SubscriptionListRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AsyncImage(
-            model = (podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl)?.optimizedImageUrl(400),
+        OptimizedImage(
+            url = podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl,
+            proxyWidth = 400,
             contentDescription = podcast.title,
             modifier = Modifier
                 .size(48.dp)
@@ -1252,8 +1257,9 @@ private fun SubscriptionGridCard(
             .clip(RoundedCornerShape(12.dp))
             .expressiveClickable(onClick = onClick)
     ) {
-        AsyncImage(
-            model = (podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl)?.optimizedImageUrl(400),
+        OptimizedImage(
+            url = podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl,
+            proxyWidth = 400,
             contentDescription = podcast.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier

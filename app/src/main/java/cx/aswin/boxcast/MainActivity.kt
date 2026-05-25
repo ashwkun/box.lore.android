@@ -94,6 +94,34 @@ import cx.aswin.boxcast.feature.player.PlayerRoute
 import cx.aswin.boxcast.core.designsystem.component.ExpressiveAnimatedBackground
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Warning
 
 // PixelPlayer-inspired transition specs
 private const val TRANSITION_DURATION = 350
@@ -353,6 +381,119 @@ class MainActivity : ComponentActivity() {
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("Firebase", "Failed FCM init", e)
+                }
+            }
+
+            var opmlImportState by remember { mutableStateOf<OpmlImportState>(OpmlImportState.Idle) }
+            var importTriggerKey by remember { mutableStateOf(0L) }
+
+            LaunchedEffect(importTriggerKey) {
+                if (importTriggerKey == 0L) return@LaunchedEffect
+                val state = opmlImportState
+                if (state is OpmlImportState.Parsing) {
+                    val uri = state.uri
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val inputStream = applicationContext.contentResolver.openInputStream(uri)
+                            if (inputStream == null) {
+                                opmlImportState = OpmlImportState.Error("Failed to open the selected file.")
+                                return@withContext
+                            }
+                            val backupManager = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(
+                                subscriptionRepository,
+                                playbackRepository,
+                                podcastRepository
+                            )
+                            val feeds = backupManager.parseOpmlFeeds(inputStream)
+                            inputStream.close()
+                            
+                            if (feeds.isEmpty()) {
+                                opmlImportState = OpmlImportState.Error("No podcast feeds found in the OPML file.")
+                                return@withContext
+                            }
+                            
+                            opmlImportState = OpmlImportState.Importing(
+                                currentFeedTitle = feeds.first().title,
+                                progress = 0f,
+                                currentCount = 0,
+                                totalCount = feeds.size,
+                                importedPodcasts = emptyList()
+                            )
+                            
+                            val importedList = mutableListOf<cx.aswin.boxcast.core.model.Podcast>()
+                            for (index in feeds.indices) {
+                                val feed = feeds[index]
+                                opmlImportState = OpmlImportState.Importing(
+                                    currentFeedTitle = feed.title,
+                                    progress = index.toFloat() / feeds.size,
+                                    currentCount = index,
+                                    totalCount = feeds.size,
+                                    importedPodcasts = importedList.toList()
+                                )
+                                val imported = backupManager.importSingleOpmlFeed(feed)
+                                if (imported != null) {
+                                    importedList.add(imported)
+                                }
+                            }
+                            
+                            if (importedList.isEmpty()) {
+                                opmlImportState = OpmlImportState.Error("Could not resolve or subscribe to any podcasts from this OPML file.")
+                            } else {
+                                opmlImportState = OpmlImportState.AskCompleted(
+                                    importedPodcasts = importedList.toList(),
+                                    selectedIds = importedList.map { it.id }.toSet()
+                                )
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("OPML_IMPORT", "Error during parsing/importing", e)
+                            opmlImportState = OpmlImportState.Error("OPML Import failed: ${e.message}")
+                        }
+                    }
+                } else if (state is OpmlImportState.Completing) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val backupManager = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(
+                                subscriptionRepository,
+                                playbackRepository,
+                                podcastRepository
+                            )
+                            val total = state.podcastsToMark.size
+                            for (index in state.podcastsToMark.indices) {
+                                val podcast = state.podcastsToMark[index]
+                                opmlImportState = state.copy(
+                                    progress = index.toFloat() / total,
+                                    currentShowTitle = podcast.title
+                                )
+                                backupManager.markAllEpisodesCompleted(podcast)
+                            }
+                            
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                android.widget.Toast.makeText(
+                                    applicationContext,
+                                    "Successfully imported ${state.totalImportedCount} podcasts. Marked ${total} as completed.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                
+                                if (currentRoute == "onboarding") {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                        "opml",
+                                        state.totalImportedCount,
+                                        onboardingViewModel.getGenreScreenTimeSpent(),
+                                        onboardingViewModel.getTotalOnboardingTime()
+                                    )
+                                    onboardingViewModel.markOnboardingCompletedSilent {
+                                        navController.navigate("home") {
+                                            popUpTo("onboarding") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            }
+                            opmlImportState = OpmlImportState.Idle
+                        } catch (e: Exception) {
+                            android.util.Log.e("OPML_IMPORT", "Error marking completed", e)
+                            opmlImportState = OpmlImportState.Error("Failed to mark episodes as completed: ${e.message}")
+                        }
+                    }
                 }
             }
             
@@ -766,26 +907,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onImportOpml = { uri ->
-                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing OPML (This may take a minute)...", android.widget.Toast.LENGTH_SHORT).show() }
-                                                val inputStream = application.contentResolver.openInputStream(uri) ?: return@launch
-                                                val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importFromOpml(inputStream)
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
-                                                    android.widget.Toast.makeText(application, "Found & Subscribed to $count podcasts", android.widget.Toast.LENGTH_LONG).show()
-                                                    // Analytics: Track import completion
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted("opml", count, onboardingViewModel.getGenreScreenTimeSpent(), onboardingViewModel.getTotalOnboardingTime())
-                                                    onboardingViewModel.markOnboardingCompletedSilent {
-                                                        navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
-                                                    }
-                                                }
-                                            } catch(e: Exception){
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
-                                                    android.widget.Toast.makeText(application, "OPML Import Failed", android.widget.Toast.LENGTH_SHORT).show() 
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", e.message)
-                                                }
-                                            }
-                                        }
+                                        opmlImportState = OpmlImportState.Parsing(uri)
+                                        importTriggerKey = System.currentTimeMillis()
                                     }
                                 )
                             }
@@ -1003,16 +1126,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onImportOpml = { uri ->
-                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing OPML (This may take a minute)...", android.widget.Toast.LENGTH_SHORT).show() }
-                                                val inputStream = application.contentResolver.openInputStream(uri) ?: return@launch
-                                                val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importFromOpml(inputStream)
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Found & Subscribed to $count podcasts", android.widget.Toast.LENGTH_LONG).show() }
-                                            } catch(e: Exception){
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "OPML Import Failed", android.widget.Toast.LENGTH_SHORT).show() }
-                                            }
-                                        }
+                                        opmlImportState = OpmlImportState.Parsing(uri)
+                                        importTriggerKey = System.currentTimeMillis()
                                     }
                                 )
                             }
@@ -1491,13 +1606,23 @@ class MainActivity : ComponentActivity() {
                             currentRoute.startsWith("explore") -> "explore"
                             currentRoute.startsWith("library") -> "library"
                             currentRoute.startsWith("podcast") || currentRoute.startsWith("episode") -> {
-                                val entryPoint = navBackStackEntry?.arguments?.getString("entryPoint")
-                                when {
-                                    entryPoint == null -> "home"
-                                    entryPoint.contains("library") -> "library"
-                                    entryPoint.contains("explore") || entryPoint.contains("search") || entryPoint.contains("bottom_nav") -> "explore"
-                                    else -> "home"
+                                val backStack = navController.currentBackStack.value
+                                var foundTab = "home"
+                                for (i in backStack.size - 2 downTo 0) {
+                                    val entry = backStack.getOrNull(i)
+                                    val route = entry?.destination?.route ?: continue
+                                    if (route.startsWith("explore")) {
+                                        foundTab = "explore"
+                                        break
+                                    } else if (route.startsWith("library")) {
+                                        foundTab = "library"
+                                        break
+                                    } else if (route == "home") {
+                                        foundTab = "home"
+                                        break
+                                    }
                                 }
+                                foundTab
                             }
                             else -> "home"
                         }
@@ -1828,6 +1953,83 @@ class MainActivity : ComponentActivity() {
                     )
                     } // end !isRadioMode
                 }
+
+                OpmlImportDialog(
+                    state = opmlImportState,
+                    onDismissRequest = {
+                        opmlImportState = OpmlImportState.Idle
+                    },
+                    onSelectionChanged = { newSelection ->
+                        val currentState = opmlImportState
+                        if (currentState is OpmlImportState.AskCompleted) {
+                            opmlImportState = currentState.copy(selectedIds = newSelection)
+                        }
+                    },
+                    onConfirmCompleted = {
+                        val currentState = opmlImportState
+                        if (currentState is OpmlImportState.AskCompleted) {
+                            val selectedIds = currentState.selectedIds
+                            val podcastsToMark = currentState.importedPodcasts.filter { it.id in selectedIds }
+                            if (podcastsToMark.isEmpty()) {
+                                scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast.makeText(
+                                        applicationContext,
+                                        "Successfully imported ${currentState.importedPodcasts.size} podcasts.",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                    
+                                    if (currentRoute == "onboarding") {
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                            "opml",
+                                            currentState.importedPodcasts.size,
+                                            onboardingViewModel.getGenreScreenTimeSpent(),
+                                            onboardingViewModel.getTotalOnboardingTime()
+                                        )
+                                        onboardingViewModel.markOnboardingCompletedSilent {
+                                            navController.navigate("home") {
+                                                popUpTo("onboarding") { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                    opmlImportState = OpmlImportState.Idle
+                                }
+                            } else {
+                                opmlImportState = OpmlImportState.Completing(
+                                    progress = 0f,
+                                    currentShowTitle = podcastsToMark.first().title,
+                                    podcastsToMark = podcastsToMark,
+                                    totalImportedCount = currentState.importedPodcasts.size
+                                )
+                                importTriggerKey = System.currentTimeMillis()
+                            }
+                        }
+                    },
+                    onSkipCompleted = {
+                        val currentState = opmlImportState
+                        if (currentState is OpmlImportState.AskCompleted) {
+                            if (currentRoute == "onboarding") {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                    "opml",
+                                    currentState.importedPodcasts.size,
+                                    onboardingViewModel.getGenreScreenTimeSpent(),
+                                    onboardingViewModel.getTotalOnboardingTime()
+                                )
+                                onboardingViewModel.markOnboardingCompletedSilent {
+                                    navController.navigate("home") {
+                                        popUpTo("onboarding") { inclusive = true }
+                                    }
+                                }
+                            } else {
+                                android.widget.Toast.makeText(
+                                    applicationContext,
+                                    "Imported ${currentState.importedPodcasts.size} podcasts.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            opmlImportState = OpmlImportState.Idle
+                        }
+                    }
+                )
             }
         }
     }
@@ -1904,3 +2106,382 @@ fun GreetingPreview() {
         Greeting()
     }
 }
+
+sealed interface OpmlImportState {
+    object Idle : OpmlImportState
+    data class Parsing(val uri: android.net.Uri) : OpmlImportState
+    data class Importing(
+        val currentFeedTitle: String,
+        val progress: Float,
+        val currentCount: Int,
+        val totalCount: Int,
+        val importedPodcasts: List<cx.aswin.boxcast.core.model.Podcast>
+    ) : OpmlImportState
+    data class AskCompleted(
+        val importedPodcasts: List<cx.aswin.boxcast.core.model.Podcast>,
+        val selectedIds: Set<String>
+    ) : OpmlImportState
+    data class Completing(
+        val progress: Float,
+        val currentShowTitle: String,
+        val podcastsToMark: List<cx.aswin.boxcast.core.model.Podcast>,
+        val totalImportedCount: Int
+    ) : OpmlImportState
+    data class Success(val importedCount: Int, val completedCount: Int) : OpmlImportState
+    data class Error(val message: String) : OpmlImportState
+}
+
+@Composable
+fun OpmlImportDialog(
+    state: OpmlImportState,
+    onDismissRequest: () -> Unit,
+    onSelectionChanged: (selectedIds: Set<String>) -> Unit,
+    onConfirmCompleted: () -> Unit,
+    onSkipCompleted: () -> Unit
+) {
+    if (state is OpmlImportState.Idle || state is OpmlImportState.Success) return
+
+    Dialog(
+        onDismissRequest = {
+            if (state is OpmlImportState.AskCompleted || state is OpmlImportState.Error) {
+                onDismissRequest()
+            }
+        },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        val isSelectionState = state is OpmlImportState.AskCompleted
+
+        Card(
+            modifier = if (isSelectionState) {
+                Modifier
+                    .widthIn(max = 600.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.92f)
+                    .padding(horizontal = 16.dp, vertical = 24.dp)
+            } else {
+                Modifier
+                    .widthIn(max = 480.dp)
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+            },
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            if (isSelectionState) {
+                val selectionState = state as OpmlImportState.AskCompleted
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp)
+                ) {
+                    // Header Area
+                    Text(
+                        text = "Start fresh with your shows?",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "Toggle shows to mark all past episodes as completed. This keeps your feed organized and ready for new releases.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    // Quick Action Selection Controls
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        androidx.compose.material3.SuggestionChip(
+                            onClick = {
+                                onSelectionChanged(selectionState.importedPodcasts.map { it.id }.toSet())
+                            },
+                            label = { Text("Select All") },
+                            icon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) },
+                            shape = RoundedCornerShape(50.dp)
+                        )
+                        androidx.compose.material3.SuggestionChip(
+                            onClick = {
+                                onSelectionChanged(emptySet())
+                            },
+                            label = { Text("Deselect All") },
+                            icon = { Icon(Icons.Rounded.Close, null, modifier = Modifier.size(16.dp)) },
+                            shape = RoundedCornerShape(50.dp)
+                        )
+                    }
+
+                    // Scrollable List of Podcasts
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant,
+                                RoundedCornerShape(16.dp)
+                            )
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+                        ) {
+                            items(selectionState.importedPodcasts, key = { it.id }) { podcast ->
+                                val isChecked = podcast.id in selectionState.selectedIds
+                                ListItem(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val newSelected = if (isChecked) {
+                                                selectionState.selectedIds - podcast.id
+                                            } else {
+                                                selectionState.selectedIds + podcast.id
+                                            }
+                                            onSelectionChanged(newSelected)
+                                        },
+                                    headlineContent = {
+                                        Text(
+                                            text = podcast.title,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    supportingContent = {
+                                        Text(
+                                            text = podcast.artist,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    leadingContent = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        ) {
+                                            cx.aswin.boxcast.core.designsystem.components.OptimizedImage(
+                                                url = podcast.imageUrl,
+                                                proxyWidth = 150,
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                            )
+                                        }
+                                    },
+                                    trailingContent = {
+                                        Checkbox(
+                                            checked = isChecked,
+                                            onCheckedChange = { checked ->
+                                                val newSelected = if (checked == true) {
+                                                    selectionState.selectedIds + podcast.id
+                                                } else {
+                                                    selectionState.selectedIds - podcast.id
+                                                }
+                                                onSelectionChanged(newSelected)
+                                            }
+                                        )
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+                                )
+                                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Stacked Action Buttons
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Button(
+                            onClick = onConfirmCompleted,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = "Mark Selected (${selectionState.selectedIds.size}) as Played",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        TextButton(
+                            onClick = onSkipCompleted,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Text(
+                                text = "Keep All Unplayed",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    when (state) {
+                        is OpmlImportState.Parsing -> {
+                            BoxCastLoader.CircularWavy(
+                                size = 56.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Reading OPML File...",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Extracting podcast feeds from document",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        is OpmlImportState.Importing -> {
+                            BoxCastLoader.CircularWavy(
+                                progress = state.progress,
+                                size = 64.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Importing Podcasts",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Resolving & subscribing: ${state.currentCount + 1} of ${state.totalCount}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            ) {
+                                Text(
+                                    text = state.currentFeedTitle,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                                )
+                            }
+                        }
+                        is OpmlImportState.Completing -> {
+                            BoxCastLoader.CircularWavy(
+                                progress = state.progress,
+                                size = 64.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Marking History Played",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Fetching and completing all episodes",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            ) {
+                                Text(
+                                    text = state.currentShowTitle,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                                )
+                            }
+                        }
+                        is OpmlImportState.Error -> {
+                            Icon(
+                                imageVector = Icons.Rounded.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(56.dp)
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "Import Failed",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = state.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = onDismissRequest,
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Close")
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        }
+    }
+}
+

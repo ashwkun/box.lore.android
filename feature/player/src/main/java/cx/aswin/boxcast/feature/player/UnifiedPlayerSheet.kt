@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -96,6 +97,8 @@ fun UnifiedPlayerSheet(
     
     // Don't render if no episode
     if (episode == null) return
+    
+    var isFullscreenVideo by rememberSaveable(inputs = arrayOf(episode.id)) { mutableStateOf(false) }
     
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -336,7 +339,8 @@ fun UnifiedPlayerSheet(
                         )
                     )
                     .clipToBounds()
-                    .pointerInput(Unit) {
+                    .pointerInput(isFullscreenVideo) {
+                        if (isFullscreenVideo) return@pointerInput
                         var initialFractionOnDragStart = 0f
                         var initialYOnDragStart = 0f
                         
@@ -431,7 +435,7 @@ fun UnifiedPlayerSheet(
                         )
                     }
                     .clickable(
-                        enabled = true,
+                        enabled = !isFullscreenVideo,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
@@ -526,6 +530,8 @@ fun UnifiedPlayerSheet(
                                 downloadRepository = downloadRepository,
                                 isDarkTheme = isDarkTheme,
                                 colorScheme = scheme,
+                                isFullscreenVideo = isFullscreenVideo,
+                                onFullscreenVideoChange = { isFullscreenVideo = it },
                                 onCollapse = {
                                     scope.launch {
                                         launch {

@@ -10,7 +10,7 @@ import cx.aswin.boxcast.core.data.database.dao.QueueDao
 
 @Database(
     entities = [ListeningHistoryEntity::class, PodcastEntity::class, DownloadedEpisodeEntity::class, QueueItem::class],
-    version = 20, // Add enclosureType to queue_items table
+    version = 22, // Add isManualCompletion and isBulkCompletion to listening_history table
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -77,6 +77,19 @@ abstract class BoxCastDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE listening_history ADD COLUMN enclosureType TEXT")
+            }
+        }
+
+        private val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE listening_history ADD COLUMN isManualCompletion INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE listening_history ADD COLUMN isBulkCompletion INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         @Volatile
         private var INSTANCE: BoxCastDatabase? = null
 
@@ -87,7 +100,7 @@ abstract class BoxCastDatabase : RoomDatabase() {
                     BoxCastDatabase::class.java,
                     "boxcast_database"
                 )
-                .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+                .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .fallbackToDestructiveMigration() // For development simplicity on older versions
                 .build()
                 INSTANCE = instance

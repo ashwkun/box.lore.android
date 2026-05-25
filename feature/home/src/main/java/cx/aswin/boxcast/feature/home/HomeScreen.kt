@@ -116,7 +116,7 @@ fun HomeRoute(
         DisposableEffect(navController) {
             val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
                 val route = destination.route
-                if (route != null && route != "home" && !route.startsWith("episode")) {
+                if (route != null && route != "home" && !route.startsWith("episode") && !route.startsWith("podcast")) {
                     viewModel.selectPodcast(null)
                 }
             }

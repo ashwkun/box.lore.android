@@ -226,8 +226,13 @@ class PodcastRepository(
 
     suspend fun searchEpisodes(feedId: String, query: String): List<Episode> = withContext(Dispatchers.IO) {
         try {
+            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:")) {
+                getPodcastDetails(feedId)?.id ?: feedId
+            } else {
+                feedId
+            }
             // Use Proxy-side search (Server fetches 1000 items and filters)
-            val response = api.searchEpisodes(publicKey, feedId, query).execute()
+            val response = api.searchEpisodes(publicKey, resolvedId, query).execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.items.mapNotNull { mapToEpisode(it) }
             } else {
@@ -240,9 +245,14 @@ class PodcastRepository(
 
     suspend fun getEpisodes(feedId: String): List<Episode> = withContext(Dispatchers.IO) {
         try {
+            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:")) {
+                getPodcastDetails(feedId)?.id ?: feedId
+            } else {
+                feedId
+            }
             // Use paginated endpoint with high limit to get "all" (max 1000 per proxy)
             // This avoids the parsing issue with EpisodesResponse vs EpisodesPaginatedResponse
-            val response = api.getEpisodesPaginated(publicKey, feedId, limit = 1000).execute()
+            val response = api.getEpisodesPaginated(publicKey, resolvedId, limit = 1000).execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.items.mapNotNull { mapToEpisode(it) }
             } else {
@@ -279,7 +289,12 @@ class PodcastRepository(
         offset: Int = 0,
         sort: String = "newest"
     ): EpisodePage = withContext(Dispatchers.IO) {
-        val cacheKey = "$feedId|$limit|$offset|$sort"
+        val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:")) {
+            getPodcastDetails(feedId)?.id ?: feedId
+        } else {
+            feedId
+        }
+        val cacheKey = "$resolvedId|$limit|$offset|$sort"
         val cached = episodesCache[cacheKey]
         val now = System.currentTimeMillis()
         if (cached != null && now - cached.second < 300_000L) { // 5-minute cache
@@ -288,7 +303,7 @@ class PodcastRepository(
         }
         android.util.Log.d("PodcastRepository", "Cache MISS for getEpisodesPaginated: $cacheKey. Fetching from network.")
         try {
-            val response = api.getEpisodesPaginated(publicKey, feedId, limit, offset, sort).execute()
+            val response = api.getEpisodesPaginated(publicKey, resolvedId, limit, offset, sort).execute()
             if (response.isSuccessful && response.body() != null) {
                 val page = EpisodePage(
                     episodes = response.body()!!.items.mapNotNull { mapToEpisode(it) },
@@ -416,12 +431,8 @@ class PodcastRepository(
     }
     suspend fun getPodcastType(feedId: String): String = withContext(Dispatchers.IO) {
         try {
-            val response = api.getPodcastMeta(publicKey, feedId).execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.type ?: "episodic"
-            } else {
-                "episodic"
-            }
+            val response = getPodcastMeta(feedId)
+            response?.type ?: "episodic"
         } catch (e: Exception) {
             "episodic"
         }

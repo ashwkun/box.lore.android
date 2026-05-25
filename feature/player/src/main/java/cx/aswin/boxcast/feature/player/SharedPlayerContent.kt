@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,9 +59,21 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.delay
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Headset
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.Forward30
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Pause
 
 @Composable
 fun SharedPlayerContent(
@@ -104,6 +117,8 @@ fun SharedPlayerContent(
     onGenerateTranscript: () -> Unit = {},
     isSyncEnabled: Boolean = true,
     onSyncEnabledChange: (Boolean) -> Unit = {},
+    isFullscreenVideo: Boolean = false,
+    onFullscreenVideoChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     extraContent: @Composable () -> Unit = {},
     footerContent: @Composable ColumnScope.() -> Unit = {},
@@ -111,14 +126,32 @@ fun SharedPlayerContent(
 ) {
     val controlTint = colorScheme.primary
     val context = LocalContext.current
-    var showTranscript by remember(episode?.id) { mutableStateOf(false) }
+    var showTranscript by rememberSaveable(inputs = arrayOf(episode?.id)) { 
+        android.util.Log.d("BoxCastPlayer", "showTranscript initialized to false. episodeId=${episode?.id}")
+        mutableStateOf(false) 
+    }
     var showGenerateConfirmation by remember { mutableStateOf(false) }
+    var isAudioOnly by rememberSaveable(inputs = arrayOf(episode?.id)) { 
+        android.util.Log.d("BoxCastPlayer", "isAudioOnly initialized to false. episodeId=${episode?.id}")
+        mutableStateOf(false) 
+    }
+    
+    val isVideoPodcast = episode?.enclosureType?.startsWith("video/") == true
+    val isVideo = isVideoPodcast && !isAudioOnly
+
+    android.util.Log.d("BoxCastPlayer", "Recomposing SharedPlayerContent: isFullscreenVideo=$isFullscreenVideo, episodeId=${episode?.id}")
+
+
     
     MaterialTheme(colorScheme = colorScheme) {
-
-        BoxWithConstraints(
+        Box(
             modifier = modifier.fillMaxSize()
         ) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp)
+            ) {
             // Responsive breakpoints based on available height
             val isCompact = maxHeight < 600.dp
             
@@ -129,7 +162,7 @@ fun SharedPlayerContent(
             // Maximize artwork up to 85% of screen width, bounded by available vertical space 
             val optimalArtworkSize = androidx.compose.ui.unit.min(maxWidth * 0.85f, availableHeightForArtwork).coerceAtLeast(150.dp)
 
-            val isVideo = episode?.enclosureType?.startsWith("video/") == true
+
             
             // Landscape video viewport dimensions (16:9 ratio)
             val videoWidth = if (isVideo) {
@@ -250,19 +283,27 @@ fun SharedPlayerContent(
                                   shape = RoundedCornerShape(28.dp),
                                   color = colorScheme.surfaceVariant
                               ) {
-                                  if (episode?.enclosureType?.startsWith("video/") == true && controller != null) {
+                                  if (isVideo && controller != null && !isFullscreenVideo) {
+                                      var playerViewRef by remember { mutableStateOf<androidx.media3.ui.PlayerView?>(null) }
+                                      DisposableEffect(controller) {
+                                          onDispose {
+                                              playerViewRef?.player = null
+                                          }
+                                      }
                                       androidx.compose.ui.viewinterop.AndroidView(
                                           factory = { ctx ->
                                               androidx.media3.ui.PlayerView(ctx).apply {
                                                   player = controller
                                                   useController = false // Use BoxCast controls instead of default overlay
                                                   resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                                  playerViewRef = this
                                               }
                                           },
                                           update = { playerView ->
                                               if (playerView.player != controller) {
                                                   playerView.player = controller
                                               }
+                                              playerViewRef = playerView
                                           },
                                           modifier = Modifier
                                               .fillMaxSize()
@@ -316,6 +357,68 @@ fun SharedPlayerContent(
                                                   }
                                               }
                                       )
+                                  }
+                              }
+                              
+                              if (isVideoPodcast) {
+                                  Spacer(modifier = Modifier.height(8.dp))
+                                  Row(
+                                      modifier = Modifier.fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                                      verticalAlignment = Alignment.CenterVertically
+                                  ) {
+                                      if (isAudioOnly) {
+                                          FilledTonalButton(
+                                              onClick = { isAudioOnly = false },
+                                              colors = ButtonDefaults.filledTonalButtonColors(
+                                                  containerColor = colorScheme.primaryContainer,
+                                                  contentColor = colorScheme.onPrimaryContainer
+                                              )
+                                          ) {
+                                              Icon(
+                                                  imageVector = Icons.Rounded.Videocam,
+                                                  contentDescription = null,
+                                                  modifier = Modifier.size(18.dp)
+                                              )
+                                              Spacer(modifier = Modifier.width(8.dp))
+                                              Text("Switch to Video", style = MaterialTheme.typography.labelLarge)
+                                          }
+                                      } else {
+                                          FilledTonalButton(
+                                              onClick = { isAudioOnly = true },
+                                              colors = ButtonDefaults.filledTonalButtonColors(
+                                                  containerColor = colorScheme.primaryContainer,
+                                                  contentColor = colorScheme.onPrimaryContainer
+                                              )
+                                          ) {
+                                              Icon(
+                                                  imageVector = Icons.Rounded.Headset,
+                                                  contentDescription = null,
+                                                  modifier = Modifier.size(18.dp)
+                                              )
+                                              Spacer(modifier = Modifier.width(8.dp))
+                                              Text("Audio Only", style = MaterialTheme.typography.labelLarge)
+                                          }
+
+                                          FilledTonalButton(
+                                              onClick = {
+                                                  android.util.Log.d("BoxCastPlayer", "Fullscreen button clicked! Setting isFullscreenVideo = true")
+                                                  onFullscreenVideoChange(true)
+                                              },
+                                              colors = ButtonDefaults.filledTonalButtonColors(
+                                                  containerColor = colorScheme.primaryContainer,
+                                                  contentColor = colorScheme.onPrimaryContainer
+                                              )
+                                          ) {
+                                              Icon(
+                                                  imageVector = Icons.Rounded.Fullscreen,
+                                                  contentDescription = null,
+                                                  modifier = Modifier.size(18.dp)
+                                              )
+                                              Spacer(modifier = Modifier.width(8.dp))
+                                              Text("Fullscreen", style = MaterialTheme.typography.labelLarge)
+                                          }
+                                      }
                                   }
                               }
                               
@@ -481,7 +584,6 @@ fun SharedPlayerContent(
             footerContent()
             }
         }
-    }
 
     // AI Transcript Generation Confirmation Dialog
     if (showGenerateConfirmation) {
@@ -668,6 +770,9 @@ fun SharedPlayerContent(
                     }
                 }
             }
+        }
+    }
+            
         }
     }
 }

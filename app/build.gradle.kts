@@ -23,8 +23,8 @@ android {
         applicationId = "cx.aswin.boxcast"
         minSdk = 31
         targetSdk = 36
-        versionCode = 32
-        versionName = "2.1.0"
+        versionCode = 33
+        versionName = "2.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -121,6 +121,7 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.google.material)
     
     // Expressive additions

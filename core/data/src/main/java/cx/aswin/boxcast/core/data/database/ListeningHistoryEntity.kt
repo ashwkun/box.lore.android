@@ -25,5 +25,8 @@ data class ListeningHistoryEntity(
     
     // Sync Status
     val isDirty: Boolean = true, // Needs to be pushed to Supabase
-    val syncedAt: Long = 0
+    val syncedAt: Long = 0,
+    val enclosureType: String? = null,
+    val isManualCompletion: Boolean = false,
+    val isBulkCompletion: Boolean = false
 )

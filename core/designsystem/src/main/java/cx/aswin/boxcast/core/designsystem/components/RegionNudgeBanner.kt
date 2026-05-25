@@ -45,7 +45,7 @@ fun RegionNudgeBanner(
 ) {
     val activeName = when (activeRegion.lowercase()) {
         "in" -> "India"
-        "gb" -> "UK"
+        "gb", "uk" -> "UK"
         else -> "USA"
     }
 

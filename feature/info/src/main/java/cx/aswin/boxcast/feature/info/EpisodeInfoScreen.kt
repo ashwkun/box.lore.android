@@ -341,30 +341,21 @@ fun EpisodeInfoScreen(
 
                                 if (state.episode.enclosureType?.startsWith("video/") == true) {
                                     Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
-                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                                        shape = CircleShape,
+                                        color = Color.Black.copy(alpha = 0.55f),
                                         modifier = Modifier
                                             .padding(8.dp)
                                             .align(Alignment.TopEnd)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Box(
+                                            modifier = Modifier.padding(6.dp),
+                                            contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.Videocam,
-                                                contentDescription = "Video Episode",
-                                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                modifier = Modifier.size(12.dp)
-                                            )
-                                            Text(
-                                                text = "VIDEO",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1
+                                                contentDescription = "Video",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(16.dp)
                                             )
                                         }
                                     }
@@ -447,24 +438,17 @@ fun EpisodeInfoScreen(
                                     item {
                                         Surface(
                                             shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                         ) {
-                                            Row(
+                                            Box(
                                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Rounded.Videocam,
-                                                    contentDescription = null,
+                                                    contentDescription = "Video",
                                                     modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                                Text(
-                                                    text = "VIDEO",
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                                    fontWeight = FontWeight.Bold
+                                                    tint = accentColor
                                                 )
                                             }
                                         }

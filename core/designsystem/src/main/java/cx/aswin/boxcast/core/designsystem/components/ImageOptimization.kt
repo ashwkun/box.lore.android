@@ -11,8 +11,9 @@ import java.net.URLEncoder
  * @return The optimized URL, or the original if it's not an HTTP/HTTPS URL.
  */
 fun String.optimizedImageUrl(width: Int = 400): String {
-    if (this.isBlank() || (!this.startsWith("http://") && !this.startsWith("https://"))) {
-        return this
+    val cleanedUrl = this.cleanImageUrl()
+    if (cleanedUrl.isBlank() || (!cleanedUrl.startsWith("http://") && !cleanedUrl.startsWith("https://"))) {
+        return cleanedUrl
     }
     
     // Dynamically scale width based on screen density and tablet/viewport configuration
@@ -35,10 +36,42 @@ fun String.optimizedImageUrl(width: Int = 400): String {
     
     // Some podcast servers block wsrv.nl, but for most standard URLs it works perfectly.
     return try {
-        val encodedUrl = URLEncoder.encode(this, "UTF-8")
+        val encodedUrl = URLEncoder.encode(cleanedUrl, "UTF-8")
         "https://wsrv.nl/?url=$encodedUrl&w=$scaledWidth&q=85&output=webp"
     } catch (e: Exception) {
-        this
+        cleanedUrl
     }
+}
+
+/**
+ * Strips Automattic/WordPress/Jetpack Photon CDN prefixes and removes standard
+ * sizing query parameters (fit, resize, w, h) to obtain original high-resolution artwork URLs.
+ */
+fun String.cleanImageUrl(): String {
+    if (this.isBlank()) return ""
+    var cleaned = this.trim()
+
+    // Strip WordPress/Jetpack Photon CDN prefix
+    val wpRegex = Regex("^https?://(i\\d+)\\.wp\\.com/", RegexOption.IGNORE_CASE)
+    if (wpRegex.containsMatchIn(cleaned)) {
+        cleaned = cleaned.replace(wpRegex, "https://")
+        
+        // Remove fit, resize, w, h query parameters safely
+        val parts = cleaned.split("?")
+        if (parts.size > 1) {
+            val baseUrl = parts[0]
+            val queryParams = parts[1].split("&")
+            val filteredParams = queryParams.filter { param ->
+                val name = param.substringBefore("=")
+                name != "fit" && name != "resize" && name != "w" && name != "h"
+            }
+            cleaned = if (filteredParams.isNotEmpty()) {
+                baseUrl + "?" + filteredParams.joinToString("&")
+            } else {
+                baseUrl
+            }
+        }
+    }
+    return cleaned
 }
 

@@ -19,6 +19,11 @@ data class BoxCastBackup(
     val history: List<ListeningHistoryEntity>
 )
 
+data class OpmlFeed(
+    val title: String,
+    val xmlUrl: String
+)
+
 class LibraryBackupManager(
     private val subscriptionRepository: SubscriptionRepository,
     private val playbackRepository: PlaybackRepository,
@@ -83,7 +88,8 @@ class LibraryBackupManager(
                     isLiked = entity.isLiked,
                     lastPlayedAt = entity.lastPlayedAt,
                     isDirty = entity.isDirty,
-                    syncedAt = entity.syncedAt
+                    syncedAt = entity.syncedAt,
+                    enclosureType = entity.enclosureType
                 )
                 playbackRepository.upsertHistoryEntity(safeEntity)
             }
@@ -167,5 +173,87 @@ class LibraryBackupManager(
             return -1
         }
         return importedCount
+    }
+
+    fun parseOpmlFeeds(inputStream: InputStream): List<OpmlFeed> {
+        val feeds = mutableListOf<OpmlFeed>()
+        try {
+            val factory = XmlPullParserFactory.newInstance()
+            factory.isNamespaceAware = true
+            val parser = factory.newPullParser()
+            parser.setInput(inputStream, null)
+
+            var eventType = parser.eventType
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (eventType == XmlPullParser.START_TAG && parser.name == "outline") {
+                    val xmlUrl = parser.getAttributeValue(null, "xmlUrl")
+                    val title = parser.getAttributeValue(null, "text") ?: parser.getAttributeValue(null, "title")
+                    
+                    if (xmlUrl != null && title != null) {
+                        feeds.add(OpmlFeed(title, xmlUrl))
+                    }
+                }
+                eventType = parser.next()
+            }
+        } catch (e: Exception) {
+            Log.e("OPML_IMPORT", "Failed to parse OPML feeds", e)
+        }
+        return feeds
+    }
+
+    suspend fun importSingleOpmlFeed(feed: OpmlFeed): cx.aswin.boxcast.core.model.Podcast? {
+        try {
+            var matchedPodcast: cx.aswin.boxcast.core.model.Podcast? = null
+            
+            // 1. Try URL lookup since it is exact and fast
+            try {
+                val encodedUrl = java.net.URLEncoder.encode(feed.xmlUrl, "UTF-8")
+                matchedPodcast = podcastRepository.getPodcastDetails("url:$encodedUrl")
+            } catch (e: Exception) {
+                Log.e("OPML_IMPORT", "Failed URL lookup for: ${feed.xmlUrl}", e)
+            }
+            
+            // 2. Fallback to searching by title if URL lookup returned null
+            if (matchedPodcast == null) {
+                val results = podcastRepository.searchPodcasts(feed.title)
+                if (results.isNotEmpty()) {
+                    matchedPodcast = results.first()
+                }
+            }
+            
+            if (matchedPodcast != null) {
+                subscriptionRepository.subscribe(matchedPodcast)
+                // Sync latest episode so it shows up correctly in the home list
+                try {
+                    val syncedMap = podcastRepository.syncSubscriptions(listOf(matchedPodcast.id))
+                    for ((id, ep) in syncedMap) {
+                        subscriptionRepository.updateLatestEpisode(id, ep)
+                    }
+                } catch (e: Exception) {
+                    Log.e("OPML_IMPORT", "Failed to sync episodes for: ${matchedPodcast.title}", e)
+                }
+                return matchedPodcast
+            }
+        } catch (e: Exception) {
+            Log.e("OPML_IMPORT", "Failed to import single feed: ${feed.title}", e)
+        }
+        return null
+    }
+
+    suspend fun markAllEpisodesCompleted(podcast: cx.aswin.boxcast.core.model.Podcast) {
+        try {
+            // Get complete backlog of episodes (bypassing initial limit)
+            val episodes = podcastRepository.getEpisodes(podcast.id)
+            if (episodes.isNotEmpty()) {
+                playbackRepository.markAllEpisodesCompleted(
+                    episodes = episodes,
+                    podcastId = podcast.id,
+                    podcastTitle = podcast.title,
+                    podcastImageUrl = podcast.imageUrl
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("OPML_IMPORT", "Failed to mark all episodes completed for: ${podcast.title}", e)
+        }
     }
 }

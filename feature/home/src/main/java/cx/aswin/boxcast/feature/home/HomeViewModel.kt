@@ -298,7 +298,7 @@ class HomeViewModel(
         viewModelScope.launch {
             // Seed the WAS_INITIAL_REGION_MATCH if not set yet
             val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                if (it == "us" || it == "in" || it == "gb") it else "us"
+                if (it == "us" || it == "in" || it == "gb" || it == "uk") it else "us"
             }
             userPrefs.wasInitialRegionMatchStream.first() ?: run {
                 val currentReg = userPrefs.regionStream.first()
@@ -510,7 +510,8 @@ class HomeViewModel(
                                         duration = (session.durationMs / 1000).toInt(),
                                         publishedDate = 0L,
                                         podcastTitle = session.podcastTitle.ifEmpty { "Unknown Podcast" },
-                                        podcastId = session.podcastId
+                                        podcastId = session.podcastId,
+                                        enclosureType = session.enclosureType
                                     )
                                 )
                             }
@@ -950,11 +951,16 @@ class HomeViewModel(
 
                         // C. Spotlight (Fill to 8)
                         var i = 0
+                        var spotlightAddedCount = 0
                         while (heroList.size < 8 && i < trendingList.size) {
                             val pod = trendingList[i]
                             if (!usedPodcastIds.contains(pod.id)) {
                                 val label = when {
-                                    i == 0 -> if (region == "in") "#1 IN INDIA" else "#1 IN US"
+                                    spotlightAddedCount == 0 -> when (region.lowercase()) {
+                                        "in" -> "#1 IN INDIA"
+                                        "gb", "uk" -> "#1 IN UK"
+                                        else -> "#1 IN US"
+                                    }
                                     pod.genre.isNotEmpty() && !pod.genre.equals("Podcast", ignoreCase = true) -> "TRENDING IN ${pod.genre.uppercase()}"
                                     else -> "TRENDING"
                                 }
@@ -981,6 +987,7 @@ class HomeViewModel(
                                     )
                                 )
                                 usedPodcastIds.add(pod.id)
+                                spotlightAddedCount++
                             }
                             i++
                         }
