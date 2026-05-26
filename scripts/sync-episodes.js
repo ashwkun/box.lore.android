@@ -140,7 +140,6 @@ async function executeSQL(sql, args = []) {
             })
         });
         const duration = Date.now() - startTime;
-        console.log(`[DB] executeSQL - Status: ${response.status} | Time: ${duration}ms | Query: "${sql.trim().split('\n')[0].substring(0, 80)}..."`);
         if (!response.ok) {
             throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
         }
@@ -148,16 +147,16 @@ async function executeSQL(sql, args = []) {
         if (res.results && res.results[0] && res.results[0].type === "error") {
             throw new Error(`SQL execution error: ${res.results[0].error.message}`);
         }
-        return res;
+        return { ...res, _durationMs: duration };
     } catch (e) {
         const duration = Date.now() - startTime;
-        console.error(`[DB] [FAIL] executeSQL failed after ${duration}ms: ${e.message}`);
+        console.error(`[FAIL] DB query failed after ${duration}ms: ${e.message}`);
         throw e;
     }
 }
 
 async function executeBatch(statements) {
-    if (statements.length === 0) return;
+    if (statements.length === 0) return { _durationMs: 0 };
     const startTime = Date.now();
     try {
         const requests = statements.map(stmt => ({
@@ -175,7 +174,6 @@ async function executeBatch(statements) {
             body: JSON.stringify({ requests })
         });
         const duration = Date.now() - startTime;
-        console.log(`[DB] executeBatch of ${statements.length} statements - Status: ${response.status} | Time: ${duration}ms`);
         if (!response.ok) throw new Error(`Turso HTTP error: ${response.status}`);
         
         const res = await response.json();
@@ -186,9 +184,10 @@ async function executeBatch(statements) {
                 }
             }
         }
+        return { _durationMs: duration };
     } catch (e) {
         const duration = Date.now() - startTime;
-        console.error(`[DB] [FAIL] executeBatch of ${statements.length} statements failed after ${duration}ms: ${e.message}`);
+        console.error(`[FAIL] DB batch (${statements.length} stmts) failed after ${duration}ms: ${e.message}`);
         throw e;
     }
 }
@@ -197,17 +196,15 @@ async function fetchEpisodes(feedId) {
     const startTime = Date.now();
     try {
         const headers = generateAuthHeaders();
-        // max=100 episodes per podcast
         const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=100`, { headers });
         const duration = Date.now() - startTime;
-        console.log(`[API] fetchEpisodes for pod ${feedId} - Status: ${res.status} | Time: ${duration}ms`);
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         const data = await res.json();
-        return data.items || [];
+        return { items: data.items || [], _durationMs: duration };
     } catch (e) {
         const duration = Date.now() - startTime;
-        console.error(`[API] [FAIL] fetchEpisodes for pod ${feedId} failed after ${duration}ms: ${e.message}`);
-        return [];
+        console.error(`[FAIL] fetchEpisodes pod=${feedId} after ${duration}ms: ${e.message}`);
+        return { items: [], _durationMs: duration, _failed: true };
     }
 }
 
@@ -217,14 +214,13 @@ async function fetchFeedInfo(feedId) {
         const headers = generateAuthHeaders();
         const res = await fetch(`${API_BASE}/podcasts/byfeedid?id=${feedId}`, { headers });
         const duration = Date.now() - startTime;
-        console.log(`[API] fetchFeedInfo for pod ${feedId} - Status: ${res.status} | Time: ${duration}ms`);
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         const data = await res.json();
-        return data.feed || null;
+        return { feed: data.feed || null, _durationMs: duration };
     } catch (e) {
         const duration = Date.now() - startTime;
-        console.error(`[API] [FAIL] fetchFeedInfo for pod ${feedId} failed after ${duration}ms: ${e.message}`);
-        return null;
+        console.error(`[FAIL] fetchFeedInfo pod=${feedId} after ${duration}ms: ${e.message}`);
+        return { feed: null, _durationMs: duration, _failed: true };
     }
 }
 
@@ -344,78 +340,94 @@ async function main() {
     console.log(`- Stale Regular Feeds (>24h):  ${staleRegularCount}`);
     console.log(`==========================\n`);
 
-    // 4. Process in batches
+    // 4. Process with full concurrency - each podcast fetches + writes independently
     let totalPodcastsUpdated = 0;
+    let totalEpisodesWritten = 0;
+    let totalSkipped = 0;
+    let totalEmpty = 0;
     let errors = 0;
-    const CONCURRENCY = 15;
+    const CONCURRENCY = 20;
 
-    console.log("Starting batch processing...");
+    console.log(`\nStarting sync: ${podcasts.length} podcasts | Concurrency: ${CONCURRENCY} | ${new Date().toISOString()}`);
+    console.log('─'.repeat(120));
     const startTime = Date.now();
 
     for (let i = 0; i < podcasts.length; i += CONCURRENCY) {
         const batch = podcasts.slice(i, i + CONCURRENCY);
-        if (i % 100 === 0 && i > 0) {
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            const rate = (i / elapsed).toFixed(1);
-            console.log(`[${new Date().toISOString()}] Progress: ${i}/${podcasts.length} (${Math.round((i / podcasts.length) * 100)}%) | Rate: ${rate} pods/s | Errors: ${errors}`);
-        }
+        const batchStart = Date.now();
 
-        const batchStatements = [];
+        // Per-batch accumulators
+        let batchUpdated = 0;
+        let batchSkipped = 0;
+        let batchEmpty = 0;
+        let batchEpisodes = 0;
+        let batchErrors = 0;
+        let batchApiMs = 0;
+        let batchDbMs = 0;
+        let batchApiFails = 0;
+        const failedPods = [];
 
         await Promise.all(batch.map(async (pod, idx) => {
-            const seqNum = i + idx + 1;
             try {
-                const episodes = await fetchEpisodes(pod.id);
+                const epResult = await fetchEpisodes(pod.id);
+                batchApiMs += epResult._durationMs;
+                if (epResult._failed) batchApiFails++;
+                const episodes = epResult.items;
+
                 if (episodes.length === 0) {
+                    batchEmpty++;
                     return;
                 }
 
-                // Find the latest episode (usually first, but ensure by date)
                 const latestEp = episodes[0];
 
-                // OPTIMIZATION: If the latest episode matches what is already in DB, 
-                // only update the last_ep_sync timestamp and exit (avoids DB write transaction locks)
+                // OPTIMIZATION: If latest episode unchanged, just touch timestamp
                 if (pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
-                    batchStatements.push({
+                    const dbRes = await executeBatch([{
                         sql: `UPDATE podcasts SET last_ep_sync = ? WHERE id = ?`,
                         args: [Date.now(), String(pod.id)]
-                    });
-                    totalPodcastsUpdated++;
+                    }]);
+                    batchDbMs += dbRes._durationMs;
+                    batchSkipped++;
+                    batchUpdated++;
                     return;
                 }
 
-                // If mismatch/first-time sync, fetch the full feed metadata to write changes
-                const feedInfo = await fetchFeedInfo(pod.id);
+                // New/changed episode — fetch feed info + write everything
+                const feedResult = await fetchFeedInfo(pod.id);
+                batchApiMs += feedResult._durationMs;
+                if (feedResult._failed) batchApiFails++;
+                const feedInfo = feedResult.feed;
 
-                // 1. Statement to update podcasts metadata
-                const updatePodcastSql = `
-                    UPDATE podcasts SET 
-                        latest_ep_id = ?,
-                        latest_ep_title = ?,
-                        latest_ep_date = ?,
-                        latest_ep_duration = ?,
-                        latest_ep_url = ?,
-                        latest_ep_image = ?,
-                        latest_ep_type = ?,
-                        latest_ep_description = ?,
-                        latest_ep_chapters_url = ?,
-                        latest_ep_transcript_url = ?,
-                        latest_ep_persons = ?,
-                        latest_ep_transcripts = ?,
-                        medium = ?,
-                        vector = NULL, -- Invalidate vector on new content
-                        last_ep_sync = ?
-                    WHERE id = ?
-                `;
+                const podStatements = [];
 
+                // 1. Update podcast metadata
                 const chaptersUrl = latestEp.chaptersUrl || null;
                 const transcriptUrl = latestEp.transcriptUrl || null;
                 const personsJson = latestEp.persons ? JSON.stringify(latestEp.persons) : null;
                 const transcriptsJson = latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null;
                 const medium = feedInfo?.medium || "podcast";
 
-                batchStatements.push({
-                    sql: updatePodcastSql,
+                podStatements.push({
+                    sql: `
+                        UPDATE podcasts SET 
+                            latest_ep_id = ?,
+                            latest_ep_title = ?,
+                            latest_ep_date = ?,
+                            latest_ep_duration = ?,
+                            latest_ep_url = ?,
+                            latest_ep_image = ?,
+                            latest_ep_type = ?,
+                            latest_ep_description = ?,
+                            latest_ep_chapters_url = ?,
+                            latest_ep_transcript_url = ?,
+                            latest_ep_persons = ?,
+                            latest_ep_transcripts = ?,
+                            medium = ?,
+                            vector = NULL,
+                            last_ep_sync = ?
+                        WHERE id = ?
+                    `,
                     args: [
                         String(latestEp.id),
                         latestEp.title || "",
@@ -435,103 +447,120 @@ async function main() {
                     ]
                 });
 
-                // 2. Build a single multi-row insert query for episodes
-                const placeholders = [];
-                const flatArgs = [];
+                // 2. Insert episodes in chunks of 25 to keep payloads small
+                const EP_CHUNK = 25;
+                for (let e = 0; e < episodes.length; e += EP_CHUNK) {
+                    const chunk = episodes.slice(e, e + EP_CHUNK);
+                    const placeholders = [];
+                    const flatArgs = [];
 
-                episodes.forEach(ep => {
-                    placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-                    const epChaptersUrl = ep.chaptersUrl || null;
-                    const epTranscriptUrl = ep.transcriptUrl || null;
-                    const epPersonsJson = ep.persons ? JSON.stringify(ep.persons) : null;
-                    const epTranscriptsJson = ep.transcripts ? JSON.stringify(ep.transcripts) : null;
+                    chunk.forEach(ep => {
+                        placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                        flatArgs.push(
+                            ep.id,
+                            pod.id,
+                            ep.title || "",
+                            cleanDescription(ep.description),
+                            ep.datePublished || 0,
+                            ep.duration || 0,
+                            ep.enclosureUrl || "",
+                            ep.image || ep.feedImage || "",
+                            ep.explicit ? 1 : 0,
+                            ep.chaptersUrl || null,
+                            ep.transcriptUrl || null,
+                            ep.persons ? JSON.stringify(ep.persons) : null,
+                            ep.transcripts ? JSON.stringify(ep.transcripts) : null,
+                            Date.now()
+                        );
+                    });
 
-                    flatArgs.push(
-                        ep.id,
-                        pod.id,
-                        ep.title || "",
-                        cleanDescription(ep.description),
-                        ep.datePublished || 0,
-                        ep.duration || 0,
-                        ep.enclosureUrl || "",
-                        ep.image || ep.feedImage || "",
-                        ep.explicit ? 1 : 0,
-                        epChaptersUrl,
-                        epTranscriptUrl,
-                        epPersonsJson,
-                        epTranscriptsJson,
-                        Date.now()
-                    );
-                });
+                    podStatements.push({
+                        sql: `
+                            INSERT INTO episodes (
+                                id, podcast_id, title, description, published_date, duration, 
+                                enclosure_url, image_url, explicit, chapters_url, transcript_url, 
+                                persons, transcripts, created_at
+                            ) VALUES ${placeholders.join(',')}
+                            ON CONFLICT(id) DO UPDATE SET
+                                title = excluded.title,
+                                description = excluded.description,
+                                published_date = excluded.published_date,
+                                duration = excluded.duration,
+                                enclosure_url = excluded.enclosure_url,
+                                image_url = excluded.image_url,
+                                explicit = excluded.explicit,
+                                chapters_url = excluded.chapters_url,
+                                transcript_url = excluded.transcript_url,
+                                persons = excluded.persons,
+                                transcripts = excluded.transcripts,
+                                vector = CASE WHEN (title != excluded.title OR description != excluded.description) THEN NULL ELSE vector END
+                        `,
+                        args: flatArgs
+                    });
+                }
 
-                const upsertEpisodeSql = `
-                    INSERT INTO episodes (
-                        id, podcast_id, title, description, published_date, duration, 
-                        enclosure_url, image_url, explicit, chapters_url, transcript_url, 
-                        persons, transcripts, created_at
-                    ) VALUES ${placeholders.join(',')}
-                    ON CONFLICT(id) DO UPDATE SET
-                        title = excluded.title,
-                        description = excluded.description,
-                        published_date = excluded.published_date,
-                        duration = excluded.duration,
-                        enclosure_url = excluded.enclosure_url,
-                        image_url = excluded.image_url,
-                        explicit = excluded.explicit,
-                        chapters_url = excluded.chapters_url,
-                        transcript_url = excluded.transcript_url,
-                        persons = excluded.persons,
-                        transcripts = excluded.transcripts,
-                        vector = CASE WHEN (title != excluded.title OR description != excluded.description) THEN NULL ELSE vector END
-                `;
-
-                batchStatements.push({
-                    sql: upsertEpisodeSql,
-                    args: flatArgs
-                });
-
-                // 3. Statement to prune older episodes beyond latest 150
-                const pruneSql = `
-                    DELETE FROM episodes 
-                    WHERE podcast_id = ? 
-                      AND id NOT IN (
-                        SELECT id FROM episodes 
+                // 3. Prune old episodes
+                podStatements.push({
+                    sql: `
+                        DELETE FROM episodes 
                         WHERE podcast_id = ? 
-                        ORDER BY published_date DESC 
-                        LIMIT 150
-                      )
-                `;
-                batchStatements.push({
-                    sql: pruneSql,
+                          AND id NOT IN (
+                            SELECT id FROM episodes 
+                            WHERE podcast_id = ? 
+                            ORDER BY published_date DESC 
+                            LIMIT 150
+                          )
+                    `,
                     args: [pod.id, pod.id]
                 });
 
-                totalPodcastsUpdated++;
+                // Fire this podcast's DB write immediately (concurrent with other pods)
+                const dbRes = await executeBatch(podStatements);
+                batchDbMs += dbRes._durationMs;
+                batchEpisodes += episodes.length;
+                batchUpdated++;
+
             } catch (err) {
-                errors++;
-                console.error(`[SYNC] [${seqNum}/${podcasts.length}] Error processing podcast ${pod.id}: ${err.message}`);
+                batchErrors++;
+                failedPods.push(pod.id);
+                console.error(`  ✗ pod ${pod.id} (${pod.title?.substring(0, 30)}): ${err.message}`);
             }
         }));
 
-        if (batchStatements.length > 0) {
-            try {
-                // Execute all updates/inserts for the concurrency batch in a single HTTP request!
-                await executeBatch(batchStatements);
-            } catch (err) {
-                errors += batch.length;
-                console.error(`[SYNC] Error executing batch write of ${batchStatements.length} statements: ${err.message}`);
-            }
-        }
+        // Update global counters
+        totalPodcastsUpdated += batchUpdated;
+        totalSkipped += batchSkipped;
+        totalEmpty += batchEmpty;
+        totalEpisodesWritten += batchEpisodes;
+        errors += batchErrors;
 
-        // Polite delay
-        await new Promise(r => setTimeout(r, 100));
+        // Print batch summary
+        const batchDuration = Date.now() - batchStart;
+        const done = Math.min(i + CONCURRENCY, podcasts.length);
+        const pct = Math.round((done / podcasts.length) * 100);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const rate = (done / ((Date.now() - startTime) / 1000)).toFixed(1);
+        const eta = done < podcasts.length ? Math.round(((podcasts.length - done) / parseFloat(rate))).toString() + 's' : '—';
+
+        console.log(
+            `[${done}/${podcasts.length} ${pct}%] ` +
+            `${batchDuration}ms | ` +
+            `✓${batchUpdated - batchSkipped} new, ↩${batchSkipped} skip, ∅${batchEmpty} empty` +
+            (batchErrors > 0 ? `, ✗${batchErrors} err` : '') +
+            (batchApiFails > 0 ? `, ⚠${batchApiFails} api-fail` : '') +
+            ` | ${batchEpisodes} eps | ` +
+            `API: ${batchApiMs}ms DB: ${batchDbMs}ms | ` +
+            `${rate} pods/s | ETA: ${eta} | elapsed: ${elapsed}s`
+        );
+
+        // Tiny delay between concurrency groups to avoid hammering
+        await new Promise(r => setTimeout(r, 50));
     }
 
-    console.log(`\n=== Sync Complete ===`);
-    console.log("Success: " + totalPodcastsUpdated);
-    console.log("Failed:  " + errors);
-    console.log("Duration: " + ((Date.now() - startTime) / 1000).toFixed(1) + "s");
-    console.log("=====================\n");
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
+    const finalRate = (podcasts.length / parseFloat(totalDuration)).toFixed(1);
+    console.log('─'.repeat(120));
+    console.log(`✅ SYNC COMPLETE | ${totalPodcastsUpdated} updated (${totalSkipped} unchanged, ${totalEmpty} empty) | ${totalEpisodesWritten} episodes written | ${errors} errors | ${totalDuration}s @ ${finalRate} pods/s`);
 }
 
 main().catch(console.error);
