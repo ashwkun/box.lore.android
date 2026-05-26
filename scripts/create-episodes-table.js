@@ -61,7 +61,7 @@ async function main() {
             transcript_url TEXT,
             persons TEXT,
             transcripts TEXT,
-            vector F32(384),
+            vector F32(1024),
             created_at INTEGER,
             FOREIGN KEY (podcast_id) REFERENCES podcasts(id) ON DELETE CASCADE
         )
@@ -83,6 +83,75 @@ async function main() {
     } catch (e) {
         console.warn("[SCHEMA] Note: Indexing vector column failed:", e.message);
     }
+
+    // 3. Create missing performance and feature indexes
+    console.log("[SCHEMA] Creating index 'idx_podcasts_itunes_id' (critical root cause fix)...");
+    await executeSQL("CREATE INDEX IF NOT EXISTS idx_podcasts_itunes_id ON podcasts(itunes_id)");
+
+    console.log("[SCHEMA] Creating index 'idx_charts_country_category_rank'...");
+    await executeSQL("CREATE INDEX IF NOT EXISTS idx_charts_country_category_rank ON charts(country, category, rank)");
+
+    console.log("[SCHEMA] Creating index 'idx_charts_itunes_id'...");
+    await executeSQL("CREATE INDEX IF NOT EXISTS idx_charts_itunes_id ON charts(itunes_id)");
+
+    // 4. Create feedback table and its index
+    console.log("[SCHEMA] Creating table 'feedback'...");
+    await executeSQL(`
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            message TEXT NOT NULL,
+            app_version TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            ip_hash TEXT,
+            email TEXT
+        )
+    `);
+
+    console.log("[SCHEMA] Creating index 'idx_feedback_ip_hash'...");
+    await executeSQL("CREATE INDEX IF NOT EXISTS idx_feedback_ip_hash ON feedback(ip_hash, created_at)");
+
+    // 5. Create FTS5 virtual table for podcasts search
+    console.log("[SCHEMA] Creating virtual table 'podcasts_fts'...");
+    await executeSQL(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS podcasts_fts USING fts5(
+            podcast_id, title, author,
+            content='podcasts', content_rowid='id'
+        )
+    `);
+
+    // 6. Create triggers to automatically keep podcasts_fts in sync
+    console.log("[SCHEMA] Creating triggers for podcasts_fts sync...");
+    await executeSQL(`
+        CREATE TRIGGER IF NOT EXISTS podcasts_ai AFTER INSERT ON podcasts BEGIN
+            INSERT INTO podcasts_fts(rowid, podcast_id, title, author) 
+            VALUES (new.id, new.id, new.title, new.author);
+        END
+    `);
+
+    await executeSQL(`
+        CREATE TRIGGER IF NOT EXISTS podcasts_ad AFTER DELETE ON podcasts BEGIN
+            INSERT INTO podcasts_fts(podcasts_fts, rowid, podcast_id, title, author) 
+            VALUES ('delete', old.id, old.id, old.title, old.author);
+        END
+    `);
+
+    await executeSQL(`
+        CREATE TRIGGER IF NOT EXISTS podcasts_au AFTER UPDATE ON podcasts BEGIN
+            INSERT INTO podcasts_fts(podcasts_fts, rowid, podcast_id, title, author) 
+            VALUES ('delete', old.id, old.id, old.title, old.author);
+            INSERT INTO podcasts_fts(rowid, podcast_id, title, author) 
+            VALUES (new.id, new.id, new.title, new.author);
+        END
+    `);
+
+    // 7. Populate FTS5 table with existing podcasts
+    console.log("[SCHEMA] Populating podcasts_fts with existing podcasts data...");
+    await executeSQL(`
+        INSERT INTO podcasts_fts(rowid, podcast_id, title, author)
+        SELECT id, id, title, author FROM podcasts
+        WHERE id NOT IN (SELECT rowid FROM podcasts_fts)
+    `);
 
     console.log("[SCHEMA] Schema initialization complete!");
 }

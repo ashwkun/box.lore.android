@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Generate vector embeddings for podcasts
- * Uses CPU-based transformers.js (all-MiniLM-L6-v2)
+ * Generate vector embeddings for episodes
+ * Uses CPU-based transformers.js (bge-large-en-v1.5, 1024-dim)
  * Designed to run in GitHub Actions
  */
 
@@ -18,9 +18,90 @@ if (!TURSO_URL || !TURSO_TOKEN) {
 }
 
 // Configuration
-const MODEL_NAME = 'Xenova/bge-small-en-v1.5';
+const MODEL_NAME = 'Xenova/bge-large-en-v1.5';
 const BATCH_SIZE = 10;
 const LIMIT = 2000; // Max items per run to fit within timeout
+
+/**
+ * Clean episode description for better vectorization quality.
+ * Removes HTML, URLs, sponsor blocks, emails, timestamps, social handles, and boilerplate.
+ * (Mirror of the same function in sync-episodes.js)
+ */
+function cleanDescription(raw) {
+    if (!raw || typeof raw !== 'string') return "";
+
+    let text = raw;
+
+    // 1. Strip HTML tags
+    text = text.replace(/<[^>]+>/g, ' ');
+
+    // 2. Decode common HTML entities
+    text = text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&#\d+;/g, ' ')
+        .replace(/&\w+;/g, ' ');
+
+    // 3. Remove URLs (http/https/www)
+    text = text.replace(/https?:\/\/[^\s)"\]]+/gi, '');
+    text = text.replace(/www\.[^\s)"\]]+/gi, '');
+
+    // 4. Remove email addresses
+    text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '');
+
+    // 5. Remove social media handles (@user, #hashtag)
+    text = text.replace(/[@#]\w+/g, '');
+
+    // 6. Remove timestamps (e.g., "01:23:45", "12:34")
+    text = text.replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, '');
+
+    // 7. Remove sponsor/ad blocks
+    const sponsorPatterns = [
+        /^.*sponsored by.*$/gim,
+        /^.*brought to you by.*$/gim,
+        /^.*use code\b.*$/gim,
+        /^.*promo code\b.*$/gim,
+        /^.*discount code\b.*$/gim,
+        /^.*sign up at\b.*$/gim,
+        /^.*go to\b.*for\b.*$/gim,
+        /^.*visit\b.*\.com.*$/gim,
+    ];
+    for (const pattern of sponsorPatterns) {
+        text = text.replace(pattern, '');
+    }
+
+    // 8. Remove boilerplate phrases
+    const boilerplate = [
+        /learn more at\b.*/gi,
+        /for more info(rmation)?\b.*/gi,
+        /subscribe (to|on|at|in)\b.*/gi,
+        /follow us (on|at)\b.*/gi,
+        /rate (and|&) review\b.*/gi,
+        /leave a review\b.*/gi,
+        /support (the|this) (show|podcast)\b.*/gi,
+        /available on\b.*/gi,
+        /listen on\b.*/gi,
+        /download the app\b.*/gi,
+        /all rights reserved\.?/gi,
+        /copyright ©?\s*\d{4}.*/gi,
+        /see privacy policy at\b.*/gi,
+        /see omnystudio\.com.*/gi,
+        /advertising inquiries\b.*/gi,
+    ];
+    for (const pattern of boilerplate) {
+        text = text.replace(pattern, '');
+    }
+
+    // 9. Normalize whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // 10. Truncate to 1000 chars
+    return text.substring(0, 1000);
+}
 
 async function executeSQL(sql, args = []) {
     const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
@@ -46,12 +127,25 @@ async function executeSQL(sql, args = []) {
     return res;
 }
 
-async function executeVectorUpdate(id, embedding) {
-    // embedding is Float32Array or array
-    // Format: '[0.1, 0.2, ...]'
-    const vectorString = '[' + Array.from(embedding).join(',') + ']';
+async function executeVectorBatchUpdate(updates) {
+    if (updates.length === 0) return;
 
-    const sql = `UPDATE episodes SET vector = vector(?) WHERE id = ?`;
+    const requests = updates.map(u => {
+        const vectorString = '[' + Array.from(u.embedding).join(',') + ']';
+        return {
+            type: "execute",
+            stmt: {
+                sql: `UPDATE episodes SET vector = vector(?) WHERE id = ?`,
+                args: [
+                    { type: "text", value: vectorString },
+                    { type: "integer", value: String(u.id) }
+                ]
+            }
+        };
+    });
+
+    // Append the close request
+    requests.push({ type: "close" });
 
     const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
         method: "POST",
@@ -59,24 +153,21 @@ async function executeVectorUpdate(id, embedding) {
             "Authorization": `Bearer ${TURSO_TOKEN}`,
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            requests: [{
-                type: "execute",
-                stmt: {
-                    sql: sql,
-                    args: [
-                        { type: "text", value: vectorString },
-                        { type: "integer", value: String(id) }
-                    ]
-                }
-            }, { type: "close" }]
-        })
+        body: JSON.stringify({ requests })
     });
 
     if (!response.ok) {
-        console.error(`Update failed: ${response.status}`);
+        throw new Error(`Batch update failed: ${response.status}`);
     }
-    return response.json();
+    const res = await response.json();
+    if (res.results) {
+        for (let i = 0; i < res.results.length - 1; i++) {
+            if (res.results[i].type === "error") {
+                console.error(`Batch item ${i} failed:`, res.results[i].error.message);
+            }
+        }
+    }
+    return res;
 }
 
 async function main() {
@@ -141,6 +232,9 @@ async function main() {
 
     console.log("Processing episodes...");
 
+    const batch = [];
+    const BATCH_SIZE = 50;
+
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const id = row[0].value;
@@ -150,8 +244,9 @@ async function main() {
 
         console.log(`[VECTOR] [${i+1}/${rows.length}] Starting vectorization for episode ${id} ("${title}") | Podcast: "${podcastTitle}"`);
 
-        // Construct Text
-        const text = `Episode: ${title}. ${desc}. Podcast: ${podcastTitle}`
+        // Construct Text — clean description for better semantic signal
+        const cleanedDesc = cleanDescription(desc);
+        const text = `Episode: ${title}. ${cleanedDesc}. Podcast: ${podcastTitle}`
             .replace(/[\n\r]+/g, ' ')
             .substring(0, 1000);
 
@@ -159,12 +254,30 @@ async function main() {
             const output = await extractor(text, { pooling: 'mean', normalize: true });
             const embedding = output.data;
 
-            await executeVectorUpdate(id, embedding);
-            success++;
-            console.log(`[VECTOR] [${i+1}/${rows.length}] Successfully vectorized episode ${id} ("${title}")`);
+            batch.push({ id, embedding });
+            console.log(`[VECTOR] [${i+1}/${rows.length}] Added to batch for episode ${id} ("${title}")`);
+
+            if (batch.length >= BATCH_SIZE) {
+                console.log(`[VECTOR] Flushing batch of ${batch.length} vector updates to DB...`);
+                await executeVectorBatchUpdate(batch);
+                success += batch.length;
+                batch.length = 0;
+            }
         } catch (e) {
-            console.error(`[VECTOR] [${i+1}/${rows.length}] Failed to vectorize ${id} ("${title}"): ${e.message}`);
+            console.error(`[VECTOR] [${i+1}/${rows.length}] Failed to process/vectorize ${id} ("${title}"): ${e.message}`);
             errors++;
+        }
+    }
+
+    // Flush any remaining items in the batch
+    if (batch.length > 0) {
+        console.log(`[VECTOR] Flushing final batch of ${batch.length} vector updates to DB...`);
+        try {
+            await executeVectorBatchUpdate(batch);
+            success += batch.length;
+        } catch (e) {
+            console.error(`[VECTOR] Failed to flush final batch: ${e.message}`);
+            errors += batch.length;
         }
     }
 

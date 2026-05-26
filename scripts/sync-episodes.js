@@ -43,6 +43,86 @@ function mapArgType(val) {
     return { type: "text", value: String(val) };
 }
 
+/**
+ * Clean episode description for better vectorization quality.
+ * Removes HTML, URLs, sponsor blocks, emails, timestamps, social handles, and boilerplate.
+ */
+function cleanDescription(raw) {
+    if (!raw || typeof raw !== 'string') return "";
+
+    let text = raw;
+
+    // 1. Strip HTML tags
+    text = text.replace(/<[^>]+>/g, ' ');
+
+    // 2. Decode common HTML entities
+    text = text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&#\d+;/g, ' ')
+        .replace(/&\w+;/g, ' ');
+
+    // 3. Remove URLs (http/https/www)
+    text = text.replace(/https?:\/\/[^\s)"\]]+/gi, '');
+    text = text.replace(/www\.[^\s)"\]]+/gi, '');
+
+    // 4. Remove email addresses
+    text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '');
+
+    // 5. Remove social media handles (@user, #hashtag)
+    text = text.replace(/[@#]\w+/g, '');
+
+    // 6. Remove timestamps (e.g., "01:23:45", "12:34")
+    text = text.replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, '');
+
+    // 7. Remove sponsor/ad blocks — lines starting with common ad markers
+    const sponsorPatterns = [
+        /^.*sponsored by.*$/gim,
+        /^.*brought to you by.*$/gim,
+        /^.*use code\b.*$/gim,
+        /^.*promo code\b.*$/gim,
+        /^.*discount code\b.*$/gim,
+        /^.*sign up at\b.*$/gim,
+        /^.*go to\b.*for\b.*$/gim,
+        /^.*visit\b.*\.com.*$/gim,
+    ];
+    for (const pattern of sponsorPatterns) {
+        text = text.replace(pattern, '');
+    }
+
+    // 8. Remove boilerplate phrases
+    const boilerplate = [
+        /learn more at\b.*/gi,
+        /for more info(rmation)?\b.*/gi,
+        /subscribe (to|on|at|in)\b.*/gi,
+        /follow us (on|at)\b.*/gi,
+        /rate (and|&) review\b.*/gi,
+        /leave a review\b.*/gi,
+        /support (the|this) (show|podcast)\b.*/gi,
+        /available on\b.*/gi,
+        /listen on\b.*/gi,
+        /download the app\b.*/gi,
+        /all rights reserved\.?/gi,
+        /copyright ©?\s*\d{4}.*/gi,
+        /see privacy policy at\b.*/gi,
+        /see omnystudio\.com.*/gi,
+        /advertising inquiries\b.*/gi,
+    ];
+    for (const pattern of boilerplate) {
+        text = text.replace(pattern, '');
+    }
+
+    // 9. Normalize whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // 10. Truncate to 1000 chars (for DB storage + embedding input)
+    return text.substring(0, 1000);
+}
+
 async function executeSQL(sql, args = []) {
     const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
         method: "POST",
@@ -95,32 +175,6 @@ async function executeBatch(statements) {
     }
 }
 
-async function getPodcasts() {
-    // Query top 50 podcasts from the Overall charts
-    // Note: Apple's "Overall" category is usually represented as "podcasts" in the category field or handled by the charts logic 
-    // We join charts + podcasts to get the PI IDs
-    // We select distinct PI IDs from the charts table where rank <= 50 and category = 'all' (or however we stored it)
-    // Let's check how populate-charts.js stored it. Usually 'all' or empty string for overall.
-    // Assuming 'all' based on typical usage or we check the charts table content.
-    // To be safe, we'll order by rank and limit to 50 distinct IDs across all regions/categories if specific one isn't clear,
-    // BUT user said "top 50 in overall category".
-    // Let's assume category='all' or 'top' in our charts table.
-
-    const sql = `
-    SELECT DISTINCT p.id, p.itunes_id 
-    FROM charts c
-    JOIN podcasts p ON c.itunes_id = p.itunes_id
-    -- Removed category filter to ensure we sync episodes for ALL charts (genre-specific too)
-    ORDER BY c.rank ASC
-  `;
-
-    const res = await executeSQL(sql);
-    return res?.results?.[0]?.response?.result?.rows?.map(r => ({
-        id: r[0].value,
-        itunesId: r[1].value
-    })) || [];
-}
-
 async function fetchEpisodes(feedId) {
     try {
         const headers = generateAuthHeaders();
@@ -169,7 +223,7 @@ async function main() {
         "latest_ep_persons TEXT",         // P2.0 JSON
         "latest_ep_transcripts TEXT",     // P2.0 JSON
         "medium TEXT",
-        "vector F32(384)",
+        "vector F32(1024)",
         "last_ep_sync INTEGER"
     ];
 
@@ -332,7 +386,7 @@ async function main() {
                         latestEp.enclosureUrl || "",
                         latestEp.image || latestEp.feedImage || "",
                         latestEp.enclosureType || "audio/mpeg",
-                        (latestEp.description || "").substring(0, 1000), // Truncate description
+                        cleanDescription(latestEp.description),
                         chaptersUrl,
                         transcriptUrl,
                         personsJson,
@@ -377,7 +431,7 @@ async function main() {
                             ep.id,
                             pod.id,
                             ep.title || "",
-                            (ep.description || "").substring(0, 1000),
+                            cleanDescription(ep.description),
                             ep.datePublished || 0,
                             ep.duration || 0,
                             ep.enclosureUrl || "",
