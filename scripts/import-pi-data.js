@@ -331,6 +331,9 @@ async function main() {
         const toImport = missingIds.slice(0, 200); // safety cap
         console.log(`[IMPORT] Fetching metadata for ${toImport.length} shows directly via Podcast Index API...`);
 
+        const batchStatements = [];
+        const BATCH_SIZE = 50;
+
         for (let idx = 0; idx < toImport.length; idx++) {
             const itunesId = toImport[idx];
             
@@ -374,15 +377,31 @@ async function main() {
             ];
 
             const sql = `INSERT OR IGNORE INTO podcasts (${columns.join(',')}) VALUES (${placeholders})`;
-            try {
-                await executeSQL(sql, values);
-                importedCount++;
-            } catch (err) {
-                console.error(`[IMPORT]   -> Error inserting podcast ${feed.id}:`, err.message);
+            batchStatements.push({ sql, args: values });
+            importedCount++;
+
+            if (batchStatements.length >= BATCH_SIZE) {
+                console.log(`[IMPORT] Flushing batch of ${batchStatements.length} podcast inserts to Turso DB...`);
+                try {
+                    await executeBatch(batchStatements);
+                } catch (err) {
+                    console.error(`[IMPORT] Error executing podcast inserts batch:`, err.message);
+                }
+                batchStatements.length = 0;
             }
 
             // Polite delay (100ms) to stay fully within API rate limits
             await new Promise(r => setTimeout(r, 100));
+        }
+
+        // Flush remaining inserts
+        if (batchStatements.length > 0) {
+            console.log(`[IMPORT] Flushing final batch of ${batchStatements.length} podcast inserts to Turso DB...`);
+            try {
+                await executeBatch(batchStatements);
+            } catch (err) {
+                console.error(`[IMPORT] Error executing final podcast inserts batch:`, err.message);
+            }
         }
 
         console.log(`[IMPORT] Incremental sync complete! Successfully imported ${importedCount}/${toImport.length} missing podcasts.`);
