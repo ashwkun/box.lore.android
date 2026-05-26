@@ -1,17 +1,47 @@
 #!/usr/bin/env node
 /**
- * Import podcasts and episodes from CSV files to Turso
+ * Import podcasts and episodes from CSV files or Podcast Index API to Turso
  * Automatically adapts DB schema to match CSV columns
  */
 
 const fs = require('fs');
+const crypto = require('crypto');
 
 const TURSO_URL = process.env.TURSO_URL?.replace('libsql://', 'https://');
 const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN;
+const API_KEY = process.env.PODCAST_INDEX_API_KEY;
+const API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
+const API_BASE = "https://api.podcastindex.org/api/1.0";
 
 if (!TURSO_URL || !TURSO_TOKEN) {
     console.error("Missing TURSO_URL or TURSO_AUTH_TOKEN");
     process.exit(1);
+}
+
+function generateAuthHeaders() {
+    const apiHeaderTime = Math.floor(Date.now() / 1000);
+    const data4Hash = API_KEY + API_SECRET + apiHeaderTime;
+    const hash = crypto.createHash('sha1').update(data4Hash).digest('hex');
+
+    return {
+        "User-Agent": "BoxCast/1.0",
+        "X-Auth-Key": API_KEY,
+        "X-Auth-Date": "" + apiHeaderTime,
+        "Authorization": hash
+    };
+}
+
+async function fetchPodcastByItunesId(itunesId) {
+    try {
+        const headers = generateAuthHeaders();
+        const res = await fetch(`${API_BASE}/podcasts/byitunesid?id=${itunesId}`, { headers });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        const data = await res.json();
+        return data.feed || null;
+    } catch (e) {
+        console.error(`Failed to fetch podcast by iTunes ID ${itunesId}:`, e.message);
+        return null;
+    }
 }
 
 function parseCSVLine(line) {
@@ -106,11 +136,6 @@ async function ensureColumns(tableName, csvHeaders) {
     console.log(`Current columns in ${tableName}:`, existingColumns.join(', '));
 
     for (const header of csvHeaders) {
-        // Map CSV header to DB column name (simple snake_case conversion if needed, 
-        // but our workflow exports mostly match DB style or snake_case already)
-        // The export query aliases are: id, itunes_id, title, author, description, image_url, feed_url...
-        // We assume the CSV header IS the column name we want.
-
         if (!existingColumns.includes(header)) {
             console.log(`Adding missing column '${header}' to ${tableName}...`);
             try {
@@ -139,12 +164,8 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
     // Ensure schema matches
     await ensureColumns(tableName, headers);
 
-    // Clear existing - DISABLED to preserve last_ep_sync history
-    // console.log(`Clearing ${tableName}...`);
-    // await executeSQL(`DELETE FROM ${tableName}`, []);
-
     const dataLines = lines.slice(1);
-    console.log(`Importing ${dataLines.length} rows into ${tableName}...`);
+    console.log(`[IMPORT] Importing ${dataLines.length} rows into ${tableName}...`);
 
     const BATCH_SIZE = 50;
     let imported = 0;
@@ -211,10 +232,10 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
             if (tableName === 'podcasts' && headers.includes('id') && headers.includes('medium')) {
                 sql = `INSERT INTO ${tableName} (${headers.join(',')}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET medium = excluded.medium`;
             }
-            
-            console.log(`[IMPORT] [${rowSeq}/${dataLines.length}] Staging row for ${tableName}: id=${id} ("${title}") | Action: ${sql.includes('ON CONFLICT') ? 'UPSERT (SET medium)' : 'INSERT OR IGNORE'}`);
-            if (reordered) {
-                console.log(`[IMPORT]   -> Reordered categories for podcast ${id}: "${originalCats}" -> "${reorderedCats}"`);
+
+            // Log progress in blocks of 1000 rows instead of every single line
+            if (rowSeq % 1000 === 0 || rowSeq === dataLines.length) {
+                console.log(`[IMPORT] Staging rows: ${rowSeq}/${dataLines.length} (${Math.round((rowSeq / dataLines.length) * 100)}%) staged...`);
             }
 
             statements.push({
@@ -225,24 +246,112 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
 
         if (statements.length > 0) {
             await executeBatch(statements);
-            const prevImported = imported;
             imported += statements.length;
-            console.log(`[IMPORT] Successfully executed batch. Total imported so far: ${imported}/${dataLines.length}`);
         }
     }
 
-    console.log(`Done: ${imported} rows imported into ${tableName}`);
+    console.log(`[IMPORT] Done: Successfully imported ${imported}/${dataLines.length} rows into ${tableName}.`);
     return imported;
 }
 
 async function main() {
     console.log("Starting PI data import...");
 
-    await importTable('podcasts_export.csv', 'podcasts');
+    const csvExists = fs.existsSync('podcasts_export.csv');
+    if (csvExists) {
+        console.log("[IMPORT] Found 'podcasts_export.csv'. Proceeding with Bulk DB Dump Import...");
+        await importTable('podcasts_export.csv', 'podcasts');
+    } else {
+        console.log("[IMPORT] 'podcasts_export.csv' NOT found. Proceeding with Incremental API-based Import...");
+        if (!API_KEY || !API_SECRET) {
+            console.error("[IMPORT] ERROR: Missing PODCAST_INDEX_API_KEY or PODCAST_INDEX_API_SECRET for API-based import.");
+            process.exit(1);
+        }
 
-    // Import episodes, limiting to 200 per podcast_id
-    // Episodes are now synced via API (scripts/sync-episodes.js) because public dump lacks them
-    // await importTable('episodes_export.csv', 'episodes', 'podcast_id', 200);
+        // 1. Fetch chart iTunes IDs from Turso
+        console.log("[IMPORT] Fetching active iTunes IDs from charts table...");
+        const chartsRes = await executeSQL("SELECT DISTINCT itunes_id FROM charts;");
+        const chartIds = chartsRes?.results?.[0]?.response?.result?.rows?.map(r => r[0].value).filter(Boolean) || [];
+        console.log(`[IMPORT] Found ${chartIds.length} unique iTunes IDs in the charts table.`);
+
+        // 2. Fetch already imported iTunes IDs from podcasts
+        const podcastsRes = await executeSQL("SELECT DISTINCT itunes_id FROM podcasts WHERE itunes_id IS NOT NULL;");
+        const existingIds = new Set(podcastsRes?.results?.[0]?.response?.result?.rows?.map(r => r[0].value).filter(Boolean).map(String));
+        console.log(`[IMPORT] Found ${existingIds.size} unique iTunes IDs already in the podcasts table.`);
+
+        // 3. Find missing iTunes IDs
+        const missingIds = chartIds.filter(id => !existingIds.has(String(id)));
+        console.log(`[IMPORT] Identified ${missingIds.length} missing chart podcasts.`);
+
+        if (missingIds.length === 0) {
+            console.log("[IMPORT] All chart podcasts are already present in the database. Nothing to import!");
+            return;
+        }
+
+        // Safety limit: if too many are missing, warn the user
+        if (missingIds.length > 200) {
+            console.warn(`[IMPORT] WARNING: ${missingIds.length} podcasts are missing. Incremental sync is capped at 200 to prevent API rate limits. Please use the Bulk DB Dump path for full bootstrapping.`);
+        }
+
+        // 4. Fetch and insert metadata from Podcast Index API
+        let importedCount = 0;
+        const toImport = missingIds.slice(0, 200); // safety cap
+        console.log(`[IMPORT] Fetching metadata for ${toImport.length} shows directly via Podcast Index API...`);
+
+        for (let idx = 0; idx < toImport.length; idx++) {
+            const itunesId = toImport[idx];
+            
+            // Periodically log progress instead of spamming every call details
+            if ((idx + 1) % 10 === 0 || (idx + 1) === toImport.length) {
+                console.log(`[IMPORT] Fetching: ${idx + 1}/${toImport.length} (${Math.round(((idx + 1) / toImport.length) * 100)}%) completed...`);
+            }
+
+            const feed = await fetchPodcastByItunesId(itunesId);
+            if (!feed) {
+                continue;
+            }
+
+            // Extract categories
+            let categoriesStr = "";
+            if (feed.categories) {
+                categoriesStr = Object.values(feed.categories).join(', ');
+            }
+
+            // Map feed values to Turso podcasts table structure
+            const columns = [
+                'id', 'itunes_id', 'title', 'author', 'description', 'image_url', 
+                'feed_url', 'website_url', 'categories', 'language', 'explicit', 'type'
+            ];
+            const placeholders = columns.map(() => '?').join(',');
+            const values = [
+                String(feed.id),
+                String(feed.itunesId || itunesId),
+                feed.title || "Unknown Title",
+                feed.author || "Unknown Author",
+                (feed.description || "").substring(0, 1000),
+                feed.image || feed.artwork || "",
+                feed.url || "",
+                feed.link || "",
+                categoriesStr,
+                feed.language || "en",
+                feed.explicit ? "1" : "0",
+                feed.itunesType || "episodic"
+            ];
+
+            const sql = `INSERT OR IGNORE INTO podcasts (${columns.join(',')}) VALUES (${placeholders})`;
+            try {
+                await executeSQL(sql, values);
+                importedCount++;
+            } catch (err) {
+                console.error(`[IMPORT]   -> Error inserting podcast ${feed.id}:`, err.message);
+            }
+
+            // Polite delay (100ms) to stay fully within API rate limits
+            await new Promise(r => setTimeout(r, 100));
+        }
+
+        console.log(`[IMPORT] Incremental sync complete! Successfully imported ${importedCount}/${toImport.length} missing podcasts.`);
+    }
 
     console.log("\nImport complete!");
 }

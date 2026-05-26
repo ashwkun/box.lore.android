@@ -260,7 +260,7 @@ async function main() {
 
     for (let i = 0; i < podcasts.length; i += CONCURRENCY) {
         const batch = podcasts.slice(i, i + CONCURRENCY);
-        if (i % 50 === 0 && i > 0) {
+        if (i % 100 === 0 && i > 0) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             const rate = (i / elapsed).toFixed(1);
             console.log(`[${new Date().toISOString()}] Progress: ${i}/${podcasts.length} (${Math.round((i / podcasts.length) * 100)}%) | Rate: ${rate} pods/s | Errors: ${errors}`);
@@ -268,13 +268,11 @@ async function main() {
 
         await Promise.all(batch.map(async (pod, idx) => {
             const seqNum = i + idx + 1;
-            console.log(`[SYNC] [${seqNum}/${podcasts.length}] Syncing podcast ${pod.id} ("${pod.title}") | Reason: ${podcastReasons[pod.id]}`);
             const [episodes, feedInfo] = await Promise.all([
                 fetchEpisodes(pod.id),
                 fetchFeedInfo(pod.id)
             ]);
             if (episodes.length === 0) {
-                console.log(`[SYNC] [${seqNum}/${podcasts.length}] Podcast ${pod.id} ("${pod.title}") has 0 episodes. Skipping update.`);
                 return;
             }
 
@@ -329,7 +327,6 @@ async function main() {
                 ]);
 
                 totalPodcastsUpdated++;
-                console.log(`[SYNC] [${seqNum}/${podcasts.length}] Successfully updated podcast ${pod.id} ("${pod.title}") | Medium: ${medium} | Latest Ep: "${latestEp.title}"`);
             } catch (err) {
                 errors++;
                 console.error(`[SYNC] [${seqNum}/${podcasts.length}] Error updating podcast ${pod.id} ("${pod.title}"): ${err.message}`);

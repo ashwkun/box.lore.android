@@ -27,7 +27,20 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install dependencies
+        run: |
+          echo "[WORKFLOW] Pre-installing standard dependencies..."
+          npm install
+
+      - name: Run Pre-check Sync
+        id: precheck
+        env:
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: node scripts/pre-check-sync.js --country ${{ matrix.country }}
+
       - name: Download Podcast Index Database
+        if: steps.precheck.outputs.skip_download != 'true'
         run: |
           echo "Downloading PI database dump..."
           curl -L -f -A "BoxCast/1.0 (github.com/ashwkun/box.cast.android)" -o podcastindex_feeds.db.tgz https://public.podcastindex.org/podcastindex_feeds.db.tgz
@@ -36,6 +49,7 @@ jobs:
           ls -la *.db
           
       - name: Inspect PI dump schema
+        if: steps.precheck.outputs.skip_download != 'true'
         run: |
           echo "=== Tables in PI dump ==="
           sqlite3 podcastindex_feeds.db ".tables"
@@ -61,6 +75,7 @@ jobs:
           head -5 chart_itunes_ids.txt
           
       - name: Export podcasts from PI dump
+        if: steps.precheck.outputs.skip_download != 'true'
         run: |
           echo "[WORKFLOW] Creating temporary SQLite table 'chart_ids' inside podcastindex_feeds.db..."
           sqlite3 podcastindex_feeds.db "CREATE TABLE chart_ids (itunes_id INTEGER);"
@@ -92,13 +107,13 @@ jobs:
             WHERE p.itunesId IN (SELECT itunes_id FROM chart_ids);
           " > podcasts_export.csv
           echo "[WORKFLOW] Successfully generated 'podcasts_export.csv' with $(wc -l < podcasts_export.csv) lines including headers."
-          
-
 
       - name: Import to Turso
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
+          PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
         run: |
           echo "[WORKFLOW] Starting import-pi-data.js to load podcasts into Turso DB..."
           node scripts/import-pi-data.js
@@ -113,11 +128,6 @@ jobs:
           echo "[WORKFLOW] Starting sync-episodes.js to fetch latest episode details and medium flags from API..."
           node scripts/sync-episodes.js --country ${{ matrix.country }}
 
-      - name: Install Vectorization Dependencies
-        run: |
-          echo "[WORKFLOW] Running npm install to configure dependencies for vectorization model..."
-          npm install
-
       - name: Generate Vector Embeddings
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
@@ -125,7 +135,6 @@ jobs:
         run: |
           echo "[WORKFLOW] Running vectorize.js to calculate and store embedding vectors for country ${{ matrix.country }}..."
           node scripts/vectorize.js --country ${{ matrix.country }}
-
           
       - name: Cleanup
         run: rm -f *.db *.tgz *.csv *.txt
