@@ -321,7 +321,7 @@ async function main() {
     // 4. Process in batches
     let totalPodcastsUpdated = 0;
     let errors = 0;
-    const CONCURRENCY = 5;
+    const CONCURRENCY = 15;
 
     console.log("Starting batch processing...");
     const startTime = Date.now();
@@ -334,38 +334,32 @@ async function main() {
             console.log(`[${new Date().toISOString()}] Progress: ${i}/${podcasts.length} (${Math.round((i / podcasts.length) * 100)}%) | Rate: ${rate} pods/s | Errors: ${errors}`);
         }
 
+        const batchStatements = [];
+
         await Promise.all(batch.map(async (pod, idx) => {
             const seqNum = i + idx + 1;
-            const episodes = await fetchEpisodes(pod.id);
-            if (episodes.length === 0) {
-                return;
-            }
-
-            // Find the latest episode (usually first, but ensure by date)
-            const latestEp = episodes[0];
-
-            // OPTIMIZATION: If the latest episode matches what is already in DB, 
-            // only update the last_ep_sync timestamp and exit (avoids DB write transaction locks)
-            if (pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
-                try {
-                    const updateTimestampSql = `
-                        UPDATE podcasts SET last_ep_sync = ? WHERE id = ?
-                    `;
-                    await executeSQL(updateTimestampSql, [Date.now(), String(pod.id)]);
-                    totalPodcastsUpdated++;
-                    return;
-                } catch (err) {
-                    errors++;
-                    console.error(`[SYNC] [${seqNum}/${podcasts.length}] Error updating sync timestamp for ${pod.id}: ${err.message}`);
+            try {
+                const episodes = await fetchEpisodes(pod.id);
+                if (episodes.length === 0) {
                     return;
                 }
-            }
 
-            // If mismatch/first-time sync, fetch the full feed metadata to write changes
-            const feedInfo = await fetchFeedInfo(pod.id);
+                // Find the latest episode (usually first, but ensure by date)
+                const latestEp = episodes[0];
 
-            try {
-                const statements = [];
+                // OPTIMIZATION: If the latest episode matches what is already in DB, 
+                // only update the last_ep_sync timestamp and exit (avoids DB write transaction locks)
+                if (pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
+                    batchStatements.push({
+                        sql: `UPDATE podcasts SET last_ep_sync = ? WHERE id = ?`,
+                        args: [Date.now(), String(pod.id)]
+                    });
+                    totalPodcastsUpdated++;
+                    return;
+                }
+
+                // If mismatch/first-time sync, fetch the full feed metadata to write changes
+                const feedInfo = await fetchFeedInfo(pod.id);
 
                 // 1. Statement to update podcasts metadata
                 const updatePodcastSql = `
@@ -394,7 +388,7 @@ async function main() {
                 const transcriptsJson = latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null;
                 const medium = feedInfo?.medium || "podcast";
 
-                statements.push({
+                batchStatements.push({
                     sql: updatePodcastSql,
                     args: [
                         String(latestEp.id),
@@ -415,7 +409,7 @@ async function main() {
                     ]
                 });
 
-                // 2. OPTIMIZATION: Build a single multi-row insert query for episodes
+                // 2. Build a single multi-row insert query for episodes
                 const placeholders = [];
                 const flatArgs = [];
 
@@ -465,7 +459,7 @@ async function main() {
                         vector = CASE WHEN (title != excluded.title OR description != excluded.description) THEN NULL ELSE vector END
                 `;
 
-                statements.push({
+                batchStatements.push({
                     sql: upsertEpisodeSql,
                     args: flatArgs
                 });
@@ -481,29 +475,37 @@ async function main() {
                         LIMIT 150
                       )
                 `;
-                statements.push({
+                batchStatements.push({
                     sql: pruneSql,
                     args: [pod.id, pod.id]
                 });
 
-                // Execute the entire transaction in a single round trip! (3 statements instead of 152)
-                await executeBatch(statements);
                 totalPodcastsUpdated++;
             } catch (err) {
                 errors++;
-                console.error(`[SYNC] [${seqNum}/${podcasts.length}] Error syncing podcast ${pod.id} ("${pod.title}"): ${err.message}`);
+                console.error(`[SYNC] [${seqNum}/${podcasts.length}] Error processing podcast ${pod.id}: ${err.message}`);
             }
         }));
+
+        if (batchStatements.length > 0) {
+            try {
+                // Execute all updates/inserts for the concurrency batch in a single HTTP request!
+                await executeBatch(batchStatements);
+            } catch (err) {
+                errors += batch.length;
+                console.error(`[SYNC] Error executing batch write of ${batchStatements.length} statements: ${err.message}`);
+            }
+        }
 
         // Polite delay
         await new Promise(r => setTimeout(r, 100));
     }
 
     console.log(`\n=== Sync Complete ===`);
-    console.log(`Success: ${totalPodcastsUpdated}`);
-    console.log(`Failed:  ${errors}`);
-    console.log(`Duration: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
-    console.log(`=====================\n`);
+    console.log("Success: " + totalPodcastsUpdated);
+    console.log("Failed:  " + errors);
+    console.log("Duration: " + ((Date.now() - startTime) / 1000).toFixed(1) + "s");
+    console.log("=====================\n");
 }
 
 main().catch(console.error);
