@@ -191,7 +191,7 @@ async function main() {
 
     if (country) {
         sql = `
-            SELECT DISTINCT e.id, e.title, e.description, p.title as podcast_title 
+            SELECT DISTINCT e.id, e.title, e.description, p.title as podcast_title, p.categories
             FROM charts c
             JOIN podcasts p ON c.itunes_id = p.itunes_id
             JOIN episodes e ON e.podcast_id = p.id
@@ -202,7 +202,7 @@ async function main() {
         console.log(`Filtering vectorization candidates for country: ${country}`);
     } else {
         sql = `
-            SELECT e.id, e.title, e.description, p.title as podcast_title 
+            SELECT e.id, e.title, e.description, p.title as podcast_title, p.categories
             FROM episodes e
             JOIN podcasts p ON e.podcast_id = p.id
             WHERE e.vector IS NULL 
@@ -239,14 +239,19 @@ async function main() {
             const title = row[1].value || "";
             const desc = row[2].value || "";
             const podcastTitle = row[3].value || "";
+            const categories = row[4]?.value || "";
 
             console.log(`[VECTOR] [${i+1}/${rows.length}] Starting vectorization for episode ${id} ("${title}") | Podcast: "${podcastTitle}"`);
 
             // Construct Text — clean description for better semantic signal
             const cleanedDesc = cleanDescription(desc);
-            const text = `Episode: ${title}. ${cleanedDesc}. Podcast: ${podcastTitle}`
-                .replace(/[\n\r]+/g, ' ')
-                .substring(0, 1000);
+            const textParts = [
+                `Episode: ${title}`,
+                cleanedDesc ? `Description: ${cleanedDesc}` : null,
+                `Podcast: ${podcastTitle}`,
+                categories ? `Genres: ${categories}` : null
+            ].filter(Boolean);
+            const text = textParts.join('. ').replace(/[\n\r]+/g, ' ').substring(0, 1000);
 
             try {
                 const output = await extractor(text, { pooling: 'mean', normalize: true });
