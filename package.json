@@ -2,5 +2,8 @@
   "dependencies": {
     "@libsql/client": "^0.17.0",
     "@xenova/transformers": "^2.17.2"
+  },
+  "scripts": {
+    "reset-sync": "node scratch/run-reset-now.js"
   }
 }

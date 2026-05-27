@@ -255,10 +255,30 @@ async function main() {
     ];
 
     console.log("Ensuring schema columns exist...");
-    for (const colDef of newColumns) {
-        try {
-            await executeSQL(`ALTER TABLE podcasts ADD COLUMN ${colDef}`);
-        } catch (e) { /* Ignore */ }
+    try {
+        const infoRes = await executeSQL("PRAGMA table_info(podcasts)");
+        const rows = infoRes?.results?.[0]?.response?.result?.rows || [];
+        const existingColumns = new Set(rows.map(r => r[1]?.value?.toLowerCase()));
+
+        for (const colDef of newColumns) {
+            const colName = colDef.split(" ")[0].toLowerCase();
+            if (!existingColumns.has(colName)) {
+                console.log(`Adding missing column: ${colName}`);
+                try {
+                    await executeSQL(`ALTER TABLE podcasts ADD COLUMN ${colDef}`);
+                } catch (e) {
+                    console.error(`Failed to add column ${colDef}: ${e.message}`);
+                }
+            }
+        }
+    } catch (err) {
+        console.warn("[WARNING] Could not verify schema columns using PRAGMA table_info:", err.message);
+        // Fallback to old behavior if PRAGMA fails
+        for (const colDef of newColumns) {
+            try {
+                await executeSQL(`ALTER TABLE podcasts ADD COLUMN ${colDef}`);
+            } catch (e) { /* Ignore */ }
+        }
     }
 
     // 3. Get podcasts needing sync (Priority: New > News(4h) > Others(24h))
@@ -398,11 +418,14 @@ async function main() {
                     return;
                 }
 
-                // New/changed episode — fetch feed info + write everything
-                const feedResult = await fetchFeedInfo(pod.id);
-                batchApiMs += feedResult._durationMs;
-                if (feedResult._failed) batchApiFails++;
-                const feedInfo = feedResult.feed;
+                // New/changed episode — fetch feed info only if medium is missing + write everything
+                let feedInfo = null;
+                if (!pod.medium) {
+                    const feedResult = await fetchFeedInfo(pod.id);
+                    batchApiMs += feedResult._durationMs;
+                    if (feedResult._failed) batchApiFails++;
+                    feedInfo = feedResult.feed;
+                }
 
                 const podStatements = [];
 
@@ -411,7 +434,7 @@ async function main() {
                 const transcriptUrl = latestEp.transcriptUrl || null;
                 const personsJson = latestEp.persons ? JSON.stringify(latestEp.persons) : null;
                 const transcriptsJson = latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null;
-                const medium = feedInfo?.medium || "podcast";
+                const medium = pod.medium || feedInfo?.medium || "podcast";
 
                 podStatements.push({
                     sql: `

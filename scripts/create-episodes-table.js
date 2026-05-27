@@ -76,6 +76,9 @@ async function main() {
     console.log("[SCHEMA] Creating index 'idx_episodes_published_date'...");
     await executeSQL("CREATE INDEX IF NOT EXISTS idx_episodes_published_date ON episodes(published_date DESC)");
 
+    console.log("[SCHEMA] Creating compound index 'idx_episodes_podcast_pubdate'...");
+    await executeSQL("CREATE INDEX IF NOT EXISTS idx_episodes_podcast_pubdate ON episodes(podcast_id, published_date DESC)");
+
     console.log("[SCHEMA] Creating index 'idx_episodes_vector' on vector column...");
     try {
         await executeSQL("CREATE INDEX IF NOT EXISTS idx_episodes_vector ON episodes(vector)");
