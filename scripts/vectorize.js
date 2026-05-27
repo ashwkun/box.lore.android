@@ -135,7 +135,7 @@ async function executeVectorBatchUpdate(updates) {
         return {
             type: "execute",
             stmt: {
-                sql: `UPDATE episodes SET vector = vector(?) WHERE id = ?`,
+                sql: `UPDATE episodes SET vector = vector32(?) WHERE id = ?`,
                 args: [
                     { type: "text", value: vectorString },
                     { type: "integer", value: String(u.id) }

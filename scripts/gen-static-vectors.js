@@ -25,7 +25,7 @@ const VIBES = {
     "sports_fan": "Sports news, game analysis, athlete interviews, and match highlights.",
 };
 
-const MODEL_NAME = 'Xenova/bge-small-en-v1.5';
+const MODEL_NAME = 'Xenova/bge-large-en-v1.5';
 
 async function main() {
     console.log("Generating Static Vibe Vectors...");

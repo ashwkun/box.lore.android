@@ -61,7 +61,7 @@ async function main() {
             transcript_url TEXT,
             persons TEXT,
             transcripts TEXT,
-            vector F32(1024),
+            vector F32_BLOB(1024),
             created_at INTEGER,
             FOREIGN KEY (podcast_id) REFERENCES podcasts(id) ON DELETE CASCADE
         )
@@ -81,7 +81,7 @@ async function main() {
 
     console.log("[SCHEMA] Creating index 'idx_episodes_vector' on vector column...");
     try {
-        await executeSQL("CREATE INDEX IF NOT EXISTS idx_episodes_vector ON episodes(vector)");
+        await executeSQL("CREATE INDEX IF NOT EXISTS idx_episodes_vector ON episodes(libsql_vector_idx(vector, 'metric=cosine'))");
         console.log("[SCHEMA] Index 'idx_episodes_vector' successfully verified/created.");
     } catch (e) {
         console.warn("[SCHEMA] Note: Indexing vector column failed:", e.message);
