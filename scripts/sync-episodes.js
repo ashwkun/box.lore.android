@@ -197,36 +197,74 @@ async function executeBatch(statements) {
     }
 }
 
-async function fetchEpisodes(feedId) {
+async function fetchEpisodes(feedId, retries = 3, delay = 1000) {
     const startTime = Date.now();
-    try {
-        const headers = generateAuthHeaders();
-        const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=100`, { headers });
-        const duration = Date.now() - startTime;
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-        const data = await res.json();
-        return { items: data.items || [], _durationMs: duration };
-    } catch (e) {
-        const duration = Date.now() - startTime;
-        console.error(`[FAIL] fetchEpisodes pod=${feedId} after ${duration}ms: ${e.message}`);
-        return { items: [], _durationMs: duration, _failed: true };
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+        try {
+            const headers = generateAuthHeaders();
+            const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=100`, { headers });
+            
+            if (res.status === 429) {
+                if (attempt <= retries) {
+                    const backoff = delay * Math.pow(2, attempt - 1);
+                    console.warn(`  [WARN] Rate limited (429) fetching episodes for pod=${feedId}. Retrying attempt ${attempt}/${retries} after ${backoff}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    continue;
+                }
+                throw new Error(`API error 429: Too Many Requests`);
+            }
+            
+            if (!res.ok) throw new Error(`API error: ${res.status}`);
+            const data = await res.json();
+            const duration = Date.now() - startTime;
+            return { items: data.items || [], _durationMs: duration };
+        } catch (e) {
+            if (attempt > retries) {
+                const duration = Date.now() - startTime;
+                console.error(`[FAIL] fetchEpisodes pod=${feedId} failed after ${attempt} attempts: ${e.message}`);
+                return { items: [], _durationMs: duration, _failed: true };
+            }
+            const backoff = delay * Math.pow(2, attempt - 1);
+            console.warn(`  [WARN] fetchEpisodes pod=${feedId} failed (attempt ${attempt}/${retries}): ${e.message}. Retrying in ${backoff}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+        }
     }
+    return { items: [], _durationMs: Date.now() - startTime, _failed: true };
 }
 
-async function fetchFeedInfo(feedId) {
+async function fetchFeedInfo(feedId, retries = 3, delay = 1000) {
     const startTime = Date.now();
-    try {
-        const headers = generateAuthHeaders();
-        const res = await fetch(`${API_BASE}/podcasts/byfeedid?id=${feedId}`, { headers });
-        const duration = Date.now() - startTime;
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-        const data = await res.json();
-        return { feed: data.feed || null, _durationMs: duration };
-    } catch (e) {
-        const duration = Date.now() - startTime;
-        console.error(`[FAIL] fetchFeedInfo pod=${feedId} after ${duration}ms: ${e.message}`);
-        return { feed: null, _durationMs: duration, _failed: true };
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+        try {
+            const headers = generateAuthHeaders();
+            const res = await fetch(`${API_BASE}/podcasts/byfeedid?id=${feedId}`, { headers });
+            
+            if (res.status === 429) {
+                if (attempt <= retries) {
+                    const backoff = delay * Math.pow(2, attempt - 1);
+                    console.warn(`  [WARN] Rate limited (429) fetching feed info for pod=${feedId}. Retrying attempt ${attempt}/${retries} after ${backoff}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    continue;
+                }
+                throw new Error(`API error 429: Too Many Requests`);
+            }
+            
+            if (!res.ok) throw new Error(`API error: ${res.status}`);
+            const data = await res.json();
+            const duration = Date.now() - startTime;
+            return { feed: data.feed || null, _durationMs: duration };
+        } catch (e) {
+            if (attempt > retries) {
+                const duration = Date.now() - startTime;
+                console.error(`[FAIL] fetchFeedInfo pod=${feedId} failed after ${attempt} attempts: ${e.message}`);
+                return { feed: null, _durationMs: duration, _failed: true };
+            }
+            const backoff = delay * Math.pow(2, attempt - 1);
+            console.warn(`  [WARN] fetchFeedInfo pod=${feedId} failed (attempt ${attempt}/${retries}): ${e.message}. Retrying in ${backoff}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+        }
     }
+    return { feed: null, _durationMs: Date.now() - startTime, _failed: true };
 }
 
 async function main() {
@@ -392,7 +430,7 @@ async function main() {
     let totalRowsRead = 0;
     let totalRowsWritten = 0;
     let errors = 0;
-    const CONCURRENCY = 30;
+    const CONCURRENCY = 5;
 
     console.log(`\nStarting sync: ${podcasts.length} podcasts | Concurrency: ${CONCURRENCY} | ${new Date().toISOString()}`);
     console.log('─'.repeat(120));
@@ -554,8 +592,8 @@ async function main() {
             `${rate} pods/s | ETA: ${eta} | elapsed: ${elapsed}s`
         );
 
-        // Tiny delay between concurrency groups to avoid hammering
-        await new Promise(r => setTimeout(r, 50));
+        // Polite delay between concurrency groups to avoid hammering
+        await new Promise(r => setTimeout(r, 1000));
     }
 
     const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);

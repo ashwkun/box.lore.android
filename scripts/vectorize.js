@@ -27,7 +27,7 @@ const MODEL_NAME = 'Xenova/bge-large-en-v1.5';
 const COLLECTION_NAME = 'episodes';
 const BATCH_SIZE = 50;
 const EPISODES_LIMIT = 30; // 30 episodes per podcast
-const MAX_NEW_PODCASTS_PER_RUN = 200; // Cap to prevent GHA timeouts
+const MAX_NEW_PODCASTS_PER_RUN = 100; // Cap to prevent GHA timeouts
 
 // Helper: Generate Podcast Index Auth Headers
 function generateAuthHeaders() {
@@ -82,18 +82,40 @@ async function executeSQL(sql, args = []) {
     return res;
 }
 
-// Helper: Fetch latest 30 episodes from Podcast Index
-async function fetchEpisodes(feedId) {
-    try {
-        const headers = generateAuthHeaders();
-        const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=${EPISODES_LIMIT}`, { headers });
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-        const data = await res.json();
-        return data.items || [];
-    } catch (e) {
-        console.error(`[FAIL] fetchEpisodes pod=${feedId}: ${e.message}`);
-        return [];
+// Helper: Fetch latest 30 episodes from Podcast Index with retry and backoff on 429
+async function fetchEpisodes(feedId, retries = 3, delay = 1000) {
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+        try {
+            const headers = generateAuthHeaders();
+            const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=${EPISODES_LIMIT}`, { headers });
+            
+            if (res.status === 429) {
+                if (attempt <= retries) {
+                    const backoff = delay * Math.pow(2, attempt - 1);
+                    console.warn(`  [WARN] Rate limited (429) fetching episodes for pod=${feedId}. Retrying attempt ${attempt}/${retries} after ${backoff}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    continue;
+                }
+                throw new Error(`API error 429: Too Many Requests`);
+            }
+            
+            if (!res.ok) {
+                throw new Error(`API error: ${res.status}`);
+            }
+            
+            const data = await res.json();
+            return data.items || [];
+        } catch (e) {
+            if (attempt > retries) {
+                console.error(`[FAIL] fetchEpisodes pod=${feedId} failed after ${attempt} attempts: ${e.message}`);
+                throw e; // Rethrow to propagate failure
+            }
+            const backoff = delay * Math.pow(2, attempt - 1);
+            console.warn(`  [WARN] fetchEpisodes pod=${feedId} failed (attempt ${attempt}/${retries}): ${e.message}. Retrying in ${backoff}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+        }
     }
+    return [];
 }
 
 // Helper: Generate a stable UUID from a string ID (Qdrant requires UUIDs)
@@ -244,6 +266,7 @@ async function main() {
     const countryIndex = process.argv.indexOf('--country');
     const country = countryIndex !== -1 ? process.argv[countryIndex + 1] : null;
 
+    const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
     let sql = `
         SELECT DISTINCT 
             p.id, 
@@ -254,10 +277,11 @@ async function main() {
             p.language
         FROM charts c
         JOIN podcasts p ON c.itunes_id = p.itunes_id
+        WHERE (p.qdrant_vectorized = 0 OR p.qdrant_vectorized IS NULL OR p.last_ep_sync > ?)
     `;
-    let args = [];
+    let args = [twoHoursAgo];
     if (country) {
-        sql += ` WHERE c.country = ?`;
+        sql += ` AND c.country = ?`;
         args.push(country);
         console.log(`[SYNC] Filtering candidates for country: ${country}`);
     }
@@ -288,9 +312,25 @@ async function main() {
         console.log(`\n[${idx+1}/${podcasts.length}] Processing: "${pod.title}" (ID: ${pod.id})`);
 
         // Fetch latest 30 episodes
-        const episodes = await fetchEpisodes(pod.id);
+        let episodes;
+        try {
+            episodes = await fetchEpisodes(pod.id);
+        } catch (e) {
+            console.error(`  -> Failed to fetch episodes for "${pod.title}" due to API errors. Skipping updates for this run.`);
+            errors++;
+            await new Promise(r => setTimeout(r, 400));
+            continue;
+        }
+
         if (episodes.length === 0) {
             console.log(`  -> No episodes found for "${pod.title}". Skipping.`);
+            try {
+                await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
+                console.log(`  -> Marked "${pod.title}" as vectorized (no episodes).`);
+            } catch (err) {
+                console.error(`  -> Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+            }
+            await new Promise(r => setTimeout(r, 400));
             continue;
         }
 
@@ -310,6 +350,13 @@ async function main() {
 
         if (toVectorize.length === 0) {
             console.log(`  -> All episodes are up-to-date in Qdrant.`);
+            try {
+                await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
+                console.log(`  -> Marked "${pod.title}" as vectorized (up-to-date).`);
+            } catch (err) {
+                console.error(`  -> Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+            }
+            await new Promise(r => setTimeout(r, 400));
             continue;
         }
 
@@ -374,16 +421,24 @@ async function main() {
         }
 
         // Batch upload new points to Qdrant
+        let uploadSuccess = true;
         if (points.length > 0) {
             console.log(`  -> Uploading ${points.length} vectors to Qdrant...`);
             try {
                 await qdrantUpsertBatch(points);
                 success += points.length;
                 console.log(`  -> Successful upload to Qdrant!`);
+                
+                // Mark as vectorized in Turso DB
+                await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
+                console.log(`  -> Marked "${pod.title}" as vectorized (uploaded ${points.length} vectors).`);
             } catch (err) {
                 console.error(`  -> Failed to upload batch to Qdrant: ${err.message}`);
                 errors += points.length;
+                uploadSuccess = false;
             }
+        } else if (toVectorize.length > 0) {
+            console.warn(`  -> ${toVectorize.length} episodes were qualified but none were successfully vectorized.`);
         }
 
         // Rolling Window Delete: Keep only the latest 30 episodes in Qdrant for this podcast
@@ -416,7 +471,7 @@ async function main() {
         }
         
         // Polite API rate limiting delay
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 400));
     }
 
     // 4. Global Rolling Window Cleanup (Backup prune: Deletes any point older than 60 days)
