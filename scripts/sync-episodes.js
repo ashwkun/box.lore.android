@@ -510,7 +510,8 @@ async function main() {
                             latest_ep_transcripts = ?,
                             medium = ?,
                             vector = NULL,
-                            last_ep_sync = ?
+                            last_ep_sync = ?,
+                            qdrant_vectorized = 0
                         WHERE id = ?
                     `,
                     args: [
