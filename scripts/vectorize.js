@@ -266,7 +266,6 @@ async function main() {
     const countryIndex = process.argv.indexOf('--country');
     const country = countryIndex !== -1 ? process.argv[countryIndex + 1] : null;
 
-    const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
     let sql = `
         SELECT DISTINCT 
             p.id, 
@@ -277,9 +276,9 @@ async function main() {
             p.language
         FROM charts c
         JOIN podcasts p ON c.itunes_id = p.itunes_id
-        WHERE (p.qdrant_vectorized = 0 OR p.qdrant_vectorized IS NULL OR p.last_ep_sync > ?)
+        WHERE (p.qdrant_vectorized = 0 OR p.qdrant_vectorized IS NULL)
     `;
-    let args = [twoHoursAgo];
+    let args = [];
     if (country) {
         sql += ` AND c.country = ?`;
         args.push(country);
