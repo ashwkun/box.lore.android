@@ -52,6 +52,14 @@ async function main() {
     console.log("[SCHEMA] Creating index 'idx_podcasts_itunes_id' (critical root cause fix)...");
     await executeSQL("CREATE INDEX IF NOT EXISTS idx_podcasts_itunes_id ON podcasts(itunes_id)");
 
+    try {
+        console.log("[SCHEMA] Adding 'qdrant_vectorized' column to podcasts table...");
+        await executeSQL("ALTER TABLE podcasts ADD COLUMN qdrant_vectorized INTEGER DEFAULT 0");
+        console.log("[SCHEMA] Column 'qdrant_vectorized' successfully added!");
+    } catch (e) {
+        console.log("[SCHEMA] Column 'qdrant_vectorized' already exists or podcasts table not loaded yet.");
+    }
+
     console.log("[SCHEMA] Creating index 'idx_charts_country_category_rank'...");
     await executeSQL("CREATE INDEX IF NOT EXISTS idx_charts_country_category_rank ON charts(country, category, rank)");
 
