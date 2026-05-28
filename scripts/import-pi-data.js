@@ -288,7 +288,7 @@ async function main() {
     console.log("[DIAGNOSTIC] Testing Turso Database Connection & Health...");
     try {
         const dbRes = await executeSQL("SELECT 1");
-        if (dbRes && dbRes.results && dbRes.results[0] && dbRes.results[0].type === "success") {
+        if (dbRes && dbRes.results && dbRes.results[0] && dbRes.results[0].type === "ok") {
             console.log(`[STATUS] Turso database connection SUCCESSFUL!`);
         } else {
             throw new Error("Database query returned an unexpected response.");
