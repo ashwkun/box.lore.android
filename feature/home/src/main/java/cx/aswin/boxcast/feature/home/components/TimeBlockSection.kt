@@ -7,25 +7,16 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,7 +28,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +37,39 @@ import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 
+import androidx.compose.material.icons.outlined.Newspaper
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.outlined.SportsBaseball
+import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+
+@Composable
+private fun getGenreStyle(categoryId: String): ImageVector {
+    return when (categoryId) {
+        "morning_news" -> Icons.Outlined.Newspaper
+        "morning_motivation" -> Icons.Outlined.Bolt
+        "business_insider" -> Icons.AutoMirrored.Outlined.TrendingUp
+        "science_explainer" -> Icons.Outlined.Science
+        "tech_culture" -> Icons.Outlined.Memory
+        "creative_focus" -> Icons.Outlined.Palette
+        "comedy_gold" -> Icons.Outlined.EmojiEmotions
+        "tv_film_buff" -> Icons.Outlined.Movie
+        "sports_fan" -> Icons.Outlined.SportsBaseball
+        "true_crime_sleep" -> Icons.Outlined.Fingerprint
+        "history_buff" -> Icons.Outlined.AccountBalance
+        "mystery_thriller" -> Icons.Outlined.Visibility
+        else -> Icons.Outlined.AutoAwesome
+    }
+}
+
 @Composable
 fun TimeBlockSection(
     data: CuratedTimeBlock,
@@ -53,8 +77,6 @@ fun TimeBlockSection(
     onImpression: (String, List<String>) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
-    val themeColor = MaterialTheme.colorScheme.primary
-
     LaunchedEffect(data.title) {
         onImpression(data.title, data.sections.map { it.category })
     }
@@ -62,48 +84,31 @@ fun TimeBlockSection(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // --- Master Header ---
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AnimatedTimeBlockIcon(title = data.title, themeColor = themeColor, fallbackIcon = data.icon)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = data.title,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontFamily = SectionHeaderFontFamily,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    letterSpacing = (-0.5).sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = data.subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         // --- Genre Rails ---
         data.sections.forEachIndexed { index, section ->
             Column {
+                val icon = getGenreStyle(section.category)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(top = 16.dp, bottom = 14.dp) // Premium breathing room!
                 ) {
+                    // Clean, standard floating icon matching Discover & OnTheRise section headers exactly
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary, // Unified M3 primary theme color
+                        modifier = Modifier.size(22.dp) // 22dp is perfect for junior curated rails subheaders
+                    )
+                    
+                    Spacer(modifier = Modifier.width(10.dp))
+                    
                     Text(
                         text = section.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.1).sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -147,7 +152,7 @@ fun TimeBlockSection(
 }
 
 @Composable
-private fun AnimatedTimeBlockIcon(title: String, themeColor: Color, fallbackIcon: androidx.compose.ui.graphics.vector.ImageVector) {
+fun AnimatedTimeBlockIcon(title: String, themeColor: Color, fallbackIcon: androidx.compose.ui.graphics.vector.ImageVector) {
     when (title) {
         "Good Morning", "Afternoon Break" -> {
             val infiniteTransition = rememberInfiniteTransition(label = "sunrise")

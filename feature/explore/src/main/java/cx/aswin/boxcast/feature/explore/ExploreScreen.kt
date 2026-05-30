@@ -3,6 +3,10 @@ package cx.aswin.boxcast.feature.explore
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandVertically
@@ -12,11 +16,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.FlowRowOverflow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,7 +37,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
@@ -106,6 +114,9 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.RegionNudgeBanner
 
+import cx.aswin.boxcast.core.model.Episode
+import androidx.compose.ui.graphics.Brush
+
 /**
  * Main Explore Screen Entry Point
  */
@@ -113,11 +124,15 @@ import cx.aswin.boxcast.core.designsystem.components.RegionNudgeBanner
 fun ExploreScreen(
     viewModel: ExploreViewModel,
     entryPoint: String = "bottom_nav",
-    onPodcastClick: (String, String, String?, Int?) -> Unit
+    onPodcastClick: (String, String, String?, Int?) -> Unit,
+    onEpisodeClick: (Episode, Podcast) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val showRegionNudge by viewModel.showRegionNudge.collectAsStateWithLifecycle()
     val activeRegionCode by viewModel.activeRegionCode.collectAsStateWithLifecycle()
+    val isPlayerVisible by remember(viewModel) {
+        viewModel.playerState.map { it.currentEpisode != null }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
     
     androidx.compose.runtime.LaunchedEffect(Unit) {
         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreScreenViewed(entryPoint)
@@ -143,12 +158,15 @@ fun ExploreScreen(
         uiState = uiState,
         showRegionNudge = showRegionNudge,
         activeRegionCode = activeRegionCode,
+        isPlayerVisible = isPlayerVisible,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onCategorySelected = viewModel::onCategorySelected,
         onPodcastClick = { id, entryPoint, filter, index ->
             viewModel.trackPodcastClicked(index ?: 0)
             onPodcastClick(id, entryPoint, filter, index)
         },
+        onEpisodeClick = onEpisodeClick,
+        onTabSelected = viewModel::onTabSelected,
         onVibeSelected = viewModel::onVibeSelected,
         onClearVibe = viewModel::clearVibe,
         onSwitchRegion = viewModel::switchRegion,
@@ -163,9 +181,12 @@ fun ExploreContent(
     uiState: ExploreUiState,
     showRegionNudge: Boolean = false,
     activeRegionCode: String = "us",
+    isPlayerVisible: Boolean = false,
     onSearchQueryChanged: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
     onPodcastClick: (String, String, String?, Int?) -> Unit,
+    onEpisodeClick: (Episode, Podcast) -> Unit,
+    onTabSelected: (Int) -> Unit,
     onVibeSelected: (String, String) -> Unit,
     onClearVibe: () -> Unit,
     onSwitchRegion: (String) -> Unit = {},
@@ -279,8 +300,10 @@ fun ExploreContent(
                 )
             ) { }
             
-            // Expandable Genre Cloud
-            if (!state.isSearching && !isPrompting) {
+
+            
+            // Expandable Genre Cloud (Trending tab only)
+            if (!state.isSearching && !isPrompting && state.selectedTab == 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 ExploreGenreSelector(
                     selectedCategory = state.currentCategory,
@@ -361,19 +384,43 @@ fun ExploreContent(
                     })
                 }
             } else {
-                // Unified Section Header
-                item(span = StaggeredGridItemSpan.FullLine) {
-                    if (state.currentVibe != null) {
-                        CuratedVibeHeader(title = state.currentVibe)
-                    } else if (state.isSearching) {
-                        ExploreSearchHeader()
-                    } else {
-                        val headerTitle = if (state.currentCategory == "All") {
-                            "Featured Podcasts"
-                        } else {
-                            "Trending in ${state.currentCategory}"
+                // 1. Curated Vibes Row (For You tab only, when not searching/prompting)
+                if (state.selectedTab == 1 && !state.isSearching && state.currentVibe == null) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(bottom = 8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(state.suggestedVibes) { vibe ->
+                                    ExploreVibeChip(
+                                        vibe = vibe,
+                                        onClick = {
+                                            onVibeSelected(vibe.first, vibe.second)
+                                        }
+                                    )
+                                }
+                            }
                         }
-                        ExploreSectionHeader(title = headerTitle)
+                    }
+                }
+
+                // 2. Unified Section Header (Only visible on Trending, search, or active Vibe)
+                if (state.selectedTab == 0 || state.isSearching || state.currentVibe != null) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        if (state.currentVibe != null) {
+                            CuratedVibeHeader(title = state.currentVibe)
+                        } else if (state.isSearching) {
+                            ExploreSearchHeader()
+                        } else {
+                            val headerTitle = if (state.currentCategory == "All") {
+                                "Featured Podcasts"
+                            } else {
+                                "Top in ${state.currentCategory}"
+                            }
+                            ExploreSectionHeader(title = headerTitle)
+                        }
                     }
                 }
 
@@ -392,82 +439,163 @@ fun ExploreContent(
                     }
                 }
 
-                // Featured Hero Card (P1 only, when not searching and has content)
-                if (!state.isSearching && displayList.isNotEmpty() && !state.isLoading && state.currentVibe == null) {
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        ExploreHeroCard(
-                            podcast = displayList[0],
-                            onClick = { onPodcastClick(displayList[0].id, "explore_hero", state.currentCategory, 0) },
-                            showGenreChip = state.currentCategory == "All"
-                        )
-                    }
-                }
-    
-                // Content
-                val showContent = displayList.isNotEmpty()
-                val showSkeletons = state.isLoading && (displayList.isEmpty() || !state.isSearching && state.currentVibe == null)
-                val showEmptyState = !state.isLoading && displayList.isEmpty() && (state.isSearching || state.currentVibe != null)
+                // Content switching based on search vs active tab
+                val isSearchingOrVibe = state.isSearching || state.currentVibe != null
+                
+                if (isSearchingOrVibe) {
+                    val showContent = displayList.isNotEmpty()
+                    val showSkeletons = state.isLoading && displayList.isEmpty()
+                    val showEmptyState = !state.isLoading && displayList.isEmpty()
 
-                if (showSkeletons) {
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(80.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val loaderSize = if (state.isSearching) 100.dp else 80.dp
-                            BoxCastLoader.Expressive(size = loaderSize)
-                        }
-                    }
-                } else if (showEmptyState) {
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        ExploreEmptyState()
-                    }
-                } else if (showContent) {
-                    val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
-                    itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
-                        val cardHeight = 160.dp
-                        
-                        val entryPointStr = when {
-                            state.currentVibe != null -> "explore_vibe"
-                            state.isSearching -> "explore_search"
-                            else -> "explore_grid"
-                        }
-                        
-                        // Offset index by 1 if there is a hero card (not searching, no vibe)
-                        val actualIndex = if (!state.isSearching && state.currentVibe == null) index + 1 else index
-                        
-                        ExplorePodcastCard(
-                            podcast = podcast,
-                            cardHeight = cardHeight,
-                            showGenreChip = showGenreChip,
-                            onClick = { onPodcastClick(podcast.id, entryPointStr, state.currentCategory, actualIndex) }
-                        )
-                    }
-
-                    // Append background loading shape morphing loader at the end of local matches
-                    if (state.isLoading && (state.isSearching || state.currentVibe != null)) {
+                    if (showSkeletons) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(24.dp),
+                                    .padding(80.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                BoxCastLoader.Expressive(size = 48.dp)
+                                val loaderSize = if (state.isSearching) 100.dp else 80.dp
+                                BoxCastLoader.Expressive(size = loaderSize)
+                            }
+                        }
+                    } else if (showEmptyState) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            ExploreEmptyState()
+                        }
+                    } else if (showContent) {
+                        val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
+                        itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
+                            val cardHeight = 160.dp
+                            val entryPointStr = if (state.currentVibe != null) "explore_vibe" else "explore_search"
+                            ExplorePodcastCard(
+                                podcast = podcast,
+                                cardHeight = cardHeight,
+                                showGenreChip = showGenreChip,
+                                onClick = { onPodcastClick(podcast.id, entryPointStr, state.currentCategory, index) }
+                            )
+                        }
+                        
+                        if (state.isLoading) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BoxCastLoader.Expressive(size = 48.dp)
+                                }
                             }
                         }
                     }
+                } else if (state.selectedTab == 1) {
+                    // For You Tab Content (Episodes Curation)
+                    val recs = state.recommendations
+                    val showContent = recs.isNotEmpty()
+                    val showSkeletons = state.isRecommendationsLoading && recs.isEmpty()
+                    val showEmptyState = !state.isRecommendationsLoading && recs.isEmpty()
 
-                    // Loading indicator for pagination
-                    if (state.isLoadingMore) {
+                    if (showSkeletons) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Box(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(80.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                BoxCastLoader.Expressive(size = 40.dp)
+                                BoxCastLoader.Expressive(size = 80.dp)
+                            }
+                        }
+                    } else if (showEmptyState) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            ExploreRecommendationsEmptyState()
+                        }
+                    } else if (showContent) {
+                        // Hero card
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            val heroEp = recs[0]
+                            val parentPodcast = Podcast(
+                                id = heroEp.podcastId ?: "",
+                                title = heroEp.podcastTitle ?: "Podcast",
+                                artist = "",
+                                imageUrl = heroEp.podcastImageUrl?.takeIf { it.isNotBlank() } ?: heroEp.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                description = "",
+                                genre = heroEp.podcastGenre ?: "Podcast"
+                            )
+                            ExploreEpisodeHeroCard(
+                                episode = heroEp,
+                                onClick = { onEpisodeClick(heroEp, parentPodcast) }
+                            )
+                        }
+
+                        // Staggered grid items
+                        items(recs.drop(1), key = { "rec_${it.id}" }) { episode ->
+                            val parentPodcast = Podcast(
+                                id = episode.podcastId ?: "",
+                                title = episode.podcastTitle ?: "Podcast",
+                                artist = "",
+                                imageUrl = episode.podcastImageUrl?.takeIf { it.isNotBlank() } ?: episode.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                description = "",
+                                genre = episode.podcastGenre ?: "Podcast"
+                            )
+                            ExploreEpisodeBentoCard(
+                                episode = episode,
+                                onClick = { onEpisodeClick(episode, parentPodcast) }
+                            )
+                        }
+                    }
+                } else {
+                    // Trending Tab Content
+                    val showContent = displayList.isNotEmpty()
+                    val showSkeletons = state.isLoading && displayList.isEmpty()
+                    val showEmptyState = !state.isLoading && displayList.isEmpty()
+
+                    if (showSkeletons) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(80.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BoxCastLoader.Expressive(size = 80.dp)
+                            }
+                        }
+                    } else if (showEmptyState) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            ExploreEmptyState()
+                        }
+                    } else if (showContent) {
+                        // Featured Hero Card (P1 only, when not searching and has content)
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            ExploreHeroCard(
+                                podcast = displayList[0],
+                                onClick = { onPodcastClick(displayList[0].id, "explore_hero", state.currentCategory, 0) },
+                                showGenreChip = state.currentCategory == "All"
+                            )
+                        }
+
+                        val showGenreChip = state.currentCategory == "All"
+                        itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
+                            val cardHeight = 160.dp
+                            ExplorePodcastCard(
+                                podcast = podcast,
+                                cardHeight = cardHeight,
+                                showGenreChip = showGenreChip,
+                                onClick = { onPodcastClick(podcast.id, "explore_grid", state.currentCategory, index + 1) }
+                            )
+                        }
+
+                        // Loading indicator for pagination
+                        if (state.isLoadingMore) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BoxCastLoader.Expressive(size = 40.dp)
+                                }
                             }
                         }
                     }
@@ -475,8 +603,36 @@ fun ExploreContent(
             }
         }
     }
+
+    // Centered Bottom FAB for switching between For You and Top (Material 3 Segmented Control FAB)
+    if (!state.isSearching && !isPrompting) {
+        val systemNavBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val bottomOffset = if (isPlayerVisible) {
+            62.dp + 64.dp + 8.dp + 16.dp + systemNavBarHeight
+        } else {
+            62.dp + 16.dp + systemNavBarHeight
+        }
+
+        val animatedBottomOffset by animateDpAsState(
+            targetValue = bottomOffset,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            ),
+            label = "fab_bottom_offset"
+        )
+
+        ExploreTabSelectorFab(
+            selectedTab = state.selectedTab,
+            onTabSelected = onTabSelected,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = animatedBottomOffset)
+        )
+    }
 }
 }
+
 
 // ============================================================================
 // COMPONENTS
@@ -1067,5 +1223,392 @@ private val EXPLORE_GENRES = listOf(
     ExploreGenreItem("Leisure", "Leisure", Icons.Rounded.Weekend),
     ExploreGenreItem("Govt", "Government", Icons.Rounded.Gavel)
 )
+
+@Composable
+fun ExploreVibeChip(
+    vibe: Pair<String, String>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val hash = vibe.first.hashCode()
+    val containerColor = when (hash % 3) {
+        0 -> MaterialTheme.colorScheme.primaryContainer
+        1 -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val contentColor = when (hash % 3) {
+        0 -> MaterialTheme.colorScheme.onPrimaryContainer
+        1 -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onTertiaryContainer
+    }
+
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = containerColor,
+        modifier = modifier
+            .height(44.dp)
+            .expressiveClickable(onClick = onClick)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = vibe.second,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun ExploreEpisodeHeroCard(
+    episode: Episode,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .expressiveClickable(onClick = onClick)
+    ) {
+        OptimizedImage(
+            url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
+            proxyWidth = 600,
+            contentDescription = episode.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            0.3f to Color.Black.copy(alpha = 0.15f),
+                            0.6f to Color.Black.copy(alpha = 0.65f),
+                            1.0f to Color.Black
+                        )
+                    )
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .padding(14.dp)
+                .align(Alignment.TopStart)
+                .background(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(12.dp)
+                )
+                Text(
+                    text = "FEATURED RECOMMENDATION",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = episode.podcastTitle ?: "",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.4.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = episode.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (episode.duration > 0) {
+                    val minutes = episode.duration / 60
+                    Text(
+                        text = "${minutes} min read/listen",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+                
+                val genre = episode.podcastGenre
+                if (!genre.isNullOrBlank()) {
+                    Text(
+                        text = "•",
+                        color = Color.White.copy(alpha = 0.4f),
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = genre,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExploreEpisodeBentoCard(
+    episode: Episode,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedCard(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.expressiveClickable(onClick = onClick)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+            ) {
+                OptimizedImage(
+                    url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
+                    proxyWidth = 400,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                )
+
+                if (episode.duration > 0) {
+                    Surface(
+                          shape = MaterialTheme.shapes.small,
+                          color = Color.Black.copy(alpha = 0.6f),
+                          modifier = Modifier
+                              .align(Alignment.BottomEnd)
+                              .padding(6.dp)
+                    ) {
+                        Text(
+                            text = "${episode.duration / 60}m",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = episode.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = episode.podcastTitle ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ExploreRecommendationsEmptyState(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Your Taste Profile is Growing",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "As you listen to more episodes and subscribe to shows, we'll curate personalized recommendations here tailored to your taste.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+    }
+}
+
+@Composable
+fun ExploreTabSelectorFab(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+        tonalElevation = 6.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = modifier.wrapContentSize()
+    ) {
+        Row(
+            modifier = Modifier.padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // "For You" Tab (index 1)
+            val isForYouSelected = selectedTab == 1
+            val forYouBgColor by animateColorAsState(
+                targetValue = if (isForYouSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                label = "foryou_bg"
+            )
+            val forYouContentColor by animateColorAsState(
+                targetValue = if (isForYouSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                label = "foryou_content"
+            )
+            
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = forYouBgColor,
+                modifier = Modifier
+                    .height(36.dp)
+                    .clickable { onTabSelected(1) }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = forYouContentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "For You",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = forYouContentColor
+                    )
+                }
+            }
+
+            // "Top" Tab (index 0)
+            val isTopSelected = selectedTab == 0
+            val topBgColor by animateColorAsState(
+                targetValue = if (isTopSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                label = "top_bg"
+            )
+            val topContentColor by animateColorAsState(
+                targetValue = if (isTopSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                label = "top_content"
+            )
+
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = topBgColor,
+                modifier = Modifier
+                    .height(36.dp)
+                    .clickable { onTabSelected(0) }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.TrendingUp,
+                        contentDescription = null,
+                        tint = topContentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Top",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = topContentColor
+                    )
+                }
+            }
+        }
+    }
+}
 
 

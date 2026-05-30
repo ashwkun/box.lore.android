@@ -23,7 +23,7 @@ interface ListeningHistoryDao {
     @Query("SELECT * FROM listening_history WHERE isCompleted = 0 AND progressMs > 0 ORDER BY lastPlayedAt DESC LIMIT 20")
     suspend fun getResumeItemsList(): List<ListeningHistoryEntity>
     
-    @Query("SELECT * FROM listening_history WHERE isManualCompletion = 0 AND isBulkCompletion = 0 ORDER BY lastPlayedAt DESC")
+    @Query("SELECT * FROM listening_history ORDER BY lastPlayedAt DESC")
     fun getAllHistory(): Flow<List<ListeningHistoryEntity>>
     
     @Query("SELECT * FROM listening_history WHERE isDirty = 1")
@@ -75,4 +75,7 @@ interface ListeningHistoryDao {
     // Get unique podcast IDs played after the given timestamp
     @Query("SELECT DISTINCT podcastId FROM listening_history WHERE lastPlayedAt > :sinceTimestamp")
     suspend fun getRecentlyPlayedPodcasts(sinceTimestamp: Long): List<String>
+
+    @Query("SELECT * FROM listening_history ORDER BY lastPlayedAt DESC LIMIT :limit")
+    suspend fun getRecentHistoryList(limit: Int): List<ListeningHistoryEntity>
 }

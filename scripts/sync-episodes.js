@@ -273,7 +273,7 @@ async function main() {
     // === DIAGNOSTIC FAILSAFE LOGGING ===
     console.log("[DIAGNOSTIC] Verifying GHA Environment Configuration...");
     console.log(`  - TURSO_URL:     ${TURSO_URL ? 'PRESENT' : 'MISSING'}`);
-    console.log(`  - TURSO_TOKEN:   ${TURSO_TOKEN ? 'PRESENT (Masked: ' + TURSO_TOKEN.substring(0, 8) + '...)' : 'MISSING'}`);
+    console.log(`  - TURSO_TOKEN:   ${TURSO_TOKEN ? 'PRESENT' : 'MISSING'}`);
     console.log(`  - API_KEY:       ${API_KEY ? 'PRESENT' : 'MISSING'}`);
 
     console.log("[DIAGNOSTIC] Testing Turso Database Connection & Health...");

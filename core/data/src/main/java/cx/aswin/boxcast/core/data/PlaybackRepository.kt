@@ -699,16 +699,52 @@ class PlaybackRepository(
                             markEpisodeAsCompleted(previousEpisode, previousPodcast)
                         }
                         
-                        // 2. Derive podcast context from episode metadata
+                        // 2. Derive podcast context from episode metadata & local DB
                         val newPodcast = if (newEpisode.podcastId != null) {
-                            cx.aswin.boxcast.core.model.Podcast(
-                                id = newEpisode.podcastId!!,
-                                title = newEpisode.podcastTitle ?: "Unknown Podcast",
-                                artist = newEpisode.podcastArtist ?: "",
-                                imageUrl = newEpisode.podcastImageUrl ?: "",
-                                description = null,
-                                genre = newEpisode.podcastGenre ?: "Podcast"
-                            )
+                            val existingPod = oldState.currentPodcast
+                            val database = cx.aswin.boxcast.core.data.database.BoxCastDatabase.getDatabase(context)
+                            val dbPodEntity = database.podcastDao().getPodcast(newEpisode.podcastId!!)
+                            val dbPodcast = dbPodEntity?.let { entity ->
+                                cx.aswin.boxcast.core.model.Podcast(
+                                    id = entity.podcastId,
+                                    title = entity.title,
+                                    artist = entity.author ?: "",
+                                    imageUrl = entity.imageUrl ?: "",
+                                    fallbackImageUrl = entity.latestEpisode?.imageUrl ?: "",
+                                    description = entity.description,
+                                    genre = entity.genre ?: "Podcast",
+                                    type = entity.type,
+                                    latestEpisode = entity.latestEpisode,
+                                    subscribedAt = entity.subscribedAt,
+                                    podcastGuid = entity.podcastGuid,
+                                    fundingUrl = entity.fundingUrl,
+                                    fundingMessage = entity.fundingMessage,
+                                    medium = entity.medium,
+                                    hasValue = entity.hasValue,
+                                    updateFrequency = entity.updateFrequency,
+                                    location = entity.location,
+                                    license = entity.license,
+                                    isLocked = entity.isLocked,
+                                    preferredSort = entity.preferredSort
+                                )
+                            }
+
+                            if (dbPodcast != null && dbPodcast.title != "Unknown Podcast") {
+                                dbPodcast
+                            } else if (existingPod != null && existingPod.id == newEpisode.podcastId && existingPod.title != "Unknown Podcast") {
+                                // Preserve the fully-populated existing podcast object
+                                existingPod
+                            } else {
+                                cx.aswin.boxcast.core.model.Podcast(
+                                    id = newEpisode.podcastId!!,
+                                    title = newEpisode.podcastTitle?.takeIf { !it.isNullOrBlank() && it != "Unknown Podcast" }
+                                        ?: "Unknown Podcast",
+                                    artist = newEpisode.podcastArtist?.takeIf { it.isNotEmpty() } ?: existingPod?.artist ?: "",
+                                    imageUrl = newEpisode.podcastImageUrl?.takeIf { it.isNotEmpty() } ?: existingPod?.imageUrl ?: "",
+                                    description = null,
+                                    genre = newEpisode.podcastGenre ?: existingPod?.genre ?: "Podcast"
+                                )
+                            }
                         } else {
                             oldState.currentPodcast
                         }
@@ -725,7 +761,19 @@ class PlaybackRepository(
                         // 4. Sync queue to DB for restart recovery
                         syncQueueToDb()
 
-                        // 5. Auto-refill when queue is running low
+                        // 5. Restore saved position for previously-played episodes in queue
+                        // (e.g. episodes added via SmartQueue or manually that the user already partially played)
+                        if (reason != androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) {
+                            val historyItem = listeningHistoryDao.getHistoryItem(newEpisode.id)
+                            if (historyItem != null && !historyItem.isCompleted && historyItem.progressMs > 2000) {
+                                android.util.Log.d("PlaybackRepo", "onMediaItemTransition: Restoring saved position ${historyItem.progressMs}ms for ${newEpisode.title}")
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    mediaController?.seekTo(historyItem.progressMs)
+                                }
+                            }
+                        }
+
+                        // 6. Auto-refill when queue is running low
                         val currentQueueSize = _playerState.value.queue.size
                         if (currentQueueSize < QUEUE_REFILL_THRESHOLD && newPodcast != null) {
                             android.util.Log.d("PlaybackRepo", "Queue running low ($currentQueueSize items). Triggering auto-refill.")
@@ -1425,8 +1473,21 @@ class PlaybackRepository(
                     }
                     
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("transition")
-                    controller.seekToDefaultPosition(i)
-                    controller.play()
+                    // Look up saved position from listening history to resume where the user left off
+                    val mediaIndex = i
+                    repositoryScope.launch {
+                        val saved = listeningHistoryDao.getHistoryItem(targetEpisode.id)
+                        val savedPosMs = if (saved != null && !saved.isCompleted && saved.progressMs > 2000) {
+                            android.util.Log.d("PlaybackRepo", "skipToEpisode: Restoring saved position ${saved.progressMs}ms for ${targetEpisode.id}")
+                            saved.progressMs
+                        } else {
+                            0L
+                        }
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            controller.seekTo(mediaIndex, savedPosMs)
+                            controller.play()
+                        }
+                    }
                     return
                 }
             }
@@ -1865,5 +1926,34 @@ class PlaybackRepository(
         
         val episode = podcastRepository.getEpisode(episodeId)
         return episode?.podcastId
+    }
+
+    suspend fun getHistoryForRecommendations(limit: Int = 15): List<cx.aswin.boxcast.core.network.model.HistoryItem> {
+        val database = cx.aswin.boxcast.core.data.database.BoxCastDatabase.getDatabase(context)
+        val podcastDao = database.podcastDao()
+        
+        // Fetch up to limit * 3 recent items to have room for filtering out accidental skips/taps
+        val rawHistory = listeningHistoryDao.getRecentHistoryList(limit * 3)
+        return rawHistory
+            .filter { entity ->
+                // Exclude manually marked completed (double-check since DAO already filters it)
+                !entity.isManualCompletion && !entity.isBulkCompletion &&
+                // Filter out accidental plays/skips (progress < 60 seconds) unless they completed it normally
+                (entity.progressMs >= 60_000L || entity.isCompleted)
+            }
+            .take(limit)
+            .map { entity ->
+                val podcast = podcastDao.getPodcast(entity.podcastId)
+                cx.aswin.boxcast.core.network.model.HistoryItem(
+                    podcastTitle = entity.podcastName,
+                    episodeTitle = entity.episodeTitle,
+                    podcastId = entity.podcastId,
+                    genre = podcast?.genre,
+                    durationMs = entity.durationMs,
+                    progressMs = entity.progressMs,
+                    isCompleted = entity.isCompleted,
+                    isLiked = entity.isLiked
+                )
+            }
     }
 }

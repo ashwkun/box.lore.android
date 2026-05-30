@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.feature.home
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -85,6 +86,7 @@ data class HomeUiState(
     val selectedCategory: String? = null, // Null = "For You"
     val timeBlock: CuratedTimeBlock? = null, // Unified Time Block
     val discoverPodcasts: List<Podcast>, 
+    val recommendations: List<Episode> = emptyList(), // Personalized recommendations from Qdrant
     val isLoading: Boolean = false, // Initial full-screen loader
     val isFilterLoading: Boolean = false, // Inline loader when switching genres
     val isError: Boolean = false,
@@ -102,7 +104,9 @@ data class HomeDataWrapper(
     val resume: List<cx.aswin.boxcast.core.data.PlaybackSession>,
     val subs: List<Podcast>,
     val history: List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>,
-    val resolvedSerial: Map<String, Episode>
+    val resolvedSerial: Map<String, Episode>,
+    val recommendations: List<Episode> = emptyList(),
+    val completedEpisodeIds: Set<String> = emptySet()
 )
 
 /**
@@ -143,6 +147,7 @@ class HomeViewModel(
     val showFeedback = _showFeedback.asStateFlow()
 
     private val _selectedCategory = MutableStateFlow<String?>(null)
+    private val _recommendations = MutableStateFlow<List<Episode>>(emptyList())
     
     private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
     
@@ -208,7 +213,11 @@ class HomeViewModel(
 
     fun playEpisode(episode: Episode, podcast: Podcast) {
         viewModelScope.launch {
-            playbackRepository.playQueue(listOf(episode), podcast, 0)
+            if (playbackRepository.playerState.value.currentEpisode?.id == episode.id) {
+                playbackRepository.togglePlayPause()
+            } else {
+                playbackRepository.playQueue(listOf(episode), podcast, 0)
+            }
         }
     }
 
@@ -256,7 +265,7 @@ class HomeViewModel(
                             
                             _selectedPodcastEpisodes.value = allEpisodes.drop(offset).take(15)
                         } else {
-                            val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 5, offset = 0, sort = "newest")
+                            val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 25, offset = 0, sort = "newest")
                             _selectedPodcastEpisodes.value = page.episodes
                         }
                     } catch (e: Exception) {
@@ -292,13 +301,44 @@ class HomeViewModel(
         startBackgroundSync()
     }
 
+    private fun fetchPersonalizedRecommendations(region: String) {
+        viewModelScope.launch {
+            try {
+                val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+                val interests = prefs.getStringSet("user_genres", emptySet())?.toList() ?: emptyList()
+                val history = playbackRepository.getHistoryForRecommendations(15)
+                
+                val subscribedIds = subscriptionRepository.subscribedPodcastIds.first().toList()
+                val subscribedGenres = subscriptionRepository.subscribedPodcasts.first()
+                    .mapNotNull { it.genre }
+                    .distinct()
+                
+                android.util.Log.d("HomeViewModel", "Fetching recommendations with history size: ${history.size}, interests: $interests, region: $region, subscribedCount: ${subscribedIds.size}")
+                val recs = podcastRepository.getPersonalizedRecommendations(
+                    history = history,
+                    interests = interests,
+                    country = region,
+                    subscribedPodcastIds = subscribedIds,
+                    subscribedGenres = subscribedGenres
+                )
+                android.util.Log.d("HomeViewModel", "Fetched recommendations size: ${recs.size}")
+                val distinctRecs = recs
+                    .distinctBy { it.id }
+                    .distinctBy { it.title.toLowerCase().trim() }
+                _recommendations.value = distinctRecs
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to fetch personalized recommendations", e)
+            }
+        }
+    }
+
 
 
     private fun loadData() {
         viewModelScope.launch {
             // Seed the WAS_INITIAL_REGION_MATCH if not set yet
             val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                if (it == "us" || it == "in" || it == "gb" || it == "uk") it else "us"
+                if (it == "us" || it == "in" || it == "gb" || it == "uk" || it == "fr") it else "us"
             }
             userPrefs.wasInitialRegionMatchStream.first() ?: run {
                 val currentReg = userPrefs.regionStream.first()
@@ -326,6 +366,7 @@ class HomeViewModel(
                             isFilterLoading = true
                         )
                     }
+                    fetchPersonalizedRecommendations(region)
                 }
                 activeRegion = region
                 
@@ -372,9 +413,19 @@ class HomeViewModel(
                     playbackRepository.resumeSessions,
                     subscriptionRepository.subscribedPodcasts,
                     playbackRepository.getAllHistory(),
-                    _resolvedSerialEpisodes
-                ) { trendingList, resumeList, subs, allHistory, resolvedSerial ->
-                     HomeDataWrapper(trendingList, resumeList, subs, allHistory, resolvedSerial)
+                    _resolvedSerialEpisodes,
+                    _recommendations,
+                    playbackRepository.completedEpisodeIds
+                ) { array ->
+                    HomeDataWrapper(
+                        trending = array[0] as List<Podcast>,
+                        resume = array[1] as List<cx.aswin.boxcast.core.data.PlaybackSession>,
+                        subs = array[2] as List<Podcast>,
+                        history = array[3] as List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>,
+                        resolvedSerial = array[4] as Map<String, Episode>,
+                        recommendations = array[5] as List<Episode>,
+                        completedEpisodeIds = array[6] as Set<String>
+                    )
                 }.collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         val trendingList = wrapper.trending
@@ -382,9 +433,10 @@ class HomeViewModel(
                         val subs = wrapper.subs
                         val allHistory = wrapper.history
                         val resolvedSerial = wrapper.resolvedSerial
+                        val completedEpisodeIds = wrapper.completedEpisodeIds
 
                         // Asynchronously resolve next episodes for oldest-sort podcasts
-                        val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet()
+                        val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet() + completedEpisodeIds
                         val inProgressEpIdsForResolve = allHistory.filter { !it.isCompleted && it.progressMs > 0L }.map { it.episodeId }.toSet()
 
                         android.util.Log.d("HomeViewModelResolve", "Completed Ep IDs: $completedEpIdsForResolve")
@@ -486,16 +538,21 @@ class HomeViewModel(
                         // 3-5 sessions → 1 full card + 1 grid card (2-4 items)
                         if (resumeList.isNotEmpty()) {
                             // Helper to convert a PlaybackSession to a Podcast
-                            fun sessionToPodcast(session: cx.aswin.boxcast.core.data.PlaybackSession): Podcast {
-                                val epImage = session.imageUrl
-                                val podImage = session.podcastImageUrl
-                                val ratio = if (session.durationMs > 0) {
-                                    (session.positionMs.toFloat() / session.durationMs.toFloat()).coerceIn(0f, 1f)
-                                } else 0f
-                                return Podcast(
-                                    id = session.podcastId,
-                                    title = session.podcastTitle,
-                                    artist = "",
+                             fun sessionToPodcast(session: cx.aswin.boxcast.core.data.PlaybackSession): Podcast {
+                                 val epImage = session.imageUrl
+                                 val podImage = session.podcastImageUrl
+                                 val ratio = if (session.durationMs > 0) {
+                                     (session.positionMs.toFloat() / session.durationMs.toFloat()).coerceIn(0f, 1f)
+                                 } else 0f
+                                 val finalPodId = session.podcastId.takeIf { it.isNotBlank() && it != "0" } ?: ""
+                                 val parentPod = subs.find { it.id == finalPodId }
+                                 val finalPodTitle = session.podcastTitle.takeIf { it.isNotBlank() && it != "Unknown Podcast" }
+                                     ?: parentPod?.title
+                                     ?: "Podcast"
+                                 return Podcast(
+                                     id = finalPodId,
+                                     title = finalPodTitle,
+                                     artist = "",
                                     imageUrl = if (!epImage.isNullOrEmpty()) epImage else podImage ?: "",
                                     fallbackImageUrl = podImage,
                                     description = "",
@@ -509,8 +566,8 @@ class HomeViewModel(
                                         audioUrl = session.audioUrl ?: "",
                                         duration = (session.durationMs / 1000).toInt(),
                                         publishedDate = 0L,
-                                        podcastTitle = session.podcastTitle.ifEmpty { "Unknown Podcast" },
-                                        podcastId = session.podcastId,
+                                        podcastTitle = finalPodTitle,
+                                        podcastId = finalPodId,
                                         enclosureType = session.enclosureType
                                     )
                                 )
@@ -704,7 +761,7 @@ class HomeViewModel(
                                 audioUrl = history.episodeAudioUrl ?: "",
                                 imageUrl = history.episodeImageUrl,
                                 podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl,
-                                podcastTitle = history.podcastName.ifEmpty { parentPod.title },
+                                podcastTitle = history.podcastName.takeIf { it.isNotBlank() && it != "Unknown Podcast" } ?: parentPod.title,
                                 podcastId = history.podcastId,
                                 duration = (history.durationMs / 1000).toInt(),
                                 publishedDate = 0L
@@ -749,7 +806,8 @@ class HomeViewModel(
                         }
 
                         val unplayedDropsMixtapeCandidates = unplayedDropsCandidates.map { (pod, ep) ->
-                            val releasedAfterSub = ep.publishedDate > (pod.subscribedAt / 1000L)
+                            val isRecent = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0 <= 168.0 // within 7 days
+                            val releasedAfterSub = ep.publishedDate > (pod.subscribedAt / 1000L) || isRecent
                             val freshnessBoost = if (releasedAfterSub) {
                                 val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
                                 300.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)
@@ -831,38 +889,8 @@ class HomeViewModel(
 
                         val top10Candidates = orderedCandidates.take(MAX_MIXTAPE_ITEMS)
 
-                        // D. Fallback to completed episodes of subscribed podcasts if empty
-                        val finalCandidates = if (top10Candidates.isNotEmpty()) {
-                            top10Candidates
-                        } else {
-                            val completedCandidates = allHistory.filter { history ->
-                                history.podcastId in subIds && history.isCompleted
-                            }
-                            completedCandidates.sortedByDescending { it.lastPlayedAt }.take(MAX_MIXTAPE_ITEMS).mapNotNull { history ->
-                                val parentPod = subs.find { it.id == history.podcastId } ?: return@mapNotNull null
-                                val completedEpisode = Episode(
-                                    id = history.episodeId,
-                                    title = history.episodeTitle,
-                                    description = "",
-                                    audioUrl = history.episodeAudioUrl ?: "",
-                                    imageUrl = history.episodeImageUrl,
-                                    podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl,
-                                    podcastTitle = history.podcastName.ifEmpty { parentPod.title },
-                                    podcastId = history.podcastId,
-                                    duration = (history.durationMs / 1000).toInt(),
-                                    publishedDate = 0L
-                                )
-                                MixtapeCandidate(
-                                    episodeId = history.episodeId,
-                                    score = 0.0,
-                                    isProgress = false,
-                                    podcast = parentPod,
-                                    episode = completedEpisode,
-                                    progressMs = history.progressMs,
-                                    durationMs = history.durationMs
-                                )
-                            }
-                        }
+                        // D. No completed fallback - mixtape only contains active resume and unplayed new drops
+                        val finalCandidates = top10Candidates
 
                         // E. Map to Podcast objects
                         android.util.Log.d("HomeViewModelResolve", "Mixtape Final Candidates List: size=${finalCandidates.size}")
@@ -959,6 +987,7 @@ class HomeViewModel(
                                     spotlightAddedCount == 0 -> when (region.lowercase()) {
                                         "in" -> "#1 IN INDIA"
                                         "gb", "uk" -> "#1 IN UK"
+                                        "fr" -> "#1 IN FRANCE"
                                         else -> "#1 IN US"
                                     }
                                     pod.genre.isNotEmpty() && !pod.genre.equals("Podcast", ignoreCase = true) -> "TRENDING IN ${pod.genre.uppercase()}"
@@ -1022,6 +1051,13 @@ class HomeViewModel(
                                 else -> EpisodeStatus.UNPLAYED
                             }
                             history.episodeId to (status to ratio)
+                        }.toMutableMap()
+
+                        // Enrich map with manually/bulk completed episode IDs to ensure their checkmarks render
+                        completedEpisodeIds.forEach { completedId ->
+                            if (!episodePlaybackState.containsKey(completedId)) {
+                                episodePlaybackState[completedId] = (EpisodeStatus.COMPLETED to 1f)
+                            }
                         }
 
                         val shouldShowNudge = !hasDismissed && (systemCountry != region)
@@ -1035,6 +1071,7 @@ class HomeViewModel(
                             selectedCategory = _selectedCategory.value,
                             timeBlock = timeBlock,
                             discoverPodcasts = discover,
+                            recommendations = wrapper.recommendations,
                             isLoading = false,
                             isFilterLoading = trendingList.isEmpty(),
                             isError = false,
@@ -1259,7 +1296,7 @@ class HomeViewModel(
         return when (hour) {
             in 5..11 -> TimeBlockConfig(
                 title = "Good Morning",
-                subtitle = if(isWeekend) "Catch up on the week." else "Start your day with these updates.",
+                subtitle = if(isWeekend) "Coffee, curated stories, and your favorites." else "News, tech, and your morning mix.",
                 icon = Icons.Rounded.WbSunny,
                 genres = listOf(
                     GenreConfig("morning_news", "Top News"),
@@ -1269,7 +1306,7 @@ class HomeViewModel(
             )
             in 12..16 -> TimeBlockConfig(
                 title = "Afternoon Break",
-                subtitle = "Smart conversations to keep you going.",
+                subtitle = "Conversations, tech, and custom picks.",
                 icon = Icons.Rounded.WbSunny,
                 genres = listOf(
                     GenreConfig("science_explainer", "Science & Discovery"),
@@ -1279,7 +1316,7 @@ class HomeViewModel(
             )
             in 17..22 -> TimeBlockConfig(
                 title = "Evening Unwind",
-                subtitle = if(isFriday) "Kick off the weekend." else "Relax, laugh, and catch up.",
+                subtitle = if(isFriday) "Kickstart your weekend entertainment." else "Relax, laugh, and catch up on your shows.",
                 icon = Icons.Rounded.WbTwilight,
                 genres = listOf(
                     GenreConfig("comedy_gold", "Comedy Gold"),
@@ -1289,7 +1326,7 @@ class HomeViewModel(
             )
             else -> TimeBlockConfig(
                 title = "Late Night Listen",
-                subtitle = "Stories for the dark hours.",
+                subtitle = "Crime, mystery, and cozy late-night dives.",
                 icon = Icons.Rounded.NightsStay,
                 genres = listOf(
                     GenreConfig("true_crime_sleep", "True Crime & Chill"),

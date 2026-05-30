@@ -26,6 +26,8 @@ class UserPreferencesRepository(context: Context) {
         val HAS_DISMISSED_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_region_nudge")
         val HAS_DISMISSED_EXPLORE_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_explore_region_nudge")
         val WAS_INITIAL_REGION_MATCH = androidx.datastore.preferences.core.booleanPreferencesKey("was_initial_region_match")
+        val SUBSCRIPTION_SORT = stringPreferencesKey("subscription_sort")
+        val LATEST_EPISODES_SORT_USE_SMART = androidx.datastore.preferences.core.booleanPreferencesKey("latest_episodes_sort_use_smart")
     }
 
     val regionStream: Flow<String> = dataStore.data
@@ -166,6 +168,35 @@ class UserPreferencesRepository(context: Context) {
     suspend fun setRadioMode(isRadioMode: Boolean) {
         dataStore.edit { preferences ->
             preferences[Keys.IS_RADIO_MODE] = isRadioMode
+        }
+    }
+
+    // SORTING PREFERENCES
+    val subscriptionSortStream: Flow<String> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.SUBSCRIPTION_SORT] ?: "SmartRank"
+        }
+
+    suspend fun setSubscriptionSort(sort: String) {
+        dataStore.edit { preferences ->
+            preferences[Keys.SUBSCRIPTION_SORT] = sort
+        }
+    }
+
+    val latestEpisodesSortUseSmartStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.LATEST_EPISODES_SORT_USE_SMART] ?: true
+        }
+
+    suspend fun setLatestEpisodesSortUseSmart(useSmart: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.LATEST_EPISODES_SORT_USE_SMART] = useSmart
         }
     }
 

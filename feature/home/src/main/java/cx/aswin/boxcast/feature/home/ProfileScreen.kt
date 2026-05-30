@@ -339,7 +339,8 @@ fun ContentLibrarySection(
             val regions = listOf(
                 "us" to "USA",
                 "in" to "India",
-                "gb" to "UK"
+                "gb" to "UK",
+                "fr" to "France"
             )
             regions.forEach { (code, label) ->
                 val isSelected = currentRegion == code

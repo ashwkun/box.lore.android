@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 
 enum class SubscriptionSort { SmartRank, RecentlyUpdated, Alphabetical, MostListened }
 
@@ -34,13 +35,36 @@ sealed interface LibraryUiState {
 class LibraryViewModel(
     private val subscriptionRepository: SubscriptionRepository,
     private val playbackRepository: PlaybackRepository,
-    private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository
+    private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
+    private val userPreferencesRepository: cx.aswin.boxcast.core.data.UserPreferencesRepository
 ) : ViewModel() {
 
-    private val _subscriptionSort = MutableStateFlow(SubscriptionSort.SmartRank)
+    private val subscriptionSort = userPreferencesRepository.subscriptionSortStream
+        .map { sortName ->
+            try {
+                SubscriptionSort.valueOf(sortName)
+            } catch (e: Exception) {
+                SubscriptionSort.SmartRank
+            }
+        }
 
     fun setSubscriptionSort(sort: SubscriptionSort) {
-        _subscriptionSort.value = sort
+        viewModelScope.launch {
+            userPreferencesRepository.setSubscriptionSort(sort.name)
+        }
+    }
+
+    val useSmartRank: StateFlow<Boolean> = userPreferencesRepository.latestEpisodesSortUseSmartStream
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = true
+        )
+
+    fun setUseSmartRank(useSmart: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLatestEpisodesSortUseSmart(useSmart)
+        }
     }
 
     // Combine subscriptions, liked episodes, downloads, AND listening history
@@ -50,7 +74,7 @@ class LibraryViewModel(
         playbackRepository.likedEpisodes,
         downloadRepository.downloads,
         playbackRepository.getAllHistory(),
-        _subscriptionSort
+        subscriptionSort
     ) { podcasts: List<Podcast>, liked: List<ListeningHistoryEntity>, downloads: List<cx.aswin.boxcast.core.data.database.DownloadedEpisodeEntity>, allHistory: List<ListeningHistoryEntity>, sort: SubscriptionSort ->
         // Enrich podcasts with episode status from listening history
         val enrichedPodcasts = podcasts.map { podcast ->
@@ -148,7 +172,7 @@ class LibraryViewModel(
             subscribedPodcasts = sortedPodcasts,
             likedEpisodes = liked,
             downloadedEpisodes = downloads,
-            recentHistory = allHistory.take(3),
+            recentHistory = allHistory.filter { !it.isManualCompletion && !it.isBulkCompletion }.take(3),
             currentSort = sort,
             allHistory = allHistory
         )

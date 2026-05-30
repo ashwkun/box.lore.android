@@ -61,7 +61,7 @@ fun PodcastCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                 )
                 
                 // Genre Chip (Top Left) - only shown when showGenreChip is true

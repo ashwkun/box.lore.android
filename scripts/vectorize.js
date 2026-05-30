@@ -228,9 +228,9 @@ async function main() {
     // === DIAGNOSTIC FAILSAFE LOGGING ===
     console.log("[DIAGNOSTIC] Verifying GHA Environment Configuration...");
     console.log(`  - TURSO_URL:     ${TURSO_URL ? 'PRESENT' : 'MISSING'}`);
-    console.log(`  - TURSO_TOKEN:   ${TURSO_TOKEN ? 'PRESENT (Masked: ' + TURSO_TOKEN.substring(0, 8) + '...)' : 'MISSING'}`);
+    console.log(`  - TURSO_TOKEN:   ${TURSO_TOKEN ? 'PRESENT' : 'MISSING'}`);
     console.log(`  - QDRANT_URL:    ${QDRANT_URL ? 'PRESENT (' + QDRANT_URL + ')' : 'MISSING'}`);
-    console.log(`  - QDRANT_API_KEY:${QDRANT_API_KEY ? 'PRESENT (Masked: ' + QDRANT_API_KEY.substring(0, 8) + '...)' : 'MISSING'}`);
+    console.log(`  - QDRANT_API_KEY:${QDRANT_API_KEY ? 'PRESENT' : 'MISSING'}`);
     console.log(`  - API_KEY:       ${API_KEY ? 'PRESENT' : 'MISSING'}`);
 
     console.log("[DIAGNOSTIC] Testing Qdrant Cluster Connection & Health...");
@@ -381,7 +381,8 @@ async function main() {
                 `Episode: ${epTitle}`,
                 cleanedDesc ? `Description: ${cleanedDesc}` : null,
                 `Podcast: ${pod.title}`,
-                pod.categories ? `Genres: ${pod.categories}` : null
+                pod.categories ? `Genres: ${pod.categories}` : null,
+                pod.author ? `Host: ${pod.author}` : null
             ].filter(Boolean);
             const text = textParts.join('. ').replace(/[\n\r]+/g, ' ').substring(0, 1000);
 

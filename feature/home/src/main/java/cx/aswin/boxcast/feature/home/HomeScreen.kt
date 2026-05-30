@@ -76,6 +76,7 @@ import cx.aswin.boxcast.feature.home.components.TimeBlockSection
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.feature.home.components.TopControlBar
 import cx.aswin.boxcast.feature.home.components.YourShowsSection
+import cx.aswin.boxcast.feature.home.components.ForYouSection
 
 import cx.aswin.boxcast.feature.home.components.DebugDbInspectorDialog
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
@@ -93,7 +94,7 @@ fun HomeRoute(
     onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)? = null, // Navigate directly to Player (Resume)
     onNavigateToLibrary: (() -> Unit)? = null,
     onNavigateToLatestEpisodes: (() -> Unit)? = null,
-    onNavigateToExplore: ((String?, String) -> Unit)? = null,
+    onNavigateToExplore: ((String?, String, String?) -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
@@ -134,6 +135,9 @@ fun HomeRoute(
     val currentPlayingPodcastId by remember(viewModel) {
         viewModel.playerState.map { it.currentPodcast?.id }.distinctUntilChanged()
     }.collectAsState(initial = null)
+    val currentPlayingEpisodeId by remember(viewModel) {
+        viewModel.playerState.map { it.currentEpisode?.id }.distinctUntilChanged()
+    }.collectAsState(initial = null)
     val debugHistory by viewModel.debugHistory.collectAsState(initial = emptyList())
     val debugPodcasts by viewModel.debugPodcasts.collectAsState(initial = emptyList())
 
@@ -146,6 +150,7 @@ fun HomeRoute(
     HomeScreen(
         uiState = uiState,
         currentPlayingPodcastId = currentPlayingPodcastId,
+        currentPlayingEpisodeId = currentPlayingEpisodeId,
         isPlaying = isPlaying,
         debugHistory = debugHistory,
         debugPodcasts = debugPodcasts,
@@ -198,6 +203,7 @@ fun HomeRoute(
 fun HomeScreen(
     uiState: HomeUiState,
     currentPlayingPodcastId: String?,
+    currentPlayingEpisodeId: String?,
     isPlaying: Boolean,
     debugHistory: List<ListeningHistoryEntity>,
     debugPodcasts: List<PodcastEntity>,
@@ -209,7 +215,7 @@ fun HomeScreen(
     onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     onNavigateToLibrary: (() -> Unit)?,
     onNavigateToLatestEpisodes: (() -> Unit)?,
-    onNavigateToExplore: ((String?, String) -> Unit)?,
+    onNavigateToExplore: ((String?, String, String?) -> Unit)?,
     onToggleSubscription: (String) -> Unit,
     onTogglePlayback: (android.os.Bundle?) -> Unit,
     onSelectCategory: (String?) -> Unit,
@@ -309,6 +315,8 @@ fun HomeScreen(
                             gridItems = uiState.discoverPodcasts,
                             selectedCategory = uiState.selectedCategory,
                             currentPlayingPodcastId = currentPlayingPodcastId,
+                            currentPlayingEpisodeId = currentPlayingEpisodeId,
+                            recommendations = uiState.recommendations,
                             isPlaying = isPlaying,
                             isFilterLoading = uiState.isFilterLoading,
                             selectedPodcastId = uiState.selectedPodcastId,
@@ -401,6 +409,8 @@ private fun PodcastFeed(
     gridItems: List<Podcast>,
     selectedCategory: String?,
     currentPlayingPodcastId: String?,
+    currentPlayingEpisodeId: String?,
+    recommendations: List<Episode> = emptyList(),
     isPlaying: Boolean,
     isFilterLoading: Boolean,
     selectedPodcastId: String? = null,
@@ -424,7 +434,7 @@ private fun PodcastFeed(
     onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     onNavigateToLibrary: (() -> Unit)?,
     onNavigateToLatestEpisodes: (() -> Unit)?,
-    onNavigateToExplore: ((String?, String) -> Unit)?,
+    onNavigateToExplore: ((String?, String, String?) -> Unit)?,
     onToggleSubscription: (String) -> Unit,
     onTogglePlayback: (android.os.Bundle?) -> Unit,
     onSelectCategory: (String?) -> Unit,
@@ -505,6 +515,8 @@ private fun PodcastFeed(
                     selectedPodcastEpisodes = selectedPodcastEpisodes,
                     isSelectedPodcastLoading = isSelectedPodcastLoading,
                     episodePlaybackState = episodePlaybackState,
+                    currentPlayingEpisodeId = currentPlayingEpisodeId,
+                    isPlaying = isPlaying,
                     onPodcastSelected = onPodcastSelected,
                     onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
                     onEpisodeClick = { episode, podcast, entryPoint ->
@@ -513,6 +525,26 @@ private fun PodcastFeed(
                     onPlayMix = onPlayMix,
                     onPlayEpisode = onPlayEpisode,
                     onViewLibrary = { onNavigateToLibrary?.invoke() }
+                )
+            }
+        }
+
+        // "For You" Personalized Recommendations Section (Magazine Split Layout)
+        if (!isLoading && (recommendations.isNotEmpty() || timeBlock != null)) {
+            item(span = StaggeredGridItemSpan.FullLine) {
+                ForYouSection(
+                    recommendations = recommendations,
+                    currentPlayingEpisodeId = currentPlayingEpisodeId,
+                    isPlaying = isPlaying,
+                    onEpisodeClick = { episode, podcast ->
+                        onEpisodeClick?.invoke(episode, podcast, "home_for_you")
+                    },
+                    onPlayEpisode = onPlayEpisode,
+                    timeBlock = timeBlock,
+                    onSeeAllClick = {
+                        onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
+                    },
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
         }
@@ -532,12 +564,34 @@ private fun PodcastFeed(
             }
         }
 
+        // "See All Recommendations" button — between timeblock and discover
+        if (!isLoading && (recommendations.isNotEmpty() || timeBlock != null)) {
+            item(span = StaggeredGridItemSpan.FullLine) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
+                        }
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = "See All Recommendations",
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
         // 4. Discover Section (Header + Chips + Loading State)
         item(span = StaggeredGridItemSpan.FullLine) {
             cx.aswin.boxcast.feature.home.components.DiscoverSection(
                 selectedCategory = selectedCategory,
                 onCategorySelected = onSelectCategory,
-                onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header") }
+                onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header", null) }
             )
         }
 
@@ -564,7 +618,7 @@ private fun PodcastFeed(
                     contentAlignment = Alignment.Center
                 ) {
                     androidx.compose.material3.FilledTonalButton(
-                        onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button") }
+                        onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button", null) }
                     ) {
                             Text("View more in ${selectedCategory ?: "Explore"}")
                             Spacer(modifier = Modifier.width(8.dp))

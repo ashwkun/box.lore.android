@@ -65,7 +65,8 @@ class HistoryViewModel(
         _expandedDates,
         _selectedFilterDate,
         _selectedHistoryFilter
-    ) { historyList: List<ListeningHistoryEntity>, expandedDates: Set<LocalDate>, selectedFilterDate: LocalDate?, selectedHistoryFilter: HistoryFilter ->
+    ) { rawHistoryList: List<ListeningHistoryEntity>, expandedDates: Set<LocalDate>, selectedFilterDate: LocalDate?, selectedHistoryFilter: HistoryFilter ->
+        val historyList = rawHistoryList.filter { !it.isManualCompletion && !it.isBulkCompletion }
         if (historyList.isEmpty()) {
             HistoryUiState.Empty
         } else {

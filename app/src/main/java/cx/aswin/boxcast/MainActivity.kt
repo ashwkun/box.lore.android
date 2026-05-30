@@ -1012,9 +1012,10 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToLatestEpisodes = {
                                         navController.navigate("library/subscriptions?tab=1")
                                     },
-                                    onNavigateToExplore = { category, entryPoint ->
+                                    onNavigateToExplore = { category, entryPoint, tab ->
                                         val catQuery = if (category != null) "category=$category&" else ""
-                                        val route = "explore?${catQuery}entryPoint=${entryPoint ?: "home"}"
+                                        val tabQuery = if (tab != null) "tab=$tab&" else ""
+                                        val route = "explore?${catQuery}${tabQuery}entryPoint=${entryPoint ?: "home"}"
                                         navController.navigate(route) {
                                             popUpTo("home") { saveState = true }
                                             launchSingleTop = true
@@ -1133,20 +1134,26 @@ class MainActivity : ComponentActivity() {
                             }
                             
                             composable(
-                                route = "explore?category={category}&entryPoint={entryPoint}",
-                                arguments = listOf(
-                                    navArgument("category") { 
-                                        type = NavType.StringType
-                                        nullable = true
-                                        defaultValue = null 
-                                    },
-                                    navArgument("entryPoint") {
-                                        type = NavType.StringType
-                                        nullable = true
-                                        defaultValue = "bottom_nav"
-                                    }
-                                )
-                            ) { backStackEntry -> 
+                                 route = "explore?category={category}&entryPoint={entryPoint}&tab={tab}",
+                                 arguments = listOf(
+                                     navArgument("category") { 
+                                         type = NavType.StringType
+                                         nullable = true
+                                         defaultValue = null 
+                                     },
+                                     navArgument("entryPoint") {
+                                         type = NavType.StringType
+                                         nullable = true
+                                         defaultValue = "bottom_nav"
+                                     },
+                                     navArgument("tab") {
+                                         type = NavType.StringType
+                                         nullable = true
+                                         defaultValue = null
+                                     }
+                                 )
+                             ) { backStackEntry -> 
+
                                 val podcastDao = remember { database.podcastDao() }
                                 val subscriptionRepository = remember { cx.aswin.boxcast.core.data.SubscriptionRepository(podcastDao) }
                                 val podcastRepository = remember { cx.aswin.boxcast.core.data.PodcastRepository(apiBaseUrl, publicKey, application) }
@@ -1154,6 +1161,7 @@ class MainActivity : ComponentActivity() {
                                 // Handle Argument
                                 val category = backStackEntry.arguments?.getString("category")
                                 val entryPoint = backStackEntry.arguments?.getString("entryPoint") ?: "bottom_nav"
+                                val tab = backStackEntry.arguments?.getString("tab")
                                 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.explore.ExploreViewModel>(
                                     factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -1164,7 +1172,9 @@ class MainActivity : ComponentActivity() {
                                                 podcastRepository,
                                                 subscriptionRepository, // Updated to take repo
                                                 userPrefs,
-                                                initialCategory = category 
+                                                playbackRepository,
+                                                initialCategory = category,
+                                                initialTab = tab
                                             ) as T
                                         }
                                     }
@@ -1181,6 +1191,18 @@ class MainActivity : ComponentActivity() {
                                         if (depthVal != null) params.add("depth=$depthVal")
                                         if (params.isNotEmpty()) route += "?" + params.joinToString("&")
                                         navController.navigate(route)
+                                    },
+                                    onEpisodeClick = { episode, podcast ->
+                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        navController.navigate(
+                                            "episode/${encode(episode.id)}/${encode(episode.title)}/" +
+                                            "${encode(episode.description?.take(500))}/" +
+                                            "${encode(episode.imageUrl)}/" +
+                                            "${encode(episode.audioUrl)}/" +
+                                            "${episode.duration}/${encode(podcast.id)}/" +
+                                            "${encode(podcast.title)}" +
+                                            "?entryPoint=explore_for_you"
+                                        )
                                     }
                                 )
                             }
@@ -1196,7 +1218,8 @@ class MainActivity : ComponentActivity() {
                                             return cx.aswin.boxcast.feature.library.LibraryViewModel(
                                                 subscriptionRepository, 
                                                 playbackRepository,
-                                                downloadRepository
+                                                downloadRepository,
+                                                userPrefs
                                             ) as T
                                         }
                                     }
@@ -1258,7 +1281,8 @@ class MainActivity : ComponentActivity() {
                                             return cx.aswin.boxcast.feature.library.LibraryViewModel(
                                                 subscriptionRepository, 
                                                 playbackRepository,
-                                                downloadRepository
+                                                downloadRepository,
+                                                userPrefs
                                             ) as T
                                         }
                                     }
@@ -1308,7 +1332,8 @@ class MainActivity : ComponentActivity() {
                                             return cx.aswin.boxcast.feature.library.LibraryViewModel(
                                                 subscriptionRepository,
                                                 playbackRepository,
-                                                downloadRepository
+                                                downloadRepository,
+                                                userPrefs
                                             ) as T
                                         }
                                     }
@@ -1357,7 +1382,8 @@ class MainActivity : ComponentActivity() {
                                             return cx.aswin.boxcast.feature.library.LibraryViewModel(
                                                 subscriptionRepository,
                                                 playbackRepository,
-                                                downloadRepository
+                                                downloadRepository,
+                                                userPrefs
                                             ) as T
                                         }
                                     }

@@ -7,11 +7,18 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import androidx.compose.material.icons.rounded.Close
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +31,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,12 +53,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Whatshot
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.alpha
@@ -64,6 +80,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +113,8 @@ fun YourShowsSection(
     selectedPodcastEpisodes: List<Episode>,
     isSelectedPodcastLoading: Boolean,
     episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
+    currentPlayingEpisodeId: String? = null,
+    isPlaying: Boolean = false,
     onPodcastSelected: (String?) -> Unit,
     onPodcastClick: (Podcast) -> Unit,
     onEpisodeClick: (Episode, Podcast, String) -> Unit,
@@ -105,6 +125,7 @@ fun YourShowsSection(
 ) {
     LogRecomposition(name = "YourShowsSection")
     if (subscribedPodcasts.isEmpty()) return
+
 
     val interleavedPodcasts = remember(subscribedPodcasts) {
         if (subscribedPodcasts.size > 9) {
@@ -123,62 +144,6 @@ fun YourShowsSection(
         }
     }
 
-
-    val mixtapeScrollState = rememberScrollState()
-    val mixtapeScrollConnection = remember(mixtapeScrollState) {
-        object : NestedScrollConnection {
-            var isFirstScrollEvent = true
-            var lockToChild = false
-            var wasLocked = false
-
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && available.y != 0f) {
-                    if (isFirstScrollEvent) {
-                        isFirstScrollEvent = false
-                        val isScrollingUp = available.y < 0f // dragging up / scrolling down
-                        val isScrollingDown = available.y > 0f // dragging down / scrolling up
-                        
-                        val isAtTop = mixtapeScrollState.value == 0
-                        val isAtBottom = mixtapeScrollState.value >= mixtapeScrollState.maxValue
-                        
-                        lockToChild = when {
-                            isScrollingUp && isAtBottom -> false
-                            isScrollingDown && isAtTop -> false
-                            else -> true
-                        }
-                        wasLocked = lockToChild
-                    }
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                if (source == NestedScrollSource.UserInput && lockToChild) {
-                    // Slight pass: pass 10% to parent, consume 90%
-                    return available * 0.9f
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                isFirstScrollEvent = true
-                lockToChild = false
-                return Velocity.Zero
-            }
-
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (wasLocked) {
-                    wasLocked = false
-                    return available // Block momentum from scrolling parent if gesture started inside child
-                }
-                return Velocity.Zero
-            }
-        }
-    }
 
     val filteredScrollState = rememberScrollState()
     val filteredScrollConnection = remember(filteredScrollState) {
@@ -493,293 +458,333 @@ fun YourShowsSection(
         }
 
         // --- Dynamic Content Area ---
-        if (selectedPodcastId == null && subscribedPodcasts.size > 1) {
-            // Scenario A: Default State (More than 1 Sub, Nothing Selected)
-            // List up to 10 absolute latest episodes across subscriptions
-            val displayList = latestEpisodes
+        OutlinedCard(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+                .animateContentSize() // Animates height changes smoothly with a spring curve!
+        ) {
+            AnimatedContent(
+                targetState = selectedPodcastId == null && subscribedPodcasts.size > 1,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith
+                    fadeOut(animationSpec = tween(90))
+                },
+                label = "shows_mode_transition",
+                modifier = Modifier.fillMaxWidth()
+            ) { isMixtapeMode ->
+                if (isMixtapeMode) {
+                    // Scenario A: Default State (More than 1 Sub, Nothing Selected)
+                    val displayList = latestEpisodes
 
-            OutlinedCard(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Text(
-                            text = "For You",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = (-0.2).sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    val isAllCaughtUp = unplayedEpisodeCount == 0 && displayList.isNotEmpty()
-                    Text(
-                        text = if (isAllCaughtUp) "All caught up! Discover new shows in Explore" else "A personalized playlist of active and recent episodes",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isAllCaughtUp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    if (unplayedEpisodeCount > 0) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            shape = CircleShape,
+                    if (displayList.isNotEmpty()) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .expressiveClickable { onPlayMix() }
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f),
+                                            MaterialTheme.colorScheme.surfaceContainerLow
+                                        )
+                                    )
+                                )
+                                .padding(vertical = 16.dp)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Text(
+                                                text = "Up Next",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = (-0.5).sp,
+                                                    fontSize = 21.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+
+                                    if (unplayedEpisodeCount > 0) {
+                                        Button(
+                                            onClick = onPlayMix,
+                                            shape = CircleShape,
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
+                                            modifier = Modifier.height(38.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.PlayArrow,
+                                                contentDescription = "Play All",
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Play All",
+                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = 0.2.sp
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 18.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    items(displayList) { podcast ->
+                                        val episode = podcast.latestEpisode!!
+                                        val state = episodePlaybackState[episode.id]
+                                        MixtapeEpisodeCard(
+                                            episode = episode,
+                                            podcast = podcast,
+                                            onClick = { onEpisodeClick(episode, podcast, "home_mixtape_episodes") },
+                                            onPlay = { onPlayEpisode(episode, podcast) },
+                                            overrideStatus = state?.first,
+                                            overrideProgress = state?.second,
+                                            currentPlayingEpisodeId = currentPlayingEpisodeId,
+                                            isPlaying = isPlaying
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Caught up state
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Text(
+                                    text = "You're all caught up",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "New drops and active sessions will show up here.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Scenario B: Filtered State (A Specific Sub is Selected) / Scenario C: Only 1 Sub Edge Case
+                    val activeId = selectedPodcastId ?: subscribedPodcasts.firstOrNull()?.id
+                    val selectedPodcast = subscribedPodcasts.find { it.id == activeId }
+                    
+                    if (selectedPodcast == null) {
+                        Text(
+                            text = "No episodes available",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp, horizontal = 18.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = "Play Mix",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Play ($unplayedEpisodeCount)",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.1.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    androidx.compose.material3.HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                        thickness = 1.dp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(377.6.dp)
-                            .nestedScroll(mixtapeScrollConnection)
-                            .verticalScroll(mixtapeScrollState),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        displayList.forEach { podcast ->
-                            val episode = podcast.latestEpisode!!
-                            DenseEpisodeRow(
-                                episode = episode,
-                                podcast = podcast,
-                                onClick = { onEpisodeClick(episode, podcast, "home_mixtape_episodes") },
-                                onPlay = { onPlayEpisode(episode, podcast) }
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            // Scenario B: Filtered State (A Specific Sub is Selected) / Scenario C: Only 1 Sub Edge Case
-            val activeId = selectedPodcastId ?: subscribedPodcasts.firstOrNull()?.id
-            val selectedPodcast = subscribedPodcasts.find { it.id == activeId }
-            
-            if (selectedPodcast == null) {
-                Text(
-                    text = "No episodes available",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                OutlinedCard(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .expressiveClickable { onPodcastClick(selectedPodcast) }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            OptimizedImage(
-                                url = (selectedPodcast.imageUrl.takeIf { it.isNotEmpty() } ?: selectedPodcast.fallbackImageUrl),
-                                proxyWidth = 80,
-                                contentDescription = selectedPodcast.title,
-                                contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = selectedPodcast.title,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = (-0.2).sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                val isOldest = (selectedPodcast.preferredSort ?: "newest") == "oldest"
-                                Text(
-                                    text = if (isOldest) "Next Episodes" else "Latest Episodes",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            
-                            // Sleek Capsule View Show Button
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.height(28.dp)
+                                    .fillMaxWidth()
+                                    .expressiveClickable { onPodcastClick(selectedPodcast) }
+                                    .padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp)
+                                    modifier = Modifier.weight(1f)
                                 ) {
-                                    Text(
-                                        text = "View Show",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 0.2.sp
+                                    OptimizedImage(
+                                        url = (selectedPodcast.imageUrl.takeIf { it.isNotEmpty() } ?: selectedPodcast.fallbackImageUrl),
+                                        proxyWidth = 88,
+                                        contentDescription = selectedPodcast.title,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = selectedPodcast.title,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.ExtraBold,
+                                                letterSpacing = (-0.4).sp,
+                                                fontSize = 17.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Icon(
-                                        imageVector = Icons.Rounded.ChevronRight,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        androidx.compose.material3.HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                            thickness = 1.dp
-                        )
-                        
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        if (isSelectedPodcastLoading) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BoxCastLoader.Expressive(size = 48.dp)
-                            }
-                        } else if (selectedPodcastEpisodes.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "No episodes available",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(377.6.dp)
-                                    .nestedScroll(filteredScrollConnection)
-                                    .verticalScroll(filteredScrollState),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                selectedPodcastEpisodes.take(15).forEach { episode ->
-                                    val state = episodePlaybackState[episode.id]
-                                    DenseEpisodeRow(
-                                        episode = episode,
-                                        podcast = selectedPodcast,
-                                        onClick = { onEpisodeClick(episode, selectedPodcast, "home_filtered_latest_episodes") },
-                                        onPlay = { onPlayEpisode(episode, selectedPodcast) },
-                                        showPodcastTitle = false,
-                                        overrideStatus = state?.first,
-                                        overrideProgress = state?.second
-                                    )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        val isOldest = (selectedPodcast.preferredSort ?: "newest") == "oldest"
+                                        Text(
+                                            text = "Tap for show info • ${if (isOldest) "Next Up" else "Latest Drops"}",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                                 
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Surface(
+                                    shape = CircleShape,
                                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier
-                                        .height(40.dp)
-                                        .fillMaxWidth()
-                                        .expressiveClickable { onPodcastClick(selectedPodcast) }
+                                    contentColor = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(30.dp)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxSize(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(
-                                            text = "See All Episodes",
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                letterSpacing = 0.1.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                         Icon(
                                             imageVector = Icons.Rounded.ChevronRight,
-                                            contentDescription = null,
+                                            contentDescription = "Show info",
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
+                                    }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(14.dp))
+                            
+                            androidx.compose.material3.HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                                thickness = 1.dp
+                            )
+                            
+                            Spacer(modifier = Modifier.height(14.dp))
+                            
+                            if (isSelectedPodcastLoading) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BoxCastLoader.Expressive(size = 48.dp)
+                                }
+                            } else if (selectedPodcastEpisodes.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No episodes available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 324.dp) // Self-sizing height wraps content for fewer episodes! Eliminates empty space.
+                                        .nestedScroll(filteredScrollConnection)
+                                        .verticalScroll(filteredScrollState),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val latestTwoIds = remember(selectedPodcastEpisodes) {
+                                        selectedPodcastEpisodes.sortedByDescending { it.publishedDate }.take(2).map { it.id }.toSet()
+                                    }
+                                    selectedPodcastEpisodes.take(8).forEach { episode ->
+                                        val state = episodePlaybackState[episode.id]
+                                        DenseEpisodeRow(
+                                            episode = episode,
+                                            podcast = selectedPodcast,
+                                            onClick = { onEpisodeClick(episode, selectedPodcast, "home_filtered_latest_episodes") },
+                                            onPlay = { onPlayEpisode(episode, selectedPodcast) },
+                                            showPodcastTitle = false,
+                                            overrideStatus = state?.first,
+                                            overrideProgress = state?.second,
+                                            currentPlayingEpisodeId = currentPlayingEpisodeId,
+                                            isPlaying = isPlaying,
+                                            isEligibleForNewTag = episode.id in latestTwoIds
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .height(40.dp)
+                                            .fillMaxWidth()
+                                            .expressiveClickable { onPodcastClick(selectedPodcast) }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxSize(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Text(
+                                                text = "See All Episodes",
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 0.1.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(
+                                                imageVector = Icons.Rounded.ChevronRight,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -850,18 +855,22 @@ private fun DenseEpisodeRow(
     modifier: Modifier = Modifier,
     showPodcastTitle: Boolean = true,
     overrideStatus: EpisodeStatus? = null,
-    overrideProgress: Float? = null
+    overrideProgress: Float? = null,
+    currentPlayingEpisodeId: String? = null,
+    isPlaying: Boolean = false,
+    isEligibleForNewTag: Boolean = true
 ) {
-    val status = overrideStatus ?: podcast.episodeStatus
-    val progress = overrideProgress ?: podcast.resumeProgress ?: 0f
+    val status = overrideStatus ?: if (podcast.latestEpisode?.id == episode.id) podcast.episodeStatus else EpisodeStatus.UNPLAYED
+    val progress = overrideProgress ?: if (podcast.latestEpisode?.id == episode.id) (podcast.resumeProgress ?: 0f) else 0f
     val isCompleted = status == EpisodeStatus.COMPLETED
     val isInProgress = status == EpisodeStatus.IN_PROGRESS
+    val isCurrentPlaying = currentPlayingEpisodeId == episode.id && isPlaying
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .expressiveClickable(onClick = onClick)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -876,12 +885,40 @@ private fun DenseEpisodeRow(
                     .clip(RoundedCornerShape(8.dp))
             )
 
+            // Transparent mini glassmorphic play button centered on artwork
+            Surface(
+                onClick = onPlay,
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.45f),
+                contentColor = Color.White,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.45f)),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(28.dp)
+                    .expressiveClickable(onClick = onPlay)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = if (isCurrentPlaying) {
+                            Icons.Rounded.Pause
+                        } else {
+                            Icons.Rounded.PlayArrow
+                        },
+                        contentDescription = if (isCurrentPlaying) "Pause" else "Play",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
             if (isCompleted) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(3.dp)
-                        .size(16.dp)
+                        .size(14.dp)
                         .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
                         .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f), CircleShape),
                     contentAlignment = Alignment.Center
@@ -890,10 +927,11 @@ private fun DenseEpisodeRow(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = "Played",
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(10.dp)
+                        modifier = Modifier.size(8.dp)
                     )
                 }
             }
+
 
             if (isInProgress && progress > 0f) {
                 LinearProgressIndicator(
@@ -904,7 +942,7 @@ private fun DenseEpisodeRow(
                         .height(3.dp)
                         .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    trackColor = Color.White.copy(alpha = 0.4f),
                     drawStopIndicator = {}
                 )
             }
@@ -918,12 +956,16 @@ private fun DenseEpisodeRow(
         ) {
             Text(
                 text = episode.title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp
+                ),
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -938,7 +980,7 @@ private fun DenseEpisodeRow(
                         modifier = Modifier.weight(1f, fill = false)
                     )
                 }
-                val isNew = podcast.subscribedAt > 0L && episode.publishedDate > (podcast.subscribedAt / 1000L)
+                val isNew = isEligibleForNewTag && status == EpisodeStatus.UNPLAYED && podcast.subscribedAt > 0L && episode.publishedDate > (podcast.subscribedAt / 1000L - 7 * 24 * 3600L)
                 if (isNew) {
                     Box(
                         modifier = Modifier
@@ -982,47 +1024,9 @@ private fun DenseEpisodeRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isInProgress) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        fontWeight = if (isInProgress) FontWeight.Medium else FontWeight.Normal
+                        fontWeight = if (isInProgress) FontWeight.Bold else FontWeight.Normal
                     )
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        val interactionSource = remember { MutableInteractionSource() }
-        val isPressed by interactionSource.collectIsPressedAsState()
-        val btnColor by animateColorAsState(
-            targetValue = if (isPressed) MaterialTheme.colorScheme.primary
-                         else MaterialTheme.colorScheme.primaryContainer,
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-            label = "btnColor"
-        )
-        val iconColor by animateColorAsState(
-            targetValue = if (isPressed) MaterialTheme.colorScheme.onPrimary
-                         else MaterialTheme.colorScheme.primary,
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-            label = "iconColor"
-        )
-
-        Surface(
-            shape = CircleShape,
-            color = btnColor,
-            modifier = Modifier
-                .size(36.dp)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onPlay
-                )
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = "Play episode",
-                    tint = iconColor,
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
     }
@@ -1081,6 +1085,215 @@ private fun MixtapeSelectorCover(
                     .fillMaxSize()
                     .border(borderStrokeWidth, MaterialTheme.colorScheme.primary, RoundedCornerShape(cornerRadius))
             )
+        }
+    }
+}
+
+@Composable
+private fun MixtapeEpisodeCard(
+    episode: Episode,
+    podcast: Podcast,
+    onClick: () -> Unit,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+    overrideStatus: EpisodeStatus? = null,
+    overrideProgress: Float? = null,
+    currentPlayingEpisodeId: String? = null,
+    isPlaying: Boolean = false
+) {
+    val status = overrideStatus ?: if (podcast.latestEpisode?.id == episode.id) podcast.episodeStatus else EpisodeStatus.UNPLAYED
+    val progress = overrideProgress ?: if (podcast.latestEpisode?.id == episode.id) (podcast.resumeProgress ?: 0f) else 0f
+    val isInProgress = status == EpisodeStatus.IN_PROGRESS
+    val isCompleted = status == EpisodeStatus.COMPLETED
+    val isCurrentPlaying = currentPlayingEpisodeId == episode.id && isPlaying
+
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+        modifier = modifier
+            .width(280.dp)
+            .height(96.dp)
+            .expressiveClickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left: Clean cover art with centered transparent glassmorphic play button
+            Box(
+                modifier = Modifier
+                    .size(76.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            ) {
+                OptimizedImage(
+                    url = (episode.imageUrl?.takeIf { it.isNotEmpty() } ?: podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl),
+                    proxyWidth = 152,
+                    contentDescription = episode.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Transparent glass circular play button overlaid directly on artwork
+                Surface(
+                    onClick = onPlay,
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.45f),
+                    contentColor = Color.White,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.45f)),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(38.dp)
+                        .expressiveClickable(onClick = onPlay)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = if (isCurrentPlaying) {
+                                Icons.Rounded.Pause
+                            } else {
+                                Icons.Rounded.PlayArrow
+                            },
+                            contentDescription = if (isCurrentPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                if (isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(16.dp)
+                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = "Played",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+
+                if (isInProgress && progress > 0f) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(3.5.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.4f),
+                        drawStopIndicator = {}
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Center: Info Column (Highly structured vertical layout with spacedBy to prevent stretching)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = episode.title,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            lineHeight = 15.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    Text(
+                        text = podcast.title,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val isNew = status == EpisodeStatus.UNPLAYED && podcast.subscribedAt > 0L && episode.publishedDate > (podcast.subscribedAt / 1000L - 7 * 24 * 3600L)
+                    if (isNew) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = "NEW",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 7.5.sp,
+                                    letterSpacing = 0.5.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    val relativeDate = formatRelativeDate(episode.publishedDate)
+                    if (relativeDate.isNotEmpty()) {
+                        val prefix = if (isNew) "• " else ""
+                        Text(
+                            text = "$prefix$relativeDate",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                        )
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+                    }
+
+                    if (episode.duration > 0) {
+                        val h = episode.duration / 3600
+                        val m = (episode.duration % 3600) / 60
+                        val timeText = if (isInProgress && progress > 0f) {
+                            val remaining = ((1f - progress) * episode.duration).toInt()
+                            val rm = (remaining % 3600) / 60
+                            "${rm}m left"
+                        } else {
+                            if (h > 0) "${h}h ${m}m" else "${m}m"
+                        }
+                        Text(
+                            text = timeText,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = if (isInProgress) MaterialTheme.colorScheme.primary 
+                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
         }
     }
 }

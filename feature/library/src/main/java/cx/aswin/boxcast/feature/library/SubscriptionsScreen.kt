@@ -140,7 +140,7 @@ fun SubscriptionsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var isGridView by rememberSaveable { mutableStateOf(true) }
-    var useSmartRank by rememberSaveable { mutableStateOf(true) }
+    val useSmartRank by viewModel.useSmartRank.collectAsStateWithLifecycle()
     var showSortMenu by remember { mutableStateOf(false) }
     
     val focusRequester = remember { FocusRequester() }
@@ -350,7 +350,7 @@ fun SubscriptionsScreen(
                                             DropdownMenuItem(
                                                 text = { Text("Smart Sort") },
                                                 onClick = {
-                                                    useSmartRank = true
+                                                    viewModel.setUseSmartRank(true)
                                                     showSortMenu = false
                                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "latest")
                                                 },
@@ -363,7 +363,7 @@ fun SubscriptionsScreen(
                                             DropdownMenuItem(
                                                 text = { Text("Chronological") },
                                                 onClick = {
-                                                    useSmartRank = false
+                                                    viewModel.setUseSmartRank(false)
                                                     showSortMenu = false
                                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("chronological", "latest")
                                                 },

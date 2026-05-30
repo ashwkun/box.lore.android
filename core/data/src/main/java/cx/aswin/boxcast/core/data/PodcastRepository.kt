@@ -112,7 +112,12 @@ class PodcastRepository(
                                     imageUrl = (feed.artwork ?: feed.image).toHttps(),
                                     description = feed.description,
                                     genre = resolvePrimaryGenre(feed.categories),
-                                    latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) },
+                                    latestEpisode = feed.latestEpisode?.let { epItem ->
+                                        mapToEpisode(epItem)?.copy(
+                                            podcastId = epItem.feedId?.toString() ?: feed.id.toString(),
+                                            podcastTitle = epItem.feedTitle?.takeIf { it.isNotBlank() } ?: feed.title
+                                        )
+                                    },
                                     medium = feed.medium
                                 )
                                 podcasts.add(podcast)
@@ -182,7 +187,12 @@ class PodcastRepository(
                 imageUrl = (feed.artwork ?: feed.image).toHttps(),
                 description = feed.description,
                 genre = resolvePrimaryGenre(feed.categories),
-                latestEpisode = feed.latestEpisode?.let { mapToEpisode(it) },
+                latestEpisode = feed.latestEpisode?.let { epItem ->
+                    mapToEpisode(epItem)?.copy(
+                        podcastId = epItem.feedId?.toString() ?: feed.id.toString(),
+                        podcastTitle = epItem.feedTitle?.takeIf { it.isNotBlank() } ?: feed.title
+                    )
+                },
                 medium = feed.medium
             )
         }
@@ -370,7 +380,9 @@ class PodcastRepository(
             
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.items.mapNotNull { item ->
-                    val ep = item.latestEpisode?.let { mapToEpisode(it) }
+                    val ep = item.latestEpisode?.let { mapToEpisode(it) }?.copy(
+                        podcastId = item.id
+                    )
                     if (ep != null) item.id to ep else null
                 }.toMap()
             } else {
@@ -381,10 +393,21 @@ class PodcastRepository(
         }
     }
 
-    suspend fun getPersonalizedRecommendations(history: List<cx.aswin.boxcast.core.network.model.HistoryItem>): List<Episode> = withContext(Dispatchers.IO) {
+    suspend fun getPersonalizedRecommendations(
+        history: List<cx.aswin.boxcast.core.network.model.HistoryItem>,
+        interests: List<String> = emptyList(),
+        country: String? = null,
+        subscribedPodcastIds: List<String> = emptyList(),
+        subscribedGenres: List<String> = emptyList()
+    ): List<Episode> = withContext(Dispatchers.IO) {
         try {
-            if (history.isEmpty()) return@withContext emptyList()
-            val request = cx.aswin.boxcast.core.network.model.RecommendationsRequest(history)
+            val request = cx.aswin.boxcast.core.network.model.RecommendationsRequest(
+                history = history,
+                interests = interests,
+                country = country,
+                subscribedPodcastIds = subscribedPodcastIds,
+                subscribedGenres = subscribedGenres
+            )
             val response = api.getPersonalizedRecommendations(publicKey, request).execute()
             if (response.isSuccessful && response.body() != null) {
                 response.body()!!.items.mapNotNull { mapToEpisode(it) }
@@ -431,6 +454,7 @@ class PodcastRepository(
             audioUrl = audioUrl,
             imageUrl = (item.image?.takeIf { it.isNotBlank() } ?: item.feedImage?.takeIf { it.isNotBlank() }).toHttps(),
             podcastImageUrl = item.feedImage?.takeIf { it.isNotBlank() }?.let { it.toHttps() },
+            podcastTitle = item.feedTitle,
             podcastId = item.feedId?.toString(),
             duration = item.duration ?: 0,
             publishedDate = item.datePublished ?: 0L,

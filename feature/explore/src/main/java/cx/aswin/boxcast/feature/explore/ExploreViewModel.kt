@@ -25,11 +25,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+import cx.aswin.boxcast.core.data.PlaybackRepository
+import cx.aswin.boxcast.core.model.Episode
+
 sealed interface ExploreUiState {
     data object Loading : ExploreUiState
     data class Success(
         val trending: List<Podcast> = emptyList(),
         val searchResults: List<Podcast> = emptyList(),
+        val recommendations: List<Episode> = emptyList(),
         val subscribedIds: Set<String> = emptySet(), // For badging
         val currentCategory: String = "All",
         val searchQuery: String = "",
@@ -38,7 +42,9 @@ sealed interface ExploreUiState {
         val currentVibe: String? = null,
         val suggestedVibes: List<Pair<String, String>> = emptyList(),
         val isLoadingMore: Boolean = false,
-        val hasMore: Boolean = true
+        val hasMore: Boolean = true,
+        val selectedTab: Int = 1, // 0 for Trending, 1 for For You (default)
+        val isRecommendationsLoading: Boolean = false
     ) : ExploreUiState
     data class Error(val message: String) : ExploreUiState
 }
@@ -48,13 +54,16 @@ class ExploreViewModel(
     private val podcastRepository: PodcastRepository,
     private val subscriptionRepository: SubscriptionRepository,
     private val userPrefs: cx.aswin.boxcast.core.data.UserPreferencesRepository,
-    initialCategory: String? = null // New param
+    private val playbackRepository: PlaybackRepository,
+    initialCategory: String? = null,
+    initialTab: String? = null
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow<ExploreUiState>(
         ExploreUiState.Success(
             trending = emptyList(),
             searchResults = emptyList(),
+            recommendations = emptyList(),
             subscribedIds = emptySet(),
             currentCategory = initialCategory ?: "All",
             searchQuery = "",
@@ -63,16 +72,22 @@ class ExploreViewModel(
             currentVibe = null,
             suggestedVibes = emptyList(),
             isLoadingMore = false,
-            hasMore = true
+            hasMore = true,
+            selectedTab = if (initialCategory != null || initialTab == "trending") 0 else 1,
+            isRecommendationsLoading = false
         )
     )
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
+    val playerState = playbackRepository.playerState
 
     // Internal state to combine
     private val _searchQuery = MutableStateFlow("")
     private val _currentCategory = MutableStateFlow(initialCategory ?: "All") // Use it here
     private val _trendingPodcasts = MutableStateFlow<List<Podcast>>(emptyList())
     private val _searchResults = MutableStateFlow<List<Podcast>>(emptyList())
+    private val _selectedTab = MutableStateFlow(if (initialCategory != null || initialTab == "trending") 0 else 1)
+    private val _recommendations = MutableStateFlow<List<Episode>>(emptyList())
+    private val _isRecommendationsLoading = MutableStateFlow(false)
 
     // Seen/cached podcasts for eager zero-latency substring client-side matching
     private val _seenPodcasts = java.util.concurrent.ConcurrentHashMap<String, Podcast>()
@@ -161,21 +176,35 @@ class ExploreViewModel(
                 // Custom combine to pull all flows
                 Triple(subIds, category, trending) to arrayOf(searchRes, query, pIsLoading, pIsLoadingMore, pHasMore)
             }.combine(
-                combine(_currentVibe, _suggestedVibes) { vibe, vibes -> Pair(vibe, vibes) }
-            ) { (trip1, trip2), vibePair ->
+                combine(
+                    _currentVibe,
+                    _suggestedVibes,
+                    _selectedTab,
+                    _recommendations,
+                    _isRecommendationsLoading
+                ) { vibe, vibes, tab, recs, recsLoading ->
+                    arrayOf(vibe, vibes, tab, recs, recsLoading)
+                }
+            ) { (trip1, trip2), extra ->
                 val (subIds, category, trending) = trip1
                 val searchRes = trip2[0] as List<Podcast>
                 val query = trip2[1] as String
                 val pIsLoading = trip2[2] as Boolean
                 val pIsLoadingMore = trip2[3] as Boolean
                 val pHasMore = trip2[4] as Boolean
-                val (currentVibe, vibes) = vibePair
+                
+                val currentVibe = extra[0] as String?
+                val vibes = extra[1] as List<Pair<String, String>>
+                val selectedTab = extra[2] as Int
+                val recommendations = extra[3] as List<Episode>
+                val isRecommendationsLoading = extra[4] as Boolean
 
                 val isSearching = query.isNotEmpty() || currentVibe != null
 
                 ExploreUiState.Success(
                     trending = trending,
                     searchResults = searchRes,
+                    recommendations = recommendations,
                     subscribedIds = subIds,
                     currentCategory = category,
                     searchQuery = query,
@@ -184,7 +213,9 @@ class ExploreViewModel(
                     currentVibe = currentVibe,
                     suggestedVibes = vibes,
                     isLoadingMore = pIsLoadingMore,
-                    hasMore = pHasMore
+                    hasMore = pHasMore,
+                    selectedTab = selectedTab,
+                    isRecommendationsLoading = isRecommendationsLoading
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -204,12 +235,21 @@ class ExploreViewModel(
                 loadTrending(category, region)
             }
         }
+
+        viewModelScope.launch {
+            combine(
+                userPrefs.regionStream,
+                subscriptionRepository.subscribedPodcastIds
+            ) { _, _ -> }.collect {
+                fetchPersonalizedRecommendations()
+            }
+        }
         
         // Observe explore region nudge preference and active region stream
         // Only show for non-mismatch users (mismatch users already get the Home nudge)
         viewModelScope.launch {
             val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                if (it == "us" || it == "in" || it == "gb" || it == "uk") it else "us"
+                if (it == "us" || it == "in" || it == "gb" || it == "uk" || it == "fr") it else "us"
             }
             
             // Persist the initial match check to survive VM recreation
@@ -233,23 +273,39 @@ class ExploreViewModel(
         }
     }
 
-    private fun loadAllVibes() {
-        val vibes = listOf(
+    private fun getSortedVibesForTimeOfDay(): List<Pair<String, String>> {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val morning = listOf(
             "morning_news" to "Top News",
             "morning_motivation" to "Daily Motivation",
-            "business_insider" to "Business & Tech",
+            "business_insider" to "Business & Tech"
+        )
+        val afternoon = listOf(
             "science_explainer" to "Science & Discovery",
             "tech_culture" to "Tech & Gadgets",
-            "creative_focus" to "Creative Focus",
+            "creative_focus" to "Creative Focus"
+        )
+        val evening = listOf(
             "comedy_gold" to "Comedy Gold",
             "tv_film_buff" to "TV & Film",
-            "sports_fan" to "Sports Highlights",
+            "sports_fan" to "Sports Highlights"
+        )
+        val lateNight = listOf(
             "true_crime_sleep" to "True Crime & Chill",
             "history_buff" to "History",
             "mystery_thriller" to "Mystery & Thrillers"
         )
-        // Shuffle for variety, or keep static. Static provides a consistent layout.
-        _suggestedVibes.value = vibes
+
+        return when (hour) {
+            in 5..11 -> morning + afternoon + evening + lateNight
+            in 12..16 -> afternoon + evening + lateNight + morning
+            in 17..22 -> evening + lateNight + morning + afternoon
+            else -> lateNight + morning + afternoon + evening
+        }
+    }
+
+    private fun loadAllVibes() {
+        _suggestedVibes.value = getSortedVibesForTimeOfDay()
     }
 
     @OptIn(FlowPreview::class)
@@ -476,6 +532,46 @@ class ExploreViewModel(
     fun switchRegion(region: String) {
         viewModelScope.launch {
             userPrefs.setRegion(region)
+        }
+    }
+
+    fun onTabSelected(tabIndex: Int) {
+        _selectedTab.value = tabIndex
+    }
+
+    fun fetchPersonalizedRecommendations() {
+        viewModelScope.launch {
+            _isRecommendationsLoading.value = true
+            try {
+                val prefs = getApplication<android.app.Application>().getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
+                val interests = prefs.getStringSet("user_genres", emptySet())?.toList() ?: emptyList()
+                val history = playbackRepository.getHistoryForRecommendations(15)
+                
+                val subscribedIds = subscriptionRepository.subscribedPodcastIds.first().toList()
+                val subscribedGenres = subscriptionRepository.subscribedPodcasts.first()
+                    .mapNotNull { it.genre }
+                    .distinct()
+                
+                val region = userPrefs.regionStream.first()
+                
+                android.util.Log.d("ExploreViewModel", "Fetching recommendations with history size: ${history.size}, interests: $interests, region: $region, subscribedCount: ${subscribedIds.size}")
+                val recs = podcastRepository.getPersonalizedRecommendations(
+                    history = history,
+                    interests = interests,
+                    country = region,
+                    subscribedPodcastIds = subscribedIds,
+                    subscribedGenres = subscribedGenres
+                )
+                android.util.Log.d("ExploreViewModel", "Fetched recommendations size: ${recs.size}")
+                val distinctRecs = recs
+                    .distinctBy { it.id }
+                    .distinctBy { it.title.toLowerCase().trim() }
+                _recommendations.value = distinctRecs
+            } catch (e: Exception) {
+                android.util.Log.e("ExploreViewModel", "Failed to fetch personalized recommendations", e)
+            } finally {
+                _isRecommendationsLoading.value = false
+            }
         }
     }
 

@@ -68,7 +68,12 @@ class SubscriptionRepository(
                 genre = podcast.genre, // Persist genre for Smart Queue matching
                 type = podcast.type,
                 lastRefreshed = System.currentTimeMillis(),
-                latestEpisode = podcast.latestEpisode,
+                latestEpisode = podcast.latestEpisode?.let { ep ->
+                    ep.copy(
+                        podcastId = ep.podcastId.takeIf { !it.isNullOrBlank() } ?: podcast.id,
+                        podcastTitle = ep.podcastTitle.takeIf { !it.isNullOrBlank() } ?: podcast.title
+                    )
+                },
                 podcastGuid = podcast.podcastGuid,
                 fundingUrl = podcast.fundingUrl,
                 fundingMessage = podcast.fundingMessage,
@@ -103,7 +108,12 @@ class SubscriptionRepository(
             genre = podcast.genre,
             type = typeVal,
             lastRefreshed = existing?.lastRefreshed ?: System.currentTimeMillis(),
-            latestEpisode = podcast.latestEpisode ?: existing?.latestEpisode,
+            latestEpisode = (podcast.latestEpisode ?: existing?.latestEpisode)?.let { ep ->
+                ep.copy(
+                    podcastId = ep.podcastId.takeIf { !it.isNullOrBlank() } ?: podcast.id,
+                    podcastTitle = ep.podcastTitle.takeIf { !it.isNullOrBlank() } ?: podcast.title
+                )
+            },
             podcastGuid = existing?.podcastGuid ?: podcast.podcastGuid,
             fundingUrl = existing?.fundingUrl ?: podcast.fundingUrl,
             fundingMessage = existing?.fundingMessage ?: podcast.fundingMessage,
@@ -119,7 +129,19 @@ class SubscriptionRepository(
     }
 
     suspend fun updateLatestEpisode(podcastId: String, episode: cx.aswin.boxcast.core.model.Episode?) {
-        podcastDao.updateLatestEpisode(podcastId, episode)
+        val enrichedEpisode = episode?.let { ep ->
+            val resolvedTitle = if (ep.podcastTitle.isNullOrBlank()) {
+                val podcast = podcastDao.getPodcast(podcastId)
+                podcast?.title
+            } else {
+                ep.podcastTitle
+            }
+            ep.copy(
+                podcastId = ep.podcastId.takeIf { !it.isNullOrBlank() } ?: podcastId,
+                podcastTitle = resolvedTitle
+            )
+        }
+        podcastDao.updateLatestEpisode(podcastId, enrichedEpisode)
     }
 
     suspend fun updatePreferredSort(podcastId: String, sort: String?) {

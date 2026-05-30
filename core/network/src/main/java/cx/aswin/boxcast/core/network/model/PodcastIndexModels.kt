@@ -168,6 +168,9 @@ data class EpisodeItem(
     @SerialName("feedId")
     val feedId: Long? = null,
     
+    @SerialName("feedTitle")
+    val feedTitle: String? = null,
+    
     @SerialName("chaptersUrl")
     val chaptersUrl: String? = null,
     
