@@ -45,6 +45,7 @@ data class HistoryItem(
     val podcastTitle: String,
     val episodeTitle: String,
     val podcastId: String? = null,
+    val episodeId: String? = null,
     val genre: String? = null,
     val durationMs: Long? = null,
     val progressMs: Long? = null,

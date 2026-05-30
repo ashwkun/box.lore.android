@@ -1948,6 +1948,7 @@ class PlaybackRepository(
                     podcastTitle = entity.podcastName,
                     episodeTitle = entity.episodeTitle,
                     podcastId = entity.podcastId,
+                    episodeId = entity.episodeId,
                     genre = podcast?.genre,
                     durationMs = entity.durationMs,
                     progressMs = entity.progressMs,
