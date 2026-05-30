@@ -3,8 +3,7 @@ This document provides a detailed technical breakdown of the boxcast personalize
 **Client-Side Payloads and Transmission Schemas**
 Personalization begins on the client device, which transmits listening state metadata to the Cloudflare Worker proxy via a POST request to https://api.aswin.cx/recommendations. 
 
-The client-side request requires two authentication and caching headers:
-* X-App-Key: The application secret key matching the proxy's credentials.
+The client-side request includes tracking and caching headers:
 * x-device-uuid: A unique identifier for the device, used to cache generated recommendations.
 
 The body of the POST request is a JSON object containing the following structure:
