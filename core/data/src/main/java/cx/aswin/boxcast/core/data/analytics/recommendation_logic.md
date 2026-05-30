@@ -84,7 +84,7 @@ The pool of recommendations queryable in Qdrant is built and maintained by the G
 
 The workflow executes the following pipeline:
 
-1. Chart Population (populate-charts.js): Queries the Apple Marketing RSS API for the country's top 50 trending podcasts. These are saved or updated in the charts table of the Turso SQL database.
+1. Chart Population (populate-charts.js): Queries the Apple Marketing RSS API for the country's top 200 trending podcasts each * 16 different genres . These are saved or updated in the charts table of the Turso SQL database.
 
 2. Pre-check Sync (pre-check-sync.js): Compares local DB states to determine if a full Podcast Index database dump download can be skipped to conserve bandwidth.
 
