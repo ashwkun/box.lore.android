@@ -5,6 +5,11 @@
  * in the database and sync to Qdrant Cloud.
  * Uses CPU-based transformers.js (bge-large-en-v1.5, 1024-dim)
  * Integrates directly with Qdrant REST APIs.
+ * 
+ * Optimized with:
+ * - Safe concurrent processing queue
+ * - Global rate-limit cooldown with a live logs countdown
+ * - Real-time progress indicators showing how many podcasts are remaining
  */
 
 const crypto = require('crypto');
@@ -26,8 +31,16 @@ if (!TURSO_URL || !TURSO_TOKEN || !QDRANT_URL || !QDRANT_API_KEY || !API_KEY || 
 // Configuration
 const MODEL_NAME = 'Xenova/bge-large-en-v1.5';
 const COLLECTION_NAME = 'episodes';
-const BATCH_SIZE = 50;
 const EPISODES_LIMIT = 30; // 30 episodes per podcast
+
+// Global State
+let success = 0;
+let skipped = 0;
+let errors = 0;
+let nextPodcastIndex = 0;
+let globalRateLimitCooldownUntil = 0;
+let isGlobalCooldownRunning = false;
+let extractor;
 
 // Helper: Generate Podcast Index Auth Headers
 function generateAuthHeaders() {
@@ -82,21 +95,47 @@ async function executeSQL(sql, args = []) {
     return res;
 }
 
+// Global Cooldown Handler
+async function triggerGlobalCooldown(durationMs) {
+    if (isGlobalCooldownRunning) {
+        while (Date.now() < globalRateLimitCooldownUntil) {
+            await new Promise(r => setTimeout(r, 1000));
+        }
+        return;
+    }
+    isGlobalCooldownRunning = true;
+    globalRateLimitCooldownUntil = Date.now() + durationMs;
+    const durationSeconds = Math.ceil(durationMs / 1000);
+    console.warn(`\n⚠️ [RATE LIMIT] 429 Too Many Requests detected. Triggering global cooldown of ${durationSeconds}s...`);
+    
+    for (let sec = durationSeconds; sec > 0; sec--) {
+        if (sec % 5 === 0 || sec <= 5) {
+            console.log(`⏱️ Rate-limit cooldown: ${sec}s remaining`);
+        }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    console.log(`✅ Cooldown completed. Resuming pipeline operations.\n`);
+    isGlobalCooldownRunning = false;
+}
+
 // Helper: Fetch latest episodes from Podcast Index with retry and backoff on 429
 async function fetchEpisodes(feedId, retries = 3, delay = 1000) {
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
         try {
+            // Check global cooldown before making request
+            if (Date.now() < globalRateLimitCooldownUntil) {
+                const waitTime = globalRateLimitCooldownUntil - Date.now();
+                if (waitTime > 0) {
+                    await new Promise(r => setTimeout(r, waitTime));
+                }
+            }
+
             const headers = generateAuthHeaders();
             const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=${EPISODES_LIMIT}`, { headers });
             
             if (res.status === 429) {
-                if (attempt <= retries) {
-                    const backoff = delay * Math.pow(2, attempt - 1);
-                    console.warn(`  [WARN] Rate limited (429) fetching episodes for pod=${feedId}. Retrying attempt ${attempt}/${retries} after ${backoff}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, backoff));
-                    continue;
-                }
-                throw new Error(`API error 429: Too Many Requests`);
+                await triggerGlobalCooldown(30000); // 30s cooldown
+                continue; // Retry
             }
             
             if (!res.ok) {
@@ -222,6 +261,153 @@ function cleanDescription(raw) {
     return text.replace(/\s+/g, ' ').trim().substring(0, 1000);
 }
 
+// Process a single podcast complete flow
+async function processSinglePodcast(pod, workerId, totalPodcasts) {
+    // 1. Fetch latest episodes
+    let episodes;
+    try {
+        episodes = await fetchEpisodes(pod.id);
+    } catch (e) {
+        console.error(`  [Worker ${workerId}] Failed to fetch episodes for "${pod.title}" due to API errors.`);
+        errors++;
+        return;
+    }
+
+    if (episodes.length === 0) {
+        console.log(`  [Worker ${workerId}] No episodes found for "${pod.title}". Skipping.`);
+        try {
+            await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
+            console.log(`  [Worker ${workerId}] Marked "${pod.title}" as vectorized (no episodes).`);
+        } catch (err) {
+            console.error(`  [Worker ${workerId}] Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+        }
+        return;
+    }
+
+    // 2. Map episode IDs to stable UUIDs
+    const episodeMap = episodes.map(ep => ({
+        raw: ep,
+        uuid: generateUUID(ep.id)
+    }));
+    const uuids = episodeMap.map(m => m.uuid);
+
+    // 3. Qdrant Batch check
+    const existingUuids = await qdrantCheckExistence(uuids);
+    console.log(`  [Worker ${workerId}] Qdrant status: ${existingUuids.size}/${episodes.length} episodes already indexed for "${pod.title}".`);
+
+    const toVectorize = episodeMap.filter(m => !existingUuids.has(m.uuid));
+    skipped += existingUuids.size;
+
+    if (toVectorize.length === 0) {
+        console.log(`  [Worker ${workerId}] All episodes up-to-date in Qdrant for "${pod.title}".`);
+        try {
+            await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
+            console.log(`  [Worker ${workerId}] Marked "${pod.title}" as vectorized (up-to-date).`);
+        } catch (err) {
+            console.error(`  [Worker ${workerId}] Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+        }
+        return;
+    }
+
+    console.log(`  [Worker ${workerId}] ${toVectorize.length} new episodes qualify for vectorization.`);
+    const points = [];
+
+    for (const item of toVectorize) {
+        const ep = item.raw;
+        const uuid = item.uuid;
+        const epTitle = ep.title || "";
+        const rawDesc = ep.description || "";
+        const cleanedDesc = cleanDescription(rawDesc);
+
+        // Construct text string
+        const textParts = [
+            `Episode: ${epTitle}`,
+            cleanedDesc ? `Description: ${cleanedDesc}` : null,
+            `Podcast: ${pod.title}`,
+            pod.categories ? `Genres: ${pod.categories}` : null,
+            pod.author ? `Host: ${pod.author}` : null
+        ].filter(Boolean);
+        const text = textParts.join('. ').replace(/[\n\r]+/g, ' ').substring(0, 1000);
+
+        try {
+            // Generate embedding vector
+            const output = await extractor(text, { pooling: 'mean', normalize: true });
+            const vector = Array.from(output.data);
+
+            // Build point metadata payload
+            const payload = {
+                id: parseInt(ep.id) || 0,
+                title: epTitle,
+                description: ep.description || "",
+                podcast_id: parseInt(pod.id) || 0,
+                podcast_title: pod.title,
+                podcast_author: pod.author || "",
+                podcast_image_url: pod.image_url || "",
+                podcast_categories: pod.categories || "",
+                language: pod.language || "en",
+                audio_url: ep.enclosureUrl || "",
+                image_url: ep.image || ep.feedImage || pod.image_url || "",
+                published_date: ep.datePublished || 0,
+                duration: ep.duration || 0
+            };
+
+            points.push({
+                id: uuid,
+                vector,
+                payload
+            });
+        } catch (err) {
+            console.error(`  [Worker ${workerId}] Failed to vectorize "${epTitle}": ${err.message}`);
+            errors++;
+        }
+    }
+
+    // Batch upload new points to Qdrant
+    if (points.length > 0) {
+        console.log(`  [Worker ${workerId}] Uploading ${points.length} vectors to Qdrant...`);
+        try {
+            await qdrantUpsertBatch(points);
+            success += points.length;
+            console.log(`  [Worker ${workerId}] Successful upload to Qdrant for "${pod.title}"!`);
+            
+            // Mark as vectorized in Turso DB
+            await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
+            console.log(`  [Worker ${workerId}] Marked "${pod.title}" as vectorized (uploaded ${points.length} vectors).`);
+        } catch (err) {
+            console.error(`  [Worker ${workerId}] Failed to upload batch to Qdrant: ${err.message}`);
+            errors += points.length;
+        }
+    }
+
+    // Rolling Window Delete: Keep only the latest 30 episodes in Qdrant for this podcast
+    if (uuids.length > 0) {
+        try {
+            const deleteResponse = await fetch(`${QDRANT_URL}/collections/${COLLECTION_NAME}/points/delete`, {
+                method: "POST",
+                headers: {
+                    "api-key": QDRANT_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    filter: {
+                        must: [
+                            { key: "podcast_id", match: { value: parseInt(pod.id) || 0 } }
+                        ],
+                        must_not: [
+                            { has_id: uuids }
+                        ]
+                    }
+                })
+            });
+            if (deleteResponse.ok) {
+                console.log(`  [Worker ${workerId}] Pruned older episodes for "${pod.title}" successfully.`);
+            }
+        } catch (pruneErr) {
+            console.warn(`  [Worker ${workerId}] Pruning failed for "${pod.title}":`, pruneErr.message);
+        }
+    }
+}
+
 async function main() {
     console.log("=== Starting Qdrant Complete Vector Sync Pipeline ===");
 
@@ -230,11 +416,15 @@ async function main() {
     const limitVal = limitIndex !== -1 ? parseInt(process.argv[limitIndex + 1]) : 5000;
 
     const timeLimitIndex = process.argv.indexOf('--max-time');
-    const maxTimeMinutes = timeLimitIndex !== -1 ? parseInt(process.argv[timeLimitIndex + 1]) : 330; // Default to 330 mins (5.5 hrs)
+    const maxTimeMinutes = timeLimitIndex !== -1 ? parseInt(process.argv[timeLimitIndex + 1]) : 330; // Default to 330 mins
     const maxTimeMs = maxTimeMinutes * 60 * 1000;
+
+    const concurrencyIndex = process.argv.indexOf('--concurrency');
+    const concurrencyVal = concurrencyIndex !== -1 ? parseInt(process.argv[concurrencyIndex + 1]) : 4; // Default to 4 workers
 
     console.log(`[CONFIG] Job constraints:`);
     console.log(`  - Podcast Limit: ${limitVal}`);
+    console.log(`  - Concurrency:   ${concurrencyVal} workers`);
     console.log(`  - Time Limit:    ${maxTimeMinutes} minutes (${maxTimeMs} ms)`);
 
     // Verify Qdrant connection
@@ -261,10 +451,10 @@ async function main() {
     // 1. Setup local CPU embedding generator
     const { env: envESM, pipeline } = await import('@xenova/transformers');
     envESM.cacheDir = './.cache';
-    const extractor = await pipeline('feature-extraction', MODEL_NAME);
+    extractor = await pipeline('feature-extraction', MODEL_NAME);
     console.log(`[MODEL] Loaded embedding extractor: ${MODEL_NAME}`);
 
-    // 2. Fetch all podcasts that are not yet vectorized
+    // 2. Fetch all podcasts that are not yet vectorized and are actively in charts
     const sql = `
         SELECT DISTINCT 
             p.id, 
@@ -280,7 +470,7 @@ async function main() {
     `;
     const args = [limitVal];
 
-    console.log("[SYNC] Querying Turso for non-vectorized podcasts...");
+    console.log("[SYNC] Querying Turso for non-vectorized chart podcasts...");
     const res = await executeSQL(sql, args);
     const podcasts = res?.results?.[0]?.response?.result?.rows?.map(r => ({
         id: String(r[0].value),
@@ -291,181 +481,64 @@ async function main() {
         language: r[5]?.value || "en"
     })) || [];
 
-    console.log(`[SYNC] Found ${podcasts.length} non-vectorized podcasts to sync.`);
+    console.log(`[SYNC] Found ${podcasts.length} non-vectorized chart podcasts to sync.`);
     if (podcasts.length === 0) {
-        console.log("No non-vectorized podcasts found! Exiting.");
+        console.log("No non-vectorized chart podcasts found! Exiting.");
         return;
     }
 
-    let success = 0;
-    let skipped = 0;
-    let errors = 0;
     const startTime = Date.now();
 
-    // 3. Process podcasts sequentially
-    for (let idx = 0; idx < podcasts.length; idx++) {
-        // Timeout check
-        const elapsed = Date.now() - startTime;
-        if (elapsed > maxTimeMs) {
-            console.log(`\n[CAP REACHED] Elapsed execution time (${(elapsed/1000/60).toFixed(1)} mins) has exceeded the max time limit (${maxTimeMinutes} mins).`);
-            console.log(`Gracefully halting to prevent workflow timeout. Marked ${idx} podcasts.`);
-            break;
-        }
-
-        const pod = podcasts[idx];
-        console.log(`\n[${idx+1}/${podcasts.length}] Processing: "${pod.title}" (ID: ${pod.id})`);
-
-        // Fetch latest 30 episodes
-        let episodes;
-        try {
-            episodes = await fetchEpisodes(pod.id);
-        } catch (e) {
-            console.error(`  -> Failed to fetch episodes for "${pod.title}" due to API errors. Skipping for this run.`);
-            errors++;
-            await new Promise(r => setTimeout(r, 400));
-            continue;
-        }
-
-        if (episodes.length === 0) {
-            console.log(`  -> No episodes found for "${pod.title}". Skipping.`);
-            try {
-                await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
-                console.log(`  -> Marked "${pod.title}" as vectorized (no episodes).`);
-            } catch (err) {
-                console.error(`  -> Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+    // 3. Worker logic
+    async function worker(workerId) {
+        while (true) {
+            // Check timeout
+            const elapsed = Date.now() - startTime;
+            if (elapsed > maxTimeMs) {
+                console.log(`\n[Worker ${workerId}] Time limit exceeded. Gracefully shutting down worker...`);
+                break;
             }
-            await new Promise(r => setTimeout(r, 400));
-            continue;
-        }
 
-        // Map episode IDs to stable UUIDs
-        const episodeMap = episodes.map(ep => ({
-            raw: ep,
-            uuid: generateUUID(ep.id)
-        }));
-        const uuids = episodeMap.map(m => m.uuid);
-
-        // Qdrant Batch check
-        const existingUuids = await qdrantCheckExistence(uuids);
-        console.log(`  -> Qdrant status: ${existingUuids.size}/${episodes.length} episodes already indexed.`);
-
-        const toVectorize = episodeMap.filter(m => !existingUuids.has(m.uuid));
-        skipped += existingUuids.size;
-
-        if (toVectorize.length === 0) {
-            console.log(`  -> All episodes are up-to-date in Qdrant.`);
-            try {
-                await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
-                console.log(`  -> Marked "${pod.title}" as vectorized (up-to-date).`);
-            } catch (err) {
-                console.error(`  -> Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+            // Get next podcast index atomically
+            const idx = nextPodcastIndex++;
+            if (idx >= podcasts.length) {
+                break; // No more podcasts
             }
-            await new Promise(r => setTimeout(r, 400));
-            continue;
-        }
 
-        console.log(`  -> ${toVectorize.length} new episodes qualify for vectorization.`);
-        const points = [];
+            const pod = podcasts[idx];
+            const remaining = podcasts.length - idx;
+            console.log(`\n[Worker ${workerId}] [Progress: ${idx + 1}/${podcasts.length}] (${remaining} left) -> Starting: "${pod.title}" (ID: ${pod.id})`);
 
-        for (const item of toVectorize) {
-            const ep = item.raw;
-            const uuid = item.uuid;
-            const epTitle = ep.title || "";
-            const rawDesc = ep.description || "";
-            const cleanedDesc = cleanDescription(rawDesc);
-
-            // Construct text string
-            const textParts = [
-                `Episode: ${epTitle}`,
-                cleanedDesc ? `Description: ${cleanedDesc}` : null,
-                `Podcast: ${pod.title}`,
-                pod.categories ? `Genres: ${pod.categories}` : null,
-                pod.author ? `Host: ${pod.author}` : null
-            ].filter(Boolean);
-            const text = textParts.join('. ').replace(/[\n\r]+/g, ' ').substring(0, 1000);
+            // Apply global rate limit cooldown check
+            if (Date.now() < globalRateLimitCooldownUntil) {
+                const waitTime = globalRateLimitCooldownUntil - Date.now();
+                if (waitTime > 0) {
+                    await new Promise(r => setTimeout(r, waitTime));
+                }
+            }
 
             try {
-                // Generate embedding vector
-                const output = await extractor(text, { pooling: 'mean', normalize: true });
-                const vector = Array.from(output.data);
-
-                // Build point metadata payload
-                const payload = {
-                    id: parseInt(ep.id) || 0,
-                    title: epTitle,
-                    description: ep.description || "",
-                    podcast_id: parseInt(pod.id) || 0,
-                    podcast_title: pod.title,
-                    podcast_author: pod.author || "",
-                    podcast_image_url: pod.image_url || "",
-                    podcast_categories: pod.categories || "",
-                    language: pod.language || "en",
-                    audio_url: ep.enclosureUrl || "",
-                    image_url: ep.image || ep.feedImage || pod.image_url || "",
-                    published_date: ep.datePublished || 0,
-                    duration: ep.duration || 0
-                };
-
-                points.push({
-                    id: uuid,
-                    vector,
-                    payload
-                });
-                console.log(`  [VEC] Vectorized: "${epTitle}"`);
+                await processSinglePodcast(pod, workerId, podcasts.length);
             } catch (err) {
-                console.error(`  [ERR] Failed to vectorize "${epTitle}": ${err.message}`);
+                console.error(`  [Worker ${workerId}] [ERR] Failed processing "${pod.title}": ${err.message}`);
                 errors++;
             }
-        }
 
-        // Batch upload new points to Qdrant
-        if (points.length > 0) {
-            console.log(`  -> Uploading ${points.length} vectors to Qdrant...`);
-            try {
-                await qdrantUpsertBatch(points);
-                success += points.length;
-                console.log(`  -> Successful upload to Qdrant!`);
-                
-                // Mark as vectorized in Turso DB
-                await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
-                console.log(`  -> Marked "${pod.title}" as vectorized (uploaded ${points.length} vectors).`);
-            } catch (err) {
-                console.error(`  -> Failed to upload batch to Qdrant: ${err.message}`);
-                errors += points.length;
-            }
+            // Small polite delay between jobs
+            await new Promise(r => setTimeout(r, 200));
         }
-
-        // Rolling Window Delete: Keep only the latest 30 episodes in Qdrant for this podcast
-        if (uuids.length > 0) {
-            try {
-                const deleteResponse = await fetch(`${QDRANT_URL}/collections/${COLLECTION_NAME}/points/delete`, {
-                    method: "POST",
-                    headers: {
-                        "api-key": QDRANT_API_KEY,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        filter: {
-                            must: [
-                                { key: "podcast_id", match: { value: parseInt(pod.id) || 0 } }
-                            ],
-                            must_not: [
-                                { has_id: uuids }
-                            ]
-                        }
-                    })
-                });
-                if (deleteResponse.ok) {
-                    console.log(`  -> Pruned older episodes for "${pod.title}" successfully.`);
-                }
-            } catch (pruneErr) {
-                console.warn(`  -> Pruning failed for "${pod.title}":`, pruneErr.message);
-            }
-        }
-        
-        // Polite API rate limiting delay
-        await new Promise(r => setTimeout(r, 400));
     }
+
+    // Start workers
+    const workers = [];
+    for (let i = 0; i < concurrencyVal; i++) {
+        workers.push(worker(i + 1));
+        // Stagger worker start times slightly to avoid immediate concurrent hit
+        await new Promise(r => setTimeout(r, 250));
+    }
+
+    // Wait for all workers to complete
+    await Promise.all(workers);
 
     const elapsedTotal = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n=== Qdrant Complete Vector Sync Pipeline Complete ===`);
