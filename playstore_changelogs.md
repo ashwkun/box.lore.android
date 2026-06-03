@@ -1,4 +1,6 @@
 <en-GB>
+
+  https://us.posthog.com/shared/zhu63CTa7qhYkjvIId5LpRu3WZpMvQ
 BoxCast v2.1.0
 * BoxCast 2.0 is here! A massive update with a fresh, modern UI redesign.
 * Backup & Restore: You can now safely export and import your subscriptions and listening history.
