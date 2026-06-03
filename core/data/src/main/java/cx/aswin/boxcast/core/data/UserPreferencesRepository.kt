@@ -28,6 +28,11 @@ class UserPreferencesRepository(context: Context) {
         val WAS_INITIAL_REGION_MATCH = androidx.datastore.preferences.core.booleanPreferencesKey("was_initial_region_match")
         val SUBSCRIPTION_SORT = stringPreferencesKey("subscription_sort")
         val LATEST_EPISODES_SORT_USE_SMART = androidx.datastore.preferences.core.booleanPreferencesKey("latest_episodes_sort_use_smart")
+        val SKIP_BEHAVIOR = stringPreferencesKey("skip_behavior")
+        val HIDE_COMPLETED_IN_FEEDS = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_feeds")
+        val HIDE_COMPLETED_IN_SHOW_DETAILS = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_show_details")
+        val HIDE_COMPLETED_IN_HOME = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_home")
+        val HIDE_COMPLETED_IN_SUBS = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_subs")
     }
 
     val regionStream: Flow<String> = dataStore.data
@@ -197,6 +202,20 @@ class UserPreferencesRepository(context: Context) {
     suspend fun setLatestEpisodesSortUseSmart(useSmart: Boolean) {
         dataStore.edit { preferences ->
             preferences[Keys.LATEST_EPISODES_SORT_USE_SMART] = useSmart
+        }
+    }
+
+    val skipBehaviorStream: Flow<String> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.SKIP_BEHAVIOR] ?: "just_skip"
+        }
+
+    suspend fun setSkipBehavior(behavior: String) {
+        dataStore.edit { preferences ->
+            preferences[Keys.SKIP_BEHAVIOR] = behavior
         }
     }
 
@@ -375,6 +394,62 @@ class UserPreferencesRepository(context: Context) {
         }
         
         return shouldShow
+    }
+
+    val hideCompletedInFeedsStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_FEEDS] ?: true
+        }
+
+    suspend fun setHideCompletedInFeeds(hide: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_FEEDS] = hide
+        }
+    }
+
+    val hideCompletedInShowDetailsStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_SHOW_DETAILS] ?: false
+        }
+
+    suspend fun setHideCompletedInShowDetails(hide: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_SHOW_DETAILS] = hide
+        }
+    }
+
+    val hideCompletedInHomeStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_HOME] ?: true
+        }
+
+    suspend fun setHideCompletedInHome(hide: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_HOME] = hide
+        }
+    }
+
+    val hideCompletedInSubsStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_SUBS] ?: true
+        }
+
+    suspend fun setHideCompletedInSubs(hide: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.HIDE_COMPLETED_IN_SUBS] = hide
+        }
     }
 }
 

@@ -286,7 +286,17 @@ class PodcastRepository(
         }
     }
 
-    private val episodesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<EpisodePage, Long>>()
+    private val playerPrefs = context.getSharedPreferences("boxcast_player", android.content.Context.MODE_PRIVATE)
+
+    private fun getOrCreateDeviceUuid(): String {
+        val key = "device_uuid"
+        var uuid = playerPrefs.getString(key, null)
+        if (uuid == null) {
+            uuid = java.util.UUID.randomUUID().toString()
+            playerPrefs.edit().putString(key, uuid).apply()
+        }
+        return uuid
+    }
 
     data class EpisodePage(
         val episodes: List<Episode>,
@@ -400,6 +410,26 @@ class PodcastRepository(
         subscribedPodcastIds: List<String> = emptyList(),
         subscribedGenres: List<String> = emptyList()
     ): List<Episode> = withContext(Dispatchers.IO) {
+        val cacheKey = buildString {
+            append(country ?: "")
+            append("|")
+            append(interests.sorted().joinToString(","))
+            append("|")
+            append(subscribedPodcastIds.sorted().joinToString(","))
+            append("|")
+            append(subscribedGenres.sorted().joinToString(","))
+            append("|")
+            append(history.joinToString(",") { "${it.episodeId}:${it.progressMs}" })
+        }
+        
+        val now = System.currentTimeMillis()
+        val cached = recommendationsCache[cacheKey]
+        if (cached != null && now - cached.second < 900_000L) { // 15-minute cache
+            android.util.Log.d("PodcastRepository", "Cache HIT for getPersonalizedRecommendations: key=$cacheKey")
+            return@withContext cached.first
+        }
+        android.util.Log.d("PodcastRepository", "Cache MISS for getPersonalizedRecommendations. Fetching from network. Key: $cacheKey")
+
         try {
             val request = cx.aswin.boxcast.core.network.model.RecommendationsRequest(
                 history = history,
@@ -408,9 +438,11 @@ class PodcastRepository(
                 subscribedPodcastIds = subscribedPodcastIds,
                 subscribedGenres = subscribedGenres
             )
-            val response = api.getPersonalizedRecommendations(publicKey, request).execute()
+            val response = api.getPersonalizedRecommendations(publicKey, getOrCreateDeviceUuid(), request).execute()
             if (response.isSuccessful && response.body() != null) {
-                response.body()!!.items.mapNotNull { mapToEpisode(it) }
+                val results = response.body()!!.items.mapNotNull { mapToEpisode(it) }
+                recommendationsCache[cacheKey] = Pair(results, now)
+                results
             } else {
                 emptyList()
             }
@@ -544,5 +576,10 @@ class PodcastRepository(
             android.util.Log.e("RadioDebug", "searchRadioStations error", e)
             emptyList()
         }
+    }
+
+    companion object {
+        private val episodesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<EpisodePage, Long>>()
+        private val recommendationsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<Episode>, Long>>()
     }
 }

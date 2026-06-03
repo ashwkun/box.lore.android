@@ -22,6 +22,13 @@ import kotlinx.coroutines.flow.first
 class BoxCastPlaybackService : MediaLibraryService() {
 
     private var mediaSession: MediaLibrarySession? = null
+    private var exoPlayer: ExoPlayer? = null
+    private lateinit var seekBackAction: androidx.media3.session.CommandButton
+    private lateinit var seekForwardAction: androidx.media3.session.CommandButton
+    
+    private val userPreferencesRepository by lazy {
+        cx.aswin.boxcast.core.data.UserPreferencesRepository(this)
+    }
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // Lazy-init database & repos (avoid creating them if Auto is never used)
@@ -119,6 +126,8 @@ class BoxCastPlaybackService : MediaLibraryService() {
             .setSeekForwardIncrementMs(30000)
             .setSeekBackIncrementMs(10000)
             .build()
+            
+        this.exoPlayer = player
             
         player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
             override fun onPlayerError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, error: androidx.media3.common.PlaybackException) {
@@ -309,22 +318,13 @@ class BoxCastPlaybackService : MediaLibraryService() {
 
         val forwardingPlayer = object : androidx.media3.common.ForwardingPlayer(player) {
             override fun seekToNext() {
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("skip_30s")
-                seekForward()
+                handleSkipNext()
             }
-            override fun seekToPrevious() {
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("replay_10s")
-                seekBack()
-            }
+
             override fun seekToNextMediaItem() {
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("skip_30s")
-                seekForward()
+                handleSkipNext()
             }
-            override fun seekToPreviousMediaItem() {
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("replay_10s")
-                seekBack()
-            }
-            
+
             override fun isCommandAvailable(command: Int): Boolean {
                 // Report seek forward/back as available for proper icon rendering
                 if (command == Player.COMMAND_SEEK_FORWARD || command == Player.COMMAND_SEEK_BACK) return true
@@ -339,14 +339,14 @@ class BoxCastPlaybackService : MediaLibraryService() {
             }
         }
 
-        // Custom actions: Seek Back 10s and Seek Forward 30s  
-        val seekBackAction = androidx.media3.session.CommandButton.Builder()
+        // Custom actions: Seek Back 10s and Seek Forward 30s
+        seekBackAction = androidx.media3.session.CommandButton.Builder()
             .setDisplayName("Replay 10s")
             .setIconResId(cx.aswin.boxcast.core.designsystem.R.drawable.rounded_replay_10_24)
             .setSessionCommand(androidx.media3.session.SessionCommand("SEEK_BACK", Bundle.EMPTY))
             .build()
         
-        val seekForwardAction = androidx.media3.session.CommandButton.Builder()
+        seekForwardAction = androidx.media3.session.CommandButton.Builder()
             .setDisplayName("Forward 30s")
             .setIconResId(cx.aswin.boxcast.core.designsystem.R.drawable.rounded_forward_30_24)
             .setSessionCommand(androidx.media3.session.SessionCommand("SEEK_FORWARD", Bundle.EMPTY))
@@ -650,11 +650,14 @@ class BoxCastPlaybackService : MediaLibraryService() {
             if (!player.playWhenReady || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
                 android.util.Log.d("BoxCastPlaybackService", "onTaskRemoved: player not playing or queue empty, stopping service gracefully")
                 stopSelf()
+                super.onTaskRemoved(rootIntent)
+            } else {
+                android.util.Log.d("BoxCastPlaybackService", "onTaskRemoved: player is playing, keeping service in foreground and bypassing super.onTaskRemoved to prevent notification from disappearing")
             }
         } else {
             stopSelf()
+            super.onTaskRemoved(rootIntent)
         }
-        super.onTaskRemoved(rootIntent)
     }
 
     /**
@@ -942,6 +945,88 @@ class BoxCastPlaybackService : MediaLibraryService() {
         val episode = podcastRepository.getEpisode(episodeId)
         return episode?.podcastId
     }
+
+    /**
+     * Marks the current playing episode as completed in the database.
+     */
+    private fun markCurrentEpisodeCompleted() {
+        val player = exoPlayer ?: return
+        val currentItem = player.currentMediaItem
+        val durationMs = player.duration
+        val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
+        if (episodeId != null) {
+            serviceScope.launch(Dispatchers.IO) {
+                try {
+                    val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
+                    if (existing != null) {
+                        val updated = existing.copy(
+                            isCompleted = true,
+                            progressMs = 0L,
+                            durationMs = if (durationMs > 0) durationMs else existing.durationMs,
+                            lastPlayedAt = System.currentTimeMillis(),
+                            isDirty = true
+                        )
+                        database.listeningHistoryDao().upsert(updated)
+                        android.util.Log.d("BoxCastPlaybackService", "Marked current episode completed: $episodeId")
+                        
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackCompleted(
+                            podcastId = playbackSessionPodcastId,
+                            podcastName = playbackSessionPodcastName,
+                            podcastGenre = playbackSessionPodcastGenre,
+                            episodeId = episodeId,
+                            episodeTitle = playbackSessionEpisodeTitle,
+                            totalDurationSeconds = (if (durationMs > 0) durationMs else existing.durationMs) / 1000f,
+                            entryPoint = playbackSessionEntryPoint,
+                            entryPointContext = playbackSessionEntryPointContext
+                        )
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("BoxCastPlaybackService", "Failed to mark current episode completed", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles skipping to the next episode based on user settings.
+     */
+    private fun handleSkipNext() {
+        val player = exoPlayer ?: return
+        serviceScope.launch {
+            val skipBehavior = try {
+                userPreferencesRepository.skipBehaviorStream.first()
+            } catch (e: Exception) {
+                "just_skip"
+            }
+            
+            if (skipBehavior == "mark_completed_skip") {
+                markCurrentEpisodeCompleted()
+            }
+            
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                if (player.hasNextMediaItem()) {
+                    player.seekToNextMediaItem()
+                } else {
+                    player.stop()
+                }
+            }
+        }
+    }
+
+    /**
+     * Marks the current playing episode as completed in the database and skips to the next item (Legacy/Custom Command Callback).
+     */
+    private fun markCurrentEpisodeCompletedAndSkip(session: MediaSession) {
+        markCurrentEpisodeCompleted()
+        serviceScope.launch(Dispatchers.Main) {
+            val player = exoPlayer ?: return@launch
+            if (player.hasNextMediaItem()) {
+                player.seekToNextMediaItem()
+            } else {
+                player.stop()
+            }
+        }
+    }
     
     /**
      * Android Auto Browse Tree Implementation.
@@ -990,6 +1075,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
         
         private val SEEK_BACK_CMD = androidx.media3.session.SessionCommand("SEEK_BACK", Bundle.EMPTY)
         private val SEEK_FORWARD_CMD = androidx.media3.session.SessionCommand("SEEK_FORWARD", Bundle.EMPTY)
+        private val MARK_COMPLETED_SKIP_CMD = androidx.media3.session.SessionCommand("MARK_COMPLETED_SKIP", Bundle.EMPTY)
 
         override fun onConnect(
             session: MediaSession,
@@ -1003,6 +1089,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
                 .setAvailablePlayerCommands(defaultResult.availablePlayerCommands)
+                .setCustomLayout(listOf(seekBackAction, seekForwardAction))
                 .build()
         }
 
@@ -1023,11 +1110,44 @@ class BoxCastPlaybackService : MediaLibraryService() {
                     session.player.seekForward()
                     android.util.Log.d("AutoBrowse", "Seek forward 30s")
                 }
+                "MARK_COMPLETED_SKIP" -> {
+                    markCurrentEpisodeCompletedAndSkip(session)
+                }
                 else -> return super.onCustomCommand(session, controller, customCommand, args)
             }
             return Futures.immediateFuture(
                 androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
             )
+        }
+
+        @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+        override fun onMediaButtonEvent(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo,
+            intent: Intent
+        ): Boolean {
+            val keyEvent = androidx.core.content.IntentCompat.getParcelableExtra(
+                intent,
+                Intent.EXTRA_KEY_EVENT,
+                android.view.KeyEvent::class.java
+            )
+            if (keyEvent != null && keyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                when (keyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("skip_30s")
+                        session.player.seekForward()
+                        android.util.Log.d("BoxCastPlaybackService", "onMediaButtonEvent: KEYCODE_MEDIA_NEXT intercepted, seeking forward")
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("replay_10s")
+                        session.player.seekBack()
+                        android.util.Log.d("BoxCastPlaybackService", "onMediaButtonEvent: KEYCODE_MEDIA_PREVIOUS intercepted, seeking backward")
+                        return true
+                    }
+                }
+            }
+            return super.onMediaButtonEvent(session, controllerInfo, intent)
         }
 
         override fun onGetLibraryRoot(

@@ -23,8 +23,8 @@ android {
         applicationId = "cx.aswin.boxcast"
         minSdk = 31
         targetSdk = 36
-        versionCode = 36
-        versionName = "2.6.1"
+        versionCode = 37
+        versionName = "2.6.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

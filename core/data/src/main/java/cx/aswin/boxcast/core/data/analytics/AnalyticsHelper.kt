@@ -457,6 +457,69 @@ object AnalyticsHelper {
         )
     }
 
+    fun trackHomeRecommendationsImpression(
+        recommendationsCount: Int,
+        episodeIds: List<String>,
+        timeBlockTitle: String?
+    ) {
+        val props = mutableMapOf<String, Any>(
+            "recommendations_count" to recommendationsCount,
+            "episode_ids" to episodeIds
+        )
+        timeBlockTitle?.let { props["time_block_title"] = it }
+        PostHog.capture(event = "home_recommendations_impression", properties = props)
+    }
+
+    fun trackHomeRecommendationCardTapped(
+        episodeId: String,
+        episodeTitle: String?,
+        podcastId: String,
+        podcastName: String?,
+        positionIndex: Int,
+        timeBlockTitle: String?
+    ) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "podcast_id" to podcastId,
+            "position_index" to positionIndex
+        )
+        episodeTitle?.let { props["episode_title"] = it }
+        podcastName?.let { props["podcast_name"] = it }
+        timeBlockTitle?.let { props["time_block_title"] = it }
+        PostHog.capture(event = "home_recommendation_card_tapped", properties = props)
+    }
+
+    fun trackExploreRecommendationsImpression(
+        recommendationsCount: Int,
+        episodeIds: List<String>
+    ) {
+        PostHog.capture(
+            event = "explore_recommendations_impression",
+            properties = mapOf(
+                "recommendations_count" to recommendationsCount,
+                "episode_ids" to episodeIds
+            )
+        )
+    }
+
+    fun trackExploreRecommendationCardTapped(
+        episodeId: String,
+        episodeTitle: String?,
+        podcastId: String,
+        podcastName: String?,
+        positionIndex: Int
+    ) {
+        val props = mutableMapOf<String, Any>(
+            "episode_id" to episodeId,
+            "podcast_id" to podcastId,
+            "position_index" to positionIndex
+        )
+        episodeTitle?.let { props["episode_title"] = it }
+        podcastName?.let { props["podcast_name"] = it }
+        PostHog.capture(event = "explore_recommendation_card_tapped", properties = props)
+    }
+
+
     // ── 11. Podcast Info Screen ────────────────────────────────────
 
     fun trackPodcastInfoScreenViewed(

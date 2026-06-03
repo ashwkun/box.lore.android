@@ -246,6 +246,7 @@ fun PodcastInfoScreen(
     val queuedEpisodeIds by viewModel.queuedEpisodeIds.collectAsState()
     val downloadedEpisodeIds by viewModel.downloadedEpisodeIds.collectAsState()
     val downloadingEpisodeIds by viewModel.downloadingEpisodeIds.collectAsState()
+    val hideCompleted by viewModel.hideCompletedInShowDetails.collectAsState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -1090,6 +1091,8 @@ fun PodcastInfoScreen(
                             isSearching = state.isSearching,
                             currentSort = state.currentSort,
                             onSortToggle = { viewModel.toggleSort() },
+                            isHideCompleted = hideCompleted,
+                            onHideCompletedToggle = { viewModel.toggleHideCompleted() },
                             isSubscribed = state.isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             accentColor = accentColor,
@@ -1266,6 +1269,19 @@ fun PodcastInfoScreen(
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Rounded.RadioButtonUnchecked, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (hideCompleted) "Show completed episodes" else "Hide completed episodes") },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.toggleHideCompleted()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (hideCompleted) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                                        contentDescription = null
+                                    )
                                 }
                             )
                         }
@@ -1838,6 +1854,8 @@ private fun EpisodeToolbar(
     isSearching: Boolean,
     currentSort: EpisodeSort,
     onSortToggle: () -> Unit,
+    isHideCompleted: Boolean,
+    onHideCompletedToggle: () -> Unit,
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     accentColor: Color,
@@ -2031,6 +2049,23 @@ private fun EpisodeToolbar(
                     }
                 }
             }
+        }
+
+        // Hide Completed Toggle
+        IconButton(
+            onClick = onHideCompletedToggle,
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    if (isHideCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                    ExpressiveShapes.Pill
+                )
+        ) {
+            Icon(
+                imageVector = if (isHideCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
+                contentDescription = "Hide Completed",
+                tint = if (isHideCompleted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         // Sort Button

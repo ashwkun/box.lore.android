@@ -67,6 +67,13 @@ class LibraryViewModel(
         }
     }
 
+    val hideCompletedInSubs: StateFlow<Boolean> = userPreferencesRepository.hideCompletedInSubsStream
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = true
+        )
+
     // Combine subscriptions, liked episodes, downloads, AND listening history
     // so we can enrich each podcast's latestEpisode with play status
     val uiState: StateFlow<LibraryUiState> = combine(

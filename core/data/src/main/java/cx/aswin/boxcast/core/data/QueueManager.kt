@@ -135,6 +135,17 @@ class QueueManager @Inject constructor(
         playEpisode(item, podcast, preferredSort, entryPointContext)
     }
 
+    fun playEpisodes(episodes: List<cx.aswin.boxcast.core.model.Episode>, fallbackPodcast: cx.aswin.boxcast.core.model.Podcast, startIndex: Int = 0) {
+        scope.launch {
+            android.util.Log.d(TAG, "playEpisodes called: count=${episodes.size}, startIndex=$startIndex")
+            if (episodes.isNotEmpty()) {
+                queueRepository.clearQueue()
+                queueRepository.replaceQueue(episodes)
+                playbackRepository.playQueue(episodes, fallbackPodcast, startIndex)
+            }
+        }
+    }
+
     private fun cx.aswin.boxcast.core.model.Episode.toEpisodeItem(podcast: cx.aswin.boxcast.core.model.Podcast?): EpisodeItem {
         return EpisodeItem(
             id = this.id.toLongOrNull() ?: 0L,

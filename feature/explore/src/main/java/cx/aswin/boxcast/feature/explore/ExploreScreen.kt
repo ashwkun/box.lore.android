@@ -217,6 +217,15 @@ fun ExploreContent(
 
     val state = uiState as ExploreUiState.Success
     val displayList = if (state.isSearching) state.searchResults else state.trending
+
+    if (state.selectedTab == 1 && state.recommendations.isNotEmpty()) {
+        LaunchedEffect(state.recommendations) {
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationsImpression(
+                recommendationsCount = state.recommendations.size,
+                episodeIds = state.recommendations.map { it.id }
+            )
+        }
+    }
     
     // Genre expansion state
     var isGenreExpanded by rememberSaveable { mutableStateOf(false) }
@@ -525,12 +534,21 @@ fun ExploreContent(
                             )
                             ExploreEpisodeHeroCard(
                                 episode = heroEp,
-                                onClick = { onEpisodeClick(heroEp, parentPodcast) }
+                                onClick = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                        episodeId = heroEp.id,
+                                        episodeTitle = heroEp.title,
+                                        podcastId = parentPodcast.id,
+                                        podcastName = parentPodcast.title,
+                                        positionIndex = 0
+                                    )
+                                    onEpisodeClick(heroEp, parentPodcast)
+                                }
                             )
                         }
 
                         // Staggered grid items
-                        items(recs.drop(1), key = { "rec_${it.id}" }) { episode ->
+                        itemsIndexed(recs.drop(1), key = { _, it -> "rec_${it.id}" }) { index, episode ->
                             val parentPodcast = Podcast(
                                 id = episode.podcastId ?: "",
                                 title = episode.podcastTitle ?: "Podcast",
@@ -541,7 +559,16 @@ fun ExploreContent(
                             )
                             ExploreEpisodeBentoCard(
                                 episode = episode,
-                                onClick = { onEpisodeClick(episode, parentPodcast) }
+                                onClick = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                        episodeId = episode.id,
+                                        episodeTitle = episode.title,
+                                        podcastId = parentPodcast.id,
+                                        podcastName = parentPodcast.title,
+                                        positionIndex = index + 1
+                                    )
+                                    onEpisodeClick(episode, parentPodcast)
+                                }
                             )
                         }
                     }
@@ -1419,7 +1446,7 @@ fun ExploreEpisodeBentoCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .aspectRatio(1.25f)
             ) {
                 OptimizedImage(
                     url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
@@ -1453,14 +1480,22 @@ fun ExploreEpisodeBentoCard(
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = episode.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = episode.podcastTitle ?: "",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1518,93 +1553,123 @@ fun ExploreTabSelectorFab(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val totalWidth = 240.dp
+    val padding = 4.dp
+    val spacing = 4.dp
+    
+    // totalWidth (240) - 2 * padding (8) - spacing (4) = 228
+    // 228 / 2 = 114.dp per tab
+    val tabWidth = 114.dp
+    val tabHeight = 36.dp
+
+    val targetOffset = if (selectedTab == 1) 0.dp else tabWidth + spacing
+    val animatedOffset by animateDpAsState(
+        targetValue = targetOffset,
+        animationSpec = spring(
+            dampingRatio = 0.65f, // Premium bouncy feel
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "tab_indicator_offset"
+    )
+
     Surface(
         shape = androidx.compose.foundation.shape.CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
         tonalElevation = 6.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = modifier.wrapContentSize()
+        modifier = modifier.width(totalWidth)
     ) {
-        Row(
-            modifier = Modifier.padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.padding(padding)
         ) {
-            // "For You" Tab (index 1)
-            val isForYouSelected = selectedTab == 1
-            val forYouBgColor by animateColorAsState(
-                targetValue = if (isForYouSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                label = "foryou_bg"
-            )
-            val forYouContentColor by animateColorAsState(
-                targetValue = if (isForYouSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                label = "foryou_content"
-            )
-            
-            Surface(
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = forYouBgColor,
+            // Sliding selection pill indicator
+            Box(
                 modifier = Modifier
-                    .height(36.dp)
-                    .clickable { onTabSelected(1) }
+                    .offset(x = animatedOffset)
+                    .width(tabWidth)
+                    .height(tabHeight)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    )
+            )
+
+            // Row containing the tab buttons on top
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                // "For You" Tab (index 1)
+                val isForYouSelected = selectedTab == 1
+                val forYouContentColor by animateColorAsState(
+                    targetValue = if (isForYouSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    label = "foryou_content"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .width(tabWidth)
+                        .height(tabHeight)
+                        .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape) {
+                            onTabSelected(1)
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = forYouContentColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "For You",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = forYouContentColor
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = forYouContentColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "For You",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = forYouContentColor
+                        )
+                    }
                 }
-            }
 
-            // "Top" Tab (index 0)
-            val isTopSelected = selectedTab == 0
-            val topBgColor by animateColorAsState(
-                targetValue = if (isTopSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                label = "top_bg"
-            )
-            val topContentColor by animateColorAsState(
-                targetValue = if (isTopSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                label = "top_content"
-            )
+                // "Top" Tab (index 0)
+                val isTopSelected = selectedTab == 0
+                val topContentColor by animateColorAsState(
+                    targetValue = if (isTopSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    label = "top_content"
+                )
 
-            Surface(
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = topBgColor,
-                modifier = Modifier
-                    .height(36.dp)
-                    .clickable { onTabSelected(0) }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                Box(
+                    modifier = Modifier
+                        .width(tabWidth)
+                        .height(tabHeight)
+                        .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape) {
+                            onTabSelected(0)
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.TrendingUp,
-                        contentDescription = null,
-                        tint = topContentColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Top",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = topContentColor
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.TrendingUp,
+                            contentDescription = null,
+                            tint = topContentColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Top",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = topContentColor
+                        )
+                    }
                 }
             }
         }

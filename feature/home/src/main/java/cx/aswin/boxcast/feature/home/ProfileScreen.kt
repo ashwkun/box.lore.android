@@ -47,7 +47,15 @@ fun ProfileScreen(
     onSetThemeBrand: (String) -> Unit = {},
     onExportJson: (android.net.Uri) -> Unit = {},
     onImportJson: (android.net.Uri) -> Unit = {},
-    onImportOpml: (android.net.Uri) -> Unit = {}
+    onImportOpml: (android.net.Uri) -> Unit = {},
+    skipBehavior: String = "just_skip",
+    onSetSkipBehavior: (String) -> Unit = {},
+    hideCompletedInHome: Boolean = true,
+    onSetHideCompletedInHome: (Boolean) -> Unit = {},
+    hideCompletedInSubs: Boolean = true,
+    onSetHideCompletedInSubs: (Boolean) -> Unit = {},
+    hideCompletedInShowDetails: Boolean = false,
+    onSetHideCompletedInShowDetails: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
@@ -98,6 +106,21 @@ fun ProfileScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            item {
+                SectionCard("App Behaviour", Icons.Rounded.Tune) {
+                    AppBehaviourSection(
+                        skipBehavior = skipBehavior,
+                        onSetSkipBehavior = onSetSkipBehavior,
+                        hideCompletedInHome = hideCompletedInHome,
+                        onSetHideCompletedInHome = onSetHideCompletedInHome,
+                        hideCompletedInSubs = hideCompletedInSubs,
+                        onSetHideCompletedInSubs = onSetHideCompletedInSubs,
+                        hideCompletedInShowDetails = hideCompletedInShowDetails,
+                        onSetHideCompletedInShowDetails = onSetHideCompletedInShowDetails
+                    )
+                }
+            }
+
             item {
                 SectionCard("Appearance", Icons.Rounded.Palette) {
                     AppearanceSection(
@@ -673,6 +696,101 @@ fun CommunitySection(context: android.content.Context) {
             Text("boxcast v$versionName", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(4.dp))
             Text("Made with ❤️", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+        }
+    }
+}
+
+@Composable
+fun AppBehaviourSection(
+    skipBehavior: String,
+    onSetSkipBehavior: (String) -> Unit,
+    hideCompletedInHome: Boolean,
+    onSetHideCompletedInHome: (Boolean) -> Unit,
+    hideCompletedInSubs: Boolean,
+    onSetHideCompletedInSubs: (Boolean) -> Unit,
+    hideCompletedInShowDetails: Boolean,
+    onSetHideCompletedInShowDetails: (Boolean) -> Unit
+) {
+    Column {
+        Text("Skip Behavior", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Determine what happens when you skip to the next episode via gestures or notification controls.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+        
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val behaviors = listOf(
+                "just_skip" to "Just Skip",
+                "mark_completed_skip" to "Mark Completed & Skip"
+            )
+            behaviors.forEach { (mode, label) ->
+                FilterChip(
+                    selected = skipBehavior == mode,
+                    onClick = { onSetSkipBehavior(mode) },
+                    label = { Text(label) },
+                    leadingIcon = { if (skipBehavior == mode) Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
+                )
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+        Text("Hide completed episodes from", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+
+        // Option 1: Home Feeds
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onSetHideCompletedInHome(!hideCompletedInHome) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Home Feeds", style = MaterialTheme.typography.bodyLarge)
+            }
+            Switch(
+                checked = hideCompletedInHome,
+                onCheckedChange = onSetHideCompletedInHome
+            )
+        }
+
+        // Option 2: Subscription Activity
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onSetHideCompletedInSubs(!hideCompletedInSubs) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("New episodes (library)", style = MaterialTheme.typography.bodyLarge)
+            }
+            Switch(
+                checked = hideCompletedInSubs,
+                onCheckedChange = onSetHideCompletedInSubs
+            )
+        }
+
+        // Option 3: Show Details
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onSetHideCompletedInShowDetails(!hideCompletedInShowDetails) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Show Details", style = MaterialTheme.typography.bodyLarge)
+            }
+            Switch(
+                checked = hideCompletedInShowDetails,
+                onCheckedChange = onSetHideCompletedInShowDetails
+            )
         }
     }
 }

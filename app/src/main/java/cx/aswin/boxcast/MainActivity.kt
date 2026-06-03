@@ -333,6 +333,10 @@ class MainActivity : ComponentActivity() {
             
             // Theme Preferences
             val themeConfig by userPrefs.themeConfigStream.collectAsState(initial = "system")
+            val skipBehavior by userPrefs.skipBehaviorStream.collectAsState(initial = "just_skip")
+            val hideCompletedInHome by userPrefs.hideCompletedInHomeStream.collectAsState(initial = true)
+            val hideCompletedInSubs by userPrefs.hideCompletedInSubsStream.collectAsState(initial = true)
+            val hideCompletedInShowDetails by userPrefs.hideCompletedInShowDetailsStream.collectAsState(initial = false)
             val useDynamicColor by userPrefs.useDynamicColorStream.collectAsState(initial = true)
             val themeBrand by userPrefs.themeBrandStream.collectAsState(initial = "violet")
             val hasSeenMarkPlayedTip by userPrefs.hasSeenMarkPlayedTip.collectAsState(initial = true)
@@ -1103,6 +1107,14 @@ class MainActivity : ComponentActivity() {
                                     onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
                                     onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
                                     onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
+                                    skipBehavior = skipBehavior,
+                                    onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
+                                     hideCompletedInHome = hideCompletedInHome,
+                                     onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
+                                     hideCompletedInSubs = hideCompletedInSubs,
+                                     onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
+                                     hideCompletedInShowDetails = hideCompletedInShowDetails,
+                                     onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
                                     onExportJson = { uri -> 
                                         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                             try {
@@ -1353,6 +1365,9 @@ class MainActivity : ComponentActivity() {
                                     onPlayEpisode = { episode, podcast ->
                                         queueManager.playEpisode(episode, podcast)
                                     },
+                                    onPlayEpisodes = { episodes, fallbackPodcast ->
+                                        queueManager.playEpisodes(episodes, fallbackPodcast)
+                                    },
                                     onEpisodeClick = { episode, podcast, entryPointStr ->
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         val entryPointQuery = if (entryPointStr != null) "?entryPoint=$entryPointStr" else ""
@@ -1366,6 +1381,7 @@ class MainActivity : ComponentActivity() {
                                             entryPointQuery
                                         )
                                     },
+                                    isPlayerActive = currentEpisode != null,
                                     initialTab = initialTab
                                 )
                             }

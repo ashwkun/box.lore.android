@@ -130,6 +130,8 @@ fun SubscriptionsScreen(
     onExploreClick: () -> Unit,
     onPlayEpisode: ((Episode, Podcast) -> Unit)? = null,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null,
+    onPlayEpisodes: ((List<Episode>, Podcast) -> Unit)? = null,
+    isPlayerActive: Boolean = false,
     initialTab: Int = 0
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -141,6 +143,7 @@ fun SubscriptionsScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var isGridView by rememberSaveable { mutableStateOf(true) }
     val useSmartRank by viewModel.useSmartRank.collectAsStateWithLifecycle()
+    val hideCompletedInSubs by viewModel.hideCompletedInSubs.collectAsStateWithLifecycle()
     var showSortMenu by remember { mutableStateOf(false) }
     
     val focusRequester = remember { FocusRequester() }
@@ -437,17 +440,26 @@ fun SubscriptionsScreen(
                                 },
                                 isGridView = isGridView
                             )
-                            1 -> LatestTabContent(
-                                podcasts = podcasts,
-                                allHistory = (uiState as LibraryUiState.Success).allHistory,
-                                useSmartRank = useSmartRank,
-                                onExploreClick = onExploreClick,
-                                onEpisodeClick = { ep, pod, entry ->
-                                    viewModel.subEpisodesClickedCount++
-                                    onEpisodeClick?.invoke(ep, pod, entry)
-                                },
-                                onPlayEpisode = onPlayEpisode
-                            )
+                            1 -> {
+                                val latestPodcasts = if (hideCompletedInSubs) {
+                                    podcasts.filter { it.episodeStatus != EpisodeStatus.COMPLETED }
+                                } else {
+                                    podcasts
+                                }
+                                LatestTabContent(
+                                    podcasts = latestPodcasts,
+                                    allHistory = (uiState as LibraryUiState.Success).allHistory,
+                                    useSmartRank = useSmartRank,
+                                    onExploreClick = onExploreClick,
+                                    onEpisodeClick = { ep, pod, entry ->
+                                        viewModel.subEpisodesClickedCount++
+                                        onEpisodeClick?.invoke(ep, pod, entry)
+                                    },
+                                    onPlayEpisode = onPlayEpisode,
+                                    onPlayEpisodes = onPlayEpisodes,
+                                    isPlayerActive = isPlayerActive
+                                )
+                            }
                         }
                     }
                 }
@@ -804,7 +816,9 @@ private fun LatestTabContent(
     useSmartRank: Boolean,
     onExploreClick: () -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
-    onPlayEpisode: ((Episode, Podcast) -> Unit)?
+    onPlayEpisode: ((Episode, Podcast) -> Unit)?,
+    onPlayEpisodes: ((List<Episode>, Podcast) -> Unit)? = null,
+    isPlayerActive: Boolean = false
 ) {
     val episodePodcasts = remember(podcasts) {
         podcasts.filter { it.latestEpisode != null }
@@ -908,43 +922,28 @@ private fun LatestTabContent(
             }
         }
 
-        LazyColumn(
-            contentPadding = PaddingValues(bottom = 180.dp, top = 4.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            item {
-                SubscriptionGenreChips(
-                    selectedGenre = selectedGenre,
-                    onGenreChange = {
-                        selectedGenre = it
-                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "latest")
-                    },
-                    distinctGenres = distinctGenres,
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                )
-            }
-
-            if (useSmartRank) {
-                items(items = displayPodcasts, key = { "${it.id}_latest_smart" }) { podcast ->
-                    val episode = podcast.latestEpisode!!
-                    LatestEpisodeRow(
-                        episode = episode,
-                        podcast = podcast,
-                        onClick = { onEpisodeClick?.invoke(episode, podcast, "library_latest_episodes") },
-                        onPlay = if (onPlayEpisode != null) {
-                            { onPlayEpisode(episode, podcast) }
-                        } else null
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 180.dp, top = 4.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    SubscriptionGenreChips(
+                        selectedGenre = selectedGenre,
+                        onGenreChange = {
+                            selectedGenre = it
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "latest")
+                        },
+                        distinctGenres = distinctGenres,
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     )
                 }
-            } else {
-                groupedEpisodes.forEach { (header, podcastsInGroup) ->
-                    stickyHeader {
-                        DateHeader(text = header)
-                    }
-                    items(items = podcastsInGroup, key = { "${it.id}_latest_chrono" }) { podcast ->
+
+                if (useSmartRank) {
+                    items(items = displayPodcasts, key = { "${it.id}_latest_smart" }) { podcast ->
                         val episode = podcast.latestEpisode!!
                         LatestEpisodeRow(
                             episode = episode,
@@ -953,6 +952,75 @@ private fun LatestTabContent(
                             onPlay = if (onPlayEpisode != null) {
                                 { onPlayEpisode(episode, podcast) }
                             } else null
+                        )
+                    }
+                } else {
+                    groupedEpisodes.forEach { (header, podcastsInGroup) ->
+                        stickyHeader {
+                            DateHeader(text = header)
+                        }
+                        items(items = podcastsInGroup, key = { "${it.id}_latest_chrono" }) { podcast ->
+                            val episode = podcast.latestEpisode!!
+                            LatestEpisodeRow(
+                                episode = episode,
+                                podcast = podcast,
+                                onClick = { onEpisodeClick?.invoke(episode, podcast, "library_latest_episodes") },
+                                onPlay = if (onPlayEpisode != null) {
+                                    { onPlayEpisode(episode, podcast) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+            }
+
+            val bottomPadding by animateDpAsState(
+                targetValue = if (isPlayerActive) 154.dp else 88.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "fabBottomPadding"
+            )
+
+            if (displayPodcasts.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = bottomPadding, end = 16.dp)
+                        .expressiveClickable(
+                            shape = CircleShape,
+                            onClick = {
+                                val episodesToPlay = displayPodcasts.map { it.latestEpisode!! }
+                                val firstPodcast = displayPodcasts.firstOrNull()
+                                if (firstPodcast != null && onPlayEpisodes != null) {
+                                    onPlayEpisodes(episodesToPlay, firstPodcast)
+                                }
+                            }
+                        ),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 6.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .height(56.dp)
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Play All",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -1103,10 +1171,11 @@ private fun LatestEpisodeRow(
     ) {
         // Episode artwork with status overlay
         Box(modifier = Modifier.size(64.dp)) {
-            AsyncImage(
-                model = (episode.imageUrl?.takeIf { it.isNotEmpty() }
+            OptimizedImage(
+                url = episode.imageUrl?.takeIf { it.isNotEmpty() }
                     ?: podcast.imageUrl.takeIf { it.isNotEmpty() }
-                    ?: podcast.fallbackImageUrl)?.optimizedImageUrl(400),
+                    ?: podcast.fallbackImageUrl,
+                proxyWidth = 400,
                 contentDescription = episode.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

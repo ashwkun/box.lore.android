@@ -27,6 +27,8 @@ import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
+import androidx.compose.runtime.LaunchedEffect
+import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -40,6 +42,16 @@ fun ForYouSection(
     onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    if (recommendations.isNotEmpty()) {
+        LaunchedEffect(recommendations) {
+            AnalyticsHelper.trackHomeRecommendationsImpression(
+                recommendationsCount = recommendations.size,
+                episodeIds = recommendations.map { it.id },
+                timeBlockTitle = timeBlock?.title
+            )
+        }
+    }
+
     val items = recommendations.take(9)
 
     Column(
@@ -138,14 +150,25 @@ fun ForYouSection(
                 ForYouHeroCard(
                     episode = ep,
                     parentPodcast = parentPodcast,
-                    onClick = { onEpisodeClick(ep, parentPodcast) }
+                    onClick = {
+                        AnalyticsHelper.trackHomeRecommendationCardTapped(
+                            episodeId = ep.id,
+                            episodeTitle = ep.title,
+                            podcastId = parentPodcast.id,
+                            podcastName = parentPodcast.title,
+                            positionIndex = 0,
+                            timeBlockTitle = timeBlock?.title
+                        )
+                        onEpisodeClick(ep, parentPodcast)
+                    }
                 )
             }
 
             // Remaining items in 2-column masonry layout (indices 1..8)
             val remaining = items.drop(1)
-            val leftColumn = remaining.filterIndexed { index, _ -> index % 2 == 0 }
-            val rightColumn = remaining.filterIndexed { index, _ -> index % 2 == 1 }
+            val remainingWithIndex = remaining.mapIndexed { index, ep -> ep to (index + 1) }
+            val leftColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 0 }
+            val rightColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 1 }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -156,7 +179,7 @@ fun ForYouSection(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    leftColumn.forEach { ep ->
+                    leftColumn.forEach { (ep, originalIndex) ->
                         val parentPodcast = Podcast(
                             id = ep.podcastId ?: "",
                             title = ep.podcastTitle ?: "Podcast",
@@ -167,7 +190,17 @@ fun ForYouSection(
                         )
                         ForYouBentoCard(
                             episode = ep,
-                            onClick = { onEpisodeClick(ep, parentPodcast) }
+                            onClick = {
+                                AnalyticsHelper.trackHomeRecommendationCardTapped(
+                                    episodeId = ep.id,
+                                    episodeTitle = ep.title,
+                                    podcastId = parentPodcast.id,
+                                    podcastName = parentPodcast.title,
+                                    positionIndex = originalIndex,
+                                    timeBlockTitle = timeBlock?.title
+                                )
+                                onEpisodeClick(ep, parentPodcast)
+                            }
                         )
                     }
                 }
@@ -176,7 +209,7 @@ fun ForYouSection(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    rightColumn.forEach { ep ->
+                    rightColumn.forEach { (ep, originalIndex) ->
                         val parentPodcast = Podcast(
                             id = ep.podcastId ?: "",
                             title = ep.podcastTitle ?: "Podcast",
@@ -187,7 +220,17 @@ fun ForYouSection(
                         )
                         ForYouBentoCard(
                             episode = ep,
-                            onClick = { onEpisodeClick(ep, parentPodcast) }
+                            onClick = {
+                                AnalyticsHelper.trackHomeRecommendationCardTapped(
+                                    episodeId = ep.id,
+                                    episodeTitle = ep.title,
+                                    podcastId = parentPodcast.id,
+                                    podcastName = parentPodcast.title,
+                                    positionIndex = originalIndex,
+                                    timeBlockTitle = timeBlock?.title
+                                )
+                                onEpisodeClick(ep, parentPodcast)
+                            }
                         )
                     }
                 }
@@ -359,7 +402,7 @@ private fun ForYouBentoCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .aspectRatio(1.25f)
             ) {
                 OptimizedImage(
                     url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
@@ -395,14 +438,22 @@ private fun ForYouBentoCard(
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = episode.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = episode.podcastTitle ?: "",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -486,7 +537,7 @@ private fun ForYouBentoSkeleton(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
+                .aspectRatio(1.25f)
                 .clip(MaterialTheme.shapes.large)
                 .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
         )

@@ -244,10 +244,15 @@ class HomeViewModel(
 
             historySignal.collectLatest { info ->
                 if (info == null) {
+                    android.util.Log.d("HomeViewModelFilteredView", "historySignal collected: null (clearing selected podcast episodes)")
                     _selectedPodcastEpisodes.value = emptyList()
                     _isSelectedPodcastLoading.value = false
                 } else {
                     val (podcastId, lastPlayedEpisodeId, sort) = info
+                    android.util.Log.d(
+                        "HomeViewModelFilteredView",
+                        "historySignal collected: podcastId=$podcastId, lastPlayedEpisodeId=$lastPlayedEpisodeId, sort=$sort"
+                    )
                     _isSelectedPodcastLoading.value = true
                     try {
                         if (sort == "oldest") {
@@ -263,13 +268,40 @@ class HomeViewModel(
                                 (lastPlayedIndex - 2).coerceAtLeast(0)
                             } else 0
                             
-                            _selectedPodcastEpisodes.value = allEpisodes.drop(offset).take(15)
+                            val selectedRaw = allEpisodes.drop(offset).take(15)
+                            android.util.Log.d(
+                                "HomeViewModelFilteredView",
+                                "Oldest sort resolution for podcastId=$podcastId: " +
+                                "totalEpisodesFetched=${allEpisodes.size}, " +
+                                "lastPlayedIndex=$lastPlayedIndex, " +
+                                "calculatedOffset=$offset, " +
+                                "rawEpisodesSelectedCount=${selectedRaw.size}"
+                            )
+                            selectedRaw.forEachIndexed { index, ep ->
+                                android.util.Log.d(
+                                    "HomeViewModelFilteredView",
+                                    "  Raw Episode[$index]: id=${ep.id}, title=${ep.title}, pubDate=${ep.publishedDate}"
+                                )
+                            }
+                            _selectedPodcastEpisodes.value = selectedRaw
                         } else {
                             val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 25, offset = 0, sort = "newest")
-                            _selectedPodcastEpisodes.value = page.episodes
+                            val selectedRaw = page.episodes
+                            android.util.Log.d(
+                                "HomeViewModelFilteredView",
+                                "Newest sort resolution for podcastId=$podcastId: " +
+                                "rawEpisodesSelectedCount=${selectedRaw.size}"
+                            )
+                            selectedRaw.forEachIndexed { index, ep ->
+                                android.util.Log.d(
+                                    "HomeViewModelFilteredView",
+                                    "  Raw Episode[$index]: id=${ep.id}, title=${ep.title}, pubDate=${ep.publishedDate}"
+                                )
+                            }
+                            _selectedPodcastEpisodes.value = selectedRaw
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("HomeViewModel", "Failed to fetch episodes for filter: $podcastId", e)
+                        android.util.Log.e("HomeViewModelFilteredView", "Failed to fetch episodes for filter: $podcastId", e)
                         _selectedPodcastEpisodes.value = emptyList()
                     } finally {
                         _isSelectedPodcastLoading.value = false
@@ -282,9 +314,36 @@ class HomeViewModel(
             combine(
                 _selectedPodcastId,
                 _selectedPodcastEpisodes,
-                _isSelectedPodcastLoading
-            ) { id, eps, loading ->
-                Triple(id, eps, loading)
+                _isSelectedPodcastLoading,
+                userPrefs.hideCompletedInHomeStream,
+                playbackRepository.completedEpisodeIds
+            ) { id, eps, loading, hideCompleted, completedIds ->
+                android.util.Log.d(
+                    "HomeViewModelFilteredView",
+                    "Filtering combine triggered for podcastId=$id: " +
+                    "epsCount=${eps.size}, hideCompleted=$hideCompleted, " +
+                    "totalCompletedIdsCount=${completedIds.size}"
+                )
+                val filteredEps = if (hideCompleted) {
+                    eps.filter { it.id !in completedIds }
+                } else {
+                    eps
+                }
+                
+                android.util.Log.d(
+                    "HomeViewModelFilteredView",
+                    "Filter result: rawCount=${eps.size} -> filteredCount=${filteredEps.size}"
+                )
+                eps.forEachIndexed { index, ep ->
+                    val isCompleted = ep.id in completedIds
+                    val wasKept = !hideCompleted || !isCompleted
+                    android.util.Log.d(
+                        "HomeViewModelFilteredView",
+                        "  Episode[$index]: id=${ep.id}, title=${ep.title}, isCompleted=$isCompleted, wasKept=$wasKept"
+                    )
+                }
+                
+                Triple(id, filteredEps, loading)
             }.collect { (id, eps, loading) ->
                 _uiState.update { it.copy(
                     selectedPodcastId = id,

@@ -105,6 +105,7 @@ interface BoxCastApi {
     @POST("recommendations")
     fun getPersonalizedRecommendations(
         @Header("X-App-Key") publicKey: String,
+        @Header("X-Device-UUID") deviceUuid: String,
         @Body request: RecommendationsRequest
     ): retrofit2.Call<EpisodesResponse>
 

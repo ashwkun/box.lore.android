@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -64,7 +65,6 @@ class PodcastInfoViewModel(
     private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
 
     private val _uiState = MutableStateFlow<PodcastInfoUiState>(PodcastInfoUiState.Loading)
-    val uiState: StateFlow<PodcastInfoUiState> = _uiState.asStateFlow()
 
     private var currentPodcastId: String = ""
     private val _currentPodcastIdFlow = MutableStateFlow("")
@@ -121,6 +121,40 @@ class PodcastInfoViewModel(
             initialValue = emptySet()
         )
     val completedEpisodesState: StateFlow<Set<String>> = completedEpisodeIds
+
+    private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
+    
+    val hideCompletedInShowDetails: StateFlow<Boolean> = userPrefs.hideCompletedInShowDetailsStream
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false
+        )
+
+    fun toggleHideCompleted() {
+        viewModelScope.launch {
+            userPrefs.setHideCompletedInShowDetails(!hideCompletedInShowDetails.value)
+        }
+    }
+
+    val uiState: StateFlow<PodcastInfoUiState> = combine(
+        _uiState,
+        completedEpisodeIds,
+        hideCompletedInShowDetails
+    ) { state, completedIds, hideCompleted ->
+        if (state is PodcastInfoUiState.Success && hideCompleted) {
+            state.copy(
+                episodes = state.episodes.filter { it.id !in completedIds },
+                searchResults = state.searchResults?.filter { it.id !in completedIds }
+            )
+        } else {
+            state
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = PodcastInfoUiState.Loading
+    )
 
     // Observe downloaded episode IDs
     val downloadedEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads
