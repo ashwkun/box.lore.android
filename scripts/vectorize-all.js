@@ -273,7 +273,8 @@ async function main() {
             p.author,
             p.image_url,
             p.language
-        FROM podcasts p
+        FROM charts c
+        JOIN podcasts p ON c.itunes_id = p.itunes_id
         WHERE (p.qdrant_vectorized = 0 OR p.qdrant_vectorized IS NULL)
         LIMIT ?
     `;
