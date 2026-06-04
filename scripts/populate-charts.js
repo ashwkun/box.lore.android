@@ -153,42 +153,40 @@ async function main() {
                     rank: parseInt(r[4].value)
                 })) || [];
 
-                const statements = [];
-                const maxLength = Math.max(existingRows.length, podcasts.length);
-                let unchangedCount = 0;
-
-                for (let i = 0; i < maxLength; i++) {
-                    const newPod = podcasts[i];
-                    const oldPod = existingRows[i];
-
-                    if (newPod && oldPod) {
+                // Check if anything has changed
+                let isDifferent = podcasts.length !== existingRows.length;
+                if (!isDifferent) {
+                    for (let i = 0; i < podcasts.length; i++) {
+                        const newPod = podcasts[i];
+                        const oldPod = existingRows[i];
                         if (String(newPod.itunesId) !== String(oldPod.itunesId) ||
                             newPod.name !== oldPod.name ||
                             newPod.artist !== oldPod.artist ||
                             newPod.imageUrl !== oldPod.imageUrl ||
                             (i + 1) !== oldPod.rank) {
-                            statements.push({
-                                sql: "UPDATE charts SET itunes_id = ?, name = ?, artist = ?, image_url = ? WHERE country = ? AND category = ? AND rank = ?",
-                                args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, i + 1]
-                            });
-                        } else {
-                            unchangedCount++;
+                            isDifferent = true;
+                            break;
                         }
-                    } else if (newPod && !oldPod) {
+                    }
+                }
+
+                const statements = [];
+                if (isDifferent) {
+                    statements.push({
+                        sql: "DELETE FROM charts WHERE country = ? AND category = ?",
+                        args: [country, category]
+                    });
+                    for (let i = 0; i < podcasts.length; i++) {
+                        const newPod = podcasts[i];
                         statements.push({
                             sql: "INSERT INTO charts (itunes_id, name, artist, image_url, country, category, rank) VALUES (?, ?, ?, ?, ?, ?, ?)",
                             args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, i + 1]
-                        });
-                    } else if (!newPod && oldPod) {
-                        statements.push({
-                            sql: "DELETE FROM charts WHERE country = ? AND category = ? AND rank = ?",
-                            args: [country, category, oldPod.rank]
                         });
                     }
                 }
 
                 if (statements.length > 0) {
-                    console.log(`[CHARTS] Updating ${statements.length} rows for ${country}/${category} (skipped ${unchangedCount} unchanged rows)...`);
+                    console.log(`[CHARTS] Updating charts for ${country}/${category} (Re-creating ${podcasts.length} entries)...`);
                     const requests = statements.map(stmt => ({
                         type: "execute",
                         stmt: { 
