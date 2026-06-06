@@ -171,22 +171,49 @@ async function main() {
                 }
 
                 const statements = [];
-                if (isDifferent) {
-                    statements.push({
-                        sql: "DELETE FROM charts WHERE country = ? AND category = ?",
-                        args: [country, category]
-                    });
-                    for (let i = 0; i < podcasts.length; i++) {
-                        const newPod = podcasts[i];
+                const commonLength = Math.min(podcasts.length, existingRows.length);
+
+                // 1. Update overlapping rows that are different
+                for (let i = 0; i < commonLength; i++) {
+                    const newPod = podcasts[i];
+                    const oldPod = existingRows[i];
+                    const rank = i + 1;
+
+                    if (String(newPod.itunesId) !== String(oldPod.itunesId) ||
+                        newPod.name !== oldPod.name ||
+                        newPod.artist !== oldPod.artist ||
+                        newPod.imageUrl !== oldPod.imageUrl ||
+                        rank !== oldPod.rank) {
+                        
                         statements.push({
-                            sql: "INSERT INTO charts (itunes_id, name, artist, image_url, country, category, rank) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                            args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, i + 1]
+                            sql: "UPDATE charts SET itunes_id = ?, name = ?, artist = ?, image_url = ? WHERE country = ? AND category = ? AND rank = ?",
+                            args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, rank]
                         });
                     }
                 }
 
+                // 2. Insert new rows if the new chart is longer
+                if (podcasts.length > existingRows.length) {
+                    for (let i = existingRows.length; i < podcasts.length; i++) {
+                        const newPod = podcasts[i];
+                        const rank = i + 1;
+                        statements.push({
+                            sql: "INSERT INTO charts (itunes_id, name, artist, image_url, country, category, rank) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, rank]
+                        });
+                    }
+                }
+
+                // 3. Delete extra rows if the new chart is shorter
+                if (existingRows.length > podcasts.length) {
+                    statements.push({
+                        sql: "DELETE FROM charts WHERE country = ? AND category = ? AND rank > ?",
+                        args: [country, category, podcasts.length]
+                    });
+                }
+
                 if (statements.length > 0) {
-                    console.log(`[CHARTS] Updating charts for ${country}/${category} (Re-creating ${podcasts.length} entries)...`);
+                    console.log(`[CHARTS] Updating charts for ${country}/${category} (${statements.length} operations executed)...`);
                     const requests = statements.map(stmt => ({
                         type: "execute",
                         stmt: { 
