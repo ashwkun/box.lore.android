@@ -53,6 +53,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.animateFloatAsState
 
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -236,13 +237,32 @@ private fun WelcomeScreen(
         )
     }
 
-    val isComplete = entranceProgress.value == 1f
+    val progress = entranceProgress.value
 
-    val hudAlpha by animateFloatAsState(
-        targetValue = if (isComplete) 1f else 0f,
-        animationSpec = tween(800),
-        label = "hud_alpha"
-    )
+    // Staggered Cinematic Timeline
+    val blurRadius = if (progress > 0.5f) {
+        (((progress - 0.5f) / 0.5f) * 16f).dp
+    } else {
+        0.dp
+    }
+
+    val overlayAlpha = if (progress > 0.45f) {
+        (((progress - 0.45f) / 0.55f) * 0.96f).coerceIn(0f, 0.96f)
+    } else {
+        0f
+    }
+
+    val logoAlpha = if (progress > 0.60f) {
+        (((progress - 0.60f) / 0.30f)).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    val hudAlpha = if (progress > 0.70f) {
+        (((progress - 0.70f) / 0.30f)).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
 
     if (showImportBottomSheet) {
         ModalBottomSheet(
@@ -305,278 +325,308 @@ private fun WelcomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // 1. Full-Screen Background Grid
+            // 1. Full-Screen Background Grid with Dynamic Blur
             CinematicBackgroundGrid(
-                entranceProgress = entranceProgress.value
+                entranceProgress = progress,
+                blurRadius = blurRadius
             )
 
             // 2. Full-Screen Spotlight Overlay
-            if (hudAlpha > 0f) {
+            if (overlayAlpha > 0f) {
                 val surfaceColor = MaterialTheme.colorScheme.surface
                 val spotlightBrush = remember(surfaceColor) {
                     androidx.compose.ui.graphics.Brush.radialGradient(
                         colors = listOf(
-                            surfaceColor.copy(alpha = 0.50f),
-                            surfaceColor.copy(alpha = 0.96f)
+                            surfaceColor.copy(alpha = 0.25f),
+                            surfaceColor.copy(alpha = 0.98f)
                         )
                     )
                 }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { alpha = hudAlpha }
+                        .graphicsLayer { alpha = overlayAlpha }
                         .background(spotlightBrush)
                 )
             }
 
-            // 3. Foreground HUD (Logo and Buttons)
-            if (hudAlpha > 0f) {
-                Column(
+            // 3. Floating Glassmorphic HUD Panel (Slides up and fades in)
+            if (logoAlpha > 0f) {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp)
-                        .graphicsLayer {
-                            alpha = hudAlpha
-                            translationY = (1f - hudAlpha) * 24.dp.toPx()
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    contentAlignment = Alignment.BottomCenter
                 ) {
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Logo block
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                            .graphicsLayer {
+                                alpha = logoAlpha
+                                translationY = (1f - logoAlpha) * 120.dp.toPx()
+                            },
+                        shape = RoundedCornerShape(32.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
                     ) {
-                        Text(
-                            text = "Welcome to",
-                            style = TextStyle(
-                                fontFamily = CondensedGoogleSans,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                letterSpacing = (-0.1).sp
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        cx.aswin.boxcast.core.designsystem.components.BoxCastLogo(
-                            textColor = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    // Options block
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "How would you like to start?",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        
-                        Spacer(modifier = Modifier.height(32.dp))
-                        
-                        // 1. Featured Recommendation Card (Help Me Find)
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = androidx.compose.ui.graphics.Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(28.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(28.dp))
-                                .background(
-                                    androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.tertiary
-                                        )
-                                    )
-                                )
-                                .expressiveClickable(onClick = onHelpMeFind)
+                                .padding(horizontal = 20.dp, vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Row(
+                            // Logo block (Fades in slightly earlier)
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(20.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f), androidx.compose.foundation.shape.CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = androidx.compose.ui.graphics.Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Help Me Find Podcasts",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = androidx.compose.ui.graphics.Color.White
-                                    )
-                                    Text(
-                                        text = "Get personalized recommendations",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
-                                    contentDescription = null,
-                                    tint = androidx.compose.ui.graphics.Color.White
-                                )
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // 2. Secondary Options Row (Search & Import)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            // Search Card
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(116.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .expressiveClickable(onClick = onSearch)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Search,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(
-                                        text = "Search Shows",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                            
-                            // Import Card
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(116.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .expressiveClickable(onClick = { showImportBottomSheet = true })
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Upload,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(
-                                        text = "Import Podcasts",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // 3. Exit Option (Skip Setup)
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                            ),
-                            shape = RoundedCornerShape(28.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clip(RoundedCornerShape(28.dp))
-                                .expressiveClickable(onClick = onSkip)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                                    .graphicsLayer {
+                                        alpha = logoAlpha
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "Skip Setup",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "Welcome to",
+                                    style = TextStyle(
+                                        fontFamily = CondensedGoogleSans,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        letterSpacing = (-0.1).sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                cx.aswin.boxcast.core.designsystem.components.BoxCastLogo(
+                                    textColor = MaterialTheme.colorScheme.primary
                                 )
                             }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Options block (Fades in slightly staggered)
+                            if (hudAlpha > 0f) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            alpha = hudAlpha
+                                        },
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "How would you like to start?",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    
+                                    // 1. Featured Recommendation Card (Help Me Find)
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = androidx.compose.ui.graphics.Color.Transparent
+                                        ),
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(24.dp))
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                    colors = listOf(
+                                                        MaterialTheme.colorScheme.primary,
+                                                        MaterialTheme.colorScheme.tertiary
+                                                    )
+                                                )
+                                            )
+                                            .expressiveClickable(onClick = onHelpMeFind)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f), androidx.compose.foundation.shape.CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.AutoAwesome,
+                                                    contentDescription = null,
+                                                    tint = androidx.compose.ui.graphics.Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Help Me Find Podcasts",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = androidx.compose.ui.graphics.Color.White
+                                                )
+                                                Text(
+                                                    text = "Get personalized recommendations",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Rounded.ChevronRight,
+                                                contentDescription = null,
+                                                tint = androidx.compose.ui.graphics.Color.White
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    // 2. Secondary Options Row (Search & Import)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Search Card
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                            ),
+                                            shape = RoundedCornerShape(20.dp),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(100.dp)
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .expressiveClickable(onClick = onSearch)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(12.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Search,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "Search Shows",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                        
+                                        // Import Card
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                            ),
+                                            shape = RoundedCornerShape(20.dp),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(100.dp)
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .expressiveClickable(onClick = { showImportBottomSheet = true })
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(12.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Upload,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "Import Library",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    // 3. Exit Option (Skip Setup)
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                                        ),
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(52.dp)
+                                            .clip(RoundedCornerShape(24.dp))
+                                            .expressiveClickable(onClick = onSkip)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(horizontal = 20.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Text(
+                                                text = "Skip Setup",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        Spacer(modifier = Modifier.navigationBarsPadding())
-                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
@@ -586,7 +636,8 @@ private fun WelcomeScreen(
 
 @Composable
 private fun CinematicBackgroundGrid(
-    entranceProgress: Float
+    entranceProgress: Float,
+    blurRadius: androidx.compose.ui.unit.Dp
 ) {
     val context = LocalContext.current
     val allCovers = remember {
@@ -597,21 +648,26 @@ private fun CinematicBackgroundGrid(
 
     if (allCovers.isEmpty()) return
 
-    val row1Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 3 == 0 } }
-    val row2Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 3 == 1 } }
-    val row3Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 3 == 2 } }
+    val row1Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 4 == 0 } }
+    val row2Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 4 == 1 } }
+    val row3Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 4 == 2 } }
+    val row4Covers = remember(allCovers) { allCovers.filterIndexed { idx, _ -> idx % 4 == 3 } }
 
-    val offset1 = -3800f + (3600f * entranceProgress)
-    val offset2 = -100f - (3600f * entranceProgress)
-    val offset3 = -3500f + (3100f * entranceProgress)
+    val offset1 = -2800f + (2700f * entranceProgress)
+    val offset2 = -100f - (2700f * entranceProgress)
+    val offset3 = -2600f + (2300f * entranceProgress)
+    val offset4 = -300f - (2300f * entranceProgress)
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .blur(blurRadius),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
     ) {
         ScrollingRow(covers = row1Covers, translationX = offset1)
         ScrollingRow(covers = row2Covers, translationX = offset2)
         ScrollingRow(covers = row3Covers, translationX = offset3)
+        ScrollingRow(covers = row4Covers, translationX = offset4)
     }
 }
 
@@ -623,6 +679,7 @@ private fun ScrollingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .wrapContentWidth(unbounded = true, align = Alignment.Start)
             .graphicsLayer { this.translationX = translationX.dp.toPx() },
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
