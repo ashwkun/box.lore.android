@@ -51,6 +51,9 @@ class CachedPolygonShape(
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
+        if (size.width <= 0f || size.height <= 0f) {
+            return Outline.Rectangle(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height))
+        }
         if (size != lastSize || lastPath == null) {
             lastSize = size
             val radius = size.minDimension / 2
