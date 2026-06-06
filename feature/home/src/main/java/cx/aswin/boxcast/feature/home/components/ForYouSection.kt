@@ -58,67 +58,13 @@ fun ForYouSection(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // --- Unified Time-Aware Animated Header ---
-        if (timeBlock != null) {
-            val themeColor = MaterialTheme.colorScheme.primary
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 18.dp), // Premium breathing room above content
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    AnimatedTimeBlockIcon(
-                        title = timeBlock.title,
-                        themeColor = themeColor,
-                        fallbackIcon = timeBlock.icon
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = timeBlock.title,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = SectionHeaderFontFamily,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            letterSpacing = (-0.5).sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = timeBlock.subtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Action chevron decorator
-                FilledTonalIconButton(
-                    onClick = onSeeAllClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
-                        contentDescription = "See All",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        } else {
-            // Fallback to static header if timeBlock is null
-            ForYouHeader(onSeeAllClick = onSeeAllClick)
-        }
+        // --- Curated For You Main Header ---
+        ForYouHeader(onSeeAllClick = onSeeAllClick)
 
         if (recommendations.isEmpty()) {
             // --- Skeletal Shimmer Loader for Recommendations ---
-            val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-            val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
+            val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+            val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
             // Hero Skeleton
             ForYouHeroSkeleton(baseColor = baseColor, highlightColor = highlightColor)
@@ -487,7 +433,7 @@ private fun ForYouHeader(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "Selected For You",
+                text = "Curated For You",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontFamily = SectionHeaderFontFamily,
                     fontWeight = FontWeight.Bold
@@ -532,33 +478,54 @@ private fun ForYouBentoSkeleton(
     highlightColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier) {
-        // Square artwork shimmer
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1.25f)
-                .clip(MaterialTheme.shapes.large)
-                .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        // Title line shimmer
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .height(12.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        // Subtitle line shimmer
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.55f)
-                .height(10.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
-        )
+    OutlinedCard(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column {
+            // Image area skeleton matching aspect ratio 1.25f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.25f)
+                    .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+            )
+            
+            // Text area skeleton matching padding and layout
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Title line 1
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
+                )
+                // Title line 2
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                // Podcast title line
+                Box(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
+                )
+            }
+        }
     }
 }
 

@@ -56,6 +56,7 @@ data class PlayerState(
     val showLateNightNudge: Boolean = false,
     val currentChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
     val isChaptersLoading: Boolean = false,
+    val isChaptersNative: Boolean = false,
     val currentTranscript: List<TranscriptSegment> = emptyList(),
     val autoTranscriptState: AutoTranscriptState = AutoTranscriptState.NONE,
     val autoChaptersState: AutoTranscriptState = AutoTranscriptState.NONE,
@@ -176,6 +177,7 @@ class PlaybackRepository(
                                 _playerState.value = _playerState.value.copy(
                                     isChaptersLoading = true,
                                     currentChapters = emptyList(),
+                                    isChaptersNative = true,
                                     autoChaptersState = AutoTranscriptState.NONE
                                 )
                                 launch {
@@ -188,12 +190,23 @@ class PlaybackRepository(
                                     }
                                 }
                             } else {
-                                val autoChapters = ChapterRepository.getCachedChapters("auto_${episode?.id}") ?: emptyList()
-                                _playerState.value = _playerState.value.copy(
-                                    currentChapters = autoChapters,
-                                    isChaptersLoading = false,
-                                    autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
-                                )
+                                val parsedChapters = ChapterRepository.parseChaptersFromDescription(episode?.description)
+                                if (parsedChapters.isNotEmpty()) {
+                                    _playerState.value = _playerState.value.copy(
+                                        currentChapters = parsedChapters,
+                                        isChaptersLoading = false,
+                                        isChaptersNative = true,
+                                        autoChaptersState = AutoTranscriptState.NONE
+                                    )
+                                } else {
+                                    val autoChapters = ChapterRepository.getCachedChapters("auto_${episode?.id}") ?: emptyList()
+                                    _playerState.value = _playerState.value.copy(
+                                        currentChapters = autoChapters,
+                                        isChaptersLoading = false,
+                                        isChaptersNative = false,
+                                        autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                    )
+                                }
                             }
                             
                             // Fetch transcript
@@ -231,8 +244,8 @@ class PlaybackRepository(
                                         
                                         if (chapters != null) {
                                             _playerState.value = _playerState.value.copy(
-                                                currentChapters = chapters,
-                                                autoChaptersState = if (chapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                                currentChapters = if (_playerState.value.isChaptersNative) _playerState.value.currentChapters else chapters,
+                                                autoChaptersState = if (chapters.isNotEmpty() || _playerState.value.isChaptersNative) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
                                             )
                                         }
                                         
@@ -289,8 +302,8 @@ class PlaybackRepository(
                                      
                                      if (chapters != null && _playerState.value.currentEpisode?.id == episodeId) {
                                          _playerState.value = _playerState.value.copy(
-                                             currentChapters = chapters,
-                                             autoChaptersState = if (chapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                             currentChapters = if (_playerState.value.isChaptersNative) _playerState.value.currentChapters else chapters,
+                                             autoChaptersState = if (chapters.isNotEmpty() || _playerState.value.isChaptersNative) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
                                          )
                                      }
  
@@ -312,8 +325,8 @@ class PlaybackRepository(
                                                  val autoChapters = ChapterRepository.getCachedChapters("auto_$episodeId") ?: emptyList()
                                                  _playerState.value = _playerState.value.copy(
                                                      currentTranscript = transcript,
-                                                     currentChapters = if (autoChapters.isNotEmpty()) autoChapters else _playerState.value.currentChapters,
-                                                     autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
+                                                     currentChapters = if (_playerState.value.isChaptersNative) _playerState.value.currentChapters else (if (autoChapters.isNotEmpty()) autoChapters else _playerState.value.currentChapters),
+                                                     autoChaptersState = if (autoChapters.isNotEmpty() || _playerState.value.isChaptersNative) AutoTranscriptState.COMPLETED else _playerState.value.autoChaptersState
                                                  )
                                              }
                                          }
@@ -425,9 +438,9 @@ class PlaybackRepository(
                         val autoChapters = ChapterRepository.getCachedChapters("auto_$episodeId") ?: emptyList()
                         _playerState.value = _playerState.value.copy(
                             currentTranscript = transcript,
-                            currentChapters = if (autoChapters.isNotEmpty()) autoChapters else _playerState.value.currentChapters,
+                            currentChapters = if (_playerState.value.isChaptersNative) _playerState.value.currentChapters else (if (autoChapters.isNotEmpty()) autoChapters else _playerState.value.currentChapters),
                             autoTranscriptState = if (isTranscriptRequested) AutoTranscriptState.COMPLETED else _playerState.value.autoTranscriptState,
-                            autoChaptersState = if (autoChapters.isNotEmpty()) AutoTranscriptState.COMPLETED else AutoTranscriptState.FAILED
+                            autoChaptersState = if (autoChapters.isNotEmpty() || _playerState.value.isChaptersNative) AutoTranscriptState.COMPLETED else AutoTranscriptState.FAILED
                         )
                         if (isTranscriptRequested) {
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAutoTranscriptCompleted(
@@ -1414,9 +1427,13 @@ class PlaybackRepository(
         }
     }
     
-    fun seekTo(positionMs: Long) {
+    fun seekTo(positionMs: Long, play: Boolean = false) {
         mediaController?.seekTo(positionMs)
         _playerState.value = _playerState.value.copy(position = positionMs)
+        
+        if (play) {
+            mediaController?.play()
+        }
         
         // Save state on seek (do not update lastPlayedAt to prevent reordering on scrub)
         repositoryScope.launch { saveCurrentState(updateLastPlayedAt = false) }

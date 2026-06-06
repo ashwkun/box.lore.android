@@ -28,6 +28,8 @@ sealed interface EpisodeInfoUiState {
         val durationMs: Long = 0L,
         val relatedEpisodes: List<Episode> = emptyList(),
         val relatedEpisodesLoading: Boolean = true,
+        val similarEpisodes: List<Episode> = emptyList(),
+        val similarEpisodesLoading: Boolean = true,
         val isPlaying: Boolean = false, // Sync with global player
         val location: String? = null,
         val license: String? = null
@@ -215,7 +217,7 @@ class EpisodeInfoViewModel(
                         imageUrl = if (!netImage.isNullOrEmpty()) netImage else episodeImageUrl
                     )
                     
-                    // Preserve existing relatedEpisodes state if already loaded
+                    // Preserve existing relatedEpisodes and similarEpisodes state if already loaded
                     val existingState = _uiState.value as? EpisodeInfoUiState.Success
                     _uiState.value = EpisodeInfoUiState.Success(
                         episode = currentEpisode,
@@ -225,6 +227,8 @@ class EpisodeInfoViewModel(
                         durationMs = durationMs,
                         relatedEpisodes = existingState?.relatedEpisodes ?: emptyList(),
                         relatedEpisodesLoading = existingState?.relatedEpisodesLoading ?: true,
+                        similarEpisodes = existingState?.similarEpisodes ?: emptyList(),
+                        similarEpisodesLoading = existingState?.similarEpisodesLoading ?: true,
                         location = existingState?.location ?: initialLocation,
                         license = existingState?.license ?: initialLicense
                     )
@@ -275,6 +279,46 @@ class EpisodeInfoViewModel(
                     _uiState.value = currentSuccess.copy(relatedEpisodesLoading = false)
                 }
                 e.printStackTrace()
+            }
+        }
+
+        // 4. Fetch similar episodes (contextual "More like this") from Qdrant Cloud via proxy
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("EpisodeInfo", "Fetching similar episodes for episodeId: $episodeId, title: $episodeTitle")
+                val repository = cx.aswin.boxcast.core.data.PodcastRepository(apiBaseUrl, publicKey, getApplication())
+                
+                // Fetch the podcast details to get categories and author
+                val podcast = repository.getPodcastDetails(podcastId)
+                val categories = podcast?.genre ?: ""
+                val author = podcast?.artist ?: ""
+
+                val similarEps = repository.getSimilarEpisodes(
+                    episodeId = episodeId,
+                    podcastId = podcastId,
+                    title = episodeTitle,
+                    description = episodeDescription,
+                    podcastTitle = podcastTitle,
+                    categories = categories,
+                    author = author,
+                    limit = 10
+                )
+
+                android.util.Log.d("EpisodeInfo", "Fetched ${similarEps.size} similar episodes")
+
+                val currentSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                if (currentSuccess != null && currentSuccess.episode.id == episodeId) {
+                    _uiState.value = currentSuccess.copy(
+                        similarEpisodes = similarEps,
+                        similarEpisodesLoading = false
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("EpisodeInfo", "Error fetching similar episodes", e)
+                val currentSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                if (currentSuccess != null) {
+                    _uiState.value = currentSuccess.copy(similarEpisodesLoading = false)
+                }
             }
         }
     }
@@ -355,6 +399,44 @@ class EpisodeInfoViewModel(
                         genre = currentState.podcastGenre
                     )
                     queueManager.playEpisode(currentState.episode, pod, entryPointContext = finalBundle)
+                }
+            }
+        }
+    }
+
+
+    fun seekToPosition(positionMs: Long) {
+        val currentState = uiState.value
+        if (currentState is EpisodeInfoUiState.Success) {
+            val globalState = playbackRepository.playerState.value
+            if (globalState.currentEpisode?.id == currentState.episode.id) {
+                playbackRepository.seekTo(positionMs, play = true)
+            } else {
+                viewModelScope.launch {
+                    playbackRepository.savePlaybackState(
+                        podcastId = currentState.podcastId,
+                        episodeId = currentState.episode.id,
+                        positionMs = positionMs,
+                        durationMs = currentState.durationMs,
+                        episodeTitle = currentState.episode.title,
+                        episodeImageUrl = currentState.episode.imageUrl,
+                        podcastImageUrl = currentState.episode.podcastImageUrl,
+                        episodeAudioUrl = currentState.episode.audioUrl,
+                        podcastName = currentState.podcastTitle,
+                        isCompleted = false,
+                        isLiked = likedEpisodeIds.value.contains(currentState.episode.id),
+                        enclosureType = currentState.episode.enclosureType,
+                        episodeDescription = currentState.episode.description
+                    )
+                    val pod = cx.aswin.boxcast.core.model.Podcast(
+                        id = currentState.podcastId,
+                        title = currentState.podcastTitle,
+                        artist = "",
+                        imageUrl = currentState.episode.podcastImageUrl ?: "",
+                        description = "",
+                        genre = currentState.podcastGenre
+                    )
+                    queueManager.playEpisode(currentState.episode, pod)
                 }
             }
         }

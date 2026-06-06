@@ -137,24 +137,7 @@ class PodcastInfoViewModel(
         }
     }
 
-    val uiState: StateFlow<PodcastInfoUiState> = combine(
-        _uiState,
-        completedEpisodeIds,
-        hideCompletedInShowDetails
-    ) { state, completedIds, hideCompleted ->
-        if (state is PodcastInfoUiState.Success && hideCompleted) {
-            state.copy(
-                episodes = state.episodes.filter { it.id !in completedIds },
-                searchResults = state.searchResults?.filter { it.id !in completedIds }
-            )
-        } else {
-            state
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = PodcastInfoUiState.Loading
-    )
+    val uiState: StateFlow<PodcastInfoUiState> = _uiState.asStateFlow()
 
     // Observe downloaded episode IDs
     val downloadedEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads

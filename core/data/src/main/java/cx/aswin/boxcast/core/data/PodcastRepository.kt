@@ -206,6 +206,8 @@ class PodcastRepository(
                 val podcasts = body.feeds.map { feed ->
                     val podcastId = if (feed.id != 0L) {
                         feed.id.toString()
+                    } else if (feed.itunesId != null && feed.itunesId != 0L) {
+                        "itunes:${feed.itunesId}"
                     } else if (!feed.url.isNullOrEmpty()) {
                         "url:${java.net.URLEncoder.encode(feed.url, "UTF-8")}"
                     } else {
@@ -236,7 +238,7 @@ class PodcastRepository(
 
     suspend fun searchEpisodes(feedId: String, query: String): List<Episode> = withContext(Dispatchers.IO) {
         try {
-            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:")) {
+            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
                 getPodcastDetails(feedId)?.id ?: feedId
             } else {
                 feedId
@@ -255,7 +257,7 @@ class PodcastRepository(
 
     suspend fun getEpisodes(feedId: String): List<Episode> = withContext(Dispatchers.IO) {
         try {
-            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:")) {
+            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
                 getPodcastDetails(feedId)?.id ?: feedId
             } else {
                 feedId
@@ -309,7 +311,7 @@ class PodcastRepository(
         offset: Int = 0,
         sort: String = "newest"
     ): EpisodePage = withContext(Dispatchers.IO) {
-        val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:")) {
+        val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
             getPodcastDetails(feedId)?.id ?: feedId
         } else {
             feedId
@@ -348,6 +350,9 @@ class PodcastRepository(
             } else if (feedId.startsWith("guid:")) {
                 val guid = feedId.substringAfter("guid:")
                 api.getPodcast(publicKey = publicKey, feedGuid = guid).execute()
+            } else if (feedId.startsWith("itunes:")) {
+                val itunesId = feedId.substringAfter("itunes:")
+                api.getPodcast(publicKey = publicKey, itunesId = itunesId).execute()
             } else {
                 api.getPodcast(publicKey = publicKey, feedId = feedId).execute()
             }
@@ -451,6 +456,41 @@ class PodcastRepository(
             emptyList()
         }
     }
+
+    suspend fun getSimilarEpisodes(
+        episodeId: String,
+        podcastId: String,
+        title: String,
+        description: String,
+        podcastTitle: String,
+        categories: String = "",
+        author: String = "",
+        limit: Int = 10,
+        country: String? = null
+    ): List<Episode> = withContext(Dispatchers.IO) {
+        try {
+            val request = cx.aswin.boxcast.core.network.model.SimilarEpisodesRequest(
+                id = episodeId,
+                podcastId = podcastId,
+                title = title,
+                description = description,
+                podcastTitle = podcastTitle,
+                categories = categories,
+                author = author,
+                limit = limit,
+                country = country
+            )
+            val response = api.getSimilarEpisodes(publicKey, request).execute()
+            if (response.isSuccessful && response.body() != null) {
+                response.body()!!.items.mapNotNull { mapToEpisode(it) }
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PodcastRepository", "Error getting similar episodes", e)
+            emptyList()
+        }
+    }
     
     suspend fun submitFeedback(category: String, message: String, appVersion: String): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -519,6 +559,9 @@ class PodcastRepository(
             } else if (feedId.startsWith("guid:")) {
                 val guid = feedId.substringAfter("guid:")
                 api.getPodcastMeta(publicKey = publicKey, feedGuid = guid).execute()
+            } else if (feedId.startsWith("itunes:")) {
+                val itunesId = feedId.substringAfter("itunes:")
+                api.getPodcastMeta(publicKey = publicKey, itunesId = itunesId).execute()
             } else {
                 api.getPodcastMeta(publicKey = publicKey, feedId = feedId).execute()
             }

@@ -75,6 +75,7 @@ fun TimeBlockSection(
     data: CuratedTimeBlock,
     onCuratedEpisodeClick: (Episode, Podcast, String, Int) -> Unit,
     onImpression: (String, List<String>) -> Unit = { _, _ -> },
+    onSeeAllClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LaunchedEffect(data.title) {
@@ -84,6 +85,48 @@ fun TimeBlockSection(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
+        // --- Secondary Time Block Header ---
+        val themeColor = MaterialTheme.colorScheme.primary
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                AnimatedTimeBlockIcon(
+                    title = data.title,
+                    themeColor = themeColor,
+                    fallbackIcon = data.icon
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = data.title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = SectionHeaderFontFamily,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            // Action chevron decorator
+            FilledTonalIconButton(
+                onClick = onSeeAllClick,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = "See All",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
         // --- Genre Rails ---
         data.sections.forEachIndexed { index, section ->
             Column {

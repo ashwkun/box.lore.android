@@ -106,7 +106,10 @@ data class HomeDataWrapper(
     val history: List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>,
     val resolvedSerial: Map<String, Episode>,
     val recommendations: List<Episode> = emptyList(),
-    val completedEpisodeIds: Set<String> = emptySet()
+    val completedEpisodeIds: Set<String> = emptySet(),
+    val isTrendingLoaded: Boolean = false,
+    val isCuratedLoaded: Boolean = false,
+    val isRecommendationsLoaded: Boolean = false
 )
 
 /**
@@ -148,6 +151,11 @@ class HomeViewModel(
 
     private val _selectedCategory = MutableStateFlow<String?>(null)
     private val _recommendations = MutableStateFlow<List<Episode>>(emptyList())
+    private val _timeBlockState = MutableStateFlow<CuratedTimeBlock?>(null)
+    
+    private val _isTrendingLoaded = MutableStateFlow(false)
+    private val _isCuratedLoaded = MutableStateFlow(false)
+    private val _isRecommendationsLoaded = MutableStateFlow(false)
     
     private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
     
@@ -362,6 +370,7 @@ class HomeViewModel(
 
     private fun fetchPersonalizedRecommendations(region: String) {
         viewModelScope.launch {
+            _isRecommendationsLoaded.value = false
             try {
                 val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
                 val interests = prefs.getStringSet("user_genres", emptySet())?.toList() ?: emptyList()
@@ -387,6 +396,8 @@ class HomeViewModel(
                 _recommendations.value = distinctRecs
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to fetch personalized recommendations", e)
+            } finally {
+                _isRecommendationsLoaded.value = true
             }
         }
     }
@@ -435,19 +446,26 @@ class HomeViewModel(
                 // Room flows stop being observed. Fix: collect into a hot StateFlow first.
                 val trendingState = MutableStateFlow<List<Podcast>>(emptyList())
                 launch {
-                    android.util.Log.d("BoxCastTiming", "VM: Base stream starting for region=$region")
-                    podcastRepository.getTrendingPodcastsStream(region, 50, null)
-                        .collect { trendingState.value = it }
-                    android.util.Log.d("BoxCastTiming", "VM: Trending stream completed (cold flow done). StateFlow keeps combine alive.")
+                    _isTrendingLoaded.value = false
+                    try {
+                        android.util.Log.d("BoxCastTiming", "VM: Base stream starting for region=$region")
+                        podcastRepository.getTrendingPodcastsStream(region, 50, null)
+                            .collect { trendingState.value = it }
+                        android.util.Log.d("BoxCastTiming", "VM: Trending stream completed (cold flow done). StateFlow keeps combine alive.")
+                    } finally {
+                        _isTrendingLoaded.value = true
+                    }
                 }
                 
-                // Fetch curated vibes ONCE (they only depend on time-of-day, not on combine inputs)
+                // Fetch curated vibes asynchronously — does NOT block main UI state
                 val blockConfig = getTimeBlockConfig()
                 val daySeed = java.time.LocalDate.now().toEpochDay()
-                val prefetchedTimeBlock = viewModelScope.async {
+                launch {
+                    _isCuratedLoaded.value = false
                     try {
+                        android.util.Log.d("BoxCastTiming", "VM: Curated vibes fetch starting")
                         val sectionJobs = blockConfig.genres.map { genre ->
-                            async {
+                            viewModelScope.async {
                                 try {
                                     val list = podcastRepository.getCuratedPodcasts(genre.id, region)
                                     val filtered = list
@@ -461,10 +479,17 @@ class HomeViewModel(
                             }
                         }
                         val resolvedSections = sectionJobs.awaitAll().filterNotNull()
-                        if (resolvedSections.isNotEmpty()) {
+                        val block = if (resolvedSections.isNotEmpty()) {
                             CuratedTimeBlock(blockConfig.title, blockConfig.subtitle, blockConfig.icon, resolvedSections)
                         } else null
-                    } catch (e: Exception) { null }
+                        android.util.Log.d("BoxCastTiming", "VM: Curated vibes resolved, sections=${resolvedSections.size}")
+                        _timeBlockState.value = block
+                        cachedTimeBlock = block
+                    } catch (e: Exception) {
+                        android.util.Log.e("BoxCastTiming", "VM: Curated vibes fetch failed", e)
+                    } finally {
+                        _isCuratedLoaded.value = true
+                    }
                 }
                 
                 combine(
@@ -474,7 +499,11 @@ class HomeViewModel(
                     playbackRepository.getAllHistory(),
                     _resolvedSerialEpisodes,
                     _recommendations,
-                    playbackRepository.completedEpisodeIds
+                    playbackRepository.completedEpisodeIds,
+                    _timeBlockState, // Re-emit when curated vibes resolve
+                    _isTrendingLoaded,
+                    _isCuratedLoaded,
+                    _isRecommendationsLoaded
                 ) { array ->
                     HomeDataWrapper(
                         trending = array[0] as List<Podcast>,
@@ -483,7 +512,10 @@ class HomeViewModel(
                         history = array[3] as List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>,
                         resolvedSerial = array[4] as Map<String, Episode>,
                         recommendations = array[5] as List<Episode>,
-                        completedEpisodeIds = array[6] as Set<String>
+                        completedEpisodeIds = array[6] as Set<String>,
+                        isTrendingLoaded = array[8] as Boolean,
+                        isCuratedLoaded = array[9] as Boolean,
+                        isRecommendationsLoaded = array[10] as Boolean
                     )
                 }.collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1081,8 +1113,8 @@ class HomeViewModel(
                         }
 
 
-                        // --- Unified Time Block (prefetched once, reused across combine emissions) ---
-                        val timeBlock = prefetchedTimeBlock.await()
+                        // --- Unified Time Block (non-blocking: use current state or null) ---
+                        val timeBlock = _timeBlockState.value
                         
                         // Update used IDs
                         timeBlock?.sections?.forEach { sec -> 
@@ -1096,7 +1128,6 @@ class HomeViewModel(
                             cachedRegion = region
                             cachedForYouTrending = trendingList
                             cachedHeroItems = heroList
-                            cachedTimeBlock = timeBlock
                             cachedLatestEpisodes = mixtapePodcasts
                         }
 
@@ -1121,6 +1152,8 @@ class HomeViewModel(
 
                         val shouldShowNudge = !hasDismissed && (systemCountry != region)
 
+                        val initialLoading = !wrapper.isTrendingLoaded || !wrapper.isCuratedLoaded || !wrapper.isRecommendationsLoaded
+
                         _uiState.value = HomeUiState(
                             heroItems = heroList,
                             latestEpisodes = mixtapePodcasts,
@@ -1131,7 +1164,7 @@ class HomeViewModel(
                             timeBlock = timeBlock,
                             discoverPodcasts = discover,
                             recommendations = wrapper.recommendations,
-                            isLoading = false,
+                            isLoading = initialLoading,
                             isFilterLoading = trendingList.isEmpty(),
                             isError = false,
                             showRegionNudge = shouldShowNudge,
@@ -1355,7 +1388,7 @@ class HomeViewModel(
         return when (hour) {
             in 5..11 -> TimeBlockConfig(
                 title = "Good Morning",
-                subtitle = if(isWeekend) "Coffee, curated stories, and your favorites." else "News, tech, and your morning mix.",
+                subtitle = if(isWeekend) "Catch up on the week." else "Start your day with these updates.",
                 icon = Icons.Rounded.WbSunny,
                 genres = listOf(
                     GenreConfig("morning_news", "Top News"),
@@ -1365,7 +1398,7 @@ class HomeViewModel(
             )
             in 12..16 -> TimeBlockConfig(
                 title = "Afternoon Break",
-                subtitle = "Conversations, tech, and custom picks.",
+                subtitle = "Smart conversations to keep you going.",
                 icon = Icons.Rounded.WbSunny,
                 genres = listOf(
                     GenreConfig("science_explainer", "Science & Discovery"),
@@ -1375,7 +1408,7 @@ class HomeViewModel(
             )
             in 17..22 -> TimeBlockConfig(
                 title = "Evening Unwind",
-                subtitle = if(isFriday) "Kickstart your weekend entertainment." else "Relax, laugh, and catch up on your shows.",
+                subtitle = if(isFriday) "Kick off the weekend." else "Relax, laugh, and catch up.",
                 icon = Icons.Rounded.WbTwilight,
                 genres = listOf(
                     GenreConfig("comedy_gold", "Comedy Gold"),
@@ -1385,7 +1418,7 @@ class HomeViewModel(
             )
             else -> TimeBlockConfig(
                 title = "Late Night Listen",
-                subtitle = "Crime, mystery, and cozy late-night dives.",
+                subtitle = "Stories for the dark hours.",
                 icon = Icons.Rounded.NightsStay,
                 genres = listOf(
                     GenreConfig("true_crime_sleep", "True Crime & Chill"),

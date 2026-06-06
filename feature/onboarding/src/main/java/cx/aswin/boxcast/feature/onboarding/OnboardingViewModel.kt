@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 
 data class OnboardingUiState(
-    val currentStep: OnboardingStep = OnboardingStep.GENRES,
+    val currentStep: OnboardingStep = OnboardingStep.WELCOME,
     val selectedGenres: Set<String> = emptySet(),
     val recommendedPodcasts: List<Podcast> = emptyList(),
     val subscribedPodcastIds: Set<String> = emptySet(),
@@ -35,7 +35,7 @@ data class OnboardingUiState(
 )
 
 enum class OnboardingStep {
-    GENRES, PODCASTS, SEARCH
+    WELCOME, GENRES, PODCASTS, SEARCH
 }
 
 class OnboardingViewModel(
@@ -64,8 +64,8 @@ class OnboardingViewModel(
             userPrefs.regionStream.take(1).collect { region ->
                 _uiState.update { 
                     it.copy(
-                        currentRegion = region,
-                        initialRegion = region
+                         currentRegion = region,
+                         initialRegion = region
                     ) 
                 }
                 if (_uiState.value.currentStep == OnboardingStep.PODCASTS) {
@@ -77,6 +77,7 @@ class OnboardingViewModel(
 
     // ── Analytics Timing & Counters ────────────────────────────────
     private var onboardingStartMs: Long = 0L
+    private var welcomeScreenStartMs: Long = 0L
     private var genreScreenStartMs: Long = 0L
     private var podcastScreenStartMs: Long = 0L
     private var searchScreenStartMs: Long = 0L
@@ -90,6 +91,12 @@ class OnboardingViewModel(
     fun getTotalOnboardingTime(): Float {
         if (onboardingStartMs == 0L) return 0f
         return (System.currentTimeMillis() - onboardingStartMs) / 1000f
+    }
+    
+    /** Time spent on the welcome screen in seconds */
+    fun getWelcomeScreenTimeSpent(): Float {
+        if (welcomeScreenStartMs == 0L) return 0f
+        return (System.currentTimeMillis() - welcomeScreenStartMs) / 1000f
     }
     
     /** Time spent on the genre screen in seconds */
@@ -110,13 +117,20 @@ class OnboardingViewModel(
         return (System.currentTimeMillis() - searchScreenStartMs) / 1000f
     }
 
-    /** Called when the genre screen composable first loads */
-    fun onGenreScreenViewed() {
+    /** Called when the welcome screen composable first loads */
+    fun onWelcomeScreenViewed() {
         if (!onboardingStartedFired) {
             onboardingStartMs = System.currentTimeMillis()
-            genreScreenStartMs = System.currentTimeMillis()
+            welcomeScreenStartMs = System.currentTimeMillis()
             AnalyticsHelper.trackOnboardingStarted()
             onboardingStartedFired = true
+        }
+    }
+
+    /** Called when the genre screen composable first loads */
+    fun onGenreScreenViewed() {
+        if (genreScreenStartMs == 0L) {
+            genreScreenStartMs = System.currentTimeMillis()
         }
     }
 
@@ -135,7 +149,9 @@ class OnboardingViewModel(
         return prefs.getBoolean("onboarding_completed", false)
     }
     
-    
+    fun startOnboarding() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.GENRES) }
+    }
     
     fun toggleGenre(genre: String) {
         _uiState.update { state ->
@@ -367,6 +383,7 @@ class OnboardingViewModel(
     fun skipOnboarding(onDone: () -> Unit) {
         // Analytics: Track skip
         val currentScreen = when (_uiState.value.currentStep) {
+            OnboardingStep.WELCOME -> "welcome_screen"
             OnboardingStep.GENRES -> "genre_screen"
             OnboardingStep.PODCASTS -> "podcast_screen"
             OnboardingStep.SEARCH -> "search_screen"

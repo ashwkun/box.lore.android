@@ -701,8 +701,126 @@ fun EpisodeInfoScreen(
                                 accentColor = accentColor,
                                 location = state.location,
                                 license = state.license,
-                                persons = state.episode.persons
+                                persons = state.episode.persons,
+                                onSeekTo = viewModel::seekToPosition
                             )
+                        }
+                    }
+
+                    // Contextual "MORE LIKE THIS" RECOMMENDATIONS SECTION -> Card
+                    if (state.similarEpisodesLoading || state.similarEpisodes.isNotEmpty()) {
+                        item {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = MaterialTheme.shapes.extraLarge
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp)
+                                            .padding(bottom = 16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "More like this",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    
+                                    val similarListState = rememberLazyListState()
+                                    LazyRow(
+                                        state = similarListState,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 16.dp)
+                                    ) {
+                                        if (state.similarEpisodesLoading) {
+                                            items(4) {
+                                                val baseColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                                val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                                
+                                                Column(
+                                                    modifier = Modifier.width(120.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(120.dp)
+                                                            .clip(MaterialTheme.shapes.medium)
+                                                            .background(baseColor)
+                                                            .m3Shimmer(baseColor, highlightColor)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(14.dp)
+                                                            .clip(MaterialTheme.shapes.small)
+                                                            .background(baseColor)
+                                                            .m3Shimmer(baseColor, highlightColor)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth(0.7f)
+                                                            .height(14.dp)
+                                                            .clip(MaterialTheme.shapes.small)
+                                                            .background(baseColor)
+                                                            .m3Shimmer(baseColor, highlightColor)
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            items(state.similarEpisodes) { episode ->
+                                                androidx.compose.material3.ElevatedCard(
+                                                    shape = MaterialTheme.shapes.large,
+                                                    colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                                                    ),
+                                                    modifier = Modifier
+                                                        .width(140.dp)
+                                                        .expressiveClickable { 
+                                                            onEpisodeClick(episode) 
+                                                        }
+                                                ) {
+                                                    Column {
+                                                        OptimizedImage(
+                                                            url = episode.imageUrl?.ifEmpty { episode.podcastImageUrl },
+                                                            proxyWidth = 300,
+                                                            contentDescription = episode.title,
+                                                            modifier = Modifier
+                                                                .size(140.dp)
+                                                                .clip(MaterialTheme.shapes.medium),
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                        Text(
+                                                            text = episode.title,
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            minLines = 3,
+                                                            maxLines = 3,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.padding(12.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 

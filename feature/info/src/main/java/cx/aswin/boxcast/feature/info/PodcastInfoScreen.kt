@@ -418,7 +418,14 @@ fun PodcastInfoScreen(
                 // Content
                 val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
                 
-                val displayEpisodes = state.searchResults ?: state.episodes
+                val displayEpisodes = remember(state.searchResults, state.episodes, hideCompleted, completedEpisodeIds) {
+                    val rawList = state.searchResults ?: state.episodes
+                    if (hideCompleted) {
+                        rawList.filter { it.id !in completedEpisodeIds }
+                    } else {
+                        rawList
+                    }
+                }
                 val feedItems = remember(displayEpisodes) { groupEpisodes(displayEpisodes) }
                 
                 LaunchedEffect(state, completedEpisodeIds, feedItems, ongoingEpisodeIds) {
@@ -1091,8 +1098,6 @@ fun PodcastInfoScreen(
                             isSearching = state.isSearching,
                             currentSort = state.currentSort,
                             onSortToggle = { viewModel.toggleSort() },
-                            isHideCompleted = hideCompleted,
-                            onHideCompletedToggle = { viewModel.toggleHideCompleted() },
                             isSubscribed = state.isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             accentColor = accentColor,
@@ -1854,8 +1859,6 @@ private fun EpisodeToolbar(
     isSearching: Boolean,
     currentSort: EpisodeSort,
     onSortToggle: () -> Unit,
-    isHideCompleted: Boolean,
-    onHideCompletedToggle: () -> Unit,
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     accentColor: Color,
@@ -2049,23 +2052,6 @@ private fun EpisodeToolbar(
                     }
                 }
             }
-        }
-
-        // Hide Completed Toggle
-        IconButton(
-            onClick = onHideCompletedToggle,
-            modifier = Modifier
-                .size(48.dp)
-                .background(
-                    if (isHideCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
-                    ExpressiveShapes.Pill
-                )
-        ) {
-            Icon(
-                imageVector = if (isHideCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
-                contentDescription = "Hide Completed",
-                tint = if (isHideCompleted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         // Sort Button

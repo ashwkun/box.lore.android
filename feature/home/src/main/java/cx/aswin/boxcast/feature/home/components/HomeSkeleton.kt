@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,32 +65,35 @@ fun HomeSkeleton(
 }
 
 @Composable
-fun HeroSkeleton() {
-    val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-    val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
+fun HeroSkeleton(
+    modifier: Modifier = Modifier
+) {
+    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
-    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-        // Header Text lines
-        Spacer(modifier = Modifier.height(16.dp))
-        SkeletonBlock(width = 120.dp, height = 20.dp, baseColor = baseColor, highlightColor = highlightColor) // "TOP IN..."
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // Hero Card (Just Shimmer, No Shapes)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1.2f)
-                .clip(MaterialTheme.shapes.extraLarge)
-                .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.extraLarge)
-        )
-        Spacer(modifier = Modifier.height(32.dp))
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(420.dp)
+    ) {
+        items(2) {
+            Box(
+                modifier = Modifier
+                    .width(320.dp)
+                    .fillMaxHeight()
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.extraLarge)
+            )
+        }
     }
 }
 
 @Composable
 fun RisingSkeleton() {
-    val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-    val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
     Column {
         // Header handled by real component now
@@ -101,20 +105,13 @@ fun RisingSkeleton() {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(4) { 
-                Column {
-                    // Cover Art Shimmer
-                    Box(
-                        modifier = Modifier
-                            .width(160.dp)
-                            .aspectRatio(1f)
-                            .clip(MaterialTheme.shapes.large)
-                .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SkeletonBlock(width = 100.dp, height = 16.dp, baseColor = baseColor, highlightColor = highlightColor)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    SkeletonBlock(width = 60.dp, height = 12.dp, baseColor = baseColor, highlightColor = highlightColor)
-                }
+                Box(
+                    modifier = Modifier
+                        .width(160.dp)
+                        .height(200.dp)
+                        .clip(MaterialTheme.shapes.large)
+                        .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
+                )
             }
         }
         Spacer(modifier = Modifier.height(32.dp))
@@ -130,22 +127,16 @@ fun androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope.GridSk
 
 @Composable
 fun GridSkeletonItem(isTall: Boolean) {
-    val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-    val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (isTall) 280.dp else 220.dp)
-                .clip(MaterialTheme.shapes.large)
-                .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SkeletonBlock(width = 80.dp, height = 16.dp, baseColor = baseColor, highlightColor = highlightColor)
-        Spacer(modifier = Modifier.height(4.dp))
-        SkeletonBlock(width = 50.dp, height = 12.dp, baseColor = baseColor, highlightColor = highlightColor)
-    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (isTall) 364.dp else 304.dp)
+            .clip(MaterialTheme.shapes.large)
+            .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
+    )
 }
 
 @Composable
@@ -166,16 +157,9 @@ fun SkeletonBlock(
 }
 
 @Composable
-fun YourShowsSkeleton() {
-    val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-    val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
-
-    val isDark = (0.2126f * MaterialTheme.colorScheme.surface.red + 0.7152f * MaterialTheme.colorScheme.surface.green + 0.0722f * MaterialTheme.colorScheme.surface.blue) < 0.5f
-    val cardContainerColor = if (isDark) {
-        MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.8f)
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
+fun YourShowsSkeleton(subscribedCount: Int = 0) {
+    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
     Column(modifier = Modifier.padding(bottom = 16.dp)) {
         // Section Header Row
@@ -197,95 +181,81 @@ fun YourShowsSkeleton() {
             )
         }
 
-        // Selector covers LazyRow
-        LazyRow(
-            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items(5) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(12.dp))
-                )
+        // Selector covers - match the dynamic height of YourShowsSection
+        if (subscribedCount > 4) {
+            // 2-row layout matching the height 156.dp
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(156.dp)
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Row 1 shimmers
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(5) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(12.dp))
+                        )
+                    }
+                }
+                // Row 2 shimmers
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(4) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(12.dp))
+                        )
+                    }
+                }
+            }
+        } else {
+            // 1-row layout (LazyRow) matching the height 84.dp
+            LazyRow(
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items(if (subscribedCount > 0) (subscribedCount + 1).coerceAtMost(5) else 5) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(12.dp))
+                    )
+                }
             }
         }
 
         // Large Mixtape Card
-        OutlinedCard(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = cardContainerColor
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-                // Mixtape Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        SkeletonBlock(width = 100.dp, height = 20.dp, baseColor = baseColor, highlightColor = highlightColor)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SkeletonBlock(width = 200.dp, height = 12.dp, baseColor = baseColor, highlightColor = highlightColor)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .m3Shimmer(baseColor, highlightColor, shape = CircleShape)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                    thickness = 1.dp
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Dense Episode Rows (Shimmers) inside matching 280.dp height
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    repeat(3) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(8.dp))
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                SkeletonBlock(width = 180.dp, height = 16.dp, baseColor = baseColor, highlightColor = highlightColor)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                SkeletonBlock(width = 100.dp, height = 12.dp, baseColor = baseColor, highlightColor = highlightColor)
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(24.dp))
+        )
     }
 }
 
 @Composable
 fun TimeBlockSkeleton() {
-    val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-    val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
     Column(modifier = Modifier.padding(bottom = 16.dp)) {
         // Time Block Master Header
@@ -327,18 +297,13 @@ fun TimeBlockSkeleton() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(4) { 
-                        Column(modifier = Modifier.width(140.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(140.dp)
-                                    .clip(MaterialTheme.shapes.large)
-                                    .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            SkeletonBlock(width = 120.dp, height = 16.dp, baseColor = baseColor, highlightColor = highlightColor)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            SkeletonBlock(width = 80.dp, height = 12.dp, baseColor = baseColor, highlightColor = highlightColor)
-                        }
+                        Box(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(204.dp)
+                                .clip(MaterialTheme.shapes.large)
+                                .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
+                        )
                     }
                 }
             }

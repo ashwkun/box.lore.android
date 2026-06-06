@@ -91,6 +91,9 @@ data class SearchFeed(
     @SerialName("url")
     val url: String? = null,
     
+    @SerialName("itunesId")
+    val itunesId: Long? = null,
+    
     @SerialName("medium")
     val medium: String? = null,
     
@@ -403,4 +406,17 @@ data class ValueDestination(
 
     @SerialName("split")
     val split: Int? = null
+)
+
+@Serializable
+data class SimilarEpisodesRequest(
+    val id: String,
+    val podcastId: String,
+    val title: String,
+    val description: String,
+    val podcastTitle: String,
+    val categories: String = "",
+    val author: String = "",
+    val limit: Int = 10,
+    val country: String? = null
 )

@@ -43,7 +43,9 @@ fun HeroGridCard(
         shape = MaterialTheme.shapes.extraLarge,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .clip(MaterialTheme.shapes.extraLarge)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header

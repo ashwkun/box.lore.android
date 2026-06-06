@@ -168,6 +168,16 @@ jobs:
         run: |
           echo "[WORKFLOW] Running vectorize.js to calculate and sync embedding vectors to Qdrant Cloud for country ${{ matrix.country }}..."
           node scripts/vectorize.js --country ${{ matrix.country }}
+
+      - name: Generate Podcast Vector Embeddings
+        env:
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: |
+          echo "[WORKFLOW] Running vectorize-podcasts.js to calculate and sync show embedding vectors to Qdrant Cloud for country ${{ matrix.country }}..."
+          node scripts/vectorize-podcasts.js --country ${{ matrix.country }}
           
       - name: Cleanup
         run: rm -f *.db *.tgz *.csv *.txt

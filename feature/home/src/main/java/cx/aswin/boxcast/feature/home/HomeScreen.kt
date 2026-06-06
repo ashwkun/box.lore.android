@@ -442,6 +442,10 @@ private fun PodcastFeed(
     modifier: Modifier = Modifier
 ) {
     LogRecomposition(name = "PodcastFeed")
+
+    // Track whether initial content has loaded (for staggered entrance animation)
+    val heroLoaded = !isLoading && heroItems.isNotEmpty()
+
     LazyVerticalStaggeredGrid(
         state = gridState,
         columns = StaggeredGridCells.Adaptive(150.dp),
@@ -454,27 +458,36 @@ private fun PodcastFeed(
         // 1. Smart Hero (Personalized Content) and Region Nudge
         item(span = StaggeredGridItemSpan.FullLine) {
             Column {
-                if (isLoading || heroItems.isEmpty()) {
-                    cx.aswin.boxcast.feature.home.components.HeroSkeleton()
-                } else {
-                    HeroCarousel(
-                        heroItems = heroItems,
-                        currentPlayingPodcastId = currentPlayingPodcastId,
-                        isPlaying = isPlaying,
-                        onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
-                        onDetailsClick = { podcast ->
-                            val ep = podcast.latestEpisode
-                            if (ep != null) {
-                                onEpisodeClick?.invoke(ep, podcast, "home_hero_card")
-                            } else {
-                                onPodcastClick(podcast, "home_hero_card", null, null)
-                            }
-                        },
-                        onArrowClick = onHeroArrowClick,
-                        onToggleSubscription = onToggleSubscription,
-                        onTogglePlayback = onTogglePlayback,
-                        modifier = Modifier.padding(horizontal = 8.dp) 
-                    )
+                // Crossfade between skeleton and hero carousel
+                androidx.compose.animation.Crossfade(
+                    targetState = heroLoaded,
+                    animationSpec = tween(500),
+                    label = "hero_crossfade"
+                ) { loaded ->
+                    if (!loaded) {
+                        cx.aswin.boxcast.feature.home.components.HeroSkeleton(
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    } else {
+                        HeroCarousel(
+                            heroItems = heroItems,
+                            currentPlayingPodcastId = currentPlayingPodcastId,
+                            isPlaying = isPlaying,
+                            onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
+                            onDetailsClick = { podcast ->
+                                val ep = podcast.latestEpisode
+                                if (ep != null) {
+                                    onEpisodeClick?.invoke(ep, podcast, "home_hero_card")
+                                } else {
+                                    onPodcastClick(podcast, "home_hero_card", null, null)
+                                }
+                            },
+                            onArrowClick = onHeroArrowClick,
+                            onToggleSubscription = onToggleSubscription,
+                            onTogglePlayback = onTogglePlayback,
+                            modifier = Modifier.padding(horizontal = 8.dp) 
+                        )
+                    }
                 }
 
                 AnimatedVisibility(
@@ -499,39 +512,58 @@ private fun PodcastFeed(
             }
         }
 
-        // 2. "Your Shows" (Merged: Subscribed + New Episodes) - MOVED ABOVE "On The Rise"
         // 2. "Your Shows" (Interactive selector grid & filtered stack)
-        if (isLoading) {
-            item(span = StaggeredGridItemSpan.FullLine) {
-                YourShowsSkeleton()
-            }
-        } else if (subscribedItems.isNotEmpty()) {
-            item(span = StaggeredGridItemSpan.FullLine) {
-                YourShowsSection(
-                    subscribedPodcasts = subscribedItems,
-                    latestEpisodes = latestItems,
-                    unplayedEpisodeCount = unplayedEpisodeCount,
-                    selectedPodcastId = selectedPodcastId,
-                    selectedPodcastEpisodes = selectedPodcastEpisodes,
-                    isSelectedPodcastLoading = isSelectedPodcastLoading,
-                    episodePlaybackState = episodePlaybackState,
-                    currentPlayingEpisodeId = currentPlayingEpisodeId,
-                    isPlaying = isPlaying,
-                    onPodcastSelected = onPodcastSelected,
-                    onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
-                    onEpisodeClick = { episode, podcast, entryPoint ->
-                        onEpisodeClick?.invoke(episode, podcast, entryPoint)
-                    },
-                    onPlayMix = onPlayMix,
-                    onPlayEpisode = onPlayEpisode,
-                    onViewLibrary = { onNavigateToLibrary?.invoke() }
-                )
+        item(span = StaggeredGridItemSpan.FullLine) {
+            // Crossfade: skeleton → your shows → empty (nothing)
+            androidx.compose.animation.Crossfade(
+                targetState = when {
+                    isLoading -> "skeleton"
+                    subscribedItems.isNotEmpty() -> "content"
+                    else -> "empty"
+                },
+                animationSpec = tween(500),
+                label = "your_shows_crossfade"
+            ) { state ->
+                when (state) {
+                    "skeleton" -> YourShowsSkeleton(subscribedCount = subscribedItems.size)
+                    "content" -> YourShowsSection(
+                        subscribedPodcasts = subscribedItems,
+                        latestEpisodes = latestItems,
+                        unplayedEpisodeCount = unplayedEpisodeCount,
+                        selectedPodcastId = selectedPodcastId,
+                        selectedPodcastEpisodes = selectedPodcastEpisodes,
+                        isSelectedPodcastLoading = isSelectedPodcastLoading,
+                        episodePlaybackState = episodePlaybackState,
+                        currentPlayingEpisodeId = currentPlayingEpisodeId,
+                        isPlaying = isPlaying,
+                        onPodcastSelected = onPodcastSelected,
+                        onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
+                        onEpisodeClick = { episode, podcast, entryPoint ->
+                            onEpisodeClick?.invoke(episode, podcast, entryPoint)
+                        },
+                        onPlayMix = onPlayMix,
+                        onPlayEpisode = onPlayEpisode,
+                        onViewLibrary = { onNavigateToLibrary?.invoke() }
+                    )
+                    else -> {} // No subs, render nothing
+                }
             }
         }
 
         // "For You" Personalized Recommendations Section (Magazine Split Layout)
-        if (!isLoading && (recommendations.isNotEmpty() || timeBlock != null)) {
-            item(span = StaggeredGridItemSpan.FullLine) {
+        // Render this item slot unconditionally so its skeleton is shown during loading
+        item(span = StaggeredGridItemSpan.FullLine) {
+            AnimatedVisibility(
+                visible = isLoading || recommendations.isNotEmpty(),
+                enter = fadeIn(animationSpec = tween(600)) + expandVertically(
+                    animationSpec = tween(500),
+                    expandFrom = Alignment.Top
+                ),
+                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
+                    animationSpec = tween(300),
+                    shrinkTowards = Alignment.Top
+                )
+            ) {
                 ForYouSection(
                     recommendations = recommendations,
                     currentPlayingEpisodeId = currentPlayingEpisodeId,
@@ -549,18 +581,28 @@ private fun PodcastFeed(
             }
         }
 
-        // 3. Time-Based Curated Block
-        if (isLoading) {
-            item(span = StaggeredGridItemSpan.FullLine) {
-                TimeBlockSkeleton()
-            }
-        } else if (timeBlock != null) {
-            item(span = StaggeredGridItemSpan.FullLine) {
-                TimeBlockSection(
-                    data = timeBlock,
-                    onCuratedEpisodeClick = { episode, podcast, vibeId, pos -> onCuratedEpisodeClick?.invoke(episode, podcast, vibeId, pos) },
-                    onImpression = onCuratedImpression
-                )
+        // 3. Time-Based Curated Block — Crossfade skeleton → content
+        item(span = StaggeredGridItemSpan.FullLine) {
+            androidx.compose.animation.Crossfade(
+                targetState = when {
+                    isLoading -> "skeleton"
+                    timeBlock != null -> "content"
+                    else -> "skeleton" // Still loading curated (show shimmer)
+                },
+                animationSpec = tween(600),
+                label = "timeblock_crossfade"
+            ) { state ->
+                when (state) {
+                    "skeleton" -> TimeBlockSkeleton()
+                    "content" -> TimeBlockSection(
+                        data = timeBlock!!,
+                        onCuratedEpisodeClick = { episode, podcast, vibeId, pos -> onCuratedEpisodeClick?.invoke(episode, podcast, vibeId, pos) },
+                        onImpression = onCuratedImpression,
+                        onSeeAllClick = {
+                            onNavigateToExplore?.invoke(null, "home_time_block_see_all", "foryou")
+                        }
+                    )
+                }
             }
         }
 

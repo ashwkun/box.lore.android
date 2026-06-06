@@ -1,0 +1,64 @@
+name: 🌀 One-Time Batch Vectorize All Podcast Shows
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Maximum number of podcast shows to process'
+        required: true
+        default: '10000'
+      max_time:
+        description: 'Maximum run time in minutes (max 340)'
+        required: true
+        default: '330'
+      concurrency:
+        description: 'Number of parallel workers'
+        required: true
+        default: '4'
+
+concurrency:
+  group: sync-pi-data # Avoid running concurrently with daily/scheduled sync tasks
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  batch-vectorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # Run for up to 6 hours
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache Transformers Models
+        uses: actions/cache@v4
+        with:
+          path: ./.cache
+          key: transformers-cache-bge-large-en-v1.5
+          restore-keys: |
+            transformers-cache-
+
+      - name: Install dependencies
+        run: |
+          echo "[WORKFLOW] Installing dependencies..."
+          npm install
+
+      - name: Run Batch Vectorization
+        env:
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: |
+          echo "[WORKFLOW] Starting scripts/vectorize-podcasts-all.js..."
+          node scripts/vectorize-podcasts-all.js --limit ${{ github.event.inputs.limit }} --max-time ${{ github.event.inputs.max_time }} --concurrency ${{ github.event.inputs.concurrency }}
+          
+      - name: Cleanup
+        run: rm -rf ./.cache/tmp

@@ -182,12 +182,16 @@ internal fun EpisodeDescriptionCard(
     modifier: Modifier = Modifier,
     location: String? = null,
     license: String? = null,
-    persons: List<Person>? = null
+    persons: List<Person>? = null,
+    onSeekTo: ((Long) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val socialLinks = remember(description) { extractSocialLinks(description) }
     var expanded by remember { mutableStateOf(false) }
     val isLong = remember(description) { description.length > 500 }
+    val formattedDescription = remember(description) {
+        formatTimestampsAsLinks(description)
+    }
 
     Surface(
         modifier = modifier
@@ -291,14 +295,23 @@ internal fun EpisodeDescriptionCard(
             )
 
             HtmlText(
-                text = description,
+                text = formattedDescription,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     lineHeight = 20.sp
                 ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded || !isLong) Int.MAX_VALUE else 8,
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { if (isLong) expanded = !expanded }
+                onClick = { if (isLong) expanded = !expanded },
+                onLinkClicked = { url ->
+                    if (url.startsWith("play-position:")) {
+                        val seconds = url.substringAfter("play-position:").toLongOrNull() ?: 0L
+                        onSeekTo?.invoke(seconds * 1000L)
+                        true
+                    } else {
+                        false
+                    }
+                }
             )
 
 
@@ -362,6 +375,23 @@ internal fun EpisodeDescriptionCard(
                     }
                 }
             }
+        }
+    }
+}
+
+private fun formatTimestampsAsLinks(htmlText: String): String {
+    if (htmlText.isBlank()) return ""
+    val regex = """\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b""".toRegex()
+    return regex.replace(htmlText) { match ->
+        val hours = match.groups[1]?.value?.toIntOrNull() ?: 0
+        val minutes = match.groups[2]?.value?.toIntOrNull() ?: 0
+        val seconds = match.groups[3]?.value?.toIntOrNull() ?: 0
+        
+        if (minutes < 60 && seconds < 60) {
+            val totalSeconds = hours * 3600 + minutes * 60 + seconds
+            "<a href=\"play-position:$totalSeconds\">▶ ${match.value}</a>"
+        } else {
+            match.value
         }
     }
 }

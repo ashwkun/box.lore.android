@@ -18,6 +18,53 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
 
+private class LinkTextView(context: android.content.Context) : TextView(context) {
+    var linkClickListener: ((String) -> Boolean)? = null
+
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        val textVal = this.text
+        if (textVal is android.text.Spanned) {
+            val action = event.action
+            if (action == android.view.MotionEvent.ACTION_DOWN ||
+                action == android.view.MotionEvent.ACTION_UP ||
+                action == android.view.MotionEvent.ACTION_MOVE
+            ) {
+                var x = event.x.toInt()
+                var y = event.y.toInt()
+
+                x -= totalPaddingLeft
+                y -= totalPaddingTop
+
+                x += scrollX
+                y += scrollY
+
+                val layout = layout
+                if (layout != null) {
+                    val line = layout.getLineForVertical(y)
+                    val off = layout.getOffsetForHorizontal(line, x.toFloat())
+
+                    val link = textVal.getSpans(off, off, android.text.style.ClickableSpan::class.java)
+
+                    if (link.isNotEmpty()) {
+                        if (action == android.view.MotionEvent.ACTION_UP) {
+                            val clickable = link[0]
+                            var handled = false
+                            if (clickable is android.text.style.URLSpan) {
+                                handled = linkClickListener?.invoke(clickable.url) == true
+                            }
+                            if (!handled) {
+                                clickable.onClick(this)
+                            }
+                        }
+                        return true
+                    }
+                }
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+}
+
 /**
  * A Text component that renders HTML content using a native TextView.
  * Handles styling (bold, italic, links) natively.
@@ -30,7 +77,8 @@ fun HtmlText(
     color: Color = LocalContentColor.current,
     linkColor: Color = MaterialTheme.colorScheme.primary,
     maxLines: Int = Int.MAX_VALUE,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    onLinkClicked: ((String) -> Boolean)? = null
 ) {
     val context = LocalContext.current
     val linkTextColor = remember(linkColor) { linkColor.toArgb() }
@@ -39,54 +87,40 @@ fun HtmlText(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            val textView = object : TextView(ctx) {
-                override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
-                    val textVal = this.text
-                    if (textVal is android.text.Spanned) {
-                        val action = event.action
-                        if (action == android.view.MotionEvent.ACTION_DOWN ||
-                            action == android.view.MotionEvent.ACTION_UP ||
-                            action == android.view.MotionEvent.ACTION_MOVE
-                        ) {
-                            var x = event.x.toInt()
-                            var y = event.y.toInt()
-
-                            x -= totalPaddingLeft
-                            y -= totalPaddingTop
-
-                            x += scrollX
-                            y += scrollY
-
-                            val layout = layout
-                            if (layout != null) {
-                                val line = layout.getLineForVertical(y)
-                                val off = layout.getOffsetForHorizontal(line, x.toFloat())
-
-                                val link = textVal.getSpans(off, off, android.text.style.ClickableSpan::class.java)
-
-                                if (link.isNotEmpty()) {
-                                    if (action == android.view.MotionEvent.ACTION_UP) {
-                                        link[0].onClick(this)
-                                    }
-                                    return true
-                                }
-                            }
-                        }
-                    }
-                    return super.onTouchEvent(event)
-                }
-            }
-            textView.apply {
+            LinkTextView(ctx).apply {
                 params(this, style, textColor, linkTextColor, maxLines)
+                linkClickListener = onLinkClicked
                 setOnClickListener {
                     onClick?.invoke()
                 }
             }
         },
         update = { textView ->
-            params(textView, style, textColor, linkTextColor, maxLines)
-            textView.text = HtmlCompat.fromHtml(text, HtmlCompat.FROM_HTML_MODE_COMPACT)
-            textView.setOnClickListener {
+            val linkTextView = textView as LinkTextView
+            params(linkTextView, style, textColor, linkTextColor, maxLines)
+            linkTextView.linkClickListener = onLinkClicked
+            
+            val htmlSpanned = HtmlCompat.fromHtml(text, HtmlCompat.FROM_HTML_MODE_COMPACT)
+            val spannable = android.text.SpannableString(htmlSpanned)
+            val urls = spannable.getSpans(0, spannable.length, android.text.style.URLSpan::class.java)
+            for (urlSpan in urls) {
+                val start = spannable.getSpanStart(urlSpan)
+                val end = spannable.getSpanEnd(urlSpan)
+                val flags = spannable.getSpanFlags(urlSpan)
+                
+                val customSpan = object : android.text.style.URLSpan(urlSpan.url) {
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        super.updateDrawState(ds)
+                        ds.isUnderlineText = false
+                        ds.typeface = android.graphics.Typeface.create(ds.typeface, android.graphics.Typeface.BOLD)
+                    }
+                }
+                spannable.removeSpan(urlSpan)
+                spannable.setSpan(customSpan, start, end, flags)
+            }
+            
+            linkTextView.text = spannable
+            linkTextView.setOnClickListener {
                 onClick?.invoke()
             }
         }
