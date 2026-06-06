@@ -206,6 +206,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // On first launch (onboarding not completed), skip the splash screen entirely
+        // so the cinematic onboarding animation is the only brand moment.
+        val onboardingPrefs = getSharedPreferences("boxcast_prefs", MODE_PRIVATE)
+        val isOnboardingDone = onboardingPrefs.getBoolean("onboarding_completed", false)
+        if (!isOnboardingDone) {
+            splashScreen.setKeepOnScreenCondition { false }
+        }
+        
         enableEdgeToEdge()
         
         // Analytics: Track cold start
