@@ -171,30 +171,15 @@ async function main() {
                 }
 
                 const statements = [];
-                const commonLength = Math.min(podcasts.length, existingRows.length);
+                if (isDifferent) {
+                    // Delete all existing rows for this country & category
+                    statements.push({
+                        sql: "DELETE FROM charts WHERE country = ? AND category = ?",
+                        args: [country, category]
+                    });
 
-                // 1. Update overlapping rows that are different
-                for (let i = 0; i < commonLength; i++) {
-                    const newPod = podcasts[i];
-                    const oldPod = existingRows[i];
-                    const rank = i + 1;
-
-                    if (String(newPod.itunesId) !== String(oldPod.itunesId) ||
-                        newPod.name !== oldPod.name ||
-                        newPod.artist !== oldPod.artist ||
-                        newPod.imageUrl !== oldPod.imageUrl ||
-                        rank !== oldPod.rank) {
-                        
-                        statements.push({
-                            sql: "UPDATE charts SET itunes_id = ?, name = ?, artist = ?, image_url = ? WHERE country = ? AND category = ? AND rank = ?",
-                            args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, rank]
-                        });
-                    }
-                }
-
-                // 2. Insert new rows if the new chart is longer
-                if (podcasts.length > existingRows.length) {
-                    for (let i = existingRows.length; i < podcasts.length; i++) {
+                    // Insert all podcasts in order
+                    for (let i = 0; i < podcasts.length; i++) {
                         const newPod = podcasts[i];
                         const rank = i + 1;
                         statements.push({
@@ -204,23 +189,32 @@ async function main() {
                     }
                 }
 
-                // 3. Delete extra rows if the new chart is shorter
-                if (existingRows.length > podcasts.length) {
-                    statements.push({
-                        sql: "DELETE FROM charts WHERE country = ? AND category = ? AND rank > ?",
-                        args: [country, category, podcasts.length]
-                    });
-                }
-
                 if (statements.length > 0) {
-                    console.log(`[CHARTS] Updating charts for ${country}/${category} (${statements.length} operations executed)...`);
-                    const requests = statements.map(stmt => ({
+                    console.log(`[CHARTS] Updating charts for ${country}/${category} (${statements.length - 1} inserts executed)...`);
+                    
+                    const requests = [];
+                    // Start transaction
+                    requests.push({
                         type: "execute",
-                        stmt: { 
-                            sql: stmt.sql, 
-                            args: stmt.args.map(mapArgType) 
-                        }
-                    }));
+                        stmt: { sql: "BEGIN" }
+                    });
+
+                    // Add delete and inserts
+                    for (const stmt of statements) {
+                        requests.push({
+                            type: "execute",
+                            stmt: { 
+                                sql: stmt.sql, 
+                                args: stmt.args.map(mapArgType) 
+                            }
+                        });
+                    }
+
+                    // Commit transaction
+                    requests.push({
+                        type: "execute",
+                        stmt: { sql: "COMMIT" }
+                    });
                     requests.push({ type: "close" });
 
                     const batchResponse = await fetch(`${TURSO_URL}/v2/pipeline`, {
