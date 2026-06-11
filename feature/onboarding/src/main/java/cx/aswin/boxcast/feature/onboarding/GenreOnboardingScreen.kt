@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.feature.onboarding
 
 import android.util.Log
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -38,83 +39,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 internal fun GenrePickerScreen(
     selectedGenres: Set<String>,
     onToggleGenre: (String) -> Unit,
-    onContinue: () -> Unit,
-    onSearch: () -> Unit,
-    onSkip: () -> Unit,
-    onImportJson: (android.net.Uri) -> Unit = {},
-    onImportOpml: (android.net.Uri) -> Unit = {},
-    onImportSheetOpened: () -> Unit = {}
+    onContinue: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
-    val importJsonLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let { onImportJson(it) } }
-    )
-    val importOpmlLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let { onImportOpml(it) } }
-    )
-    
-    var showImportBottomSheet by remember { mutableStateOf(false) }
-
-    // Analytics: Track when import bottom sheet is opened
-    LaunchedEffect(showImportBottomSheet) {
-        if (showImportBottomSheet) onImportSheetOpened()
-    }
-
-    if (showImportBottomSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showImportBottomSheet = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-            ) {
-                Text(
-                    text = "Import Library",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    onClick = {
-                        showImportBottomSheet = false
-                        importJsonLauncher.launch(arrayOf("application/json"))
-                    }
-                ) {
-                    ListItem(
-                        headlineContent = { Text("boxcast Backup (.json)") },
-                        supportingContent = { Text("Restore a perfect backup of subscriptions and liked episodes") },
-                        leadingContent = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-                    )
-                }
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    onClick = {
-                        showImportBottomSheet = false
-                        importOpmlLauncher.launch(arrayOf("*/*"))
-                    }
-                ) {
-                    ListItem(
-                        headlineContent = { Text("Other App Backup (.opml)") },
-                        supportingContent = { Text("Migrate subscriptions from Apple Podcasts, Spotify, etc.") },
-                        leadingContent = { Icon(Icons.Rounded.ImportExport, null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-                    )
-                }
-            }
-        }
-    }
 
     Scaffold(
         modifier = Modifier
@@ -165,32 +92,6 @@ internal fun GenrePickerScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-    
-                    TextButton(
-                        onClick = onSearch,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Rounded.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Search for your favorite podcasts instead",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    
-                    TextButton(onClick = onSkip) {
-                        Text(
-                            "Skip",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
                 }
             }
         }
@@ -207,58 +108,6 @@ internal fun GenrePickerScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Import Library Option
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.large)
-                    .expressiveClickable { showImportBottomSheet = true }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Rounded.Upload,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Already have a library?",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Import OPML or Backup",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Icon(
-                        Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -278,283 +127,6 @@ internal fun GenrePickerScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun PodcastPicksScreen(
-    podcasts: List<Podcast>,
-    subscribedIds: Set<String>,
-    currentRegion: String,
-    isLoading: Boolean,
-    onToggleSubscription: (String) -> Unit,
-    onRegionChange: (String) -> Unit,
-    onSearch: () -> Unit,
-    onBack: () -> Unit,
-    onDone: () -> Unit,
-    onSkip: () -> Unit,
-    onDidScroll: () -> Unit
-) {
-    LogRecomposition(name = "PodcastPicksScreen")
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
-
-    LaunchedEffect(gridState.isScrollInProgress) {
-        if (gridState.isScrollInProgress) {
-            onDidScroll()
-        }
-    }
-
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = "Here are some picks for you",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            )
-        },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
-                shadowElevation = 4.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Button(
-                        onClick = onDone,
-                        enabled = subscribedIds.isNotEmpty(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text(
-                            if (subscribedIds.isEmpty()) "Pick at least 1" else "Subscribe & Start (${subscribedIds.size})",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    TextButton(
-                        onClick = onSearch,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Rounded.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Search for more",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    
-                    TextButton(onClick = onSkip) {
-                        Text(
-                            "Skip",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
-    ) { innerPadding ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                BoxCastLoader.Expressive()
-            }
-        } else {
-            val distinctPodcasts = remember(podcasts) { podcasts.distinctBy { it.id } }
-            LazyVerticalGrid(
-                state = gridState,
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                        Text(
-                            text = "Tap to subscribe — you can always change later",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        
-                        // Premium Region Segmented Control
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .padding(4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            val regions = listOf(
-                                "us" to "USA",
-                                "in" to "India",
-                                "gb" to "UK",
-                                "fr" to "France"
-                            )
-                            regions.forEach { (code, label) ->
-                                val isSelected = currentRegion == code
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                            else Color.Transparent
-                                        )
-                                        .expressiveClickable { onRegionChange(code) }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                                else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                items(distinctPodcasts, key = { it.id }) { podcast ->
-                    PodcastPickCard(
-                        podcast = podcast,
-                        isSubscribed = podcast.id in subscribedIds,
-                        onToggle = { onToggleSubscription(podcast.id) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PodcastPickCard(
-    podcast: Podcast,
-    isSubscribed: Boolean,
-    onToggle: () -> Unit
-) {
-    LogRecomposition(name = "PodcastPickCard")
-    val containerColor = if (isSubscribed)
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-    else
-        MaterialTheme.colorScheme.surfaceContainerHigh
-    
-    Card(
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = MaterialTheme.shapes.extraLarge,
-        modifier = Modifier
-            .fillMaxWidth()
-            .expressiveClickable(onClick = onToggle)
-    ) {
-        Column {
-            Box {
-                OptimizedImage(
-                    url = podcast.imageUrl,
-                    proxyWidth = 400,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-                )
-                
-                // Subscribe badge
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isSubscribed,
-                    enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                MaterialTheme.colorScheme.primary,
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Rounded.Check,
-                            contentDescription = "Subscribed",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-            
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    podcast.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    podcast.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
@@ -605,3 +177,677 @@ private fun GenreChip(
         }
     }
 }
+
+private val SUB_GENRES_MAP = mapOf(
+    "News" to listOf("Daily News", "Politics", "World News", "Tech News", "Local News"),
+    "Technology" to listOf("Software", "Gadgets", "AI & Tech", "Startups", "Cybersecurity"),
+    "Business" to listOf("Investing", "Marketing", "Personal Finance", "Management", "Real Estate"),
+    "Comedy" to listOf("Standup", "Improv", "Pop Culture Comedy", "Storytelling Comedy"),
+    "True Crime" to listOf("Investigative", "Cold Cases", "Serial Killers", "History Crime"),
+    "Sports" to listOf("Football", "Basketball", "F1 & Racing", "Fantasy Sports", "Fitness"),
+    "Health" to listOf("Mental Health", "Nutrition", "Medicine", "Biohacking", "Yoga & Meditation"),
+    "History" to listOf("Ancient History", "Modern History", "Military History", "Biographies"),
+    "Arts" to listOf("Design", "Literature", "Visual Arts", "Performing Arts", "Fashion"),
+    "Society & Culture" to listOf("Philosophy", "Relationships", "Pop Culture", "Personal Journals"),
+    "Education" to listOf("Language Learning", "Self Improvement", "How-To", "Courses"),
+    "Science" to listOf("Space & Physics", "Biology", "Psychology", "Nature", "Earth Sciences"),
+    "TV & Film" to listOf("Movie Reviews", "TV Show Reviews", "Anime", "Pop Culture"),
+    "Fiction" to listOf("Sci-Fi & Fantasy", "Drama", "Mystery & Thriller", "Comedy Fiction"),
+    "Music" to listOf("Music History", "Songwriting", "Interviews", "Music Commentary"),
+    "Religion & Spirituality" to listOf("Mindfulness", "Spirituality", "Religion", "Philosophy"),
+    "Kids & Family" to listOf("Parenting", "Bedtime Stories", "Education for Kids", "Family Activity"),
+    "Leisure" to listOf("Gaming", "Hobbies", "Travel", "Food & Drink", "Automotive"),
+    "Government" to listOf("Law & Justice", "Public Policy", "Municipal News", "National Politics")
+)
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+internal fun SubGenrePickerScreen(
+    selectedGenres: Set<String>,
+    selectedSubGenres: Set<String>,
+    onToggleSubGenre: (String) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = {
+                    Text(
+                        text = "Dive a bit deeper",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 4.dp,
+                shadowElevation = 4.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Button(
+                        onClick = onContinue,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = MaterialTheme.shapes.extraLarge
+                    ) {
+                        Text(
+                            text = "Continue",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+        ) {
+            Text(
+                text = "Select specific topics (Optional)",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            val parentGenres = selectedGenres.toList()
+            if (parentGenres.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No genres selected. Go back to pick some.")
+                }
+            } else {
+                parentGenres.forEach { parentGenre ->
+                    val subGenres = SUB_GENRES_MAP[parentGenre] ?: emptyList()
+                    if (subGenres.isNotEmpty()) {
+                        Text(
+                            text = parentGenre,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                        
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 24.dp)
+                        ) {
+                            subGenres.forEach { subGenre ->
+                                val isSelected = subGenre in selectedSubGenres
+                                SubGenreChip(
+                                    label = subGenre,
+                                    isSelected = isSelected,
+                                    onClick = { onToggleSubGenre(subGenre) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubGenreChip(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val containerColor = if (isSelected)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    
+    val contentColor = if (isSelected)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurface
+    
+    Surface(
+        color = containerColor,
+        contentColor = contentColor,
+        shape = MaterialTheme.shapes.extraLarge,
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        modifier = Modifier
+            .height(56.dp)
+            .expressiveClickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (isSelected) {
+                Icon(
+                    Icons.Rounded.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+internal fun ActivityPickerScreen(
+    selectedActivities: Set<String>,
+    activityGenreMap: Map<String, Set<String>>,
+    allSelectedGenres: Set<String>,
+    onToggleActivity: (String) -> Unit,
+    onSetGenresForActivity: (String, Set<String>) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    val activities = listOf(
+        ActivityItem("Commuting", "commuting", Icons.Rounded.DirectionsCar),
+        ActivityItem("Working", "working", Icons.Rounded.Work),
+        ActivityItem("Meditating / Chilling", "meditating", Icons.Rounded.SelfImprovement),
+        ActivityItem("Winding Down", "winding down", Icons.Rounded.Bedtime),
+        ActivityItem("Working Out", "working out", Icons.Rounded.FitnessCenter),
+        ActivityItem("Doing Chores", "doing chores", Icons.Rounded.Brush)
+    )
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = {
+                    Text(
+                        text = "When do you listen?",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 4.dp,
+                shadowElevation = 4.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Button(
+                        onClick = onContinue,
+                        enabled = selectedActivities.isNotEmpty(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = MaterialTheme.shapes.extraLarge
+                    ) {
+                        Text(
+                            text = if (selectedActivities.isEmpty()) "Select at least 1" else "Continue (${selectedActivities.size} selected)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+        ) {
+            Text(
+                text = "Select all that apply",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            activities.forEach { item ->
+                val isSelected = item.value in selectedActivities
+                val cardColor = if (isSelected)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                else
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .animateContentSize()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .expressiveClickable { onToggleActivity(item.value) }
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.secondaryContainer,
+                                        androidx.compose.foundation.shape.CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    item.icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                           else MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = item.label,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        if (isSelected) {
+                            val mappedGenres = activityGenreMap[item.value] ?: emptySet()
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "Target Genres (tap to toggle):",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    allSelectedGenres.forEach { genre ->
+                                        val isGenreAssigned = genre in mappedGenres
+                                        val chipContainerColor = if (isGenreAssigned) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                        }
+                                        val chipContentColor = if (isGenreAssigned) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                        val chipBorderColor = if (isGenreAssigned) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                        }
+
+                                        Surface(
+                                            color = chipContainerColor,
+                                            contentColor = chipContentColor,
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(1.dp, chipBorderColor),
+                                            modifier = Modifier
+                                                .expressiveClickable {
+                                                    val newGenres = if (isGenreAssigned) {
+                                                        mappedGenres - genre
+                                                    } else {
+                                                        mappedGenres + genre
+                                                    }
+                                                    onSetGenresForActivity(item.value, newGenres)
+                                                }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                if (isGenreAssigned) {
+                                                    Icon(
+                                                        Icons.Rounded.Check,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                Text(
+                                                    text = genre,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = if (isGenreAssigned) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+internal fun LengthPickerScreen(
+    selectedLengths: Set<String>,
+    lengthGenreMap: Map<String, Set<String>>,
+    allSelectedGenres: Set<String>,
+    onToggleLength: (String) -> Unit,
+    onSetGenresForLength: (String, Set<String>) -> Unit,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    val lengths = listOf(
+        LengthItem("Short", "short", "Under 15 minutes", Icons.Rounded.Timer10),
+        LengthItem("Medium", "medium", "15 to 45 minutes", Icons.Rounded.Timer),
+        LengthItem("Long", "long", "Over 45 minutes", Icons.Rounded.HourglassEmpty)
+    )
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = {
+                    Text(
+                        text = "Preferred episode length",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 4.dp,
+                shadowElevation = 4.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Button(
+                        onClick = onContinue,
+                        enabled = selectedLengths.isNotEmpty(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = MaterialTheme.shapes.extraLarge
+                    ) {
+                        Text(
+                            text = if (selectedLengths.isEmpty()) "Select at least 1" else "Generate My Feed",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+        ) {
+            Text(
+                text = "Select all that apply",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            lengths.forEach { item ->
+                val isSelected = item.value in selectedLengths
+                val cardColor = if (isSelected)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                else
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .animateContentSize()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .expressiveClickable { onToggleLength(item.value) }
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.secondaryContainer,
+                                        androidx.compose.foundation.shape.CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    item.icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                           else MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = item.description,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (isSelected) {
+                            val mappedGenres = lengthGenreMap[item.value] ?: emptySet()
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "Target Genres (tap to toggle):",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    allSelectedGenres.forEach { genre ->
+                                        val isGenreAssigned = genre in mappedGenres
+                                        val chipContainerColor = if (isGenreAssigned) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                        }
+                                        val chipContentColor = if (isGenreAssigned) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                        val chipBorderColor = if (isGenreAssigned) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                        }
+
+                                        Surface(
+                                            color = chipContainerColor,
+                                            contentColor = chipContentColor,
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(1.dp, chipBorderColor),
+                                            modifier = Modifier
+                                                .expressiveClickable {
+                                                    val newGenres = if (isGenreAssigned) {
+                                                        mappedGenres - genre
+                                                    } else {
+                                                        mappedGenres + genre
+                                                    }
+                                                    onSetGenresForLength(item.value, newGenres)
+                                                }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                if (isGenreAssigned) {
+                                                    Icon(
+                                                        Icons.Rounded.Check,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                Text(
+                                                    text = genre,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = if (isGenreAssigned) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+private data class ActivityItem(val label: String, val value: String, val icon: ImageVector)
+private data class LengthItem(val label: String, val value: String, val description: String, val icon: ImageVector)
+
