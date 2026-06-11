@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 
 enum class AiLoadingStage {
     IDLE,
@@ -43,7 +44,12 @@ enum class AiLoadingStage {
 data class OnboardingUiState(
     val currentStep: OnboardingStep = OnboardingStep.WELCOME,
     val selectedGenres: Set<String> = emptySet(),
-    val recommendedPodcasts: List<Podcast> = emptyList(),
+    val selectedSubGenres: Set<String> = emptySet(),
+    val listeningActivities: Set<String> = emptySet(),
+    val preferredLengths: Set<String> = emptySet(),
+    val activityGenreMap: Map<String, Set<String>> = emptyMap(),
+    val lengthGenreMap: Map<String, Set<String>> = emptyMap(),
+    val genreChartsPodcasts: List<Podcast> = emptyList(),
     val subscribedPodcastIds: Set<String> = emptySet(),
     val isLoadingPodcasts: Boolean = false,
     val searchQuery: String = "",
@@ -73,7 +79,7 @@ data class OnboardingUiState(
 )
 
 enum class OnboardingStep {
-    WELCOME, GENRES, PODCASTS, SEARCH, AI_ONBOARDING, AI_SUGGESTIONS
+    WELCOME, GENRES, SUB_GENRES, ACTIVITY_PICKER, LENGTH_PICKER, SEARCH, AI_ONBOARDING, AI_SUGGESTIONS
 }
 
 class OnboardingViewModel(
@@ -109,9 +115,6 @@ class OnboardingViewModel(
                          currentRegion = region,
                          initialRegion = region
                     ) 
-                }
-                if (_uiState.value.currentStep == OnboardingStep.PODCASTS) {
-                    loadRecommendationsForRegion(region)
                 }
             }
         }
@@ -206,57 +209,293 @@ class OnboardingViewModel(
         }
     }
     
-    private fun loadRecommendationsForRegion(region: String) {
-        recommendationJob?.cancel()
-        recommendationJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingPodcasts = true) }
-            val genresList = _uiState.value.selectedGenres.toList()
-            val allPodcasts = mutableListOf<Podcast>()
-            
-            // Fetch trending podcasts for each selected genre
-            val perGenreLimit = when {
-                genresList.size <= 2 -> 5
-                genresList.size <= 4 -> 3
-                else -> 2
-            }
-            
-            for (genre in genresList) {
-                val trending = podcastRepository.getTrendingPodcasts(
-                    country = region,
-                    category = genre,
-                    limit = perGenreLimit
-                )
-                allPodcasts.addAll(trending)
-            }
-            
-            // Deduplicate and limit to 10
-            val uniquePodcasts = allPodcasts
-                .distinctBy { it.id }
-                .shuffled()
-                .take(10)
-            
-            _uiState.update {
-                it.copy(
-                    recommendedPodcasts = uniquePodcasts,
-                    isLoadingPodcasts = false
-                )
-            }
-        }
-    }
+
 
     fun continueToRecommendations() {
         // Analytics: Track genres submitted with time spent
         val selectedGenres = _uiState.value.selectedGenres
         AnalyticsHelper.trackGenresSubmitted(selectedGenres, getGenreScreenTimeSpent())
 
-        _uiState.update { it.copy(currentStep = OnboardingStep.PODCASTS) }
-        loadRecommendationsForRegion(_uiState.value.currentRegion)
+        _uiState.update { it.copy(currentStep = OnboardingStep.SUB_GENRES) }
+    }
+
+    fun toggleSubGenre(subGenre: String) {
+        _uiState.update { state ->
+            val newSubGenres = if (subGenre in state.selectedSubGenres) {
+                state.selectedSubGenres - subGenre
+            } else {
+                state.selectedSubGenres + subGenre
+            }
+            state.copy(selectedSubGenres = newSubGenres)
+        }
+    }
+
+    fun toggleListeningActivity(activity: String) {
+        _uiState.update { state ->
+            val activities = state.listeningActivities
+            val newActivities = if (activity in activities) {
+                activities - activity
+            } else {
+                activities + activity
+            }
+            val newMap = if (activity in activities) {
+                state.activityGenreMap - activity
+            } else {
+                state.activityGenreMap
+            }
+            state.copy(
+                listeningActivities = newActivities,
+                activityGenreMap = newMap
+            )
+        }
+    }
+
+    fun setGenresForActivity(activity: String, genres: Set<String>) {
+        _uiState.update { state ->
+            val newMap = state.activityGenreMap.toMutableMap()
+            if (genres.isEmpty()) {
+                newMap.remove(activity)
+            } else {
+                newMap[activity] = genres
+            }
+            state.copy(activityGenreMap = newMap)
+        }
+    }
+
+    fun togglePreferredLength(length: String) {
+        _uiState.update { state ->
+            val lengths = state.preferredLengths
+            val newLengths = if (length in lengths) {
+                lengths - length
+            } else {
+                lengths + length
+            }
+            val newMap = if (length in lengths) {
+                state.lengthGenreMap - length
+            } else {
+                state.lengthGenreMap
+            }
+            state.copy(
+                preferredLengths = newLengths,
+                lengthGenreMap = newMap
+            )
+        }
+    }
+
+    fun setGenresForLength(length: String, genres: Set<String>) {
+        _uiState.update { state ->
+            val newMap = state.lengthGenreMap.toMutableMap()
+            if (genres.isEmpty()) {
+                newMap.remove(length)
+            } else {
+                newMap[length] = genres
+            }
+            state.copy(lengthGenreMap = newMap)
+        }
+    }
+
+    fun continueToActivityPicker() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.ACTIVITY_PICKER) }
+    }
+
+    fun continueToLengthPicker() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.LENGTH_PICKER) }
+    }
+
+    fun navigateBackFromSubGenres() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.GENRES) }
+    }
+
+    fun navigateBackFromActivityPicker() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.SUB_GENRES) }
+    }
+
+    fun navigateBackFromLengthPicker() {
+        _uiState.update { it.copy(currentStep = OnboardingStep.ACTIVITY_PICKER) }
+    }
+
+    fun synthesizeGenreOnboarding() {
+        val currentState = _uiState.value
+        _uiState.update { it.copy(isLoadingPodcasts = true, currentStep = OnboardingStep.AI_SUGGESTIONS, onboardingError = null) }
+        
+        val finalAction: () -> Unit = {
+            _uiState.update { it.copy(isLoadingPodcasts = true, onboardingError = null) }
+            viewModelScope.launch {
+                try {
+                    // 1. Fetch charts podcasts in parallel
+                    val chartsDeferred = async(Dispatchers.IO) {
+                        val genresList = currentState.selectedGenres.toList()
+                        val allPodcasts = mutableListOf<Podcast>()
+                        val perGenreLimit = when {
+                            genresList.size <= 2 -> 5
+                            genresList.size <= 4 -> 3
+                            else -> 2
+                        }
+                        for (genre in genresList) {
+                            try {
+                                val trending = podcastRepository.getTrendingPodcasts(
+                                    country = currentState.currentRegion,
+                                    category = genre,
+                                    limit = perGenreLimit
+                                )
+                                allPodcasts.addAll(trending)
+                            } catch (e: Exception) {
+                                Log.e("OnboardingViewModel", "Failed to fetch trending for genre $genre", e)
+                            }
+                        }
+                        allPodcasts.distinctBy { it.id }.shuffled().take(10)
+                    }
+
+                    // 2. Fetch AI curriculum rows from backend
+                    val rowsDeferred = async(Dispatchers.IO) {
+                        // Format activity string dynamically based on selections and mapped genres
+                        val formattedActivities = currentState.listeningActivities.joinToString(", ") { act ->
+                            val mappedGenres = currentState.activityGenreMap[act]
+                            if (!mappedGenres.isNullOrEmpty()) {
+                                "$act (focusing on ${mappedGenres.joinToString(", ")})"
+                            } else {
+                                act
+                            }
+                        }
+
+                        // Format length string dynamically based on selections and mapped genres
+                        val formattedLengths = currentState.preferredLengths.joinToString(", ") { len ->
+                            val mappedGenres = currentState.lengthGenreMap[len]
+                            if (!mappedGenres.isNullOrEmpty()) {
+                                "$len (for ${mappedGenres.joinToString(", ")})"
+                            } else {
+                                len
+                            }
+                        }
+
+                        val request = cx.aswin.boxcast.core.network.model.OnboardingGenreSynthRequest(
+                            genres = currentState.selectedGenres.toList(),
+                            subGenres = currentState.selectedSubGenres.toList(),
+                            activity = formattedActivities,
+                            length = formattedLengths,
+                            country = currentState.currentRegion
+                        )
+                        val response = podcastRepository.api.onboardingGenreSynth(
+                            publicKey = podcastRepository.publicKey,
+                            request = request
+                        ).execute()
+                        if (response.isSuccessful && response.body() != null) {
+                            response.body()!!.map { it.copy(episodes = emptyList()) }
+                        } else {
+                            throw Exception("Failed to load curriculum from genre synthesis")
+                        }
+                    }
+
+                    val charts = chartsDeferred.await()
+                    val rows = try {
+                        rowsDeferred.await()
+                    } catch (e: Exception) {
+                        Log.e("OnboardingViewModel", "AI onboarding synthesis failed, falling back to charts", e)
+                        emptyList()
+                    }
+
+                    val finalRows = if (rows.isEmpty()) {
+                        val fallbackPodcastDtos = charts.map { pod ->
+                            OnboardingCurriculumPodcastDto(
+                                id = pod.id.toLongOrNull() ?: 0L,
+                                title = pod.title,
+                                author = pod.artist,
+                                image = pod.imageUrl,
+                                artwork = pod.imageUrl,
+                                categories = mapOf("1" to pod.genre),
+                                description = pod.description
+                            )
+                        }
+                        if (fallbackPodcastDtos.isNotEmpty()) {
+                            listOf(
+                                OnboardingCurriculumRowDto(
+                                    rowTitle = "Trending in your Genres",
+                                    podcasts = fallbackPodcastDtos,
+                                    episodes = emptyList()
+                                )
+                            )
+                        } else {
+                            throw Exception("AI synthesis and trending charts are both empty")
+                        }
+                    } else {
+                        rows
+                    }
+
+                    // 3. Process default selections
+                    val newPodcasts = finalRows.flatMap { it.podcasts }.map { it.toPodcast() }
+                    val defaultSelectedIds = buildSet {
+                        if (finalRows.size == 1) {
+                            finalRows.firstOrNull()?.podcasts?.take(2)?.forEach { add(it.id.toString()) }
+                        } else {
+                            finalRows.forEach { row ->
+                                row.podcasts.firstOrNull()?.let { add(it.id.toString()) }
+                            }
+                        }
+                    }
+                    val defaultSelectedPodcasts = newPodcasts.filter { it.id.toString() in defaultSelectedIds }.associateBy { it.id }
+
+                    _uiState.update { state ->
+                        state.copy(
+                            aiCurriculumRows = finalRows,
+                            genreChartsPodcasts = charts,
+                            selectedPodcasts = state.selectedPodcasts + defaultSelectedPodcasts,
+                            subscribedPodcastIds = state.subscribedPodcastIds + defaultSelectedIds,
+                            isLoadingPodcasts = false,
+                            onboardingError = null
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("OnboardingViewModel", "Error in synthesizeGenreOnboarding", e)
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoadingPodcasts = false,
+                            onboardingError = "We encountered a temporary issue generating your curriculum. Let's try again."
+                        )
+                    }
+                }
+            }
+        }
+        lastFailedAction = finalAction
+        finalAction()
     }
 
     fun setRegion(region: String) {
-        _uiState.update { it.copy(currentRegion = region) }
-        if (_uiState.value.currentStep == OnboardingStep.PODCASTS) {
-            loadRecommendationsForRegion(region)
+        _uiState.update { it.copy(currentRegion = region, isLoadingPodcasts = true) }
+        viewModelScope.launch {
+            try {
+                val state = _uiState.value
+                val genresList = state.selectedGenres.toList()
+                val allPodcasts = mutableListOf<Podcast>()
+                val perGenreLimit = when {
+                    genresList.size <= 2 -> 5
+                    genresList.size <= 4 -> 3
+                    else -> 2
+                }
+                val charts = withContext(Dispatchers.IO) {
+                    for (genre in genresList) {
+                        try {
+                            val trending = podcastRepository.getTrendingPodcasts(
+                                country = region,
+                                category = genre,
+                                limit = perGenreLimit
+                            )
+                            allPodcasts.addAll(trending)
+                        } catch (e: Exception) {
+                            Log.e("OnboardingViewModel", "Failed to fetch trending for genre $genre in region $region", e)
+                        }
+                    }
+                    allPodcasts.distinctBy { it.id }.shuffled().take(10)
+                }
+                _uiState.update { state ->
+                    state.copy(
+                        genreChartsPodcasts = charts,
+                        isLoadingPodcasts = false
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("OnboardingViewModel", "Error in setRegion reload", e)
+                _uiState.update { it.copy(isLoadingPodcasts = false) }
+            }
         }
     }
     
@@ -265,9 +504,9 @@ class OnboardingViewModel(
             val newSelected = if (podcastId in state.subscribedPodcastIds) {
                 state.selectedPodcasts - podcastId
             } else {
-                val podcast = state.recommendedPodcasts.find { it.id == podcastId }
-                    ?: state.searchResults.find { it.id == podcastId }
+                val podcast = state.searchResults.find { it.id == podcastId }
                     ?: state.aiCurriculumRows.flatMap { it.podcasts }.map { it.toPodcast() }.find { it.id == podcastId }
+                    ?: state.genreChartsPodcasts.find { it.id == podcastId }
                 if (podcast != null) {
                     state.selectedPodcasts + (podcastId to podcast)
                 } else {
@@ -322,7 +561,7 @@ class OnboardingViewModel(
         // Determine entry point based on current step
         searchEntryPoint = when (_uiState.value.currentStep) {
             OnboardingStep.GENRES -> "genre_screen"
-            OnboardingStep.PODCASTS -> "podcast_screen"
+            OnboardingStep.WELCOME -> "welcome_screen"
             else -> "genre_screen"
         }
 
@@ -338,9 +577,7 @@ class OnboardingViewModel(
         _uiState.update { it.copy(currentStep = OnboardingStep.SEARCH) }
     }
     
-    fun navigateBackFromPodcasts() {
-        _uiState.update { it.copy(currentStep = OnboardingStep.GENRES) }
-    }
+
     
     fun navigateBackToWelcome() {
         _uiState.update { it.copy(currentStep = OnboardingStep.WELCOME) }
@@ -348,7 +585,7 @@ class OnboardingViewModel(
     
     fun navigateBackFromSearch() {
         val state = _uiState.value
-        val exitDestination = if (state.selectedGenres.isNotEmpty()) "podcast_screen" else "genre_screen"
+        val exitDestination = if (state.selectedGenres.isNotEmpty()) "sub_genres_screen" else "genre_screen"
 
         // Analytics: Track search exit
         AnalyticsHelper.trackSearchExited(
@@ -358,7 +595,7 @@ class OnboardingViewModel(
             timeSpentOnSearchSeconds = getSearchScreenTimeSpent()
         )
 
-        val backStep = if (state.selectedGenres.isNotEmpty()) OnboardingStep.PODCASTS else OnboardingStep.GENRES
+        val backStep = if (state.selectedGenres.isNotEmpty()) OnboardingStep.SUB_GENRES else OnboardingStep.GENRES
         _uiState.update { it.copy(currentStep = backStep, searchQuery = "", searchResults = emptyList()) }
     }
     
@@ -389,18 +626,9 @@ class OnboardingViewModel(
     fun subscribeFromSearch(podcast: Podcast) {
         _uiState.update { state ->
             val newSelected = state.selectedPodcasts + (podcast.id to podcast)
-            
-            // Allow this podcast to appear in the main recommendation list too
-            val newRecommendations = if (state.recommendedPodcasts.any { it.id == podcast.id }) {
-                state.recommendedPodcasts
-            } else {
-                state.recommendedPodcasts + podcast
-            }
-            
             state.copy(
                 selectedPodcasts = newSelected,
-                subscribedPodcastIds = newSelected.keys,
-                recommendedPodcasts = newRecommendations
+                subscribedPodcastIds = newSelected.keys
             )
         }
 
@@ -440,17 +668,6 @@ class OnboardingViewModel(
                     totalOnboardingTimeSeconds = getTotalOnboardingTime(),
                     selectedGenres = state.selectedGenres
                 )
-            } else if (state.currentStep == OnboardingStep.PODCASTS) {
-                val removedCount = state.recommendedPodcasts.count { it.id !in state.subscribedPodcastIds }
-                AnalyticsHelper.trackOnboardingSuggestionsDone(
-                    totalSubscribedCount = state.subscribedPodcastIds.size,
-                    removedSuggestionsCount = removedCount,
-                    addedFromSearchCount = podcastsSubscribedInSearchCount,
-                    didScrollSuggestions = didScrollSuggestions,
-                    timeSpentOnPodcastScreenSeconds = getPodcastScreenTimeSpent(),
-                    timeSpentOnGenreScreenSeconds = getGenreScreenTimeSpent(),
-                    totalOnboardingTimeSeconds = getTotalOnboardingTime()
-                )
             }
 
             // Save selected genres for future personalization
@@ -465,13 +682,14 @@ class OnboardingViewModel(
         val currentScreen = when (_uiState.value.currentStep) {
             OnboardingStep.WELCOME -> "welcome_screen"
             OnboardingStep.GENRES -> "genre_screen"
-            OnboardingStep.PODCASTS -> "podcast_screen"
+            OnboardingStep.SUB_GENRES -> "sub_genres_screen"
+            OnboardingStep.ACTIVITY_PICKER -> "activity_picker_screen"
+            OnboardingStep.LENGTH_PICKER -> "length_picker_screen"
             OnboardingStep.SEARCH -> "search_screen"
             OnboardingStep.AI_ONBOARDING -> "ai_onboarding_screen"
             OnboardingStep.AI_SUGGESTIONS -> "ai_suggestions_screen"
         }
-        val podcastTime = if (_uiState.value.currentStep == OnboardingStep.PODCASTS) getPodcastScreenTimeSpent() else null
-        AnalyticsHelper.trackOnboardingSkipped(currentScreen, getGenreScreenTimeSpent(), getTotalOnboardingTime(), podcastTime)
+        AnalyticsHelper.trackOnboardingSkipped(currentScreen, getGenreScreenTimeSpent(), getTotalOnboardingTime(), null)
 
         prefs.edit().putBoolean("onboarding_completed", true).apply()
 
@@ -551,8 +769,7 @@ class OnboardingViewModel(
             )
         }
 
-        var action: (() -> Unit)? = null
-        action = {
+        val finalAction: () -> Unit = {
             _uiState.update {
                 it.copy(
                     isAiLoading = true,
@@ -623,11 +840,11 @@ class OnboardingViewModel(
                         throw Exception("Server returned error ${response.code()}")
                     }
                 } catch (e: Exception) {
+                    Log.e("OnboardingViewModel", "Error in sendAiTurnInput", e)
                     val userFriendlyMsg = when (e) {
                         is kotlinx.coroutines.TimeoutCancellationException -> "Our AI is taking a moment to catch its breath. Let's try that again."
                         else -> "We encountered a temporary hiccup. Let's try that again."
                     }
-                    lastFailedAction = action
                     _uiState.update { state ->
                         state.copy(
                             isAiLoading = false,
@@ -638,7 +855,8 @@ class OnboardingViewModel(
                 }
             }
         }
-        action()
+        lastFailedAction = finalAction
+        finalAction()
     }
 
     fun synthesizeAndBuildCurriculum(force: Boolean = false) {
@@ -678,8 +896,7 @@ class OnboardingViewModel(
             )
         }
 
-        var action: (() -> Unit)? = null
-        action = {
+        val finalAction: () -> Unit = {
             _uiState.update {
                 it.copy(
                     isAiLoading = true,
@@ -691,10 +908,13 @@ class OnboardingViewModel(
             viewModelScope.launch {
                 try {
                     val startTime = System.currentTimeMillis()
-                    val testInput = turnInput.trim().lowercase()
-                    if (testInput == "test_fail" || testInput == "test_error") {
+                    val hasSlow = newHistoryList.any { h -> h.role == "user" && h.parts.any { p -> p.text.trim().lowercase().let { it == "test_slow" || it == "test_delay" } } }
+                    val hasFail = newHistoryList.any { h -> h.role == "user" && h.parts.any { p -> p.text.trim().lowercase().let { it == "test_fail" || it == "test_error" } } }
+                    val hasTimeout = newHistoryList.any { h -> h.role == "user" && h.parts.any { p -> p.text.trim().lowercase().let { it == "test_timeout" } } }
+
+                    if (hasFail) {
                         throw java.io.IOException("Simulated network failure")
-                    } else if (testInput == "test_timeout") {
+                    } else if (hasTimeout) {
                         delay(50000)
                     }
 
@@ -737,7 +957,7 @@ class OnboardingViewModel(
 
                     _uiState.update { it.copy(aiLoadingStage = AiLoadingStage.ASSEMBLING_FEED) }
 
-                    if (testInput == "test_delay" || testInput == "test_slow") {
+                    if (hasSlow) {
                         val elapsed = System.currentTimeMillis() - startTime
                         val remainingDelay = 20000 - elapsed
                         if (remainingDelay > 0) {
@@ -772,6 +992,7 @@ class OnboardingViewModel(
                         )
                     }
                 } catch (e: Exception) {
+                    Log.e("OnboardingViewModel", "Error in synthesizeAndBuildCurriculum", e)
                     try {
                         _uiState.update { it.copy(aiLoadingStage = AiLoadingStage.FETCHING_CATALOGS) }
                         val trending = withContext(Dispatchers.IO) {
@@ -787,7 +1008,8 @@ class OnboardingViewModel(
                                 author = pod.artist,
                                 image = pod.imageUrl,
                                 artwork = pod.imageUrl,
-                                categories = mapOf("1" to pod.genre)
+                                categories = mapOf("1" to pod.genre),
+                                description = pod.description
                             )
                         }
 
@@ -816,11 +1038,11 @@ class OnboardingViewModel(
                             )
                         }
                     } catch (ex: Exception) {
+                        Log.e("OnboardingViewModel", "Error in fallback synthesis", ex)
                         val userFriendlyMsg = when (e) {
                             is kotlinx.coroutines.TimeoutCancellationException -> "Our AI is taking a moment to build your feed. Let's try that again."
                             else -> "We encountered a temporary hiccup. Let's try that again."
                         }
-                        lastFailedAction = action
                         _uiState.update { state ->
                             state.copy(
                                 isAiLoading = false,
@@ -833,7 +1055,8 @@ class OnboardingViewModel(
                 }
             }
         }
-        action()
+        lastFailedAction = finalAction
+        finalAction()
     }
 
     fun navigateToSuggestions() {
@@ -841,7 +1064,12 @@ class OnboardingViewModel(
     }
 
     fun navigateBackFromSuggestions() {
-        _uiState.update { it.copy(currentStep = OnboardingStep.AI_ONBOARDING) }
+        val nextStep = if (_uiState.value.aiHistory.isNotEmpty()) {
+            OnboardingStep.AI_ONBOARDING
+        } else {
+            OnboardingStep.LENGTH_PICKER
+        }
+        _uiState.update { it.copy(currentStep = nextStep) }
     }
 
     fun navigateBackInAiOnboarding() {
@@ -906,6 +1134,7 @@ class OnboardingViewModel(
 
                 onDone()
             } catch (e: Exception) {
+                Log.e("OnboardingViewModel", "Error in finishAiOnboarding", e)
                 prefs.edit().putBoolean("onboarding_completed", true).apply()
                 onDone()
             }

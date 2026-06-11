@@ -16,6 +16,7 @@ import cx.aswin.boxcast.core.network.model.OnboardingNextTurnResponse
 import cx.aswin.boxcast.core.network.model.OnboardingQuery
 import cx.aswin.boxcast.core.network.model.OnboardingCurriculumRequest
 import cx.aswin.boxcast.core.network.model.OnboardingCurriculumRowDto
+import cx.aswin.boxcast.core.network.model.OnboardingGenreSynthRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -196,6 +197,12 @@ interface BoxCastApi {
     fun getOnboardingCurriculum(
         @Header("X-App-Key") publicKey: String,
         @Body request: OnboardingCurriculumRequest
+    ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
+
+    @POST("onboarding/genre-synth")
+    fun onboardingGenreSynth(
+        @Header("X-App-Key") publicKey: String,
+        @Body request: OnboardingGenreSynthRequest
     ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
 
 }

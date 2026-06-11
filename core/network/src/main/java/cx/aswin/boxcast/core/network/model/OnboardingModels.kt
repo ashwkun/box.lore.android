@@ -110,3 +110,14 @@ fun OnboardingCurriculumEpisodeDto.toEpisode(): Episode {
         publishedDate = this.datePublished ?: 0L
     )
 }
+
+@Serializable
+data class OnboardingGenreSynthRequest(
+    @SerialName("genres") val genres: List<String>,
+    @SerialName("subGenres") val subGenres: List<String>,
+    @SerialName("activity") val activity: String,
+    @SerialName("length") val length: String,
+    @SerialName("country") val country: String? = null,
+    @SerialName("skipGemini") val skipGemini: Boolean = false
+)
+

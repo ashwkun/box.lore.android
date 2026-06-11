@@ -1036,6 +1036,73 @@ private fun UserMessageBubble(text: String, isCompact: Boolean = false) {
 }
 
 @Composable
+private fun DelayBypassBanner(
+    onSwitchToManual: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.HourglassEmpty,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .padding(top = 1.dp)
+                )
+                Text(
+                    text = "Taking longer than expected? You can skip the chat and customize your feed directly by picking your favorite topics.",
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 15.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            FilledTonalButton(
+                onClick = onSwitchToManual,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                shape = RoundedCornerShape(17.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
+                Text(
+                    text = "Choose Topics Manually",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun AiLoadingBubble(stage: AiLoadingStage, elapsedSeconds: Int, onSwitchToManual: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1059,24 +1126,14 @@ private fun AiLoadingBubble(stage: AiLoadingStage, elapsedSeconds: Int, onSwitch
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThinkingIndicator(stage = stage, elapsedSeconds = elapsedSeconds)
                 
-                if (elapsedSeconds >= 15) {
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
-                    
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "To speed things up, you can skip the chat and customize your feed directly by choosing your favorite topics.",
-                            style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
-                        )
-                        Text(
-                            text = "Choose Topics Manually",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable { onSwitchToManual() }
-                                .padding(vertical = 4.dp)
-                        )
+                AnimatedVisibility(
+                    visible = elapsedSeconds >= 15,
+                    enter = fadeIn(animationSpec = tween(400)) + expandVertically(animationSpec = tween(400)),
+                    exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300))
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        DelayBypassBanner(onSwitchToManual = onSwitchToManual)
                     }
                 }
             }
@@ -1284,29 +1341,18 @@ private fun FinalSynthesisLoadingPanel(stage: AiLoadingStage, elapsedSeconds: In
 
             ThinkingIndicator(stage = stage, elapsedSeconds = elapsedSeconds)
 
-            if (elapsedSeconds >= 15) {
-                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
-                
+            AnimatedVisibility(
+                visible = elapsedSeconds >= 15,
+                enter = fadeIn(animationSpec = tween(400)) + expandVertically(animationSpec = tween(400)),
+                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300))
+            ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "To speed things up, you can skip the chat and customize your feed directly by choosing your favorite topics.",
-                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Choose Topics Manually",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable { onSwitchToManual() }
-                            .padding(vertical = 4.dp)
-                    )
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
+                    DelayBypassBanner(onSwitchToManual = onSwitchToManual)
                 }
             }
         }
@@ -1424,24 +1470,17 @@ private fun SuggestionBubble(
         label = "scale"
     )
 
-    val themeColor = remember(option) {
-        val hash = option.hashCode()
-        val absHash = if (hash == Int.MIN_VALUE) 0 else kotlin.math.abs(hash)
-        val colors = listOf(
-            Color(0xFFE07A5F), // Coral
-            Color(0xFF3D5A80), // Steel Blue
-            Color(0xFF81B29A), // Sage Green
-            Color(0xFF9C89B8), // Soft Purple
-            Color(0xFFF2CC8F), // Mustard
-            Color(0xFFE29578)  // Terracotta
-        )
-        colors[absHash % colors.size]
+    val containerColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
     }
 
-    val containerColor = if (isSelected)
-        themeColor.copy(alpha = 0.12f).compositeOver(MaterialTheme.colorScheme.surface)
-    else
-        MaterialTheme.colorScheme.surface
+    val contentColor = if (isSelected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
 
     val icons = getOptionIcons(option)
     val icon = if (isSelected) icons.second else icons.first
@@ -1456,7 +1495,7 @@ private fun SuggestionBubble(
         ),
         border = BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) themeColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -1484,7 +1523,7 @@ private fun SuggestionBubble(
                 modifier = Modifier
                     .size(36.dp)
                     .background(
-                        color = if (isSelected) themeColor else themeColor.copy(alpha = 0.15f),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
                         shape = androidx.compose.foundation.shape.CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -1492,7 +1531,7 @@ private fun SuggestionBubble(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else themeColor,
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -1503,7 +1542,7 @@ private fun SuggestionBubble(
                 text = option,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = contentColor,
                 modifier = Modifier.weight(1f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -1511,12 +1550,29 @@ private fun SuggestionBubble(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            Icon(
-                imageVector = if (isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                contentDescription = if (isSelected) "Selected" else "Not selected",
-                tint = if (isSelected) themeColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                modifier = Modifier.size(22.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .background(
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    )
+                    .border(
+                        width = 2.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = "Selected",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
         }
     }
 }

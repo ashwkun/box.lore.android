@@ -96,8 +96,14 @@ fun OnboardingScreen(
             OnboardingStep.GENRES -> {
                 viewModel.navigateBackToWelcome()
             }
-            OnboardingStep.PODCASTS -> {
-                viewModel.navigateBackFromPodcasts()
+            OnboardingStep.SUB_GENRES -> {
+                viewModel.navigateBackFromSubGenres()
+            }
+            OnboardingStep.ACTIVITY_PICKER -> {
+                viewModel.navigateBackFromActivityPicker()
+            }
+            OnboardingStep.LENGTH_PICKER -> {
+                viewModel.navigateBackFromLengthPicker()
             }
             OnboardingStep.SEARCH -> {
                 viewModel.navigateBackFromSearch()
@@ -133,35 +139,42 @@ fun OnboardingScreen(
                 )
             }
             OnboardingStep.GENRES -> {
-                // Analytics: Fire onboarding_started when genre screen loads
                 LaunchedEffect(Unit) { viewModel.onGenreScreenViewed() }
                 GenrePickerScreen(
                     selectedGenres = uiState.selectedGenres,
                     onToggleGenre = viewModel::toggleGenre,
-                    onContinue = viewModel::continueToRecommendations,
-                    onSearch = viewModel::navigateToSearch,
-                    onSkip = { viewModel.skipOnboarding(onComplete) },
-                    onImportJson = onImportJson,
-                    onImportOpml = onImportOpml,
-                    onImportSheetOpened = { cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackImportSheetOpened(viewModel.getGenreScreenTimeSpent()) }
+                    onContinue = viewModel::continueToRecommendations
                 )
             }
-            OnboardingStep.PODCASTS -> {
-                LaunchedEffect(Unit) {
-                    viewModel.onPodcastScreenViewed()
-                }
-                PodcastPicksScreen(
-                    podcasts = uiState.recommendedPodcasts,
-                    subscribedIds = uiState.subscribedPodcastIds,
-                    currentRegion = uiState.currentRegion,
-                    isLoading = uiState.isLoadingPodcasts,
-                    onToggleSubscription = viewModel::togglePodcastSubscription,
-                    onRegionChange = viewModel::setRegion,
-                    onSearch = viewModel::navigateToSearch,
-                    onBack = viewModel::navigateBackFromPodcasts,
-                    onDone = handleComplete,
-                    onSkip = { viewModel.skipOnboarding(onComplete) },
-                    onDidScroll = viewModel::onPodcastScreenScrolled
+            OnboardingStep.SUB_GENRES -> {
+                SubGenrePickerScreen(
+                    selectedGenres = uiState.selectedGenres,
+                    selectedSubGenres = uiState.selectedSubGenres,
+                    onToggleSubGenre = viewModel::toggleSubGenre,
+                    onBack = viewModel::navigateBackFromSubGenres,
+                    onContinue = viewModel::continueToActivityPicker
+                )
+            }
+            OnboardingStep.ACTIVITY_PICKER -> {
+                ActivityPickerScreen(
+                    selectedActivities = uiState.listeningActivities,
+                    activityGenreMap = uiState.activityGenreMap,
+                    allSelectedGenres = uiState.selectedGenres,
+                    onToggleActivity = viewModel::toggleListeningActivity,
+                    onSetGenresForActivity = viewModel::setGenresForActivity,
+                    onBack = viewModel::navigateBackFromActivityPicker,
+                    onContinue = viewModel::continueToLengthPicker
+                )
+            }
+            OnboardingStep.LENGTH_PICKER -> {
+                LengthPickerScreen(
+                    selectedLengths = uiState.preferredLengths,
+                    lengthGenreMap = uiState.lengthGenreMap,
+                    allSelectedGenres = uiState.selectedGenres,
+                    onToggleLength = viewModel::togglePreferredLength,
+                    onSetGenresForLength = viewModel::setGenresForLength,
+                    onBack = viewModel::navigateBackFromLengthPicker,
+                    onContinue = viewModel::synthesizeGenreOnboarding
                 )
             }
             OnboardingStep.SEARCH -> {
@@ -200,6 +213,8 @@ fun OnboardingScreen(
                     onBack = viewModel::navigateBackFromSuggestions,
                     onToggleSubscription = viewModel::togglePodcastSubscription,
                     onToggleRowSubscriptions = viewModel::toggleAllPodcastsInRow,
+                    onRegionChange = viewModel::setRegion,
+                    onRetry = viewModel::synthesizeGenreOnboarding,
                     onFinish = {
                         viewModel.finishAiOnboarding(onComplete)
                     }
