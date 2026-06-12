@@ -404,6 +404,7 @@ class MainActivity : ComponentActivity() {
                     try {
                         val jsonStr = applicationContext.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
                         if (jsonStr == null) {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("json", "Failed to read the JSON file.")
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 opmlImportState = OpmlImportState.Error("Failed to read the JSON file.")
                             }
@@ -418,6 +419,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     } catch (e: Exception) {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("json", e.message)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             opmlImportState = OpmlImportState.Error("JSON Import failed: ${e.message}")
                         }
@@ -434,6 +436,7 @@ class MainActivity : ComponentActivity() {
                         try {
                             val inputStream = applicationContext.contentResolver.openInputStream(uri)
                             if (inputStream == null) {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", "Failed to open the selected file.")
                                 opmlImportState = OpmlImportState.Error("Failed to open the selected file.")
                                 return@withContext
                             }
@@ -446,6 +449,7 @@ class MainActivity : ComponentActivity() {
                             inputStream.close()
                             
                             if (feeds.isEmpty()) {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", "No podcast feeds found in the OPML file.")
                                 opmlImportState = OpmlImportState.Error("No podcast feeds found in the OPML file.")
                                 return@withContext
                             }
@@ -475,6 +479,7 @@ class MainActivity : ComponentActivity() {
                             }
                             
                             if (importedList.isEmpty()) {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", "Could not resolve or subscribe to any podcasts from this OPML file.")
                                 opmlImportState = OpmlImportState.Error("Could not resolve or subscribe to any podcasts from this OPML file.")
                             } else {
                                 opmlImportState = OpmlImportState.AskCompleted(
@@ -484,6 +489,7 @@ class MainActivity : ComponentActivity() {
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("OPML_IMPORT", "Error during parsing/importing", e)
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", e.message)
                             opmlImportState = OpmlImportState.Error("OPML Import failed: ${e.message}")
                         }
                     }
@@ -515,6 +521,7 @@ class MainActivity : ComponentActivity() {
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("OPML_IMPORT", "Error marking completed", e)
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("opml", e.message)
                             opmlImportState = OpmlImportState.Error("Failed to mark episodes as completed: ${e.message}")
                         }
                     }
@@ -912,6 +919,8 @@ class MainActivity : ComponentActivity() {
                                         navController.popBackStack()
                                     },
                                     onImportClick = {
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingFlowSelected("import_library")
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackImportSheetOpened()
                                         opmlImportState = OpmlImportState.ShowSelector
                                     }
                                 )
@@ -2001,10 +2010,9 @@ class MainActivity : ComponentActivity() {
                         if (currentState is OpmlImportState.Success) {
                             if (currentRoute == "onboarding") {
                                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
-                                    if (currentState.isJson) "json" else "opml",
-                                    currentState.importedCount,
-                                    onboardingViewModel.getGenreScreenTimeSpent(),
-                                    onboardingViewModel.getTotalOnboardingTime()
+                                    importType = if (currentState.isJson) "json" else "opml",
+                                    importedPodcastCount = currentState.importedCount,
+                                    totalOnboardingTimeSeconds = onboardingViewModel.getTotalOnboardingTime()
                                 )
                                 if (currentState.isJson) {
                                     onboardingViewModel.markOnboardingCompletedSilent {

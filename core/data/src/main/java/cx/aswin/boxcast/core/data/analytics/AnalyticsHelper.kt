@@ -143,7 +143,7 @@ object AnalyticsHelper {
         )
     }
 
-    // ── 2. Onboarding Started ──────────────────────────────────────
+    // ── 2. Onboarding Started & Flow Selection ──────────────────────
 
     fun trackOnboardingStarted() {
         PostHog.capture(
@@ -155,78 +155,177 @@ object AnalyticsHelper {
         )
     }
 
-    // ── 3. Genres Submitted (Continue Button) ──────────────────────
-
-    fun trackGenresSubmitted(selectedGenres: Set<String>, timeSpentSeconds: Float) {
-        val personaMap = deriveGenrePersona(selectedGenres)
-
+    fun trackOnboardingFlowSelected(flowType: String) {
         PostHog.capture(
-            event = "onboarding_genres_submitted",
+            event = "onboarding_flow_selected",
             properties = mapOf(
-                "selected_genres" to selectedGenres.toList(),
-                "selected_count" to selectedGenres.size,
-                "time_spent_on_genre_screen_seconds" to timeSpentSeconds
+                "flow_type" to flowType
             )
-        )
-
-        // Persona update
-        val finalProps = mutableMapOf<String, Any>("favorite_genres" to selectedGenres.toList())
-        finalProps.putAll(personaMap)
-
-        PostHog.capture(
-            event = "\$set",
-            userProperties = finalProps
         )
     }
 
-    // ── 4. Skip (Onboarding Completed via Skip) ───────────────────
-
-    fun trackOnboardingSkipped(screen: String, timeSpentOnGenreScreenSeconds: Float, totalOnboardingTimeSeconds: Float, timeSpentOnPodcastScreenSeconds: Float? = null) {
-        val methodVal = if (screen == "podcast_screen") "skip_suggestions" else "skip_genre"
-        val props = mutableMapOf<String, Any>(
-            "method" to methodVal,
-            "screen" to screen,
-            "time_spent_on_genre_screen_seconds" to timeSpentOnGenreScreenSeconds,
-            "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+    fun trackOnboardingSkipped(screen: String, totalOnboardingTimeSeconds: Float) {
+        PostHog.capture(
+            event = "onboarding_completed",
+            properties = mapOf(
+                "method" to "skip_welcome",
+                "screen" to screen,
+                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+            )
         )
-        if (timeSpentOnPodcastScreenSeconds != null) {
-            props["time_spent_on_podcast_screen_seconds"] = timeSpentOnPodcastScreenSeconds
-        }
-        
-        PostHog.capture(event = "onboarding_completed", properties = props)
-
-        val userIntent = if (screen == "podcast_screen") "unsatisfied_browser" else "casual_browser"
 
         PostHog.capture(
             event = "\$set",
             userProperties = mapOf(
                 "onboarding_status" to "completed",
-                "onboarding_method" to methodVal,
-                "user_intent" to userIntent
+                "onboarding_method" to "skip",
+                "user_intent" to "casual_browser"
             )
         )
     }
 
-    // ── 5. Import Flow ─────────────────────────────────────────────
+    // ── 3. AI Chat Onboarding Flow ──────────────────────────────────
 
-    fun trackImportSheetOpened(timeSpentOnGenreScreenSeconds: Float) {
+    fun trackOnboardingAiTurnSubmitted(turnNumber: Int, selectedOptions: Set<String>, hasCustomInput: Boolean, timeSpentSeconds: Float) {
         PostHog.capture(
-            event = "onboarding_import_sheet_opened",
+            event = "onboarding_ai_turn_submitted",
             properties = mapOf(
-                "time_spent_on_genre_screen_seconds" to timeSpentOnGenreScreenSeconds
+                "turn_number" to turnNumber,
+                "selected_options" to selectedOptions.toList(),
+                "has_custom_input" to hasCustomInput,
+                "time_spent_seconds" to timeSpentSeconds
             )
         )
     }
 
-    fun trackOnboardingImportCompleted(importType: String, importedPodcastCount: Int, timeSpentOnGenreScreenSeconds: Float, totalOnboardingTimeSeconds: Float) {
+    fun trackOnboardingAiSynthesisStarted(totalTurns: Int) {
+        PostHog.capture(
+            event = "onboarding_ai_synthesis_started",
+            properties = mapOf(
+                "total_turns" to totalTurns
+            )
+        )
+    }
+
+    fun trackOnboardingAiSynthesisCompleted(rowsCount: Int, podcastsCount: Int, durationSeconds: Float) {
+        PostHog.capture(
+            event = "onboarding_ai_synthesis_completed",
+            properties = mapOf(
+                "rows_count" to rowsCount,
+                "podcasts_count" to podcastsCount,
+                "duration_seconds" to durationSeconds
+            )
+        )
+    }
+
+    fun trackOnboardingAiSynthesisFailed(errorMessage: String) {
+        PostHog.capture(
+            event = "onboarding_ai_synthesis_failed",
+            properties = mapOf(
+                "error_message" to errorMessage
+            )
+        )
+    }
+
+    fun trackOnboardingAiDone(
+        totalSubscribedCount: Int,
+        didScrollSuggestions: Boolean,
+        totalOnboardingTimeSeconds: Float,
+        favoriteGenres: List<String>
+    ) {
+        PostHog.capture(
+            event = "onboarding_completed",
+            properties = mapOf(
+                "method" to "ai_suggestions_done",
+                "screen" to "ai_suggestions_screen",
+                "total_subscribed_count" to totalSubscribedCount,
+                "did_scroll_suggestions" to didScrollSuggestions,
+                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+            )
+        )
+
+        PostHog.capture(
+            event = "\$set",
+            userProperties = mapOf(
+                "onboarding_status" to "completed",
+                "onboarding_method" to "ai_chat",
+                "user_intent" to "ai_guided_listener",
+                "initial_podcasts_subscribed" to totalSubscribedCount,
+                "favorite_genres" to favoriteGenres
+            )
+        )
+    }
+
+    // ── 4. Search & Import Onboarding Flows ─────────────────────────
+
+    fun trackSearchPerformed(query: String, resultsCount: Int) {
+        PostHog.capture(
+            event = "onboarding_search_performed",
+            properties = mapOf(
+                "search_query" to query,
+                "results_count" to resultsCount
+            )
+        )
+    }
+
+    fun trackSearchPodcastSubscribed(podcastName: String, podcastId: String, totalSubscribedCount: Int) {
+        PostHog.capture(
+            event = "onboarding_search_podcast_subscribed",
+            properties = mapOf(
+                "podcast_name" to podcastName,
+                "podcast_id" to podcastId,
+                "total_subscribed_count" to totalSubscribedCount
+            )
+        )
+    }
+
+    fun trackOnboardingSearchDone(
+        entryPoint: String,
+        totalSubscribedCount: Int,
+        searchesPerformed: Int,
+        timeSpentOnSearchSeconds: Float,
+        totalOnboardingTimeSeconds: Float
+    ) {
+        PostHog.capture(
+            event = "onboarding_completed",
+            properties = mapOf(
+                "method" to "search_done",
+                "screen" to "search_screen",
+                "entry_point" to entryPoint,
+                "total_subscribed_count" to totalSubscribedCount,
+                "searches_performed" to searchesPerformed,
+                "time_spent_on_search_seconds" to timeSpentOnSearchSeconds,
+                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+            )
+        )
+
+        PostHog.capture(
+            event = "\$set",
+            userProperties = mapOf(
+                "onboarding_status" to "completed",
+                "onboarding_method" to "search",
+                "user_intent" to "targeted_listener",
+                "initial_podcasts_subscribed" to totalSubscribedCount
+            )
+        )
+    }
+
+    fun trackImportSheetOpened() {
+        PostHog.capture(event = "onboarding_import_sheet_opened")
+    }
+
+    fun trackOnboardingImportCompleted(
+        importType: String,
+        importedPodcastCount: Int,
+        totalOnboardingTimeSeconds: Float
+    ) {
         PostHog.capture(
             event = "onboarding_completed",
             properties = mapOf(
                 "method" to "import",
                 "import_type" to importType,
-                "screen" to "genre_screen",
+                "screen" to "welcome_screen",
                 "imported_podcast_count" to importedPodcastCount,
-                "time_spent_on_genre_screen_seconds" to timeSpentOnGenreScreenSeconds,
                 "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
             )
         )
@@ -252,150 +351,49 @@ object AnalyticsHelper {
         )
     }
 
-    // ── 6. Search Screen ───────────────────────────────────────────
+    // ── 5. Manual Genre Flow (Legacy / Switch) ──────────────────────
 
-    fun trackSearchOpened(entryPoint: String, timeSpentOnGenreScreenSeconds: Float?) {
-        val props = mutableMapOf<String, Any>(
-            "entry_point" to entryPoint
-        )
-        if (timeSpentOnGenreScreenSeconds != null) {
-            props["time_spent_on_genre_screen_seconds"] = timeSpentOnGenreScreenSeconds
-        }
-        PostHog.capture(event = "onboarding_search_opened", properties = props)
-    }
-
-    fun trackSearchPerformed(query: String, resultsCount: Int) {
+    fun trackOnboardingManualStepCompleted(stepName: String, selectionsCount: Int, timeSpentSeconds: Float) {
         PostHog.capture(
-            event = "onboarding_search_performed",
+            event = "onboarding_manual_step_completed",
             properties = mapOf(
-                "search_query" to query,
-                "results_count" to resultsCount
+                "step_name" to stepName,
+                "selections_count" to selectionsCount,
+                "time_spent_seconds" to timeSpentSeconds
             )
         )
     }
 
-    fun trackSearchPodcastSubscribed(podcastName: String, podcastId: String, totalSubscribedCount: Int) {
-        PostHog.capture(
-            event = "onboarding_search_podcast_subscribed",
-            properties = mapOf(
-                "podcast_name" to podcastName,
-                "podcast_id" to podcastId,
-                "total_subscribed_count" to totalSubscribedCount
-            )
-        )
-    }
-
-    fun trackSearchExited(exitDestination: String, searchesPerformed: Int, podcastsSubscribedInSearch: Int, timeSpentOnSearchSeconds: Float) {
-        PostHog.capture(
-            event = "onboarding_search_exited",
-            properties = mapOf(
-                "exit_destination" to exitDestination,
-                "searches_performed" to searchesPerformed,
-                "podcasts_subscribed_in_search" to podcastsSubscribedInSearch,
-                "time_spent_on_search_seconds" to timeSpentOnSearchSeconds
-            )
-        )
-    }
-
-    fun trackOnboardingSearchDone(
-        entryPoint: String,
+    fun trackOnboardingManualDone(
         totalSubscribedCount: Int,
-        searchesPerformed: Int,
-        timeSpentOnSearchSeconds: Float,
-        timeSpentOnGenreScreenSeconds: Float,
         totalOnboardingTimeSeconds: Float,
-        selectedGenres: Set<String>
+        didSwitchFromAi: Boolean,
+        favoriteGenres: Set<String>
     ) {
         PostHog.capture(
             event = "onboarding_completed",
             properties = mapOf(
-                "method" to "search_done",
-                "screen" to "search_screen",
-                "entry_point" to entryPoint,
+                "method" to "manual_genre_flow",
+                "screen" to "ai_suggestions_screen",
                 "total_subscribed_count" to totalSubscribedCount,
-                "searches_performed" to searchesPerformed,
-                "time_spent_on_search_seconds" to timeSpentOnSearchSeconds,
-                "time_spent_on_genre_screen_seconds" to timeSpentOnGenreScreenSeconds,
-                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds,
+                "did_switch_from_ai" to didSwitchFromAi
             )
         )
 
-        val personaProps = mutableMapOf<String, Any>(
+        val personaMap = deriveGenrePersona(favoriteGenres)
+        val finalProps = mutableMapOf<String, Any>(
             "onboarding_status" to "completed",
-            "user_intent" to "targeted_listener",
-            "initial_podcasts_subscribed" to totalSubscribedCount
+            "onboarding_method" to "manual_genre",
+            "user_intent" to "selective_curator",
+            "initial_podcasts_subscribed" to totalSubscribedCount,
+            "favorite_genres" to favoriteGenres.toList()
         )
-        if (selectedGenres.isNotEmpty()) {
-            personaProps["favorite_genres"] = selectedGenres.toList()
-        }
-        PostHog.capture(
-            event = "\$set",
-            userProperties = personaProps
-        )
-    }
-
-    // ── 7. Podcast Suggestions Screen ──────────────────────────────
-
-    fun trackOnboardingSuggestionsDone(
-        totalSubscribedCount: Int,
-        removedSuggestionsCount: Int,
-        addedFromSearchCount: Int,
-        didScrollSuggestions: Boolean,
-        timeSpentOnPodcastScreenSeconds: Float,
-        timeSpentOnGenreScreenSeconds: Float,
-        totalOnboardingTimeSeconds: Float
-    ) {
-        PostHog.capture(
-            event = "onboarding_completed",
-            properties = mapOf(
-                "method" to "suggestions_done",
-                "screen" to "podcast_screen",
-                "total_subscribed_count" to totalSubscribedCount,
-                "removed_suggestions_count" to removedSuggestionsCount,
-                "added_from_search_count" to addedFromSearchCount,
-                "did_scroll_suggestions" to didScrollSuggestions,
-                "time_spent_on_podcast_screen_seconds" to timeSpentOnPodcastScreenSeconds,
-                "time_spent_on_genre_screen_seconds" to timeSpentOnGenreScreenSeconds,
-                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
-            )
-        )
-
-        val userIntent = when {
-            addedFromSearchCount > 0 -> "targeted_listener"
-            removedSuggestionsCount > 0 -> "selective_curator"
-            timeSpentOnPodcastScreenSeconds < 5.0f && !didScrollSuggestions -> "passive_acceptor"
-            else -> "engaged_explorer"
-        }
-
-        val decisiveness = if (totalSubscribedCount > 0) {
-            val secondsPerSub = timeSpentOnPodcastScreenSeconds / totalSubscribedCount
-            when {
-                secondsPerSub < 2.0f -> "fast"
-                secondsPerSub < 5.0f -> "average"
-                else -> "slow"
-            }
-        } else "none"
-
-        val discoveryReliance = if (totalSubscribedCount > 0) {
-            val autoKept = totalSubscribedCount - addedFromSearchCount
-            val ratio = autoKept.toFloat() / totalSubscribedCount
-            when {
-                ratio >= 0.8f -> "high"
-                ratio >= 0.4f -> "medium"
-                else -> "low"
-            }
-        } else "none"
+        finalProps.putAll(personaMap)
 
         PostHog.capture(
             event = "\$set",
-            userProperties = mapOf(
-                "onboarding_status" to "completed",
-                "onboarding_method" to "suggestions_done",
-                "user_intent" to userIntent,
-                "selection_decisiveness" to decisiveness,
-                "discovery_reliance" to discoveryReliance,
-                "initial_podcasts_subscribed" to totalSubscribedCount
-            )
+            userProperties = finalProps
         )
     }
 

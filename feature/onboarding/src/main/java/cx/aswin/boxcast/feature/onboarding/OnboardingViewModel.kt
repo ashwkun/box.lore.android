@@ -131,6 +131,11 @@ class OnboardingViewModel(
     private val seenPodcasts = java.util.concurrent.ConcurrentHashMap<String, Podcast>()
     private var onboardingStartedFired: Boolean = false
     private var didScrollSuggestions: Boolean = false
+
+    private var turnStartMs: Long = 0L
+    private var synthesisStartMs: Long = 0L
+    private var currentStepStartMs: Long = 0L
+    private var didSwitchFromAi: Boolean = false
     
     /** Total time since the onboarding flow began */
     fun getTotalOnboardingTime(): Float {
@@ -167,6 +172,7 @@ class OnboardingViewModel(
         if (!onboardingStartedFired) {
             onboardingStartMs = System.currentTimeMillis()
             welcomeScreenStartMs = System.currentTimeMillis()
+            currentStepStartMs = System.currentTimeMillis()
             AnalyticsHelper.trackOnboardingStarted()
             onboardingStartedFired = true
         }
@@ -177,6 +183,7 @@ class OnboardingViewModel(
         if (genreScreenStartMs == 0L) {
             genreScreenStartMs = System.currentTimeMillis()
         }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     /** Called when the podcast screen composable first loads */
@@ -197,6 +204,10 @@ class OnboardingViewModel(
     fun startOnboarding() {
         turnHistoryState.clear()
         _uiState.value = OnboardingUiState().copy(currentStep = OnboardingStep.AI_ONBOARDING)
+        turnStartMs = System.currentTimeMillis()
+        onboardingStartMs = System.currentTimeMillis()
+        didSwitchFromAi = false
+        AnalyticsHelper.trackOnboardingFlowSelected("ai_chat")
     }
     
     fun toggleGenre(genre: String) {
@@ -213,11 +224,12 @@ class OnboardingViewModel(
 
 
     fun continueToRecommendations() {
-        // Analytics: Track genres submitted with time spent
         val selectedGenres = _uiState.value.selectedGenres
-        AnalyticsHelper.trackGenresSubmitted(selectedGenres, getGenreScreenTimeSpent())
+        val timeSpent = (System.currentTimeMillis() - currentStepStartMs) / 1000f
+        AnalyticsHelper.trackOnboardingManualStepCompleted("genres", selectedGenres.size, timeSpent)
 
         _uiState.update { it.copy(currentStep = OnboardingStep.SUB_GENRES) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun toggleSubGenre(subGenre: String) {
@@ -296,36 +308,56 @@ class OnboardingViewModel(
     }
 
     fun continueToActivityPicker() {
+        val selectedSubGenres = _uiState.value.selectedSubGenres
+        val timeSpent = (System.currentTimeMillis() - currentStepStartMs) / 1000f
+        AnalyticsHelper.trackOnboardingManualStepCompleted("sub_genres", selectedSubGenres.size, timeSpent)
+
         _uiState.update { it.copy(currentStep = OnboardingStep.ACTIVITY_PICKER) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun continueToLengthPicker() {
+        val selectedActivities = _uiState.value.listeningActivities
+        val timeSpent = (System.currentTimeMillis() - currentStepStartMs) / 1000f
+        AnalyticsHelper.trackOnboardingManualStepCompleted("activities", selectedActivities.size, timeSpent)
+
         _uiState.update { it.copy(currentStep = OnboardingStep.LENGTH_PICKER) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun navigateBackFromSubGenres() {
         _uiState.update { it.copy(currentStep = OnboardingStep.GENRES) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun navigateBackFromActivityPicker() {
         _uiState.update { it.copy(currentStep = OnboardingStep.SUB_GENRES) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun navigateBackFromLengthPicker() {
         _uiState.update { it.copy(currentStep = OnboardingStep.ACTIVITY_PICKER) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun synthesizeGenreOnboarding() {
         val currentState = _uiState.value
+        val selectedLengths = currentState.preferredLengths
+        val timeSpent = (System.currentTimeMillis() - currentStepStartMs) / 1000f
+        AnalyticsHelper.trackOnboardingManualStepCompleted("lengths", selectedLengths.size, timeSpent)
+
         _uiState.update { it.copy(
             isLoadingPodcasts = true,
             currentStep = OnboardingStep.AI_SUGGESTIONS,
             onboardingError = null,
             reachedSuggestionsViaAiFlow = false,
-            reachedSuggestionsViaSearchFlow = false
+            reachedSuggestionsViaSearchFlow = false,
+            reachedSuggestionsViaOpmlFlow = false
         ) }
         
         val finalAction: () -> Unit = {
+            synthesisStartMs = System.currentTimeMillis()
+            AnalyticsHelper.trackOnboardingAiSynthesisStarted(0)
             _uiState.update { it.copy(isLoadingPodcasts = true, onboardingError = null) }
             viewModelScope.launch {
                 try {
@@ -441,6 +473,14 @@ class OnboardingViewModel(
                     }
                     val defaultSelectedPodcasts = newPodcasts.filter { it.id.toString() in defaultSelectedIds }.associateBy { it.id }
 
+                    val duration = (System.currentTimeMillis() - synthesisStartMs) / 1000f
+                    val uniquePodcastsCount = finalRows.flatMap { it.podcasts }.distinctBy { it.id }.size
+                    AnalyticsHelper.trackOnboardingAiSynthesisCompleted(
+                        rowsCount = finalRows.size,
+                        podcastsCount = uniquePodcastsCount,
+                        durationSeconds = duration
+                    )
+
                     _uiState.update { state ->
                         state.copy(
                             aiCurriculumRows = finalRows,
@@ -453,6 +493,7 @@ class OnboardingViewModel(
                     }
                 } catch (e: Exception) {
                     Log.e("OnboardingViewModel", "Error in synthesizeGenreOnboarding", e)
+                    AnalyticsHelper.trackOnboardingAiSynthesisFailed(e.message ?: "Unknown error")
                     _uiState.update { state ->
                         state.copy(
                             isLoadingPodcasts = false,
@@ -573,9 +614,9 @@ class OnboardingViewModel(
             else -> "genre_screen"
         }
 
-        // Analytics: Track search opened
-        val genreTime = if (searchEntryPoint == "genre_screen") getGenreScreenTimeSpent() else null
-        AnalyticsHelper.trackSearchOpened(searchEntryPoint, genreTime)
+        if (searchEntryPoint == "welcome_screen") {
+            AnalyticsHelper.trackOnboardingFlowSelected("search_direct")
+        }
 
         // Reset search counters for this session
         searchesPerformedCount = 0
@@ -652,16 +693,6 @@ class OnboardingViewModel(
     
     fun navigateBackFromSearch() {
         val state = _uiState.value
-        val exitDestination = if (state.selectedGenres.isNotEmpty()) "sub_genres_screen" else "genre_screen"
-
-        // Analytics: Track search exit
-        AnalyticsHelper.trackSearchExited(
-            exitDestination = exitDestination,
-            searchesPerformed = searchesPerformedCount,
-            podcastsSubscribedInSearch = podcastsSubscribedInSearchCount,
-            timeSpentOnSearchSeconds = getSearchScreenTimeSpent()
-        )
-
         val backStep = when (searchEntryPoint) {
             "welcome_screen" -> OnboardingStep.WELCOME
             "genre_screen" -> if (state.selectedGenres.isNotEmpty()) OnboardingStep.SUB_GENRES else OnboardingStep.GENRES
@@ -769,9 +800,7 @@ class OnboardingViewModel(
                     totalSubscribedCount = state.subscribedPodcastIds.size,
                     searchesPerformed = searchesPerformedCount,
                     timeSpentOnSearchSeconds = getSearchScreenTimeSpent(),
-                    timeSpentOnGenreScreenSeconds = getGenreScreenTimeSpent(),
-                    totalOnboardingTimeSeconds = getTotalOnboardingTime(),
-                    selectedGenres = state.selectedGenres
+                    totalOnboardingTimeSeconds = getTotalOnboardingTime()
                 )
             }
 
@@ -970,7 +999,6 @@ class OnboardingViewModel(
     }
     
     fun skipOnboarding(onDone: () -> Unit) {
-        // Analytics: Track skip
         val currentScreen = when (_uiState.value.currentStep) {
             OnboardingStep.WELCOME -> "welcome_screen"
             OnboardingStep.GENRES -> "genre_screen"
@@ -981,7 +1009,7 @@ class OnboardingViewModel(
             OnboardingStep.AI_ONBOARDING -> "ai_onboarding_screen"
             OnboardingStep.AI_SUGGESTIONS -> "ai_suggestions_screen"
         }
-        AnalyticsHelper.trackOnboardingSkipped(currentScreen, getGenreScreenTimeSpent(), getTotalOnboardingTime(), null)
+        AnalyticsHelper.trackOnboardingSkipped(currentScreen, getTotalOnboardingTime())
 
         prefs.edit().putBoolean("onboarding_completed", true).apply()
 
@@ -1015,7 +1043,9 @@ class OnboardingViewModel(
     }
 
     fun switchToLegacyOnboarding() {
+        didSwitchFromAi = true
         _uiState.update { it.copy(currentStep = OnboardingStep.GENRES, onboardingError = null) }
+        currentStepStartMs = System.currentTimeMillis()
     }
 
     fun retryLastAction() {
@@ -1034,6 +1064,14 @@ class OnboardingViewModel(
         ).joinToString(". ")
 
         if (turnInput.isBlank()) return
+
+        val turnTime = (System.currentTimeMillis() - turnStartMs) / 1000f
+        AnalyticsHelper.trackOnboardingAiTurnSubmitted(
+            turnNumber = currentState.aiCurrentTurn,
+            selectedOptions = currentState.aiSelectedOptions,
+            hasCustomInput = currentState.aiCustomInputText.isNotBlank(),
+            timeSpentSeconds = turnTime
+        )
 
         // Push current turn state to back stack before updating
         turnHistoryState.add(
@@ -1127,6 +1165,7 @@ class OnboardingViewModel(
                                     onboardingError = null
                                 )
                             }
+                            turnStartMs = System.currentTimeMillis()
                         }
                     } else {
                         throw Exception("Server returned error ${response.code()}")
@@ -1157,6 +1196,16 @@ class OnboardingViewModel(
         val turnInput = (currentState.aiSelectedOptions.toList() + 
             if (currentState.aiCustomInputText.isNotBlank()) listOf(currentState.aiCustomInputText) else emptyList()
         ).joinToString(". ")
+
+        if (!force) {
+            val turnTime = (System.currentTimeMillis() - turnStartMs) / 1000f
+            AnalyticsHelper.trackOnboardingAiTurnSubmitted(
+                turnNumber = currentState.aiCurrentTurn,
+                selectedOptions = currentState.aiSelectedOptions,
+                hasCustomInput = currentState.aiCustomInputText.isNotBlank(),
+                timeSpentSeconds = turnTime
+            )
+        }
 
         val newHistoryList = currentState.aiHistory.toMutableList()
         if (turnInput.isNotBlank()) {
@@ -1189,6 +1238,8 @@ class OnboardingViewModel(
         }
 
         val finalAction: () -> Unit = {
+            synthesisStartMs = System.currentTimeMillis()
+            AnalyticsHelper.trackOnboardingAiSynthesisStarted(currentState.aiCurrentTurn)
             _uiState.update {
                 it.copy(
                     isAiLoading = true,
@@ -1269,6 +1320,14 @@ class OnboardingViewModel(
                     }
                     val defaultSelectedPodcasts = newPodcasts.filter { it.id.toString() in defaultSelectedIds }.associateBy { it.id }
                     
+                    val duration = (System.currentTimeMillis() - synthesisStartMs) / 1000f
+                    val uniquePodcastsCount = rows.flatMap { it.podcasts }.distinctBy { it.id }.size
+                    AnalyticsHelper.trackOnboardingAiSynthesisCompleted(
+                        rowsCount = rows.size,
+                        podcastsCount = uniquePodcastsCount,
+                        durationSeconds = duration
+                    )
+
                     _uiState.update { state ->
                         val newSelected = state.selectedPodcasts + defaultSelectedPodcasts
                         state.copy(
@@ -1285,6 +1344,7 @@ class OnboardingViewModel(
                     }
                 } catch (e: Exception) {
                     Log.e("OnboardingViewModel", "Error in synthesizeAndBuildCurriculum", e)
+                    AnalyticsHelper.trackOnboardingAiSynthesisFailed(e.message ?: "Unknown error")
                     try {
                         _uiState.update { it.copy(aiLoadingStage = AiLoadingStage.FETCHING_CATALOGS) }
                         val trending = withContext(Dispatchers.IO) {
@@ -1367,6 +1427,11 @@ class OnboardingViewModel(
             else -> OnboardingStep.LENGTH_PICKER
         }
         _uiState.update { it.copy(currentStep = nextStep) }
+        if (nextStep == OnboardingStep.AI_ONBOARDING) {
+            turnStartMs = System.currentTimeMillis()
+        } else if (nextStep == OnboardingStep.LENGTH_PICKER) {
+            currentStepStartMs = System.currentTimeMillis()
+        }
     }
 
     fun navigateBackInAiOnboarding() {
@@ -1402,6 +1467,7 @@ class OnboardingViewModel(
                     )
                 }
             }
+            turnStartMs = System.currentTimeMillis()
         }
     }
 
@@ -1422,12 +1488,50 @@ class OnboardingViewModel(
                 userPrefs.setRegion(state.currentRegion)
                 prefs.edit().putBoolean("onboarding_completed", true).apply()
 
-                val userGenres = _uiState.value.aiHistory
+                val userGenres = state.aiHistory
                     .filter { it.role == "user" }
                     .flatMap { it.parts }
                     .map { it.text }
                     .toSet()
                 prefs.edit().putStringSet("user_genres", userGenres).apply()
+
+                // Analytics: Track onboarding completion depending on the flow that reached suggestions
+                if (state.reachedSuggestionsViaAiFlow) {
+                    AnalyticsHelper.trackOnboardingAiDone(
+                        totalSubscribedCount = selectedIds.size,
+                        didScrollSuggestions = didScrollSuggestions,
+                        totalOnboardingTimeSeconds = getTotalOnboardingTime(),
+                        favoriteGenres = userGenres.toList()
+                    )
+                } else if (state.reachedSuggestionsViaSearchFlow) {
+                    AnalyticsHelper.trackOnboardingSearchDone(
+                        entryPoint = searchEntryPoint,
+                        totalSubscribedCount = selectedIds.size,
+                        searchesPerformed = searchesPerformedCount,
+                        timeSpentOnSearchSeconds = getSearchScreenTimeSpent(),
+                        totalOnboardingTimeSeconds = getTotalOnboardingTime()
+                    )
+                } else if (state.reachedSuggestionsViaOpmlFlow) {
+                    // For OPML, onboarding_completed with method "import" is already tracked in MainActivity.kt
+                    // But we refresh/set the user properties to ensure intent and subscriptions are up to date.
+                    com.posthog.PostHog.capture(
+                        event = "\$set",
+                        userProperties = mapOf(
+                            "onboarding_status" to "completed",
+                            "onboarding_method" to "import",
+                            "user_intent" to "migrating_power_user",
+                            "initial_podcasts_subscribed" to selectedIds.size
+                        )
+                    )
+                } else {
+                    // Manual/Genre flow
+                    AnalyticsHelper.trackOnboardingManualDone(
+                        totalSubscribedCount = selectedIds.size,
+                        totalOnboardingTimeSeconds = getTotalOnboardingTime(),
+                        didSwitchFromAi = didSwitchFromAi,
+                        favoriteGenres = state.selectedGenres
+                    )
+                }
 
                 onDone()
             } catch (e: Exception) {
