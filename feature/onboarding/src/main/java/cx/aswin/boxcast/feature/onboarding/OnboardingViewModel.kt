@@ -76,7 +76,10 @@ data class OnboardingUiState(
     val aiCurriculumRows: List<OnboardingCurriculumRowDto> = emptyList(),
     val aiLoadingStage: AiLoadingStage = AiLoadingStage.IDLE,
     val onboardingError: String? = null,
-    val reachedSuggestionsViaAiFlow: Boolean = false
+    val reachedSuggestionsViaAiFlow: Boolean = false,
+    val popularPodcasts: List<Podcast> = emptyList(),
+    val isPopularLoading: Boolean = false,
+    val selectedSearchGenre: String? = null
 )
 
 enum class OnboardingStep {
@@ -513,6 +516,7 @@ class OnboardingViewModel(
                 val podcast = state.searchResults.find { it.id == podcastId }
                     ?: state.aiCurriculumRows.flatMap { it.podcasts }.map { it.toPodcast() }.find { it.id == podcastId }
                     ?: state.genreChartsPodcasts.find { it.id == podcastId }
+                    ?: state.popularPodcasts.find { it.id == podcastId }
                 if (podcast != null) {
                     state.selectedPodcasts + (podcastId to podcast)
                 } else {
@@ -580,7 +584,65 @@ class OnboardingViewModel(
         podcastsSubscribedInSearchCount = 0
         searchScreenStartMs = System.currentTimeMillis()
 
-        _uiState.update { it.copy(currentStep = OnboardingStep.SEARCH) }
+        _uiState.update { it.copy(
+            currentStep = OnboardingStep.SEARCH,
+            searchQuery = "",
+            searchResults = emptyList(),
+            selectedSearchGenre = null
+        ) }
+        selectSearchGenre(null)
+    }
+
+    fun selectSearchGenre(genreValue: String?) {
+        _uiState.update { it.copy(selectedSearchGenre = genreValue, isPopularLoading = true) }
+        viewModelScope.launch {
+            try {
+                val region = _uiState.value.currentRegion
+                val trending = withContext(Dispatchers.IO) {
+                    podcastRepository.getTrendingPodcasts(
+                        country = region,
+                        category = genreValue,
+                        limit = 20
+                    )
+                }
+                _uiState.update { it.copy(
+                    popularPodcasts = trending,
+                    isPopularLoading = false
+                ) }
+            } catch (e: Exception) {
+                Log.e("OnboardingViewModel", "Error loading popular podcasts for search", e)
+                _uiState.update { it.copy(
+                    popularPodcasts = emptyList(),
+                    isPopularLoading = false
+                ) }
+            }
+        }
+    }
+
+    fun toggleSubscriptionFromSearch(podcast: Podcast) {
+        _uiState.update { state ->
+            val isSubbed = podcast.id in state.subscribedPodcastIds
+            val newSelected = if (isSubbed) {
+                state.selectedPodcasts - podcast.id
+            } else {
+                state.selectedPodcasts + (podcast.id to podcast)
+            }
+            state.copy(
+                selectedPodcasts = newSelected,
+                subscribedPodcastIds = newSelected.keys
+            )
+        }
+
+        val isNowSubbed = podcast.id in _uiState.value.subscribedPodcastIds
+        if (isNowSubbed) {
+            // Analytics: Track podcast subscribed in search
+            podcastsSubscribedInSearchCount++
+            AnalyticsHelper.trackSearchPodcastSubscribed(
+                podcastName = podcast.title,
+                podcastId = podcast.id,
+                totalSubscribedCount = _uiState.value.subscribedPodcastIds.size
+            )
+        }
     }
     
 

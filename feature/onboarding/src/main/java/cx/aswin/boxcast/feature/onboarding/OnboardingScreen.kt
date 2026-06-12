@@ -184,9 +184,13 @@ fun OnboardingScreen(
                     isSearching = uiState.isSearching,
                     subscribedIds = uiState.subscribedPodcastIds,
                     onQueryChange = viewModel::updateSearchQuery,
-                    onSubscribe = viewModel::subscribeFromSearch,
+                    onSubscribe = viewModel::toggleSubscriptionFromSearch,
                     onBack = viewModel::navigateBackFromSearch,
-                    onDone = handleComplete
+                    onDone = handleComplete,
+                    popularPodcasts = uiState.popularPodcasts,
+                    isPopularLoading = uiState.isPopularLoading,
+                    selectedSearchGenre = uiState.selectedSearchGenre,
+                    onGenreSelect = viewModel::selectSearchGenre
                 )
             }
             OnboardingStep.AI_ONBOARDING -> {
