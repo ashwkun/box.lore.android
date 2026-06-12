@@ -39,6 +39,7 @@ interface ListeningHistoryDao {
                isManualCompletion, isBulkCompletion, NULL as episodeDescription 
         FROM listening_history 
         ORDER BY lastPlayedAt DESC
+        LIMIT 300
     """)
     fun getAllHistory(): Flow<List<ListeningHistoryEntity>>
     
