@@ -17,6 +17,8 @@ import cx.aswin.boxcast.core.network.model.OnboardingQuery
 import cx.aswin.boxcast.core.network.model.OnboardingCurriculumRequest
 import cx.aswin.boxcast.core.network.model.OnboardingCurriculumRowDto
 import cx.aswin.boxcast.core.network.model.OnboardingGenreSynthRequest
+import cx.aswin.boxcast.core.network.model.OnboardingSimilarShowsRequest
+import cx.aswin.boxcast.core.network.model.OnboardingSelectedShowDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -203,6 +205,12 @@ interface BoxCastApi {
     fun onboardingGenreSynth(
         @Header("X-App-Key") publicKey: String,
         @Body request: OnboardingGenreSynthRequest
+    ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
+
+    @POST("onboarding/similar-shows")
+    fun getSimilarShows(
+        @Header("X-App-Key") publicKey: String,
+        @Body request: OnboardingSimilarShowsRequest
     ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
 
 }

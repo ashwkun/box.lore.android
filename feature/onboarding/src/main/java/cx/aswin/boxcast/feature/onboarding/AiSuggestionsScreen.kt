@@ -196,19 +196,34 @@ internal fun AiSuggestionsScreen(
                                         modifier = Modifier.size(24.dp)
                                     )
                                 } else {
-                                    Text(
-                                        text = "Subscribe & Start (${uiState.subscribedPodcastIds.size})",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                     val text = if (uiState.reachedSuggestionsViaSearchFlow) {
+                                         val recommendedIds = uiState.aiCurriculumRows.flatMap { it.podcasts }.map { it.id.toString() }.toSet()
+                                         val selectedRecommendationsCount = uiState.subscribedPodcastIds.count { it in recommendedIds }
+                                         if (selectedRecommendationsCount > 0) {
+                                             "Subscribe & Start (+${selectedRecommendationsCount} recommended)"
+                                         } else {
+                                             "Start without subscribing"
+                                         }
+                                     } else {
+                                         if (uiState.subscribedPodcastIds.isNotEmpty()) {
+                                             "Subscribe & Start (${uiState.subscribedPodcastIds.size})"
+                                         } else {
+                                             "Start without subscribing"
+                                         }
+                                     }
+                                     Text(
+                                         text = text,
+                                         fontWeight = FontWeight.Bold,
+                                         fontSize = 16.sp,
+                                         color = MaterialTheme.colorScheme.onPrimary
+                                     )
+                                     Spacer(modifier = Modifier.width(8.dp))
+                                     Icon(
+                                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                         contentDescription = null,
+                                         tint = MaterialTheme.colorScheme.onPrimary,
+                                         modifier = Modifier.size(18.dp)
+                                     )
                                 }
                             }
                         }
@@ -229,9 +244,20 @@ internal fun AiSuggestionsScreen(
                     ) {
                         BoxCastLoader.Expressive(size = 80.dp)
                         Text(
-                            text = "Synthesizing your feed...",
+                            text = when {
+                                uiState.reachedSuggestionsViaOpmlFlow -> {
+                                    "Your OPML shows are subscribed!\nGathering new shows inspired by your library..."
+                                }
+                                uiState.reachedSuggestionsViaSearchFlow -> {
+                                    "Subscribed to ${uiState.selectedPodcasts.size} shows!\nFinding similar shows you might love..."
+                                }
+                                else -> {
+                                    "Synthesizing your feed..."
+                                }
+                            },
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
@@ -100,6 +101,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -122,6 +124,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.SettingsBackupRestore
+import androidx.compose.material.icons.rounded.ImportExport
+import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 
 // PixelPlayer-inspired transition specs
 private const val TRANSITION_DURATION = 350
@@ -263,6 +268,7 @@ class MainActivity : ComponentActivity() {
         Coil.setImageLoader(imageLoader)
         
         setContent {
+            val scope = rememberCoroutineScope()
             val navController = rememberNavController()
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = navBackStackEntry?.destination?.route ?: "home"
@@ -392,6 +398,33 @@ class MainActivity : ComponentActivity() {
             var opmlImportState by remember { mutableStateOf<OpmlImportState>(OpmlImportState.Idle) }
             var importTriggerKey by remember { mutableStateOf(0L) }
 
+            fun performJsonImport(uri: android.net.Uri) {
+                opmlImportState = OpmlImportState.ImportingJson
+                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val jsonStr = applicationContext.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
+                        if (jsonStr == null) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                opmlImportState = OpmlImportState.Error("Failed to read the JSON file.")
+                            }
+                            return@launch
+                        }
+                        val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            opmlImportState = OpmlImportState.Success(
+                                importedCount = count,
+                                completedCount = 0,
+                                isJson = true
+                            )
+                        }
+                    } catch (e: Exception) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            opmlImportState = OpmlImportState.Error("JSON Import failed: ${e.message}")
+                        }
+                    }
+                }
+            }
+
             LaunchedEffect(importTriggerKey) {
                 if (importTriggerKey == 0L) return@LaunchedEffect
                 val state = opmlImportState
@@ -473,27 +506,13 @@ class MainActivity : ComponentActivity() {
                             }
                             
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(
-                                    applicationContext,
-                                    "Successfully imported ${state.totalImportedCount} podcasts. Marked ${total} as completed.",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                                
-                                if (currentRoute == "onboarding") {
-                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
-                                        "opml",
-                                        state.totalImportedCount,
-                                        onboardingViewModel.getGenreScreenTimeSpent(),
-                                        onboardingViewModel.getTotalOnboardingTime()
-                                    )
-                                    onboardingViewModel.markOnboardingCompletedSilent {
-                                        navController.navigate("home") {
-                                            popUpTo("onboarding") { inclusive = true }
-                                        }
-                                    }
-                                }
+                                opmlImportState = OpmlImportState.Success(
+                                    importedCount = state.totalImportedCount,
+                                    completedCount = total,
+                                    isJson = false,
+                                    importedPodcasts = state.importedPodcasts
+                                )
                             }
-                            opmlImportState = OpmlImportState.Idle
                         } catch (e: Exception) {
                             android.util.Log.e("OPML_IMPORT", "Error marking completed", e)
                             opmlImportState = OpmlImportState.Error("Failed to mark episodes as completed: ${e.message}")
@@ -502,7 +521,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            val scope = rememberCoroutineScope() // Scope for playback actions
+            // Coroutine scope is defined at the top of setContent
             
             // Restore last session on app startup
             LaunchedEffect(Unit) {
@@ -889,31 +908,11 @@ class MainActivity : ComponentActivity() {
                                             popUpTo("onboarding") { inclusive = true }
                                         }
                                     },
-                                    onImportJson = { uri ->
-                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing JSON...", android.widget.Toast.LENGTH_SHORT).show() }
-                                                val jsonStr = application.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: return@launch
-                                                val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
-                                                    android.widget.Toast.makeText(application, "Imported $count items", android.widget.Toast.LENGTH_SHORT).show()
-                                                    // Analytics: Track import completion
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted("json", count, onboardingViewModel.getGenreScreenTimeSpent(), onboardingViewModel.getTotalOnboardingTime())
-                                                    onboardingViewModel.markOnboardingCompletedSilent {
-                                                        navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
-                                                    }
-                                                }
-                                            } catch(e: Exception) {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { 
-                                                    android.widget.Toast.makeText(application, "Import Failed", android.widget.Toast.LENGTH_SHORT).show() 
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportFailed("json", e.message)
-                                                }
-                                            }
-                                        }
+                                    onBack = {
+                                        navController.popBackStack()
                                     },
-                                    onImportOpml = { uri ->
-                                        opmlImportState = OpmlImportState.Parsing(uri)
-                                        importTriggerKey = System.currentTimeMillis()
+                                    onImportClick = {
+                                        opmlImportState = OpmlImportState.ShowSelector
                                     }
                                 )
                             }
@@ -1079,7 +1078,12 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onResetSleepNudge = { playbackRepository.resetSleepNudgeForTesting() },
-                                    onClearSleepTimer = { playbackRepository.setSleepTimer(0) }
+                                    onClearSleepTimer = { playbackRepository.setSleepTimer(0) },
+                                    onImportClick = { opmlImportState = OpmlImportState.ShowSelector },
+                                    onAiOnboardingClick = {
+                                        onboardingViewModel.startOnboarding()
+                                        navController.navigate("onboarding")
+                                    }
                                 )
                             }
                             
@@ -1128,16 +1132,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onImportJson = { uri ->
-                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Importing JSON...", android.widget.Toast.LENGTH_SHORT).show() }
-                                                val jsonStr = application.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: return@launch
-                                                val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Imported $count items", android.widget.Toast.LENGTH_SHORT).show() }
-                                            } catch(e: Exception) {
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Import Failed", android.widget.Toast.LENGTH_SHORT).show() }
-                                            }
-                                        }
+                                        performJsonImport(uri)
                                     },
                                     onImportOpml = { uri ->
                                         opmlImportState = OpmlImportState.Parsing(uri)
@@ -1571,8 +1566,10 @@ class MainActivity : ComponentActivity() {
                                     onEpisodeClick = { ep ->
                                         // Navigate to the clicked episode
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        val targetPodcastId = ep.podcastId?.takeIf { it.isNotEmpty() } ?: podcastId
+                                        val targetPodcastTitle = ep.podcastTitle?.takeIf { it.isNotEmpty() } ?: podcastTitle
                                         navController.navigate(
-                                            "episode/${ep.id}/${encode(ep.title)}/${encode(ep.description)}/${encode(ep.imageUrl)}/${encode(ep.audioUrl)}/${ep.duration}/${encode(podcastId)}/${encode(podcastTitle)}" +
+                                            "episode/${ep.id}/${encode(ep.title)}/${encode(ep.description.take(500))}/${encode(ep.imageUrl)}/${encode(ep.audioUrl)}/${ep.duration}/${encode(targetPodcastId)}/${encode(targetPodcastTitle)}" +
                                             "?entryPoint=episode_related_episodes"
                                         )
                                     },
@@ -2000,6 +1997,26 @@ class MainActivity : ComponentActivity() {
                 OpmlImportDialog(
                     state = opmlImportState,
                     onDismissRequest = {
+                        val currentState = opmlImportState
+                        if (currentState is OpmlImportState.Success) {
+                            if (currentRoute == "onboarding") {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                    if (currentState.isJson) "json" else "opml",
+                                    currentState.importedCount,
+                                    onboardingViewModel.getGenreScreenTimeSpent(),
+                                    onboardingViewModel.getTotalOnboardingTime()
+                                )
+                                if (currentState.isJson) {
+                                    onboardingViewModel.markOnboardingCompletedSilent {
+                                        navController.navigate("home") {
+                                            popUpTo("onboarding") { inclusive = true }
+                                        }
+                                    }
+                                } else {
+                                    onboardingViewModel.generateRecommendationsFromOpml(currentState.importedPodcasts)
+                                }
+                            }
+                        }
                         opmlImportState = OpmlImportState.Idle
                     },
                     onSelectionChanged = { newSelection ->
@@ -2014,34 +2031,19 @@ class MainActivity : ComponentActivity() {
                             val selectedIds = currentState.selectedIds
                             val podcastsToMark = currentState.importedPodcasts.filter { it.id in selectedIds }
                             if (podcastsToMark.isEmpty()) {
-                                scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast.makeText(
-                                        applicationContext,
-                                        "Successfully imported ${currentState.importedPodcasts.size} podcasts.",
-                                        android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                    
-                                    if (currentRoute == "onboarding") {
-                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
-                                            "opml",
-                                            currentState.importedPodcasts.size,
-                                            onboardingViewModel.getGenreScreenTimeSpent(),
-                                            onboardingViewModel.getTotalOnboardingTime()
-                                        )
-                                        onboardingViewModel.markOnboardingCompletedSilent {
-                                            navController.navigate("home") {
-                                                popUpTo("onboarding") { inclusive = true }
-                                            }
-                                        }
-                                    }
-                                    opmlImportState = OpmlImportState.Idle
-                                }
+                                opmlImportState = OpmlImportState.Success(
+                                    importedCount = currentState.importedPodcasts.size,
+                                    completedCount = 0,
+                                    isJson = false,
+                                    importedPodcasts = currentState.importedPodcasts
+                                )
                             } else {
                                 opmlImportState = OpmlImportState.Completing(
                                     progress = 0f,
                                     currentShowTitle = podcastsToMark.first().title,
                                     podcastsToMark = podcastsToMark,
-                                    totalImportedCount = currentState.importedPodcasts.size
+                                    totalImportedCount = currentState.importedPodcasts.size,
+                                    importedPodcasts = currentState.importedPodcasts
                                 )
                                 importTriggerKey = System.currentTimeMillis()
                             }
@@ -2050,27 +2052,20 @@ class MainActivity : ComponentActivity() {
                     onSkipCompleted = {
                         val currentState = opmlImportState
                         if (currentState is OpmlImportState.AskCompleted) {
-                            if (currentRoute == "onboarding") {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
-                                    "opml",
-                                    currentState.importedPodcasts.size,
-                                    onboardingViewModel.getGenreScreenTimeSpent(),
-                                    onboardingViewModel.getTotalOnboardingTime()
-                                )
-                                onboardingViewModel.markOnboardingCompletedSilent {
-                                    navController.navigate("home") {
-                                        popUpTo("onboarding") { inclusive = true }
-                                    }
-                                }
-                            } else {
-                                android.widget.Toast.makeText(
-                                    applicationContext,
-                                    "Imported ${currentState.importedPodcasts.size} podcasts.",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                            }
-                            opmlImportState = OpmlImportState.Idle
+                            opmlImportState = OpmlImportState.Success(
+                                importedCount = currentState.importedPodcasts.size,
+                                completedCount = 0,
+                                isJson = false,
+                                importedPodcasts = currentState.importedPodcasts
+                            )
                         }
+                    },
+                    onImportJsonSelected = { uri ->
+                        performJsonImport(uri)
+                    },
+                    onImportOpmlSelected = { uri ->
+                        opmlImportState = OpmlImportState.Parsing(uri)
+                        importTriggerKey = System.currentTimeMillis()
                     }
                 )
             }
@@ -2152,6 +2147,8 @@ fun GreetingPreview() {
 
 sealed interface OpmlImportState {
     object Idle : OpmlImportState
+    object ShowSelector : OpmlImportState
+    object ImportingJson : OpmlImportState
     data class Parsing(val uri: android.net.Uri) : OpmlImportState
     data class Importing(
         val currentFeedTitle: String,
@@ -2168,9 +2165,15 @@ sealed interface OpmlImportState {
         val progress: Float,
         val currentShowTitle: String,
         val podcastsToMark: List<cx.aswin.boxcast.core.model.Podcast>,
-        val totalImportedCount: Int
+        val totalImportedCount: Int,
+        val importedPodcasts: List<cx.aswin.boxcast.core.model.Podcast> = emptyList()
     ) : OpmlImportState
-    data class Success(val importedCount: Int, val completedCount: Int) : OpmlImportState
+    data class Success(
+        val importedCount: Int,
+        val completedCount: Int,
+        val isJson: Boolean = false,
+        val importedPodcasts: List<cx.aswin.boxcast.core.model.Podcast> = emptyList()
+    ) : OpmlImportState
     data class Error(val message: String) : OpmlImportState
 }
 
@@ -2180,13 +2183,24 @@ fun OpmlImportDialog(
     onDismissRequest: () -> Unit,
     onSelectionChanged: (selectedIds: Set<String>) -> Unit,
     onConfirmCompleted: () -> Unit,
-    onSkipCompleted: () -> Unit
+    onSkipCompleted: () -> Unit,
+    onImportJsonSelected: (android.net.Uri) -> Unit,
+    onImportOpmlSelected: (android.net.Uri) -> Unit
 ) {
-    if (state is OpmlImportState.Idle || state is OpmlImportState.Success) return
+    if (state is OpmlImportState.Idle) return
+
+    val importJsonLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+        onResult = { uri -> uri?.let { onImportJsonSelected(it) } }
+    )
+    val importOpmlLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+        onResult = { uri -> uri?.let { onImportOpmlSelected(it) } }
+    )
 
     Dialog(
         onDismissRequest = {
-            if (state is OpmlImportState.AskCompleted || state is OpmlImportState.Error) {
+            if (state is OpmlImportState.ShowSelector || state is OpmlImportState.AskCompleted || state is OpmlImportState.Success || state is OpmlImportState.Error) {
                 onDismissRequest()
             }
         },
@@ -2194,332 +2208,740 @@ fun OpmlImportDialog(
             usePlatformDefaultWidth = false
         )
     ) {
-        val isSelectionState = state is OpmlImportState.AskCompleted
-
-        Card(
-            modifier = if (isSelectionState) {
-                Modifier
-                    .widthIn(max = 600.dp)
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.92f)
-                    .padding(horizontal = 16.dp, vertical = 24.dp)
-            } else {
-                Modifier
-                    .widthIn(max = 480.dp)
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .padding(horizontal = 24.dp, vertical = 24.dp)
-            },
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
         ) {
-            if (isSelectionState) {
-                val selectionState = state as OpmlImportState.AskCompleted
-                Column(
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = MaterialTheme.colorScheme.background
+            ) { innerPadding ->
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(innerPadding)
                         .padding(24.dp)
                 ) {
-                    // Header Area
-                    Text(
-                        text = "Start fresh with your shows?",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = "Toggle shows to mark all past episodes as completed. This keeps your feed organized and ready for new releases.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-
-                    // Quick Action Selection Controls
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        androidx.compose.material3.SuggestionChip(
-                            onClick = {
-                                onSelectionChanged(selectionState.importedPodcasts.map { it.id }.toSet())
-                            },
-                            label = { Text("Select All") },
-                            icon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) },
-                            shape = RoundedCornerShape(50.dp)
-                        )
-                        androidx.compose.material3.SuggestionChip(
-                            onClick = {
-                                onSelectionChanged(emptySet())
-                            },
-                            label = { Text("Deselect All") },
-                            icon = { Icon(Icons.Rounded.Close, null, modifier = Modifier.size(16.dp)) },
-                            shape = RoundedCornerShape(50.dp)
-                        )
+                    // Top Bar / Close Button (Only show for states where dismissal is allowed)
+                    if (state is OpmlImportState.ShowSelector || state is OpmlImportState.AskCompleted || state is OpmlImportState.Success || state is OpmlImportState.Error) {
+                        IconButton(
+                            onClick = onDismissRequest,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(48.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    shape = CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    // Scrollable List of Podcasts
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainer)
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant,
-                                RoundedCornerShape(16.dp)
-                            )
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
-                        ) {
-                            items(selectionState.importedPodcasts, key = { it.id }) { podcast ->
-                                val isChecked = podcast.id in selectionState.selectedIds
-                                ListItem(
+                    // Main Content depending on state
+                    when (state) {
+                        is OpmlImportState.ShowSelector -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.LibraryBooks,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(24.dp))
+                                
+                                Text(
+                                    text = "Import Library",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Text(
+                                    text = "Choose how you want to restore or migrate your library.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(40.dp))
+                                
+                                // JSON Backup card
+                                Card(
+                                    onClick = { importJsonLauncher.launch(arrayOf("application/json")) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable {
-                                            val newSelected = if (isChecked) {
-                                                selectionState.selectedIds - podcast.id
-                                            } else {
-                                                selectionState.selectedIds + podcast.id
-                                            }
-                                            onSelectionChanged(newSelected)
-                                        },
-                                    headlineContent = {
-                                        Text(
-                                            text = podcast.title,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
-                                    supportingContent = {
-                                        Text(
-                                            text = podcast.artist,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
-                                    leadingContent = {
+                                        .padding(vertical = 8.dp),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                .size(52.dp)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                    shape = CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            cx.aswin.boxcast.core.designsystem.components.OptimizedImage(
-                                                url = podcast.imageUrl,
-                                                proxyWidth = 150,
+                                            Icon(
+                                                imageVector = Icons.Rounded.SettingsBackupRestore,
                                                 contentDescription = null,
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(26.dp)
                                             )
                                         }
-                                    },
-                                    trailingContent = {
-                                        Checkbox(
-                                            checked = isChecked,
-                                            onCheckedChange = { checked ->
-                                                val newSelected = if (checked == true) {
-                                                    selectionState.selectedIds + podcast.id
-                                                } else {
-                                                    selectionState.selectedIds - podcast.id
-                                                }
-                                                onSelectionChanged(newSelected)
-                                            }
-                                        )
-                                    },
-                                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-                                )
-                                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "boxcast Backup (.json)",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Restore a perfect backup of subscriptions and liked episodes.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // OPML Backup card
+                                Card(
+                                    onClick = { importOpmlLauncher.launch(arrayOf("*/*")) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                    shape = CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.ImportExport,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(26.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Other App Backup (.opml)",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Migrate subscriptions from Apple Podcasts, Spotify, Pocket Casts, etc.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Stacked Action Buttons
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Button(
-                            onClick = onConfirmCompleted,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = "Mark Selected (${selectionState.selectedIds.size}) as Played",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                        
+                        is OpmlImportState.ImportingJson -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                BoxCastLoader.CircularWavy(
+                                    size = 72.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Text(
+                                    text = "Restoring Backup...",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Importing shows and episode playback history into your library",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
+                                )
+                            }
                         }
-                        TextButton(
-                            onClick = onSkipCompleted,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                        ) {
-                            Text(
-                                text = "Keep All Unplayed",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    when (state) {
+
                         is OpmlImportState.Parsing -> {
-                            BoxCastLoader.CircularWavy(
-                                size = 56.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "Reading OPML File...",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Extracting podcast feeds from document",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                BoxCastLoader.CircularWavy(
+                                    size = 72.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Text(
+                                    text = "Reading OPML File...",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Extracting podcast feeds from document",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
+                                )
+                            }
                         }
+
                         is OpmlImportState.Importing -> {
-                            BoxCastLoader.CircularWavy(
-                                progress = state.progress,
-                                size = 64.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "Importing Podcasts",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Resolving & subscribing: ${state.currentCount + 1} of ${state.totalCount}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
-                                Text(
-                                    text = state.currentFeedTitle,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                                BoxCastLoader.CircularWavy(
+                                    progress = state.progress,
+                                    size = 80.dp,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Text(
+                                    text = "Importing Podcasts",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Resolving & subscribing: ${state.currentCount + 1} of ${state.totalCount}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Text(
+                                        text = state.currentFeedTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp)
+                                    )
+                                }
                             }
                         }
+
                         is OpmlImportState.Completing -> {
-                            BoxCastLoader.CircularWavy(
-                                progress = state.progress,
-                                size = 64.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "Marking History Played",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Fetching and completing all episodes",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                BoxCastLoader.CircularWavy(
+                                    progress = state.progress,
+                                    size = 80.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Text(
+                                    text = "Marking History Played",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Fetching and completing all episodes",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                ) {
+                                    Text(
+                                        text = state.currentShowTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        is OpmlImportState.AskCompleted -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp)
                             ) {
                                 Text(
-                                    text = state.currentShowTitle,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold,
+                                    text = "Start fresh with your shows?",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                                    modifier = Modifier.padding(bottom = 8.dp)
                                 )
+                                Text(
+                                    text = "Toggle shows to mark all past episodes as completed. This keeps your feed organized and ready for new releases.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 20.dp)
+                                )
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    androidx.compose.material3.SuggestionChip(
+                                        onClick = {
+                                            onSelectionChanged(state.importedPodcasts.map { it.id }.toSet())
+                                        },
+                                        label = { Text("Select All") },
+                                        icon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) },
+                                        shape = RoundedCornerShape(50.dp)
+                                    )
+                                    androidx.compose.material3.SuggestionChip(
+                                        onClick = {
+                                            onSelectionChanged(emptySet())
+                                        },
+                                        label = { Text("Deselect All") },
+                                        icon = { Icon(Icons.Rounded.Close, null, modifier = Modifier.size(16.dp)) },
+                                        shape = RoundedCornerShape(50.dp)
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                            RoundedCornerShape(20.dp)
+                                        )
+                                ) {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+                                    ) {
+                                        items(state.importedPodcasts, key = { it.id }) { podcast ->
+                                            val isChecked = podcast.id in state.selectedIds
+                                            ListItem(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        val newSelected = if (isChecked) {
+                                                            state.selectedIds - podcast.id
+                                                        } else {
+                                                            state.selectedIds + podcast.id
+                                                        }
+                                                        onSelectionChanged(newSelected)
+                                                    },
+                                                headlineContent = {
+                                                    Text(
+                                                        text = podcast.title,
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                },
+                                                supportingContent = {
+                                                    Text(
+                                                        text = podcast.artist,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                },
+                                                leadingContent = {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(48.dp)
+                                                            .clip(RoundedCornerShape(10.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                    ) {
+                                                        cx.aswin.boxcast.core.designsystem.components.OptimizedImage(
+                                                            url = podcast.imageUrl,
+                                                            proxyWidth = 150,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                        )
+                                                    }
+                                                },
+                                                trailingContent = {
+                                                    Checkbox(
+                                                        checked = isChecked,
+                                                        onCheckedChange = { checked ->
+                                                            val newSelected = if (checked == true) {
+                                                                state.selectedIds + podcast.id
+                                                            } else {
+                                                                state.selectedIds - podcast.id
+                                                            }
+                                                            onSelectionChanged(newSelected)
+                                                        }
+                                                    )
+                                                },
+                                                colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+                                            )
+                                            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Button(
+                                        onClick = onConfirmCompleted,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Text(
+                                            text = "Mark Selected (${state.selectedIds.size}) as Played",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = onSkipCompleted,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp)
+                                    ) {
+                                        Text(
+                                            text = "Keep All Unplayed",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
                             }
                         }
-                        is OpmlImportState.Error -> {
-                            Icon(
-                                imageVector = Icons.Rounded.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Text(
-                                text = "Import Failed",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = state.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Button(
-                                onClick = onDismissRequest,
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                shape = RoundedCornerShape(12.dp)
+
+                        is OpmlImportState.Success -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
-                                Text("Close")
+                                Box(
+                                    modifier = Modifier
+                                        .size(96.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                shape = CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(32.dp))
+                                
+                                Text(
+                                    text = "Import Successful!",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "Import Summary",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "Imported Shows",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "${state.importedCount}",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        
+                                        if (!state.isJson && state.completedCount > 0) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Shows Marked Played",
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = "${state.completedCount}",
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(48.dp))
+                                
+                                Button(
+                                    onClick = onDismissRequest,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp)
+                                        .padding(horizontal = 16.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Done",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
+
+                        is OpmlImportState.Error -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(24.dp))
+                                
+                                Text(
+                                    text = "Import Failed",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Text(
+                                        text = state.message,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(40.dp))
+                                
+                                Button(
+                                    onClick = onDismissRequest,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp)
+                                        .padding(horizontal = 16.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Close",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        
                         else -> {}
                     }
                 }

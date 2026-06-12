@@ -18,7 +18,8 @@ data class OnboardingHistoryEntry(
 
 @Serializable
 data class OnboardingNextTurnRequest(
-    @SerialName("history") val history: List<OnboardingHistoryEntry>
+    @SerialName("history") val history: List<OnboardingHistoryEntry>,
+    @SerialName("maxTurns") val maxTurns: Int? = null
 )
 
 @Serializable
@@ -119,5 +120,17 @@ data class OnboardingGenreSynthRequest(
     @SerialName("length") val length: String,
     @SerialName("country") val country: String? = null,
     @SerialName("skipGemini") val skipGemini: Boolean = false
+)
+
+@Serializable
+data class OnboardingSelectedShowDto(
+    @SerialName("title") val title: String,
+    @SerialName("description") val description: String
+)
+
+@Serializable
+data class OnboardingSimilarShowsRequest(
+    @SerialName("shows") val shows: List<OnboardingSelectedShowDto>,
+    @SerialName("country") val country: String? = null
 )
 

@@ -39,7 +39,8 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 internal fun GenrePickerScreen(
     selectedGenres: Set<String>,
     onToggleGenre: (String) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onBack: (() -> Unit)? = null
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -56,6 +57,16 @@ internal fun GenrePickerScreen(
                         overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.largeTopAppBarColors(

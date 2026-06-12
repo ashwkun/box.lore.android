@@ -33,6 +33,7 @@ class UserPreferencesRepository(context: Context) {
         val HIDE_COMPLETED_IN_SHOW_DETAILS = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_show_details")
         val HIDE_COMPLETED_IN_HOME = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_home")
         val HIDE_COMPLETED_IN_SUBS = androidx.datastore.preferences.core.booleanPreferencesKey("hide_completed_in_subs")
+        val HAS_DISMISSED_HOME_IMPORT_BANNER = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_home_import_banner")
     }
 
     val regionStream: Flow<String> = dataStore.data
@@ -94,6 +95,24 @@ class UserPreferencesRepository(context: Context) {
     suspend fun dismissExploreRegionNudge() {
         dataStore.edit { preferences ->
             preferences[Keys.HAS_DISMISSED_EXPLORE_REGION_NUDGE] = true
+        }
+    }
+
+    val hasDismissedHomeImportBannerStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[Keys.HAS_DISMISSED_HOME_IMPORT_BANNER] ?: false
+        }
+
+    suspend fun dismissHomeImportBanner() {
+        dataStore.edit { preferences ->
+            preferences[Keys.HAS_DISMISSED_HOME_IMPORT_BANNER] = true
         }
     }
 

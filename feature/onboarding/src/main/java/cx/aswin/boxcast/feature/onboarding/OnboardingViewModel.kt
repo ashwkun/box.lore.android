@@ -12,15 +12,7 @@ import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.data.UserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import cx.aswin.boxcast.core.network.model.OnboardingHistoryEntry
-import cx.aswin.boxcast.core.network.model.OnboardingPart
-import cx.aswin.boxcast.core.network.model.OnboardingNextTurnRequest
-import cx.aswin.boxcast.core.network.model.OnboardingCurriculumRequest
-import cx.aswin.boxcast.core.network.model.OnboardingCurriculumRowDto
-import cx.aswin.boxcast.core.network.model.OnboardingCurriculumPodcastDto
-import cx.aswin.boxcast.core.network.model.OnboardingCurriculumEpisodeDto
-import cx.aswin.boxcast.core.network.model.OnboardingQuery
-import cx.aswin.boxcast.core.network.model.toPodcast
+import cx.aswin.boxcast.core.network.model.*
 import cx.aswin.boxcast.core.model.Episode
 
 import kotlinx.coroutines.Job
@@ -77,6 +69,9 @@ data class OnboardingUiState(
     val aiLoadingStage: AiLoadingStage = AiLoadingStage.IDLE,
     val onboardingError: String? = null,
     val reachedSuggestionsViaAiFlow: Boolean = false,
+    val reachedSuggestionsViaSearchFlow: Boolean = false,
+    val reachedSuggestionsViaOpmlFlow: Boolean = false,
+    val hasSentCustomInput: Boolean = false,
     val popularPodcasts: List<Podcast> = emptyList(),
     val isPopularLoading: Boolean = false,
     val selectedSearchGenre: String? = null
@@ -133,6 +128,7 @@ class OnboardingViewModel(
     private var searchesPerformedCount: Int = 0
     private var podcastsSubscribedInSearchCount: Int = 0
     private var searchEntryPoint: String = "genre_screen"
+    private val seenPodcasts = java.util.concurrent.ConcurrentHashMap<String, Podcast>()
     private var onboardingStartedFired: Boolean = false
     private var didScrollSuggestions: Boolean = false
     
@@ -199,7 +195,8 @@ class OnboardingViewModel(
     }
     
     fun startOnboarding() {
-        _uiState.update { it.copy(currentStep = OnboardingStep.AI_ONBOARDING) }
+        turnHistoryState.clear()
+        _uiState.value = OnboardingUiState().copy(currentStep = OnboardingStep.AI_ONBOARDING)
     }
     
     fun toggleGenre(genre: String) {
@@ -324,7 +321,8 @@ class OnboardingViewModel(
             isLoadingPodcasts = true,
             currentStep = OnboardingStep.AI_SUGGESTIONS,
             onboardingError = null,
-            reachedSuggestionsViaAiFlow = false
+            reachedSuggestionsViaAiFlow = false,
+            reachedSuggestionsViaSearchFlow = false
         ) }
         
         val finalAction: () -> Unit = {
@@ -605,6 +603,7 @@ class OnboardingViewModel(
                         limit = 20
                     )
                 }
+                trending.forEach { seenPodcasts[it.id] = it }
                 _uiState.update { it.copy(
                     popularPodcasts = trending,
                     isPopularLoading = false
@@ -663,7 +662,11 @@ class OnboardingViewModel(
             timeSpentOnSearchSeconds = getSearchScreenTimeSpent()
         )
 
-        val backStep = if (state.selectedGenres.isNotEmpty()) OnboardingStep.SUB_GENRES else OnboardingStep.GENRES
+        val backStep = when (searchEntryPoint) {
+            "welcome_screen" -> OnboardingStep.WELCOME
+            "genre_screen" -> if (state.selectedGenres.isNotEmpty()) OnboardingStep.SUB_GENRES else OnboardingStep.GENRES
+            else -> OnboardingStep.WELCOME
+        }
         _uiState.update { it.copy(currentStep = backStep, searchQuery = "", searchResults = emptyList()) }
     }
     
@@ -673,21 +676,55 @@ class OnboardingViewModel(
         // Debounce search
         searchJob?.cancel()
         val cleaned = query.trim()
-        if (cleaned.length < 2) {
+        if (cleaned.isEmpty()) {
             _uiState.update { it.copy(searchResults = emptyList(), isSearching = false) }
             return
         }
         
+        // Eager client-side matching from seen podcasts (0ms delay)
+        val localMatches = seenPodcasts.values.filter { podcast ->
+            podcast.title.contains(cleaned, ignoreCase = true) ||
+            (podcast.artist ?: "").contains(cleaned, ignoreCase = true)
+        }.sortedBy { it.title }
+        
+        if (localMatches.isNotEmpty()) {
+            _uiState.update { it.copy(searchResults = localMatches) }
+        }
+        
         searchJob = viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true) }
-            delay(400) // Debounce
+            // Only show loader if we have no local matches to display
+            if (localMatches.isEmpty()) {
+                _uiState.update { it.copy(isSearching = true) }
+            }
+            delay(300) // Debounce (aligned with main explore search)
             
-            val results = podcastRepository.searchPodcasts(cleaned)
-            _uiState.update { it.copy(searchResults = results, isSearching = false) }
-
-            // Analytics: Track search performed
-            searchesPerformedCount++
-            AnalyticsHelper.trackSearchPerformed(cleaned, results.size)
+            try {
+                val results = podcastRepository.searchPodcasts(cleaned)
+                results.forEach { seenPodcasts[it.id] = it }
+                
+                // Combine remote results (priority) with local matches to prevent flickering
+                val seenIds = mutableSetOf<String>()
+                val combined = mutableListOf<Podcast>()
+                results.forEach {
+                    if (seenIds.add(it.id)) {
+                        combined.add(it)
+                    }
+                }
+                localMatches.forEach {
+                    if (seenIds.add(it.id)) {
+                        combined.add(it)
+                    }
+                }
+                
+                _uiState.update { it.copy(searchResults = combined, isSearching = false) }
+                
+                // Analytics: Track search performed
+                searchesPerformedCount++
+                AnalyticsHelper.trackSearchPerformed(cleaned, results.size)
+            } catch (e: Exception) {
+                Log.e("OnboardingViewModel", "Search error", e)
+                _uiState.update { it.copy(isSearching = false) }
+            }
         }
     }
     
@@ -743,6 +780,193 @@ class OnboardingViewModel(
 
             onDone()
         }
+    }
+
+    fun generateRecommendationsFromSearch() {
+        val currentState = _uiState.value
+        val selectedShows = currentState.selectedPodcasts.values.toList()
+        if (selectedShows.isEmpty()) return
+
+        _uiState.update {
+            it.copy(
+                currentStep = OnboardingStep.AI_SUGGESTIONS,
+                isAiLoading = true,
+                isSynthesizing = true,
+                aiLoadingStage = AiLoadingStage.SYNTHESIZING_PREFERENCES,
+                onboardingError = null,
+                reachedSuggestionsViaSearchFlow = true,
+                reachedSuggestionsViaAiFlow = false
+            )
+        }
+
+        val finalAction: () -> Unit = {
+            _uiState.update {
+                it.copy(
+                    isAiLoading = true,
+                    isSynthesizing = true,
+                    aiLoadingStage = AiLoadingStage.SYNTHESIZING_PREFERENCES,
+                    onboardingError = null
+                )
+            }
+            viewModelScope.launch {
+                try {
+                    // Subscribe to manually selected shows first
+                    for (podcast in selectedShows) {
+                        subscriptionRepository.subscribe(podcast)
+                    }
+
+                    val request = OnboardingSimilarShowsRequest(
+                        shows = selectedShows.distinctBy { it.title.lowercase().trim() }.take(20).map {
+                            OnboardingSelectedShowDto(
+                                title = it.title,
+                                description = it.description ?: ""
+                            )
+                        },
+                        country = currentState.currentRegion
+                    )
+                    
+                    val response = withContext(Dispatchers.IO) {
+                        podcastRepository.api.getSimilarShows(
+                            publicKey = podcastRepository.publicKey,
+                            request = request
+                        ).execute()
+                    }
+
+                    if (response.isSuccessful && response.body() != null) {
+                        val rows = response.body()!!.map {
+                            it.copy(episodes = emptyList())
+                        }
+                        
+                        val newPodcasts = rows.flatMap { it.podcasts }.map { it.toPodcast() }
+                        // Filter out podcasts that are already in selectedPodcasts to avoid resetting selections
+                        val defaultSelectedIds = buildSet {
+                            rows.forEach { row ->
+                                row.podcasts.firstOrNull()?.let { add(it.id.toString()) }
+                            }
+                        }
+                        // Only auto-select recommendations that are NOT already manually selected
+                        val recommendationsToSelect = newPodcasts.filter { it.id in defaultSelectedIds && it.id !in currentState.selectedPodcasts.keys }
+                        
+                        _uiState.update { state ->
+                            val newSelected = state.selectedPodcasts + recommendationsToSelect.associateBy { it.id }
+                            state.copy(
+                                aiCurriculumRows = rows,
+                                isAiLoading = false,
+                                isSynthesizing = false,
+                                aiLoadingStage = AiLoadingStage.IDLE,
+                                selectedPodcasts = newSelected,
+                                subscribedPodcastIds = newSelected.keys,
+                                onboardingError = null
+                            )
+                        }
+                    } else {
+                        throw Exception("Failed to load similar shows from backend: ${response.code()}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("OnboardingViewModel", "Error in generateRecommendationsFromSearch", e)
+                    _uiState.update { state ->
+                        state.copy(
+                            isAiLoading = false,
+                            isSynthesizing = false,
+                            aiLoadingStage = AiLoadingStage.IDLE,
+                            onboardingError = "We encountered a temporary issue generating recommendations. Let's try again."
+                        )
+                    }
+                }
+            }
+        }
+        lastFailedAction = finalAction
+        finalAction()
+    }
+
+    fun generateRecommendationsFromOpml(importedPodcasts: List<Podcast>) {
+        if (importedPodcasts.isEmpty()) return
+
+        _uiState.update {
+            it.copy(
+                currentStep = OnboardingStep.AI_SUGGESTIONS,
+                isAiLoading = true,
+                isSynthesizing = true,
+                aiLoadingStage = AiLoadingStage.SYNTHESIZING_PREFERENCES,
+                onboardingError = null,
+                reachedSuggestionsViaSearchFlow = false,
+                reachedSuggestionsViaAiFlow = false,
+                reachedSuggestionsViaOpmlFlow = true,
+                selectedPodcasts = importedPodcasts.associateBy { p -> p.id }
+            )
+        }
+
+        val finalAction: () -> Unit = {
+            _uiState.update {
+                it.copy(
+                    isAiLoading = true,
+                    isSynthesizing = true,
+                    aiLoadingStage = AiLoadingStage.SYNTHESIZING_PREFERENCES,
+                    onboardingError = null
+                )
+            }
+            viewModelScope.launch {
+                try {
+                    val request = OnboardingSimilarShowsRequest(
+                        shows = importedPodcasts.distinctBy { it.title.lowercase().trim() }.take(20).map {
+                            OnboardingSelectedShowDto(
+                                title = it.title,
+                                description = it.description ?: ""
+                            )
+                        },
+                        country = _uiState.value.currentRegion
+                    )
+                    
+                    val response = withContext(Dispatchers.IO) {
+                        podcastRepository.api.getSimilarShows(
+                            publicKey = podcastRepository.publicKey,
+                            request = request
+                        ).execute()
+                    }
+
+                    if (response.isSuccessful && response.body() != null) {
+                        val rows = response.body()!!.map {
+                            it.copy(episodes = emptyList())
+                        }
+                        
+                        val newPodcasts = rows.flatMap { it.podcasts }.map { it.toPodcast() }
+                        val defaultSelectedIds = buildSet {
+                            rows.forEach { row ->
+                                row.podcasts.firstOrNull()?.let { add(it.id.toString()) }
+                            }
+                        }
+                        val recommendationsToSelect = newPodcasts.filter { it.id in defaultSelectedIds && it.id !in importedPodcasts.map { p -> p.id } }
+                        
+                        _uiState.update { state ->
+                            val newSelected = state.selectedPodcasts + recommendationsToSelect.associateBy { it.id }
+                            state.copy(
+                                aiCurriculumRows = rows,
+                                isAiLoading = false,
+                                isSynthesizing = false,
+                                aiLoadingStage = AiLoadingStage.IDLE,
+                                selectedPodcasts = newSelected,
+                                subscribedPodcastIds = newSelected.keys,
+                                onboardingError = null
+                            )
+                        }
+                    } else {
+                        throw Exception("Failed to load similar shows from backend: ${response.code()}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("OnboardingViewModel", "Error in generateRecommendationsFromOpml", e)
+                    _uiState.update { state ->
+                        state.copy(
+                            isAiLoading = false,
+                            isSynthesizing = false,
+                            aiLoadingStage = AiLoadingStage.IDLE,
+                            onboardingError = "We encountered a temporary issue generating recommendations. Let's try again."
+                        )
+                    }
+                }
+            }
+        }
+        lastFailedAction = finalAction
+        finalAction()
     }
     
     fun skipOnboarding(onDone: () -> Unit) {
@@ -1135,10 +1359,12 @@ class OnboardingViewModel(
     }
 
     fun navigateBackFromSuggestions() {
-        val nextStep = if (_uiState.value.reachedSuggestionsViaAiFlow) {
-            OnboardingStep.AI_ONBOARDING
-        } else {
-            OnboardingStep.LENGTH_PICKER
+        val state = _uiState.value
+        val nextStep = when {
+            state.reachedSuggestionsViaAiFlow -> OnboardingStep.AI_ONBOARDING
+            state.reachedSuggestionsViaSearchFlow -> OnboardingStep.SEARCH
+            state.reachedSuggestionsViaOpmlFlow -> OnboardingStep.WELCOME
+            else -> OnboardingStep.LENGTH_PICKER
         }
         _uiState.update { it.copy(currentStep = nextStep) }
     }

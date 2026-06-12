@@ -59,7 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
@@ -327,20 +327,25 @@ private fun LibraryCardCollage(
         )
         val finalShapes = if (shapes.isNotEmpty()) shapes else fallbackShapes
         
+        // Filter out empty URLs
+        val validImages = images.filter { it.isNotEmpty() }.take(3)
+        val N = validImages.size
+        
         // Reverse order so first image is on top
-        images.take(3).reversed().forEachIndexed { index, imageUrl ->
-            // Calculate reverse index for correct shape assignment (0=Top, etc)
-            val realIndex = images.size - 1 - index
-            val shape = finalShapes.getOrElse(realIndex) { finalShapes.first() }
+        validImages.reversed().forEachIndexed { index, imageUrl ->
+            // Calculate index within the taken sublist (0=Top, N-1=Bottom)
+            val stackIndex = N - 1 - index
+            val shape = finalShapes.getOrElse(stackIndex) { finalShapes.first() }
             
             // Dynamic offsets for "pile" effect
-            val xOffset = (realIndex * 20).dp
-            val yOffset = if (realIndex % 2 == 0) 10.dp else (-10).dp
-            val scale = 1f - (realIndex * 0.15f)
-            val rotation = if (realIndex % 2 == 0) 10f else -10f
+            val xOffset = (stackIndex * 20).dp
+            val yOffset = if (stackIndex % 2 == 0) 10.dp else (-10).dp
+            val scale = 1f - (stackIndex * 0.15f)
+            val rotation = if (stackIndex % 2 == 0) 10f else -10f
 
-            AsyncImage(
-                model = imageUrl.optimizedImageUrl(400),
+            OptimizedImage(
+                url = imageUrl,
+                proxyWidth = 400,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -437,8 +442,9 @@ fun LibraryPodcastCard(
                     .fillMaxWidth()
                     .height(if (isTall) 200.dp else 150.dp) // Staggered heights (Reduced)
             ) {
-                AsyncImage(
-                    model = podcast.imageUrl.optimizedImageUrl(400),
+                OptimizedImage(
+                    url = podcast.imageUrl,
+                    proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,26 +28,21 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.components.BoxCastLoader
 import cx.aswin.boxcast.core.model.Podcast
 
-data class SearchGenreItem(
+data class SearchCategoryItem(
     val label: String,
     val categoryValue: String?,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val containerColor: Color,
+    val contentColor: Color
 )
 
-val SEARCH_GENRES = listOf(
-    SearchGenreItem("Trending", null, Icons.Rounded.Whatshot),
-    SearchGenreItem("News", "News", Icons.Rounded.Newspaper),
-    SearchGenreItem("Tech", "Technology", Icons.Rounded.Computer),
-    SearchGenreItem("Business", "Business", Icons.Rounded.Work),
-    SearchGenreItem("Comedy", "Comedy", Icons.Rounded.SentimentVerySatisfied),
-    SearchGenreItem("True Crime", "True Crime", Icons.Rounded.Fingerprint),
-    SearchGenreItem("Sports", "Sports", Icons.Rounded.EmojiEvents),
-    SearchGenreItem("Health", "Health", Icons.Rounded.MonitorHeart),
-    SearchGenreItem("History", "History", Icons.Rounded.AccountBalance),
-    SearchGenreItem("Arts", "Arts", Icons.Rounded.Palette),
-    SearchGenreItem("Science", "Science", Icons.Rounded.Science),
-    SearchGenreItem("TV & Film", "TV & Film", Icons.Rounded.Movie),
-    SearchGenreItem("Music", "Music", Icons.Rounded.MusicNote)
+val SEARCH_CATEGORIES = listOf(
+    SearchCategoryItem("Trending", null, Icons.Rounded.Whatshot, Color(0xFFE0F7FA), Color(0xFF006064)),
+    SearchCategoryItem("Comedy", "Comedy", Icons.Rounded.SentimentVerySatisfied, Color(0xFFF3E5F5), Color(0xFF4A148C)),
+    SearchCategoryItem("True Crime", "True Crime", Icons.Rounded.Fingerprint, Color(0xFFFFEBEE), Color(0xFF880E4F)),
+    SearchCategoryItem("Tech", "Technology", Icons.Rounded.Computer, Color(0xFFE3F2FD), Color(0xFF0D47A1)),
+    SearchCategoryItem("News", "News", Icons.Rounded.Newspaper, Color(0xFFE8F5E9), Color(0xFF1B5E20)),
+    SearchCategoryItem("Business", "Business", Icons.Rounded.Work, Color(0xFFFFF3E0), Color(0xFFE65100))
 )
 
 @Composable
@@ -55,6 +51,7 @@ internal fun OnboardingSearchScreen(
     results: List<Podcast>,
     isSearching: Boolean,
     subscribedIds: Set<String>,
+    selectedPodcasts: Map<String, Podcast>,
     onQueryChange: (String) -> Unit,
     onSubscribe: (Podcast) -> Unit,
     onBack: () -> Unit,
@@ -70,25 +67,60 @@ internal fun OnboardingSearchScreen(
             .background(MaterialTheme.colorScheme.surface)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        // Search bar
+        // Prominent search bar in top row next to back button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
+            IconButton(
+                onClick = {
+                    if (query.isNotEmpty()) {
+                        onQueryChange("")
+                    } else {
+                        onBack()
+                    }
+                },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
             
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search podcasts...") },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+                placeholder = {
+                    Text(
+                        text = "Search titles, hosts, or topics...",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
                 singleLine = true,
-                shape = MaterialTheme.shapes.extraLarge,
-                leadingIcon = { Icon(Icons.Rounded.Search, null, modifier = Modifier.size(20.dp)) },
+                textStyle = MaterialTheme.typography.bodyLarge,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
+                leadingIcon = {
+                    Icon(
+                        Icons.Rounded.Search,
+                        null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { onQueryChange("") }) {
@@ -97,6 +129,54 @@ internal fun OnboardingSearchScreen(
                     }
                 }
             )
+        }
+
+        // Compact category row directly below search bar
+        if (query.isEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(SEARCH_CATEGORIES) { category ->
+                    val isSelected = selectedSearchGenre == category.categoryValue
+                    val containerColor = if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    }
+                    val contentColor = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    
+                    Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
+                        color = containerColor,
+                        contentColor = contentColor,
+                        modifier = Modifier
+                            .clickable { onGenreSelect(category.categoryValue) }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = category.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = category.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
         }
         
         when {
@@ -109,91 +189,52 @@ internal fun OnboardingSearchScreen(
                 }
             }
             query.isEmpty() -> {
-                // Genre Chips Scroll Row
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                // Discovery view: Trending shows
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
-                    items(SEARCH_GENRES) { genre ->
-                        val isSelected = selectedSearchGenre == genre.categoryValue
-                        val containerColor = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        }
-                        val contentColor = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = containerColor,
-                            contentColor = contentColor,
-                            modifier = Modifier
-                                .clickable { onGenreSelect(genre.categoryValue) }
+                    val titleLabel = SEARCH_CATEGORIES.find { it.categoryValue == selectedSearchGenre }?.label ?: "Trending"
+                    val sectionTitle = if (selectedSearchGenre == null) "Trending Shows" else "Popular in $titleLabel"
+                    Text(
+                        text = sectionTitle,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 8.dp)
+                    )
+
+                    if (isPopularLoading) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = genre.icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = genre.label,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
+                            BoxCastLoader.Expressive(size = 80.dp)
+                        }
+                    } else if (popularPodcasts.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No recommendations found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        val distinctPopular = remember(popularPodcasts) { popularPodcasts.distinctBy { it.id } }
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(distinctPopular, key = { it.id }) { podcast ->
+                                val isSubscribed = podcast.id in subscribedIds
+                                PopularPodcastGridItem(
+                                    podcast = podcast,
+                                    isSubscribed = isSubscribed,
+                                    onClick = { onSubscribe(podcast) }
                                 )
                             }
-                        }
-                    }
-                }
-                
-                val titleLabel = SEARCH_GENRES.find { it.categoryValue == selectedSearchGenre }?.label ?: "Trending"
-                val sectionTitle = if (selectedSearchGenre == null) "Trending Shows" else "Popular in $titleLabel"
-                Text(
-                    text = sectionTitle,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
-                )
-
-                if (isPopularLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        BoxCastLoader.Expressive(size = 80.dp)
-                    }
-                } else if (popularPodcasts.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No recommendations found", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    val distinctPopular = remember(popularPodcasts) { popularPodcasts.distinctBy { it.id } }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        items(distinctPopular, key = { it.id }) { podcast ->
-                            val isSubscribed = podcast.id in subscribedIds
-                            PopularPodcastGridItem(
-                                podcast = podcast,
-                                isSubscribed = isSubscribed,
-                                onClick = { onSubscribe(podcast) }
-                            )
                         }
                     }
                 }
@@ -245,22 +286,84 @@ internal fun OnboardingSearchScreen(
             }
         }
         
-        // Done button at bottom
+        // Done button panel at bottom with selected shows bar
         if (subscribedIds.isNotEmpty()) {
-            Button(
-                onClick = onDone,
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 2.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-                    .height(56.dp),
-                shape = MaterialTheme.shapes.extraLarge
             ) {
-                Text(
-                    "Done (${subscribedIds.size} subscribed)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Selected Shows (${subscribedIds.size})",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val selectedPodcastsList = subscribedIds.mapNotNull { selectedPodcasts[it] }
+                        items(selectedPodcastsList, key = { it.id }) { podcast ->
+                            Box(
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                OptimizedImage(
+                                    url = podcast.imageUrl,
+                                    proxyWidth = 150,
+                                    contentDescription = podcast.title,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(MaterialTheme.shapes.medium)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                )
+                                // Tiny custom circular close badge on top-right (avoids IconButton target size constraint)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 4.dp, y = (-4).dp)
+                                        .size(16.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.error,
+                                            shape = androidx.compose.foundation.shape.CircleShape
+                                        )
+                                        .clickable { onSubscribe(podcast) }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Remove",
+                                        tint = MaterialTheme.colorScheme.onError,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onDone,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = MaterialTheme.shapes.extraLarge
+                    ) {
+                        Text(
+                            "Done (${subscribedIds.size} selected)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }
@@ -322,7 +425,7 @@ private fun PopularPodcastGridItem(
                 ) {
                     Icon(
                         imageVector = if (isSubscribed) Icons.Rounded.Check else Icons.Rounded.Add,
-                        contentDescription = if (isSubscribed) "Subscribed" else "Subscribe",
+                        contentDescription = if (isSubscribed) "Selected" else "Select",
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -406,7 +509,7 @@ private fun SearchResultRow(
             ) {
                 Icon(
                     Icons.Rounded.Check,
-                    contentDescription = "Subscribed",
+                    contentDescription = "Selected",
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -417,7 +520,7 @@ private fun SearchResultRow(
             ) {
                 Icon(
                     Icons.Rounded.Add,
-                    contentDescription = "Subscribe",
+                    contentDescription = "Select",
                     modifier = Modifier.size(18.dp)
                 )
             }

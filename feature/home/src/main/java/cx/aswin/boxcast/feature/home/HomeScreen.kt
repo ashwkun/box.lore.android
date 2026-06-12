@@ -53,6 +53,9 @@ import cx.aswin.boxcast.feature.home.components.GridSkeletonItems
 import cx.aswin.boxcast.feature.home.components.YourShowsSkeleton
 import cx.aswin.boxcast.feature.home.components.TimeBlockSkeleton
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -63,12 +66,35 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
+import androidx.compose.ui.graphics.Brush
+import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.DriveFolderUpload
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 
 import cx.aswin.boxcast.feature.home.components.HeroCarousel
 import cx.aswin.boxcast.feature.home.components.PodcastCard
@@ -100,6 +126,8 @@ fun HomeRoute(
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
     onResetSleepNudge: () -> Unit = {},
     onClearSleepTimer: () -> Unit = {},
+    onImportClick: () -> Unit = {},
+    onAiOnboardingClick: () -> Unit = {},
     navController: NavController? = null,
     modifier: Modifier = Modifier
 ) {
@@ -193,6 +221,9 @@ fun HomeRoute(
         onClearSleepTimer = onClearSleepTimer,
         onSwitchRegion = viewModel::setRegion,
         onDismissNudge = viewModel::dismissRegionNudge,
+        onImportClick = onImportClick,
+        onAiOnboardingClick = onAiOnboardingClick,
+        onDismissImportBanner = viewModel::dismissHomeImportBanner,
 
         modifier = modifier
     )
@@ -240,6 +271,9 @@ fun HomeScreen(
     onPodcastSelected: (String?) -> Unit = {},
     onPlayMix: () -> Unit = {},
     onPlayEpisode: (Episode, Podcast) -> Unit = { _, _ -> },
+    onImportClick: () -> Unit = {},
+    onAiOnboardingClick: () -> Unit = {},
+    onDismissImportBanner: () -> Unit = {},
 
     modifier: Modifier = Modifier
 ) {
@@ -344,6 +378,10 @@ fun HomeScreen(
                             activeRegionCode = uiState.activeRegionCode,
                             onSwitchRegion = onSwitchRegion,
                             onDismissNudge = onDismissNudge,
+                            showImportBanner = uiState.showImportBanner,
+                            onImportClick = onImportClick,
+                            onAiOnboardingClick = onAiOnboardingClick,
+                            onDismissImportBanner = onDismissImportBanner,
                             gridState = gridState
                         )
                     }
@@ -438,6 +476,10 @@ private fun PodcastFeed(
     onToggleSubscription: (String) -> Unit,
     onTogglePlayback: (android.os.Bundle?) -> Unit,
     onSelectCategory: (String?) -> Unit,
+    showImportBanner: Boolean = false,
+    onImportClick: () -> Unit = {},
+    onAiOnboardingClick: () -> Unit = {},
+    onDismissImportBanner: () -> Unit = {},
     gridState: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
     modifier: Modifier = Modifier
 ) {
@@ -519,6 +561,7 @@ private fun PodcastFeed(
                 targetState = when {
                     isLoading -> "skeleton"
                     subscribedItems.isNotEmpty() -> "content"
+                    showImportBanner -> "banner"
                     else -> "empty"
                 },
                 animationSpec = tween(500),
@@ -544,6 +587,13 @@ private fun PodcastFeed(
                         onPlayMix = onPlayMix,
                         onPlayEpisode = onPlayEpisode,
                         onViewLibrary = { onNavigateToLibrary?.invoke() }
+                    )
+                    "banner" -> HomeImportBanner(
+                        onAiOnboardingClick = onAiOnboardingClick,
+                        onSearchClick = { onNavigateToExplore?.invoke(null, "home_banner", null) },
+                        onImportClick = onImportClick,
+                        onDismiss = onDismissImportBanner,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     else -> {} // No subs, render nothing
                 }
@@ -678,3 +728,163 @@ private fun PodcastFeed(
         }
     }
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun HomeImportBanner(
+    onAiOnboardingClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onImportClick: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            // Dismiss button in top right
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(32.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = CircleShape
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Dismiss",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(end = 40.dp) // Avoid overlapping with dismiss button
+                ) {
+                    Text(
+                        text = "it's a bit quiet in here...",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    Text(
+                        text = "let's find your favorite shows so we can build your daily mix and curate better episode recommendations.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Primary full-width action button
+                    Button(
+                        onClick = onAiOnboardingClick,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .expressiveClickable(onClick = onAiOnboardingClick)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Find shows with AI",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+
+                    // Secondary split-width action row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onSearchClick,
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .expressiveClickable(onClick = onSearchClick)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Search",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = onImportClick,
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .expressiveClickable(onClick = onImportClick)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DriveFolderUpload,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Import",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+

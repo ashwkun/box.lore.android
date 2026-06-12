@@ -96,7 +96,8 @@ data class HomeUiState(
     val selectedPodcastId: String? = null,
     val selectedPodcastEpisodes: List<Episode> = emptyList(),
     val isSelectedPodcastLoading: Boolean = false,
-    val episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap()
+    val episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
+    val showImportBanner: Boolean = false
 )
 
 data class HomeDataWrapper(
@@ -109,7 +110,8 @@ data class HomeDataWrapper(
     val completedEpisodeIds: Set<String> = emptySet(),
     val isTrendingLoaded: Boolean = false,
     val isCuratedLoaded: Boolean = false,
-    val isRecommendationsLoaded: Boolean = false
+    val isRecommendationsLoaded: Boolean = false,
+    val hasDismissedImportBanner: Boolean = false
 )
 
 /**
@@ -503,7 +505,8 @@ class HomeViewModel(
                     _timeBlockState, // Re-emit when curated vibes resolve
                     _isTrendingLoaded,
                     _isCuratedLoaded,
-                    _isRecommendationsLoaded
+                    _isRecommendationsLoaded,
+                    userPrefs.hasDismissedHomeImportBannerStream
                 ) { array ->
                     HomeDataWrapper(
                         trending = array[0] as List<Podcast>,
@@ -515,7 +518,8 @@ class HomeViewModel(
                         completedEpisodeIds = array[6] as Set<String>,
                         isTrendingLoaded = array[8] as Boolean,
                         isCuratedLoaded = array[9] as Boolean,
-                        isRecommendationsLoaded = array[10] as Boolean
+                        isRecommendationsLoaded = array[10] as Boolean,
+                        hasDismissedImportBanner = array[11] as Boolean
                     )
                 }.collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1173,7 +1177,8 @@ class HomeViewModel(
                             selectedPodcastId = _selectedPodcastId.value,
                             selectedPodcastEpisodes = _selectedPodcastEpisodes.value,
                             isSelectedPodcastLoading = _isSelectedPodcastLoading.value,
-                            episodePlaybackState = episodePlaybackState
+                            episodePlaybackState = episodePlaybackState,
+                            showImportBanner = sortedSubs.isEmpty() && !wrapper.hasDismissedImportBanner
                         )
                     }
                 }
@@ -1432,6 +1437,12 @@ class HomeViewModel(
     fun dismissRegionNudge() {
         viewModelScope.launch {
             userPrefs.dismissRegionNudge()
+        }
+    }
+
+    fun dismissHomeImportBanner() {
+        viewModelScope.launch {
+            userPrefs.dismissHomeImportBanner()
         }
     }
 

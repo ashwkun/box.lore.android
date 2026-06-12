@@ -80,38 +80,66 @@ private val CondensedGoogleSans = if (Build.VERSION.SDK_INT >= Build.VERSION_COD
 fun OnboardingScreen(
     viewModel: OnboardingViewModel,
     onComplete: () -> Unit,
-    onImportJson: (android.net.Uri) -> Unit = {},
-    onImportOpml: (android.net.Uri) -> Unit = {}
+    onBack: () -> Unit = {},
+    onImportClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isOnboardingCompleted = remember { viewModel.isOnboardingCompleted() }
+    
     val handleComplete = {
-        viewModel.completeOnboarding(onComplete)
+        if (uiState.selectedPodcasts.isNotEmpty()) {
+            viewModel.generateRecommendationsFromSearch()
+        } else {
+            viewModel.completeOnboarding(onComplete)
+        }
     }
 
+    val isRootStep = uiState.currentStep == OnboardingStep.WELCOME || 
+            uiState.currentStep == OnboardingStep.AI_ONBOARDING
+
     BackHandler(
-        enabled = uiState.currentStep != OnboardingStep.WELCOME &&
-                uiState.currentStep != OnboardingStep.AI_ONBOARDING
+        enabled = if (isOnboardingCompleted) {
+            true
+        } else {
+            !isRootStep
+        }
     ) {
-        when (uiState.currentStep) {
-            OnboardingStep.GENRES -> {
-                viewModel.navigateBackToWelcome()
+        if (isOnboardingCompleted && (uiState.currentStep == OnboardingStep.WELCOME || 
+                                      uiState.currentStep == OnboardingStep.AI_ONBOARDING || 
+                                      uiState.currentStep == OnboardingStep.GENRES)) {
+            onBack()
+        } else {
+            when (uiState.currentStep) {
+                OnboardingStep.WELCOME -> {
+                    // Handled above
+                }
+                OnboardingStep.GENRES -> {
+                    viewModel.navigateBackToWelcome()
+                }
+                OnboardingStep.SUB_GENRES -> {
+                    viewModel.navigateBackFromSubGenres()
+                }
+                OnboardingStep.ACTIVITY_PICKER -> {
+                    viewModel.navigateBackFromActivityPicker()
+                }
+                OnboardingStep.LENGTH_PICKER -> {
+                    viewModel.navigateBackFromLengthPicker()
+                }
+                OnboardingStep.SEARCH -> {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        viewModel.updateSearchQuery("")
+                    } else {
+                        viewModel.navigateBackFromSearch()
+                    }
+                }
+                OnboardingStep.AI_ONBOARDING -> {
+                    // Handled above
+                }
+                OnboardingStep.AI_SUGGESTIONS -> {
+                    viewModel.navigateBackFromSuggestions()
+                }
+                else -> {}
             }
-            OnboardingStep.SUB_GENRES -> {
-                viewModel.navigateBackFromSubGenres()
-            }
-            OnboardingStep.ACTIVITY_PICKER -> {
-                viewModel.navigateBackFromActivityPicker()
-            }
-            OnboardingStep.LENGTH_PICKER -> {
-                viewModel.navigateBackFromLengthPicker()
-            }
-            OnboardingStep.SEARCH -> {
-                viewModel.navigateBackFromSearch()
-            }
-            OnboardingStep.AI_SUGGESTIONS -> {
-                viewModel.navigateBackFromSuggestions()
-            }
-            else -> {}
         }
     }
 
@@ -134,8 +162,7 @@ fun OnboardingScreen(
                     onHelpMeFind = viewModel::startOnboarding,
                     onSearch = viewModel::navigateToSearch,
                     onSkip = { viewModel.skipOnboarding(onComplete) },
-                    onImportJson = onImportJson,
-                    onImportOpml = onImportOpml
+                    onImportClick = onImportClick
                 )
             }
             OnboardingStep.GENRES -> {
@@ -143,7 +170,14 @@ fun OnboardingScreen(
                 GenrePickerScreen(
                     selectedGenres = uiState.selectedGenres,
                     onToggleGenre = viewModel::toggleGenre,
-                    onContinue = viewModel::continueToRecommendations
+                    onContinue = viewModel::continueToRecommendations,
+                    onBack = {
+                        if (isOnboardingCompleted) {
+                            onBack()
+                        } else {
+                            viewModel.navigateBackToWelcome()
+                        }
+                    }
                 )
             }
             OnboardingStep.SUB_GENRES -> {
@@ -183,6 +217,7 @@ fun OnboardingScreen(
                     results = uiState.searchResults,
                     isSearching = uiState.isSearching,
                     subscribedIds = uiState.subscribedPodcastIds,
+                    selectedPodcasts = uiState.selectedPodcasts,
                     onQueryChange = viewModel::updateSearchQuery,
                     onSubscribe = viewModel::toggleSubscriptionFromSearch,
                     onBack = viewModel::navigateBackFromSearch,
@@ -196,11 +231,17 @@ fun OnboardingScreen(
             OnboardingStep.AI_ONBOARDING -> {
                 AiOnboardingScreen(
                     uiState = uiState,
-                    onBack = viewModel::navigateBackInAiOnboarding,
+                    onBack = {
+                        if (isOnboardingCompleted && uiState.aiCurrentTurn <= 1) {
+                            onBack()
+                        } else {
+                            viewModel.navigateBackInAiOnboarding()
+                        }
+                    },
                     onOptionToggle = viewModel::toggleAiOption,
                     onCustomInputChange = viewModel::updateAiCustomInput,
                     onContinue = {
-                        if (uiState.aiOptions.isEmpty() || uiState.aiCurrentTurn >= 5) {
+                        if (uiState.aiOptions.isEmpty() || uiState.aiCurrentTurn >= 7) {
                             viewModel.synthesizeAndBuildCurriculum()
                         } else {
                             viewModel.sendAiTurnInput()
@@ -208,7 +249,8 @@ fun OnboardingScreen(
                     },
                     onRevealSuggestions = viewModel::navigateToSuggestions,
                     onRetryCuration = viewModel::retryLastAction,
-                    onSwitchToManual = viewModel::switchToLegacyOnboarding
+                    onSwitchToManual = viewModel::switchToLegacyOnboarding,
+                    onBuildFeedNow = viewModel::synthesizeAndBuildCurriculum
                 )
             }
             OnboardingStep.AI_SUGGESTIONS -> {
@@ -218,7 +260,7 @@ fun OnboardingScreen(
                     onToggleSubscription = viewModel::togglePodcastSubscription,
                     onToggleRowSubscriptions = viewModel::toggleAllPodcastsInRow,
                     onRegionChange = viewModel::setRegion,
-                    onRetry = viewModel::synthesizeGenreOnboarding,
+                    onRetry = viewModel::retryLastAction,
                     onFinish = {
                         viewModel.finishAiOnboarding(onComplete)
                     }
@@ -228,26 +270,13 @@ fun OnboardingScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WelcomeScreen(
     onHelpMeFind: () -> Unit,
     onSearch: () -> Unit,
     onSkip: () -> Unit,
-    onImportJson: (android.net.Uri) -> Unit,
-    onImportOpml: (android.net.Uri) -> Unit
+    onImportClick: () -> Unit
 ) {
-    var showImportBottomSheet by remember { mutableStateOf(false) }
-
-    val importJsonLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let { onImportJson(it) } }
-    )
-    val importOpmlLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let { onImportOpml(it) } }
-    )
-
     val entranceProgress = remember { Animatable(0f) }
     val driftProgress = remember { Animatable(0f) }
     
@@ -273,59 +302,6 @@ private fun WelcomeScreen(
                     repeatMode = RepeatMode.Restart
                 )
             )
-        }
-    }
-
-    if (showImportBottomSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showImportBottomSheet = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-            ) {
-                Text(
-                    text = "Import Library",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    onClick = {
-                        showImportBottomSheet = false
-                        importJsonLauncher.launch(arrayOf("application/json"))
-                    }
-                ) {
-                    ListItem(
-                        headlineContent = { Text("boxcast Backup (.json)") },
-                        supportingContent = { Text("Restore a perfect backup of subscriptions and liked episodes") },
-                        leadingContent = { Icon(Icons.Rounded.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                }
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    onClick = {
-                        showImportBottomSheet = false
-                        importOpmlLauncher.launch(arrayOf("*/*"))
-                    }
-                ) {
-                    ListItem(
-                        headlineContent = { Text("Other App Backup (.opml)") },
-                        supportingContent = { Text("Migrate subscriptions from Apple Podcasts, Spotify, etc.") },
-                        leadingContent = { Icon(Icons.Rounded.ImportExport, null, tint = MaterialTheme.colorScheme.primary) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                }
-            }
         }
     }
 
@@ -548,7 +524,7 @@ private fun WelcomeScreen(
                     }
 
                     FilledTonalButton(
-                        onClick = { showImportBottomSheet = true },
+                        onClick = onImportClick,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()

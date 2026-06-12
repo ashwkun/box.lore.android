@@ -67,7 +67,8 @@ internal fun AiOnboardingScreen(
     onContinue: () -> Unit,
     onRevealSuggestions: () -> Unit,
     onRetryCuration: () -> Unit,
-    onSwitchToManual: () -> Unit
+    onSwitchToManual: () -> Unit,
+    onBuildFeedNow: () -> Unit
 ) {
     AiChatOnboardingScreen(
         uiState = uiState,
@@ -77,7 +78,8 @@ internal fun AiOnboardingScreen(
         onContinue = onContinue,
         onRevealSuggestions = onRevealSuggestions,
         onRetryCuration = onRetryCuration,
-        onSwitchToManual = onSwitchToManual
+        onSwitchToManual = onSwitchToManual,
+        onBuildFeedNow = onBuildFeedNow
     )
 }
 
@@ -91,7 +93,8 @@ private fun AiChatOnboardingScreen(
     onContinue: () -> Unit,
     onRevealSuggestions: () -> Unit,
     onRetryCuration: () -> Unit,
-    onSwitchToManual: () -> Unit
+    onSwitchToManual: () -> Unit,
+    onBuildFeedNow: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
@@ -669,6 +672,58 @@ private fun AiChatOnboardingScreen(
                                                 onOptionToggle(option)
                                             }
                                         )
+                                    }
+
+                                    if (uiState.aiCurrentTurn >= 4) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "AI will auto-build once it has enough context",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontSize = 11.sp,
+                                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            
+                                            Text(
+                                                text = "or",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                            )
+                                            
+                                            TextButton(
+                                                onClick = {
+                                                    focusManager.clearFocus()
+                                                    onBuildFeedNow()
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.AutoAwesome,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Build my feed now",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1573,6 +1628,90 @@ private fun SuggestionBubble(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BuildFeedNowChip(
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+        .compositeOver(MaterialTheme.colorScheme.surface)
+
+    val contentColor = MaterialTheme.colorScheme.primary
+
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = containerColor
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 1.5.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .graphicsLayer {
+                alpha = if (enabled) 1.0f else 0.38f
+            }
+            .then(
+                if (enabled) {
+                    Modifier.expressiveClickable { onClick() }
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "✨ Build my feed now",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+                Text(
+                    text = "Synthesize choices and generate recommendations",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
