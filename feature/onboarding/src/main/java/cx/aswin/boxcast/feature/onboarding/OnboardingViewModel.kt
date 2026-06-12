@@ -75,7 +75,8 @@ data class OnboardingUiState(
     val isSynthesizing: Boolean = false,
     val aiCurriculumRows: List<OnboardingCurriculumRowDto> = emptyList(),
     val aiLoadingStage: AiLoadingStage = AiLoadingStage.IDLE,
-    val onboardingError: String? = null
+    val onboardingError: String? = null,
+    val reachedSuggestionsViaAiFlow: Boolean = false
 )
 
 enum class OnboardingStep {
@@ -316,7 +317,12 @@ class OnboardingViewModel(
 
     fun synthesizeGenreOnboarding() {
         val currentState = _uiState.value
-        _uiState.update { it.copy(isLoadingPodcasts = true, currentStep = OnboardingStep.AI_SUGGESTIONS, onboardingError = null) }
+        _uiState.update { it.copy(
+            isLoadingPodcasts = true,
+            currentStep = OnboardingStep.AI_SUGGESTIONS,
+            onboardingError = null,
+            reachedSuggestionsViaAiFlow = false
+        ) }
         
         val finalAction: () -> Unit = {
             _uiState.update { it.copy(isLoadingPodcasts = true, onboardingError = null) }
@@ -1060,11 +1066,14 @@ class OnboardingViewModel(
     }
 
     fun navigateToSuggestions() {
-        _uiState.update { it.copy(currentStep = OnboardingStep.AI_SUGGESTIONS) }
+        _uiState.update { it.copy(
+            currentStep = OnboardingStep.AI_SUGGESTIONS,
+            reachedSuggestionsViaAiFlow = true
+        ) }
     }
 
     fun navigateBackFromSuggestions() {
-        val nextStep = if (_uiState.value.aiHistory.isNotEmpty()) {
+        val nextStep = if (_uiState.value.reachedSuggestionsViaAiFlow) {
             OnboardingStep.AI_ONBOARDING
         } else {
             OnboardingStep.LENGTH_PICKER
