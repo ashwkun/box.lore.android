@@ -236,6 +236,19 @@ class PodcastRepository(
         searchPodcastsWithCorrection(query).podcasts
     }
 
+    suspend fun searchEpisodesSemantic(query: String, country: String): List<Episode> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.searchSemantic(publicKey, query, country).execute()
+            if (response.isSuccessful && response.body() != null) {
+                response.body()!!.items.mapNotNull { mapToEpisode(it) }
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     suspend fun searchEpisodes(feedId: String, query: String): List<Episode> = withContext(Dispatchers.IO) {
         try {
             val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {

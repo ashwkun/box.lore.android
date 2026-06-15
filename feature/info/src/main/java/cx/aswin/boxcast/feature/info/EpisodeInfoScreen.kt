@@ -693,6 +693,18 @@ fun EpisodeInfoScreen(
                         }
                     }
 
+                    // CROSS-PROMOTION CARD
+                    state.crossPromotion?.let { crossPromo ->
+                        item {
+                            CrossPromotionCard(
+                                crossPromotion = crossPromo,
+                                onPodcastClick = onPodcastClick,
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                            )
+                        }
+                    }
+
                     // DESCRIPTION CARD with Social Links
                     if (state.episode.description.isNotEmpty()) {
                         item {

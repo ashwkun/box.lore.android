@@ -56,4 +56,7 @@ dependencies {
 
     // PostHog
     implementation(libs.posthog.android)
+
+    // Testing
+    testImplementation(libs.junit)
 }

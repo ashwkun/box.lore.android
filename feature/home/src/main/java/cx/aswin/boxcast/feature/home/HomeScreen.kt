@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavController
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -588,13 +589,30 @@ private fun PodcastFeed(
                         onPlayEpisode = onPlayEpisode,
                         onViewLibrary = { onNavigateToLibrary?.invoke() }
                     )
-                    "banner" -> HomeImportBanner(
-                        onAiOnboardingClick = onAiOnboardingClick,
-                        onSearchClick = { onNavigateToExplore?.invoke(null, "home_banner", null) },
-                        onImportClick = onImportClick,
-                        onDismiss = onDismissImportBanner,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    "banner" -> {
+                        LaunchedEffect(Unit) {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerImpression()
+                        }
+                        HomeImportBanner(
+                            onAiOnboardingClick = {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("ai")
+                                onAiOnboardingClick()
+                            },
+                            onSearchClick = {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("search")
+                                onNavigateToExplore?.invoke(null, "home_banner", null)
+                            },
+                            onImportClick = {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("import")
+                                onImportClick()
+                            },
+                            onDismiss = {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerDismissed()
+                                onDismissImportBanner()
+                            },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                     else -> {} // No subs, render nothing
                 }
             }

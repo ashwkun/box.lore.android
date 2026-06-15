@@ -197,7 +197,7 @@ private fun ForYouHeroCard(
             .fillMaxWidth()
             .height(200.dp)
             .clip(RoundedCornerShape(20.dp))
-            .expressiveClickable(onClick = onClick)
+            .expressiveClickable(shape = RoundedCornerShape(20.dp), onClick = onClick)
     ) {
         // Full-bleed artwork background
         OptimizedImage(

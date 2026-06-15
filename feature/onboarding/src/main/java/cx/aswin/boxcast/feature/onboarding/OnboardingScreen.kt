@@ -398,25 +398,28 @@ private fun WelcomeScreen(
                 Box(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(
-                        onClick = onHelpMeFind,
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(percent = 50),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(76.dp)
                             .graphicsLayer {
                                 alpha = btn1Alpha
                                 translationY = (1f - btn1Alpha) * 20.dp.toPx()
-                            },
-                        shape = RoundedCornerShape(percent = 50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                            }
+                            .expressiveClickable(
+                                enabled = btn1Alpha > 0.95f,
+                                shape = RoundedCornerShape(percent = 50),
+                                onClick = onHelpMeFind
+                            )
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
                         ) {
                             Column(
                                 modifier = Modifier.weight(1f),
@@ -496,24 +499,33 @@ private fun WelcomeScreen(
                         },
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    FilledTonalButton(
-                        onClick = onSearch,
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = RoundedCornerShape(percent = 50),
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .heightIn(min = 50.dp),
-                        shape = RoundedCornerShape(percent = 50),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            .heightIn(min = 50.dp)
+                            .expressiveClickable(
+                                enabled = btn2Alpha > 0.95f,
+                                shape = RoundedCornerShape(percent = 50),
+                                onClick = onSearch
+                            )
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Search,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "I know my shows",
                                 style = MaterialTheme.typography.labelLarge,
@@ -523,24 +535,33 @@ private fun WelcomeScreen(
                         }
                     }
 
-                    FilledTonalButton(
-                        onClick = onImportClick,
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = RoundedCornerShape(percent = 50),
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .heightIn(min = 50.dp),
-                        shape = RoundedCornerShape(percent = 50),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            .heightIn(min = 50.dp)
+                            .expressiveClickable(
+                                enabled = btn2Alpha > 0.95f,
+                                shape = RoundedCornerShape(percent = 50),
+                                onClick = onImportClick
+                            )
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Upload,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Import library",
                                 style = MaterialTheme.typography.labelLarge,
@@ -554,26 +575,36 @@ private fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Skip
-                TextButton(
-                    onClick = onSkip,
+                Box(
                     modifier = Modifier
                         .graphicsLayer {
                             alpha = btn3Alpha
                         }
+                        .expressiveClickable(
+                            enabled = btn3Alpha > 0.95f,
+                            shape = RoundedCornerShape(percent = 50),
+                            onClick = onSkip
+                        )
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text(
-                        text = "Skip Setup",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF888888)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = null,
-                        tint = Color(0xFF888888),
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Skip Setup",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF888888)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = null,
+                            tint = Color(0xFF888888),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(36.dp))

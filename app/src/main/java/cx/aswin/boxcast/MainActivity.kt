@@ -396,6 +396,7 @@ class MainActivity : ComponentActivity() {
             }
 
             var opmlImportState by remember { mutableStateOf<OpmlImportState>(OpmlImportState.Idle) }
+            var opmlImportSource by remember { mutableStateOf("welcome_screen") }
             var importTriggerKey by remember { mutableStateOf(0L) }
 
             fun performJsonImport(uri: android.net.Uri) {
@@ -919,7 +920,8 @@ class MainActivity : ComponentActivity() {
                                         navController.popBackStack()
                                     },
                                     onImportClick = {
-                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingFlowSelected("import_library")
+                                        opmlImportSource = "welcome_screen"
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingFlowSelected("import_library", "welcome_screen")
                                         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackImportSheetOpened()
                                         opmlImportState = OpmlImportState.ShowSelector
                                     }
@@ -1088,9 +1090,12 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onResetSleepNudge = { playbackRepository.resetSleepNudgeForTesting() },
                                     onClearSleepTimer = { playbackRepository.setSleepTimer(0) },
-                                    onImportClick = { opmlImportState = OpmlImportState.ShowSelector },
+                                    onImportClick = {
+                                        opmlImportSource = "home_import_banner"
+                                        opmlImportState = OpmlImportState.ShowSelector
+                                    },
                                     onAiOnboardingClick = {
-                                        onboardingViewModel.startOnboarding()
+                                        onboardingViewModel.startOnboarding("home_import_banner")
                                         navController.navigate("onboarding")
                                     }
                                 )
@@ -2012,7 +2017,9 @@ class MainActivity : ComponentActivity() {
                                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
                                     importType = if (currentState.isJson) "json" else "opml",
                                     importedPodcastCount = currentState.importedCount,
-                                    totalOnboardingTimeSeconds = onboardingViewModel.getTotalOnboardingTime()
+                                    importedPodcastsList = currentState.importedPodcasts.map { it.title },
+                                    totalOnboardingTimeSeconds = onboardingViewModel.getTotalOnboardingTime(),
+                                    entryPoint = opmlImportSource
                                 )
                                 if (currentState.isJson) {
                                     onboardingViewModel.markOnboardingCompletedSilent {
@@ -2023,6 +2030,14 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     onboardingViewModel.generateRecommendationsFromOpml(currentState.importedPodcasts)
                                 }
+                            } else if (opmlImportSource == "home_import_banner") {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                    importType = if (currentState.isJson) "json" else "opml",
+                                    importedPodcastCount = currentState.importedCount,
+                                    importedPodcastsList = currentState.importedPodcasts.map { it.title },
+                                    totalOnboardingTimeSeconds = 0f,
+                                    entryPoint = "home_import_banner"
+                                )
                             }
                         }
                         opmlImportState = OpmlImportState.Idle

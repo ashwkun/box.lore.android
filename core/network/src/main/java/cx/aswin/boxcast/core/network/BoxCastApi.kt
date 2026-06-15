@@ -55,6 +55,13 @@ interface BoxCastApi {
         @Query("q") query: String
     ): retrofit2.Call<SearchResponse>
 
+    @GET("search/semantic")
+    fun searchSemantic(
+        @Header("X-App-Key") publicKey: String,
+        @Query("q") query: String,
+        @Query("country") country: String? = "us"
+    ): retrofit2.Call<EpisodesResponse>
+
     @GET("episodes")
     fun getEpisodes(
         @Header("X-App-Key") publicKey: String,

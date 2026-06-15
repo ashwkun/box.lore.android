@@ -28,6 +28,8 @@ import java.util.Calendar
 import cx.aswin.boxcast.core.data.PlaybackRepository
 import cx.aswin.boxcast.core.model.Episode
 
+enum class SearchTab { SHOWS, EPISODES }
+
 sealed interface ExploreUiState {
     data object Loading : ExploreUiState
     data class Success(
@@ -44,7 +46,11 @@ sealed interface ExploreUiState {
         val isLoadingMore: Boolean = false,
         val hasMore: Boolean = true,
         val selectedTab: Int = 1, // 0 for Trending, 1 for For You (default)
-        val isRecommendationsLoading: Boolean = false
+        val isRecommendationsLoading: Boolean = false,
+        val searchTab: SearchTab = SearchTab.SHOWS,
+        val semanticSearchResults: List<Episode> = emptyList(),
+        val isSemanticLoading: Boolean = false,
+        val hasPerformedSemanticSearch: Boolean = false
     ) : ExploreUiState
     data class Error(val message: String) : ExploreUiState
 }
@@ -72,9 +78,12 @@ class ExploreViewModel(
             currentVibe = null,
             suggestedVibes = emptyList(),
             isLoadingMore = false,
-            hasMore = true,
             selectedTab = if (initialCategory != null || initialTab == "trending") 0 else 1,
-            isRecommendationsLoading = false
+            isRecommendationsLoading = false,
+            searchTab = SearchTab.SHOWS,
+            semanticSearchResults = emptyList(),
+            isSemanticLoading = false,
+            hasPerformedSemanticSearch = false
         )
     )
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
@@ -88,6 +97,10 @@ class ExploreViewModel(
     private val _selectedTab = MutableStateFlow(if (initialCategory != null || initialTab == "trending") 0 else 1)
     private val _recommendations = MutableStateFlow<List<Episode>>(emptyList())
     private val _isRecommendationsLoading = MutableStateFlow(false)
+    private val _searchTab = MutableStateFlow(SearchTab.SHOWS)
+    private val _semanticSearchResults = MutableStateFlow<List<Episode>>(emptyList())
+    private val _isSemanticLoading = MutableStateFlow(false)
+    private val _hasPerformedSemanticSearch = MutableStateFlow(false)
 
     // Seen/cached podcasts for eager zero-latency substring client-side matching
     private val _seenPodcasts = java.util.concurrent.ConcurrentHashMap<String, Podcast>()
@@ -181,9 +194,13 @@ class ExploreViewModel(
                     _suggestedVibes,
                     _selectedTab,
                     _recommendations,
-                    _isRecommendationsLoading
-                ) { vibe, vibes, tab, recs, recsLoading ->
-                    arrayOf(vibe, vibes, tab, recs, recsLoading)
+                    _isRecommendationsLoading,
+                    _searchTab,
+                    _semanticSearchResults,
+                    _isSemanticLoading,
+                    _hasPerformedSemanticSearch
+                ) { args ->
+                    args
                 }
             ) { (trip1, trip2), extra ->
                 val (subIds, category, trending) = trip1
@@ -198,6 +215,10 @@ class ExploreViewModel(
                 val selectedTab = extra[2] as Int
                 val recommendations = extra[3] as List<Episode>
                 val isRecommendationsLoading = extra[4] as Boolean
+                val searchTab = extra[5] as SearchTab
+                val semanticSearchResults = extra[6] as List<Episode>
+                val isSemanticLoading = extra[7] as Boolean
+                val hasPerformedSemanticSearch = extra[8] as Boolean
 
                 val isSearching = query.isNotEmpty() || currentVibe != null
 
@@ -215,7 +236,11 @@ class ExploreViewModel(
                     isLoadingMore = pIsLoadingMore,
                     hasMore = pHasMore,
                     selectedTab = selectedTab,
-                    isRecommendationsLoading = isRecommendationsLoading
+                    isRecommendationsLoading = isRecommendationsLoading,
+                    searchTab = searchTab,
+                    semanticSearchResults = semanticSearchResults,
+                    isSemanticLoading = isSemanticLoading,
+                    hasPerformedSemanticSearch = hasPerformedSemanticSearch
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -310,20 +335,37 @@ class ExploreViewModel(
 
     @OptIn(FlowPreview::class)
     private fun startSearchObserver() {
+        // 1. Shows tab observer (300ms debounce)
         _searchQuery
-            .debounce(300L) // Wait 300ms after last char (speed up deep network fetch)
+            .debounce(300L)
             .distinctUntilChanged()
             .onEach { query ->
-                if (query.isNotBlank()) {
+                if (query.isNotBlank() && _searchTab.value == SearchTab.SHOWS) {
                     performSearch(query)
-                } else {
-                    _localSubstringResults.value = emptyList()
-                    if (_currentVibe.value == null) {
-                        _searchResults.value = emptyList()
-                    }
                 }
             }
             .launchIn(viewModelScope)
+
+        // 2. Episodes tab observer (1000ms debounce)
+        _searchQuery
+            .debounce(1000L)
+            .distinctUntilChanged()
+            .onEach { query ->
+                if (query.isNotBlank() && _searchTab.value == SearchTab.EPISODES) {
+                    performSemanticSearch(query)
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun onSearchTriggered(query: String) {
+        if (query.isNotBlank()) {
+            if (_searchTab.value == SearchTab.EPISODES) {
+                performSemanticSearch(query)
+            } else {
+                performSearch(query)
+            }
+        }
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -337,12 +379,21 @@ class ExploreViewModel(
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
             _localSubstringResults.value = emptyList()
+            _semanticSearchResults.value = emptyList()
+            _hasPerformedSemanticSearch.value = false
+            _isSemanticLoading.value = false
         } else {
             val matches = _seenPodcasts.values.filter { podcast ->
                 podcast.title.contains(trimmed, ignoreCase = true) ||
                 (podcast.artist ?: "").contains(trimmed, ignoreCase = true)
             }.sortedBy { it.title }
             _localSubstringResults.value = matches
+
+            // If we are on EPISODES tab, set loading to true immediately because they just started typing!
+            if (_searchTab.value == SearchTab.EPISODES) {
+                _isSemanticLoading.value = true
+                _hasPerformedSemanticSearch.value = false
+            }
         }
     }
 
@@ -459,6 +510,12 @@ class ExploreViewModel(
 
         searchesPerformedCount++
         searchJob?.cancel()
+
+        if (_searchTab.value == SearchTab.EPISODES) {
+            performSemanticSearch(query)
+        } else {
+            _semanticSearchResults.value = emptyList()
+        }
         
         var myJob: Job? = null
         myJob = viewModelScope.launch {
@@ -485,6 +542,48 @@ class ExploreViewModel(
             }
         }
         searchJob = myJob
+    }
+
+    private var semanticSearchJob: Job? = null
+
+    private fun performSemanticSearch(query: String) {
+        semanticSearchJob?.cancel()
+        var myJob: Job? = null
+        myJob = viewModelScope.launch {
+            _isSemanticLoading.value = true
+            _semanticSearchResults.value = emptyList()
+            _hasPerformedSemanticSearch.value = false
+            try {
+                val region = userPrefs.regionStream.first()
+                val results = podcastRepository.searchEpisodesSemantic(query, region)
+                if (semanticSearchJob == myJob) {
+                    _semanticSearchResults.value = results
+                    _hasPerformedSemanticSearch.value = true
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    throw e
+                }
+                if (semanticSearchJob == myJob) {
+                    _semanticSearchResults.value = emptyList()
+                    _hasPerformedSemanticSearch.value = true
+                }
+            } finally {
+                if (semanticSearchJob == myJob) {
+                    _isSemanticLoading.value = false
+                }
+            }
+        }
+        semanticSearchJob = myJob
+    }
+
+    fun setSearchTab(tab: SearchTab) {
+        if (_searchTab.value == tab) return
+        _searchTab.value = tab
+        val query = _searchQuery.value.trim()
+        if (tab == SearchTab.EPISODES && _semanticSearchResults.value.isEmpty() && query.isNotEmpty()) {
+            performSemanticSearch(query)
+        }
     }
 
     fun trackPodcastClicked(index: Int) {

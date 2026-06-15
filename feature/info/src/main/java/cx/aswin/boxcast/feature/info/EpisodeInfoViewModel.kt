@@ -32,7 +32,9 @@ sealed interface EpisodeInfoUiState {
         val similarEpisodesLoading: Boolean = true,
         val isPlaying: Boolean = false, // Sync with global player
         val location: String? = null,
-        val license: String? = null
+        val license: String? = null,
+        val crossPromotion: cx.aswin.boxcast.core.model.ResolvedCrossPromotion? = null,
+        val crossPromoLoading: Boolean = false
     ) : EpisodeInfoUiState
     data object Error : EpisodeInfoUiState
 }
@@ -187,6 +189,9 @@ class EpisodeInfoViewModel(
                     location = initialLocation,
                     license = initialLicense
                 )
+
+                // Detect immediately on partial title (triggers search request concurrently)
+                detectCrossPromotion(currentEpisode, podcastTitle)
                 
                 // Track Screen View
                 val props = mutableMapOf<String, Any>().apply {
@@ -230,8 +235,12 @@ class EpisodeInfoViewModel(
                         similarEpisodes = existingState?.similarEpisodes ?: emptyList(),
                         similarEpisodesLoading = existingState?.similarEpisodesLoading ?: true,
                         location = existingState?.location ?: initialLocation,
-                        license = existingState?.license ?: initialLicense
+                        license = existingState?.license ?: initialLicense,
+                        crossPromotion = existingState?.crossPromotion,
+                        crossPromoLoading = existingState?.crossPromoLoading ?: false
                     )
+
+                    detectCrossPromotion(currentEpisode, podcastTitle)
                 }
                 
             } catch (e: Exception) {
@@ -527,4 +536,54 @@ class EpisodeInfoViewModel(
         }
         com.posthog.PostHog.capture("episode_info_screen_session", properties = props)
     }
+
+    private fun detectCrossPromotion(episode: Episode, hostPodcastTitle: String) {
+        viewModelScope.launch {
+            try {
+                val currentSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                if (currentSuccess != null) {
+                    _uiState.value = currentSuccess.copy(crossPromoLoading = true)
+                }
+
+                val detector = cx.aswin.boxcast.core.data.crosspromo.CrossPromotionDetector()
+                val result = detector.detect(episode, hostPodcastTitle)
+                val extractedName = result.extractedShowName
+
+                if (result.isCrossPromotion && extractedName != null) {
+                    android.util.Log.d("EpisodeInfo", "Cross promotion detected: $extractedName")
+                    val repository = cx.aswin.boxcast.core.data.PodcastRepository(apiBaseUrl, publicKey, getApplication())
+                    val resolver = cx.aswin.boxcast.core.data.crosspromo.CrossPromotionResolver(repository)
+                    val targetPodcast = resolver.resolve(extractedName)
+
+                    val finalSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                    if (finalSuccess != null && finalSuccess.episode.id == episode.id) {
+                        _uiState.value = finalSuccess.copy(
+                            crossPromoLoading = false,
+                            crossPromotion = cx.aswin.boxcast.core.model.ResolvedCrossPromotion(
+                                extractedShowName = extractedName,
+                                confidence = result.confidence,
+                                targetPodcast = targetPodcast,
+                                matchedIndicators = result.matchedIndicators
+                            )
+                        )
+                    }
+                } else {
+                    val finalSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                    if (finalSuccess != null && finalSuccess.episode.id == episode.id) {
+                        _uiState.value = finalSuccess.copy(
+                            crossPromoLoading = false,
+                            crossPromotion = null
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("EpisodeInfo", "Error detecting cross promotion", e)
+                val finalSuccess = _uiState.value as? EpisodeInfoUiState.Success
+                if (finalSuccess != null && finalSuccess.episode.id == episode.id) {
+                    _uiState.value = finalSuccess.copy(crossPromoLoading = false)
+                }
+            }
+        }
+    }
 }
+

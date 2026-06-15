@@ -143,11 +143,11 @@ object AnalyticsHelper {
         )
     }
 
-    // ── 2. Onboarding Started & Flow Selection ──────────────────────
+    // ── Home Import Banner (Empty State) ───────────────────────────
 
-    fun trackOnboardingStarted() {
+    fun trackHomeImportBannerImpression() {
         PostHog.capture(
-            event = "onboarding_started",
+            event = "home_import_banner_impression",
             properties = mapOf(
                 "user_local_timestamp" to userLocalTimestamp(),
                 "global_ist_timestamp" to globalIstTimestamp()
@@ -155,11 +155,46 @@ object AnalyticsHelper {
         )
     }
 
-    fun trackOnboardingFlowSelected(flowType: String) {
+    fun trackHomeImportBannerClicked(action: String) {
+        PostHog.capture(
+            event = "home_import_banner_clicked",
+            properties = mapOf(
+                "action" to action,
+                "user_local_timestamp" to userLocalTimestamp(),
+                "global_ist_timestamp" to globalIstTimestamp()
+            )
+        )
+    }
+
+    fun trackHomeImportBannerDismissed() {
+        PostHog.capture(
+            event = "home_import_banner_dismissed",
+            properties = mapOf(
+                "user_local_timestamp" to userLocalTimestamp(),
+                "global_ist_timestamp" to globalIstTimestamp()
+            )
+        )
+    }
+
+    // ── 2. Onboarding Started & Flow Selection ──────────────────────
+
+    fun trackOnboardingStarted(entryPoint: String = "welcome_screen") {
+        PostHog.capture(
+            event = "onboarding_started",
+            properties = mapOf(
+                "entry_point" to entryPoint,
+                "user_local_timestamp" to userLocalTimestamp(),
+                "global_ist_timestamp" to globalIstTimestamp()
+            )
+        )
+    }
+
+    fun trackOnboardingFlowSelected(flowType: String, entryPoint: String = "welcome_screen") {
         PostHog.capture(
             event = "onboarding_flow_selected",
             properties = mapOf(
-                "flow_type" to flowType
+                "flow_type" to flowType,
+                "entry_point" to entryPoint
             )
         )
     }
@@ -186,14 +221,39 @@ object AnalyticsHelper {
 
     // ── 3. AI Chat Onboarding Flow ──────────────────────────────────
 
-    fun trackOnboardingAiTurnSubmitted(turnNumber: Int, selectedOptions: Set<String>, hasCustomInput: Boolean, timeSpentSeconds: Float) {
+    fun trackOnboardingAiTurnSubmitted(
+        turnNumber: Int,
+        selectedOptions: Set<String>,
+        customInputText: String,
+        timeSpentSeconds: Float
+    ) {
         PostHog.capture(
             event = "onboarding_ai_turn_submitted",
             properties = mapOf(
                 "turn_number" to turnNumber,
                 "selected_options" to selectedOptions.toList(),
-                "has_custom_input" to hasCustomInput,
+                "has_custom_input" to customInputText.isNotBlank(),
+                "custom_input_text" to customInputText,
                 "time_spent_seconds" to timeSpentSeconds
+            )
+        )
+    }
+
+    fun trackOnboardingAiResponseReceived(
+        turnNumber: Int,
+        assistantMessage: String,
+        optionsCount: Int,
+        optionsList: List<String>,
+        durationSeconds: Float
+    ) {
+        PostHog.capture(
+            event = "onboarding_ai_response_received",
+            properties = mapOf(
+                "turn_number" to turnNumber,
+                "assistant_message" to assistantMessage.take(500),
+                "options_count" to optionsCount,
+                "options_list" to optionsList,
+                "duration_seconds" to durationSeconds
             )
         )
     }
@@ -229,9 +289,11 @@ object AnalyticsHelper {
 
     fun trackOnboardingAiDone(
         totalSubscribedCount: Int,
+        subscribedPodcastsList: List<String>,
         didScrollSuggestions: Boolean,
         totalOnboardingTimeSeconds: Float,
-        favoriteGenres: List<String>
+        favoriteGenres: List<String>,
+        entryPoint: String = "welcome_screen"
     ) {
         PostHog.capture(
             event = "onboarding_completed",
@@ -239,8 +301,10 @@ object AnalyticsHelper {
                 "method" to "ai_suggestions_done",
                 "screen" to "ai_suggestions_screen",
                 "total_subscribed_count" to totalSubscribedCount,
+                "subscribed_podcasts_list" to subscribedPodcastsList,
                 "did_scroll_suggestions" to didScrollSuggestions,
-                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds,
+                "entry_point" to entryPoint
             )
         )
 
@@ -282,6 +346,7 @@ object AnalyticsHelper {
     fun trackOnboardingSearchDone(
         entryPoint: String,
         totalSubscribedCount: Int,
+        subscribedPodcastsList: List<String>,
         searchesPerformed: Int,
         timeSpentOnSearchSeconds: Float,
         totalOnboardingTimeSeconds: Float
@@ -293,6 +358,7 @@ object AnalyticsHelper {
                 "screen" to "search_screen",
                 "entry_point" to entryPoint,
                 "total_subscribed_count" to totalSubscribedCount,
+                "subscribed_podcasts_list" to subscribedPodcastsList,
                 "searches_performed" to searchesPerformed,
                 "time_spent_on_search_seconds" to timeSpentOnSearchSeconds,
                 "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
@@ -317,16 +383,20 @@ object AnalyticsHelper {
     fun trackOnboardingImportCompleted(
         importType: String,
         importedPodcastCount: Int,
-        totalOnboardingTimeSeconds: Float
+        importedPodcastsList: List<String>,
+        totalOnboardingTimeSeconds: Float,
+        entryPoint: String = "welcome_screen"
     ) {
         PostHog.capture(
             event = "onboarding_completed",
             properties = mapOf(
                 "method" to "import",
                 "import_type" to importType,
-                "screen" to "welcome_screen",
+                "screen" to (if (entryPoint == "home_import_banner") "home_screen" else "welcome_screen"),
                 "imported_podcast_count" to importedPodcastCount,
-                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds
+                "imported_podcasts_list" to importedPodcastsList,
+                "total_onboarding_time_seconds" to totalOnboardingTimeSeconds,
+                "entry_point" to entryPoint
             )
         )
 
@@ -353,12 +423,18 @@ object AnalyticsHelper {
 
     // ── 5. Manual Genre Flow (Legacy / Switch) ──────────────────────
 
-    fun trackOnboardingManualStepCompleted(stepName: String, selectionsCount: Int, timeSpentSeconds: Float) {
+    fun trackOnboardingManualStepCompleted(
+        stepName: String,
+        selectionsCount: Int,
+        selectionsList: List<String>,
+        timeSpentSeconds: Float
+    ) {
         PostHog.capture(
             event = "onboarding_manual_step_completed",
             properties = mapOf(
                 "step_name" to stepName,
                 "selections_count" to selectionsCount,
+                "selections_list" to selectionsList,
                 "time_spent_seconds" to timeSpentSeconds
             )
         )
@@ -366,6 +442,7 @@ object AnalyticsHelper {
 
     fun trackOnboardingManualDone(
         totalSubscribedCount: Int,
+        subscribedPodcastsList: List<String>,
         totalOnboardingTimeSeconds: Float,
         didSwitchFromAi: Boolean,
         favoriteGenres: Set<String>
@@ -376,6 +453,7 @@ object AnalyticsHelper {
                 "method" to "manual_genre_flow",
                 "screen" to "ai_suggestions_screen",
                 "total_subscribed_count" to totalSubscribedCount,
+                "subscribed_podcasts_list" to subscribedPodcastsList,
                 "total_onboarding_time_seconds" to totalOnboardingTimeSeconds,
                 "did_switch_from_ai" to didSwitchFromAi
             )

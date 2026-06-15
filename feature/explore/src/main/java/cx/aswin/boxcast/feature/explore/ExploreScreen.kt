@@ -160,6 +160,8 @@ fun ExploreScreen(
         activeRegionCode = activeRegionCode,
         isPlayerVisible = isPlayerVisible,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
+        onSearchTriggered = viewModel::onSearchTriggered,
+        onSearchTabSelected = viewModel::setSearchTab,
         onCategorySelected = viewModel::onCategorySelected,
         onPodcastClick = { id, entryPoint, filter, index ->
             viewModel.trackPodcastClicked(index ?: 0)
@@ -183,6 +185,8 @@ fun ExploreContent(
     activeRegionCode: String = "us",
     isPlayerVisible: Boolean = false,
     onSearchQueryChanged: (String) -> Unit,
+    onSearchTriggered: (String) -> Unit = {},
+    onSearchTabSelected: (SearchTab) -> Unit = {},
     onCategorySelected: (String) -> Unit,
     onPodcastClick: (String, String, String?, Int?) -> Unit,
     onEpisodeClick: (Episode, Podcast) -> Unit,
@@ -244,8 +248,8 @@ fun ExploreContent(
     }
 
     var searchActive by rememberSaveable { mutableStateOf(false) }
-    
-    val isPrompting = searchActive && state.searchQuery.isEmpty() && state.currentVibe == null
+    val isSearchModeActive = searchActive || state.searchQuery.isNotEmpty() || state.currentVibe != null
+    val isPrompting = isSearchModeActive && state.searchQuery.isEmpty() && state.currentVibe == null
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
     // Box layout to hold everything
@@ -276,6 +280,7 @@ fun ExploreContent(
                 query = state.searchQuery,
                 onQueryChange = onSearchQueryChanged,
                 onSearch = { 
+                    onSearchTriggered(state.searchQuery)
                     searchActive = false 
                     focusManager.clearFocus()
                 },
@@ -309,10 +314,18 @@ fun ExploreContent(
                 )
             ) { }
             
-
+            // Search Tab Selector (Whenever search mode is active)
+            if (isSearchModeActive) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SearchTabSelector(
+                    selectedTab = state.searchTab,
+                    onTabSelected = onSearchTabSelected,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                )
+            }
             
             // Expandable Genre Cloud (Trending tab only)
-            if (!state.isSearching && !isPrompting && state.selectedTab == 0) {
+            if (!isSearchModeActive && state.selectedTab == 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 ExploreGenreSelector(
                     selectedCategory = state.currentCategory,
@@ -381,20 +394,164 @@ fun ExploreContent(
                 }
             }
 
-            if (isPrompting && state.suggestedVibes.isNotEmpty()) {
-                // Section Header
-                item(span = StaggeredGridItemSpan.FullLine) {
-                    ExploreSectionHeader(title = "Suggested for You")
-                }
-                items(distinctVibes, key = { "vibe_${it.first}" }) { vibe ->
-                    ExploreVibeCard(vibe = vibe, onClick = { 
-                        searchActive = false
-                        onVibeSelected(vibe.first, vibe.second) 
-                    })
+            if (isSearchModeActive) {
+                if (state.searchTab == SearchTab.EPISODES) {
+                    if (state.searchQuery.isEmpty()) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            ExploreEpisodesSearchIdleState()
+                        }
+                    } else {
+                        val eps = state.semanticSearchResults
+                        val showContent = eps.isNotEmpty()
+                        val showLoader = state.isSemanticLoading
+                        val showEmptyState = !state.isSemanticLoading && state.hasPerformedSemanticSearch && eps.isEmpty()
+
+                        if (showLoader && eps.isEmpty()) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(80.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BoxCastLoader.Expressive(size = 80.dp)
+                                }
+                            }
+                        } else if (showEmptyState) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                ExploreEpisodesSearchEmptyState()
+                            }
+                        } else if (showContent) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                val heroEp = eps[0]
+                                val parentPodcast = Podcast(
+                                    id = heroEp.podcastId ?: "",
+                                    title = heroEp.podcastTitle ?: "Podcast",
+                                    artist = "",
+                                    imageUrl = heroEp.podcastImageUrl?.takeIf { it.isNotBlank() } ?: heroEp.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                    description = "",
+                                    genre = heroEp.podcastGenre ?: "Podcast"
+                                )
+                                ExploreEpisodeHeroCard(
+                                    episode = heroEp,
+                                    onClick = {
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                            episodeId = heroEp.id,
+                                            episodeTitle = heroEp.title,
+                                            podcastId = parentPodcast.id,
+                                            podcastName = parentPodcast.title,
+                                            positionIndex = 0
+                                        )
+                                        onEpisodeClick(heroEp, parentPodcast)
+                                    }
+                                )
+                            }
+
+                            itemsIndexed(eps.drop(1), key = { _, it -> "search_semantic_${it.id}" }) { index, episode ->
+                                val parentPodcast = Podcast(
+                                    id = episode.podcastId ?: "",
+                                    title = episode.podcastTitle ?: "Podcast",
+                                    artist = "",
+                                    imageUrl = episode.podcastImageUrl?.takeIf { it.isNotBlank() } ?: episode.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                    description = "",
+                                    genre = episode.podcastGenre ?: "Podcast"
+                                )
+                                ExploreEpisodeBentoCard(
+                                    episode = episode,
+                                    onClick = {
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                            episodeId = episode.id,
+                                            episodeTitle = episode.title,
+                                            podcastId = parentPodcast.id,
+                                            podcastName = parentPodcast.title,
+                                            positionIndex = index + 1
+                                        )
+                                        onEpisodeClick(episode, parentPodcast)
+                                    }
+                                )
+                            }
+
+                            if (state.isSemanticLoading) {
+                                item(span = StaggeredGridItemSpan.FullLine) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        BoxCastLoader.Expressive(size = 48.dp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // SearchTab.SHOWS
+                    if (state.searchQuery.isEmpty()) {
+                        if (state.suggestedVibes.isNotEmpty()) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                ExploreSectionHeader(title = "Suggested for You")
+                            }
+                            items(distinctVibes, key = { "vibe_${it.first}" }) { vibe ->
+                                ExploreVibeCard(vibe = vibe, onClick = { 
+                                    searchActive = false
+                                    onVibeSelected(vibe.first, vibe.second) 
+                                })
+                            }
+                        }
+                    } else {
+                        val showContent = displayList.isNotEmpty()
+                        val showSkeletons = state.isLoading && displayList.isEmpty()
+                        val showEmptyState = !state.isLoading && displayList.isEmpty()
+
+                        if (showSkeletons) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(80.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val loaderSize = if (state.isSearching) 100.dp else 80.dp
+                                    BoxCastLoader.Expressive(size = loaderSize)
+                                }
+                            }
+                        } else if (showEmptyState) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                ExploreEmptyState()
+                            }
+                        } else if (showContent) {
+                            val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
+                            itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
+                                val cardHeight = 160.dp
+                                val entryPointStr = if (state.currentVibe != null) "explore_vibe" else "explore_search"
+                                ExplorePodcastCard(
+                                    podcast = podcast,
+                                    cardHeight = cardHeight,
+                                    showGenreChip = showGenreChip,
+                                    onClick = { onPodcastClick(podcast.id, entryPointStr, state.currentCategory, index) }
+                                )
+                            }
+                            
+                            if (state.isLoading) {
+                                item(span = StaggeredGridItemSpan.FullLine) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        BoxCastLoader.Expressive(size = 48.dp)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
+                // Not searching: standard tab content
                 // 1. Curated Vibes Row (For You tab only, when not searching/prompting)
-                if (state.selectedTab == 1 && !state.isSearching && state.currentVibe == null) {
+                if (state.selectedTab == 1 && state.currentVibe == null) {
                     item(span = StaggeredGridItemSpan.FullLine) {
                         Column(modifier = Modifier.padding(bottom = 8.dp)) {
                             LazyRow(
@@ -415,13 +572,11 @@ fun ExploreContent(
                     }
                 }
 
-                // 2. Unified Section Header (Only visible on Trending, search, or active Vibe)
-                if (state.selectedTab == 0 || state.isSearching || state.currentVibe != null) {
+                // 2. Unified Section Header (Only visible on Trending or active Vibe)
+                if ((state.selectedTab == 0) || state.currentVibe != null) {
                     item(span = StaggeredGridItemSpan.FullLine) {
                         if (state.currentVibe != null) {
                             CuratedVibeHeader(title = state.currentVibe)
-                        } else if (state.isSearching) {
-                            ExploreSearchHeader()
                         } else {
                             val headerTitle = if (state.currentCategory == "All") {
                                 "Featured Podcasts"
@@ -434,7 +589,7 @@ fun ExploreContent(
                 }
 
                 // Sleek glowing progress indicator for search background fetching
-                if (state.isLoading && (state.isSearching || state.currentVibe != null) && displayList.isNotEmpty()) {
+                if (state.isLoading && state.currentVibe != null && displayList.isNotEmpty()) {
                     item(span = StaggeredGridItemSpan.FullLine) {
                         LinearProgressIndicator(
                             modifier = Modifier
@@ -448,57 +603,7 @@ fun ExploreContent(
                     }
                 }
 
-                // Content switching based on search vs active tab
-                val isSearchingOrVibe = state.isSearching || state.currentVibe != null
-                
-                if (isSearchingOrVibe) {
-                    val showContent = displayList.isNotEmpty()
-                    val showSkeletons = state.isLoading && displayList.isEmpty()
-                    val showEmptyState = !state.isLoading && displayList.isEmpty()
-
-                    if (showSkeletons) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(80.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val loaderSize = if (state.isSearching) 100.dp else 80.dp
-                                BoxCastLoader.Expressive(size = loaderSize)
-                            }
-                        }
-                    } else if (showEmptyState) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            ExploreEmptyState()
-                        }
-                    } else if (showContent) {
-                        val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
-                        itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
-                            val cardHeight = 160.dp
-                            val entryPointStr = if (state.currentVibe != null) "explore_vibe" else "explore_search"
-                            ExplorePodcastCard(
-                                podcast = podcast,
-                                cardHeight = cardHeight,
-                                showGenreChip = showGenreChip,
-                                onClick = { onPodcastClick(podcast.id, entryPointStr, state.currentCategory, index) }
-                            )
-                        }
-                        
-                        if (state.isLoading) {
-                            item(span = StaggeredGridItemSpan.FullLine) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    BoxCastLoader.Expressive(size = 48.dp)
-                                }
-                            }
-                        }
-                    }
-                } else if (state.selectedTab == 1) {
+                if (state.selectedTab == 1) {
                     // For You Tab Content (Episodes Curation)
                     val recs = state.recommendations
                     val showContent = recs.isNotEmpty()
@@ -632,7 +737,7 @@ fun ExploreContent(
     }
 
     // Centered Bottom FAB for switching between For You and Top (Material 3 Segmented Control FAB)
-    if (!state.isSearching && !isPrompting) {
+    if (!isSearchModeActive) {
         val systemNavBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val bottomOffset = if (isPlayerVisible) {
             62.dp + 64.dp + 8.dp + 16.dp + systemNavBarHeight
@@ -1154,7 +1259,90 @@ private fun ExploreEmptyState() {
             modifier = Modifier.padding(horizontal = 24.dp)
         )
     }
-}@Composable
+}
+
+@Composable
+private fun ExploreEpisodesSearchEmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.SearchOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "No Episodes Found",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "We couldn't find any episodes matching your concept or query. Try using different keywords or describing the topic differently.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+    }
+}
+
+@Composable
+private fun ExploreEpisodesSearchIdleState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Search by Concept",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Describe what you're in the mood for in your own words. Try typing something like \"educational history of ancient rome\" or \"chilling unsolved mysteries\".",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+    }
+}
+
+
+@Composable
 fun ExploreVibeCard(
     vibe: Pair<String, String>,
     onClick: () -> Unit,
@@ -1303,7 +1491,7 @@ fun ExploreEpisodeHeroCard(
             .fillMaxWidth()
             .height(200.dp)
             .clip(RoundedCornerShape(20.dp))
-            .expressiveClickable(onClick = onClick)
+            .expressiveClickable(shape = RoundedCornerShape(20.dp), onClick = onClick)
     ) {
         OptimizedImage(
             url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
@@ -1669,6 +1857,124 @@ fun ExploreTabSelectorFab(
                             fontWeight = FontWeight.Bold,
                             color = topContentColor
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchTabSelector(
+    selectedTab: SearchTab,
+    onTabSelected: (SearchTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val totalWidth = 240.dp
+    val padding = 4.dp
+    val spacing = 4.dp
+    val tabWidth = 114.dp
+    val tabHeight = 36.dp
+
+    val targetOffset = if (selectedTab == SearchTab.EPISODES) tabWidth + spacing else 0.dp
+    val animatedOffset by animateDpAsState(
+        targetValue = targetOffset,
+        animationSpec = spring(
+            dampingRatio = 0.65f, // Premium bouncy feel
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "search_tab_offset"
+    )
+
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier.width(totalWidth)
+        ) {
+            Box(
+                modifier = Modifier.padding(padding)
+            ) {
+                // Sliding selection pill indicator
+                Box(
+                    modifier = Modifier
+                        .offset(x = animatedOffset)
+                        .width(tabWidth)
+                        .height(tabHeight)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        )
+                )
+
+                // Row containing the tab buttons on top
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // "Shows" Tab (index 0 / SearchTab.SHOWS)
+                    val isShowsSelected = selectedTab == SearchTab.SHOWS
+                    val showsContentColor by animateColorAsState(
+                        targetValue = if (isShowsSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        label = "shows_content"
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .width(tabWidth)
+                            .height(tabHeight)
+                            .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape) {
+                                onTabSelected(SearchTab.SHOWS)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Shows",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = showsContentColor
+                        )
+                    }
+
+                    // "Episodes (AI)" Tab (index 1 / SearchTab.EPISODES)
+                    val isEpisodesSelected = selectedTab == SearchTab.EPISODES
+                    val episodesContentColor by animateColorAsState(
+                        targetValue = if (isEpisodesSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        label = "episodes_content"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .width(tabWidth)
+                            .height(tabHeight)
+                            .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape) {
+                                onTabSelected(SearchTab.EPISODES)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = episodesContentColor,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Episodes",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = episodesContentColor
+                            )
+                        }
                     }
                 }
             }

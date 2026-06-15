@@ -105,5 +105,4 @@ The workflow executes the following pipeline:
   - Updates the Turso database to set qdrant_vectorized = 1 for the podcast.
 
 8. Rolling Window Cleanup:
-  - After updating, the script triggers a Qdrant pruning command (POST /collections/episodes/points/delete) to delete any episode for the current podcast whose ID is not within the top 30 active list.
-  - It runs a global cleanup call to delete any vectors in Qdrant with a published_date older than 60 days, ensuring the index stays within free-tier storage limits.
+  - After updating, the script triggers a Qdrant pruning command (POST /collections/episodes/points/delete) to delete any episode for the current podcast whose ID is not within the top 30 active list. This ensures the index remains strictly capped at the latest 30 episodes per show, staying within free-tier storage limits.
