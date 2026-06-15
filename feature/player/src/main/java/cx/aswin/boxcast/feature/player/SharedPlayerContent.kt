@@ -552,24 +552,9 @@ fun SharedPlayerContent(
                  isTranscriptActive = showTranscript,
                  onChaptersClick = onChaptersClick,
                  onTranscriptClick = {
-                     if (transcript.isNotEmpty()) {
-                         showTranscript = !showTranscript
-                         if (showTranscript) {
-                             cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
-                         }
-                     } else {
-                         when (autoTranscriptState) {
-                             AutoTranscriptState.NOT_GENERATED, AutoTranscriptState.FAILED -> {
-                                 showGenerateConfirmation = true
-                             }
-                             AutoTranscriptState.NONE, AutoTranscriptState.COMPLETED -> {
-                                 showTranscript = !showTranscript
-                                 if (showTranscript) {
-                                     cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
-                                 }
-                             }
-                             else -> { /* CHECKING/GENERATING — do nothing */ }
-                         }
+                     showTranscript = !showTranscript
+                     if (showTranscript) {
+                         cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.logAction("transcript_view")
                      }
                  },
                  style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.Squircle,

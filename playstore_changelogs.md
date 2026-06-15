@@ -1,6 +1,5 @@
 <en-GB>
 
-  https://us.posthog.com/shared/zhu63CTa7qhYkjvIId5LpRu3WZpMvQ
 BoxCast v2.6.3
 * AI-Powered Onboarding: Tell us what you love in a quick chat and get personalised podcast recommendations instantly.
 * Smarter Recommendations: Improved discovery engine delivers better podcast suggestions tailored to your taste.
@@ -34,10 +33,10 @@ BoxCast v2.6.3
 
 <fr-FR>
 BoxCast v2.6.3
-* Onboarding par IA : Dites-nous ce que vous aimez dans un bref chat et recevez instantanément des recommandations de podcasts personnalisées.
-* Recommandations plus intelligentes : Le moteur de découverte amélioré propose des podcasts adaptés à vos goûts.
-* Plusieurs parcours d'onboarding : Trouvez des podcasts à votre façon — recherchez directement, parcourez les genres ou importez votre bibliothèque existante.
-* Performance et stabilité : Correction du chargement des pochettes, meilleure utilisation de la mémoire et navigation plus fluide.
+* Onboarding IA : Décrivez vos goûts dans un bref chat et recevez des recommandations de podcasts personnalisées.
+* Recommandations améliorées : Le moteur de découverte propose des podcasts mieux adaptés à vos goûts.
+* Plusieurs parcours : Recherchez, parcourez les genres ou importez votre bibliothèque existante.
+* Stabilité : Correction du chargement des pochettes, meilleure mémoire et navigation plus fluide.
 </fr-FR>
 
 <ru-RU>

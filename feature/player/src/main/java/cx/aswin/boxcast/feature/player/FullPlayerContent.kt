@@ -433,6 +433,7 @@ fun FullPlayerContent(
                 onClose = { showChaptersSheet = false },
                 chaptersUrl = state.currentEpisode?.chaptersUrl,
                 isChaptersLoading = state.isChaptersLoading,
+                hasTranscript = state.autoTranscriptState == cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState.NONE || state.autoTranscriptState == cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState.COMPLETED,
                 onGenerateChapters = { playbackRepository.generateAutoChapters() }
             )
         }

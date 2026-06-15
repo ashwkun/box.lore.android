@@ -130,8 +130,11 @@ fun AdvancedPlayerControls(
          }
 
         // 1.5. CHAPTERS
-        if (onChaptersClick != null) {
-            val isChaptersAnimating = isChaptersLoading || autoChaptersState == AutoTranscriptState.GENERATING
+        val isChaptersAnimating = isChaptersLoading || autoChaptersState == AutoTranscriptState.GENERATING
+        val showChaptersButton = hasChapters || 
+                                 isChaptersAnimating || 
+                                 ((autoTranscriptState == AutoTranscriptState.NONE || autoTranscriptState == AutoTranscriptState.COMPLETED) && !hasChapters)
+        if (onChaptersClick != null && showChaptersButton) {
             AdaptiveControlButton(
                 style = style,
                 isActive = false,
@@ -148,19 +151,13 @@ fun AdvancedPlayerControls(
         }
 
         // 1.6. TRANSCRIPT
-        if (onTranscriptClick != null) {
+        val showTranscriptButton = autoTranscriptState == AutoTranscriptState.NONE || 
+                                   autoTranscriptState == AutoTranscriptState.COMPLETED || 
+                                   isTranscriptActive
+        if (onTranscriptClick != null && showTranscriptButton) {
             // Determine loading/active/tint based on auto-transcript state
             val isTranscriptLoading = autoTranscriptState == AutoTranscriptState.GENERATING
-            val hasTranscript = autoTranscriptState == AutoTranscriptState.NONE || autoTranscriptState == AutoTranscriptState.COMPLETED || isTranscriptActive
             val transcriptBadge: (@Composable () -> Unit)? = when (autoTranscriptState) {
-                AutoTranscriptState.NOT_GENERATED, AutoTranscriptState.FAILED -> {{
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = colorScheme.tertiary,
-                        modifier = Modifier.size(12.dp)
-                    )
-                }}
                 AutoTranscriptState.COMPLETED -> {{
                     Icon(
                         imageVector = Icons.Rounded.Check,
@@ -187,7 +184,7 @@ fun AdvancedPlayerControls(
                 } else {
                     baseActiveTint
                 },
-                inactiveTint = if (hasTranscript || isTranscriptLoading) baseInactiveTint else baseInactiveTint.copy(alpha = 0.3f),
+                inactiveTint = baseInactiveTint,
                 activeContainerColor = if (style == ControlStyle.TonalSquircle) {
                     if (overrideColor != null) colorScheme.primaryContainer else colorScheme.tertiaryContainer
                 } else if (style == ControlStyle.Squircle) {

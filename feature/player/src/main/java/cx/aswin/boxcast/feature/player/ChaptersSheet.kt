@@ -31,6 +31,7 @@ fun ChaptersSheetContent(
     onClose: () -> Unit,
     chaptersUrl: String? = null,
     isChaptersLoading: Boolean = false,
+    hasTranscript: Boolean = false,
     onGenerateChapters: () -> Unit = {}
 ) {
     Surface(
@@ -86,28 +87,30 @@ fun ChaptersSheetContent(
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            onClose()
-                            onGenerateChapters()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorScheme.primaryContainer,
-                            contentColor = colorScheme.onPrimaryContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Generate AI Chapters",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                         )
+                    if (hasTranscript) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                onClose()
+                                onGenerateChapters()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorScheme.primaryContainer,
+                                contentColor = colorScheme.onPrimaryContainer
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Generate AI Chapters",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
                     }
                 }
             } else {
