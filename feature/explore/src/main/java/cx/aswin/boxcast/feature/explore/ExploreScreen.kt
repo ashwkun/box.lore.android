@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.FlowRowOverflow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.layout.PaddingValues
@@ -52,6 +51,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -277,36 +277,42 @@ fun ExploreContent(
             
             // Search Bar (Always Visible)
             DockedSearchBar(
-                query = state.searchQuery,
-                onQueryChange = onSearchQueryChanged,
-                onSearch = { 
-                    onSearchTriggered(state.searchQuery)
-                    searchActive = false 
-                    focusManager.clearFocus()
-                },
-                active = false,
-                onActiveChange = { searchActive = it },
-                placeholder = { Text("Search podcasts...") },
-                leadingIcon = { 
-                    if (searchActive || state.searchQuery.isNotEmpty() || state.currentVibe != null) {
-                        IconButton(onClick = {
-                            searchActive = false
-                            onSearchQueryChanged("")
-                            onClearVibe()
+                expanded = false,
+                onExpandedChange = { searchActive = it },
+                inputField = {
+                    SearchBarDefaults.InputField(
+                        query = state.searchQuery,
+                        onQueryChange = onSearchQueryChanged,
+                        onSearch = { 
+                            onSearchTriggered(state.searchQuery)
+                            searchActive = false 
                             focusManager.clearFocus()
-                        }) {
-                            Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                        },
+                        expanded = false,
+                        onExpandedChange = { searchActive = it },
+                        placeholder = { Text("Search podcasts...") },
+                        leadingIcon = { 
+                            if (searchActive || state.searchQuery.isNotEmpty() || state.currentVibe != null) {
+                                IconButton(onClick = {
+                                    searchActive = false
+                                    onSearchQueryChanged("")
+                                    onClearVibe()
+                                    focusManager.clearFocus()
+                                }) {
+                                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                                }
+                            } else {
+                                Icon(Icons.Rounded.Search, contentDescription = null) 
+                            }
+                        },
+                        trailingIcon = {
+                            if (state.searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { onSearchQueryChanged("") }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Clear")
+                                }
+                            }
                         }
-                    } else {
-                        Icon(Icons.Rounded.Search, contentDescription = null) 
-                    }
-                },
-                trailingIcon = {
-                    if (state.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { onSearchQueryChanged("") }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Clear")
-                        }
-                    }
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = SearchBarDefaults.colors(
@@ -314,8 +320,8 @@ fun ExploreContent(
                 )
             ) { }
             
-            // Search Tab Selector (Whenever search mode is active)
-            if (isSearchModeActive) {
+            // Search Tab Selector (Whenever search mode is active, but not browsing a vibe)
+            if (isSearchModeActive && state.currentVibe == null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 SearchTabSelector(
                     selectedTab = state.searchTab,
@@ -487,7 +493,7 @@ fun ExploreContent(
                     }
                 } else {
                     // SearchTab.SHOWS
-                    if (state.searchQuery.isEmpty()) {
+                    if (state.searchQuery.isEmpty() && state.currentVibe == null) {
                         if (state.suggestedVibes.isNotEmpty()) {
                             item(span = StaggeredGridItemSpan.FullLine) {
                                 ExploreSectionHeader(title = "Suggested for You")
@@ -495,6 +501,7 @@ fun ExploreContent(
                             items(distinctVibes, key = { "vibe_${it.first}" }) { vibe ->
                                 ExploreVibeCard(vibe = vibe, onClick = { 
                                     searchActive = false
+                                    focusManager.clearFocus()
                                     onVibeSelected(vibe.first, vibe.second) 
                                 })
                             }
@@ -521,6 +528,11 @@ fun ExploreContent(
                                 ExploreEmptyState()
                             }
                         } else if (showContent) {
+                            if (state.currentVibe != null) {
+                                item(span = StaggeredGridItemSpan.FullLine) {
+                                    ExploreSectionHeader(title = "Vibe: ${state.currentVibe}")
+                                }
+                            }
                             val showGenreChip = state.currentCategory == "All" && state.currentVibe == null
                             itemsIndexed(gridItems, key = { _, it -> "grid_${it.id}" }) { index, podcast ->
                                 val cardHeight = 160.dp
@@ -551,7 +563,7 @@ fun ExploreContent(
             } else {
                 // Not searching: standard tab content
                 // 1. Curated Vibes Row (For You tab only, when not searching/prompting)
-                if (state.selectedTab == 1 && state.currentVibe == null) {
+                if (state.selectedTab == 1) {
                     item(span = StaggeredGridItemSpan.FullLine) {
                         Column(modifier = Modifier.padding(bottom = 8.dp)) {
                             LazyRow(
@@ -563,6 +575,8 @@ fun ExploreContent(
                                     ExploreVibeChip(
                                         vibe = vibe,
                                         onClick = {
+                                            searchActive = false
+                                            focusManager.clearFocus()
                                             onVibeSelected(vibe.first, vibe.second)
                                         }
                                     )
@@ -573,33 +587,14 @@ fun ExploreContent(
                 }
 
                 // 2. Unified Section Header (Only visible on Trending or active Vibe)
-                if ((state.selectedTab == 0) || state.currentVibe != null) {
+                if (state.selectedTab == 0) {
                     item(span = StaggeredGridItemSpan.FullLine) {
-                        if (state.currentVibe != null) {
-                            CuratedVibeHeader(title = state.currentVibe)
+                        val headerTitle = if (state.currentCategory == "All") {
+                            "Featured Podcasts"
                         } else {
-                            val headerTitle = if (state.currentCategory == "All") {
-                                "Featured Podcasts"
-                            } else {
-                                "Top in ${state.currentCategory}"
-                            }
-                            ExploreSectionHeader(title = headerTitle)
+                            "Top in ${state.currentCategory}"
                         }
-                    }
-                }
-
-                // Sleek glowing progress indicator for search background fetching
-                if (state.isLoading && state.currentVibe != null && displayList.isNotEmpty()) {
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(3.dp)
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                                .clip(RoundedCornerShape(2.dp)),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                        )
+                        ExploreSectionHeader(title = headerTitle)
                     }
                 }
 
@@ -1845,7 +1840,7 @@ fun ExploreTabSelectorFab(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.TrendingUp,
+                            imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
                             contentDescription = null,
                             tint = topContentColor,
                             modifier = Modifier.size(16.dp)

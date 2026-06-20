@@ -46,12 +46,12 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.ViewList
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.runtime.saveable.rememberSaveable
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import androidx.compose.material3.Badge
@@ -88,7 +88,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -244,7 +244,7 @@ fun SubscriptionsScreen(
                                 isSearchActive = false
                                 searchQuery = ""
                             }) {
-                                Icon(Icons.Rounded.ArrowBack, contentDescription = "Close Search")
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Close Search")
                             }
                         },
                         actions = {
@@ -263,13 +263,13 @@ fun SubscriptionsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         },
-                        colors = TopAppBarDefaults.largeTopAppBarColors(
+                        colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
                             scrolledContainerColor = Color.Transparent
                         ),
                         navigationIcon = {
                             IconButton(onClick = onBack) {
-                                Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                             }
                         },
                         actions = {
@@ -279,7 +279,7 @@ fun SubscriptionsScreen(
                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsLayoutToggled(isGridView)
                                 }) {
                                     Icon(
-                                        imageVector = if (isGridView) Icons.Rounded.ViewList else Icons.Rounded.GridView,
+                                        imageVector = if (isGridView) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
                                         contentDescription = if (isGridView) "List View" else "Grid View"
                                     )
                                 }
@@ -287,7 +287,7 @@ fun SubscriptionsScreen(
                             if (hasSubscribedPodcasts) {
                                 Box {
                                     IconButton(onClick = { showSortMenu = true }) {
-                                        Icon(Icons.Rounded.Sort, contentDescription = "Sort")
+                                        Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = "Sort")
                                     }
                                     DropdownMenu(
                                         expanded = showSortMenu,

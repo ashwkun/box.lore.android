@@ -2,8 +2,13 @@ name: Sync Podcast Index Data
 
 on:
   schedule:
-    # Run every 6 hours at minute 30 (avoids collision with boxcast-api cron)
-    - cron: '30 */6 * * *'
+    # Optimized triggers for early morning daily news in targeted country commutes
+    - cron: '0 1 * * *'   # 01:00 UTC (Optimal for India morning)
+    - cron: '0 5 * * *'   # 05:00 UTC (Optimal for Europe/UK morning)
+    - cron: '0 9 * * *'   # 09:00 UTC (Optimal for US East early-birds / India midday)
+    - cron: '0 12 * * *'  # 12:00 UTC (Optimal for US East standard commute)
+    - cron: '0 16 * * *'  # 16:00 UTC (Optimal for US West commute / UK evening)
+    - cron: '0 21 * * *'  # 21:00 UTC (Optimal for US East evening / evening catch-up)
   workflow_dispatch: # Allow manual trigger
 
 concurrency:

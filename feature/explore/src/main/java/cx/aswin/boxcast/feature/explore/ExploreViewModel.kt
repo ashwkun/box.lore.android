@@ -664,7 +664,7 @@ class ExploreViewModel(
                 android.util.Log.d("ExploreViewModel", "Fetched recommendations size: ${recs.size}")
                 val distinctRecs = recs
                     .distinctBy { it.id }
-                    .distinctBy { it.title.toLowerCase().trim() }
+                    .distinctBy { it.title.lowercase().trim() }
                 _recommendations.value = distinctRecs
             } catch (e: Exception) {
                 android.util.Log.e("ExploreViewModel", "Failed to fetch personalized recommendations", e)

@@ -221,7 +221,7 @@ class PlaybackRepository(
                                 }
 
                                 // But if chaptersUrl is empty, check if we have auto chapters in Turso
-                                if (chaptersUrl.isNullOrEmpty() && episode != null && episode.audioUrl.isNotEmpty()) {
+                                if (chaptersUrl.isNullOrEmpty() && episode?.audioUrl?.isNotEmpty() == true) {
                                     launch {
                                         val deviceUuid = getOrCreateDeviceUuid()
                                         val response = TranscriptRepository.checkAutoTranscriptStatus(

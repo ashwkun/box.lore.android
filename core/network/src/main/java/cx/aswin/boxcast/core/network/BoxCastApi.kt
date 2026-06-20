@@ -24,11 +24,18 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Header
 import retrofit2.http.Query
+import retrofit2.http.Path
+import cx.aswin.boxcast.core.model.Briefing
 
 /**
  * BoxCast API - Cloudflare Worker proxy for Podcast Index
  */
 interface BoxCastApi {
+
+    @GET("briefings/metadata/{region}")
+    fun getBriefingMetadata(
+        @Path("region") region: String
+    ): retrofit2.Call<Briefing>
     
     @GET("trending")
     fun getTrending(

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -279,7 +280,10 @@ fun EpisodeInfoScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(collapsedHeaderHeight + 240.dp)
-                        .alpha(1f - scrollFraction)
+                        .graphicsLayer {
+                            translationY = -scrollOffset * 0.5f
+                            alpha = 1f - scrollFraction
+                        }
                 ) {
                     OptimizedImage(
                         url = state.episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
@@ -564,7 +568,7 @@ fun EpisodeInfoScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
-                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.Label,
+                                                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Label,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(16.dp),
                                                     tint = MaterialTheme.colorScheme.primary

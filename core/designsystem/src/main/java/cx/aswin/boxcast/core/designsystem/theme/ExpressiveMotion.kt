@@ -24,6 +24,19 @@ import kotlinx.coroutines.launch
  * - Tactile Scaling (0.85 down, 1.0 up with bounce).
  */
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+
+/**
+ * Material 3 Expressive Motion Physics.
+ * 
+ * Guidelines:
+ * - Springs over Easing.
+ * - Tactile Scaling (0.85 down, 1.0 up with bounce).
+ */
+
 object ExpressiveMotion {
     // Very bouncy spring for release
     val BouncySpring = spring<Float>(
@@ -55,8 +68,6 @@ object ExpressiveMotion {
  * 1. On tap: Quickly shrink to 0.85
  * 2. Then immediately bounce back to 1.0
  * 3. Fire onClick when animation starts
- *
- * @param isolate Accepted for API compatibility but currently unused.
  */
 fun Modifier.expressiveClickable(
     enabled: Boolean = true,
@@ -64,9 +75,23 @@ fun Modifier.expressiveClickable(
     @Suppress("UNUSED_PARAMETER") isolate: Boolean = false,
     onClick: () -> Unit
 ): Modifier = composed {
-    val currentOnClick by androidx.compose.runtime.rememberUpdatedState(onClick)
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val scale = remember { Animatable(1f) }
-    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            scale.animateTo(
+                targetValue = 0.85f,
+                animationSpec = ExpressiveMotion.QuickSpring
+            )
+        } else {
+            scale.animateTo(
+                targetValue = 1f,
+                animationSpec = ExpressiveMotion.BouncySpring
+            )
+        }
+    }
 
     this
         .graphicsLayer {
@@ -77,32 +102,12 @@ fun Modifier.expressiveClickable(
                 this.shape = shape
             }
         }
-        .pointerInput(enabled) {
-            if (!enabled) return@pointerInput
-            detectTapGestures(
-                onPress = { 
-                    // Quick shrink on press
-                    scope.launch {
-                        scale.animateTo(
-                            targetValue = 0.85f,
-                            animationSpec = ExpressiveMotion.QuickSpring
-                        )
-                    }
-                    // Wait for release
-                    tryAwaitRelease()
-                    // Bounce back
-                    scope.launch {
-                        scale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = ExpressiveMotion.BouncySpring
-                        )
-                    }
-                },
-                onTap = {
-                    currentOnClick()
-                }
-            )
-        }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            enabled = enabled,
+            onClick = onClick
+        )
 }
 
 // Keep backward compatibility for callers passing interactionSource
@@ -112,4 +117,38 @@ fun Modifier.expressiveClickable(
     enabled: Boolean = true,
     shape: androidx.compose.ui.graphics.Shape? = null,
     onClick: () -> Unit
-): Modifier = expressiveClickable(enabled = enabled, shape = shape, onClick = onClick)
+): Modifier = composed {
+    val localInteractionSource = interactionSource ?: remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isPressed by localInteractionSource.collectIsPressedAsState()
+    val scale = remember { Animatable(1f) }
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            scale.animateTo(
+                targetValue = 0.85f,
+                animationSpec = ExpressiveMotion.QuickSpring
+            )
+        } else {
+            scale.animateTo(
+                targetValue = 1f,
+                animationSpec = ExpressiveMotion.BouncySpring
+            )
+        }
+    }
+
+    this
+        .graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+            if (shape != null) {
+                clip = true
+                this.shape = shape
+            }
+        }
+        .clickable(
+            interactionSource = localInteractionSource,
+            indication = null,
+            enabled = enabled,
+            onClick = onClick
+        )
+}

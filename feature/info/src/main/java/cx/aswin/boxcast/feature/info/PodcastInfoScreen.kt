@@ -56,6 +56,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -388,7 +389,10 @@ fun PodcastInfoScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(collapsedHeaderHeight + 240.dp)
-                        .alpha(1f - scrollFraction)
+                        .graphicsLayer {
+                            translationY = -scrollOffset * 0.5f
+                            alpha = 1f - scrollFraction
+                        }
                 ) {
                     OptimizedImage(
                         url = state.podcast.imageUrl.takeIf { it.isNotEmpty() } ?: state.podcast.fallbackImageUrl,
@@ -888,7 +892,7 @@ fun PodcastInfoScreen(
                                             "film" -> Icons.Rounded.Movie
                                             "audiobook" -> Icons.Rounded.AutoStories
                                             "newsletter" -> Icons.Rounded.Email
-                                            "blog" -> Icons.Rounded.Article
+                                            "blog" -> Icons.AutoMirrored.Rounded.Article
                                             else -> Icons.Rounded.Headphones
                                         }
                                         Surface(

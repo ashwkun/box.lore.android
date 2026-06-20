@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -153,7 +154,7 @@ internal fun AiSuggestionsScreen(
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent
                     )
                 )
@@ -418,7 +419,7 @@ internal fun AiSuggestionsScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = if (isChartsTab) {
-                                                        Icons.Rounded.TrendingUp
+                                                         Icons.AutoMirrored.Rounded.TrendingUp
                                                     } else {
                                                         val iconIndex = if (hasCharts) index - 1 else index
                                                         when (iconIndex % 4) {

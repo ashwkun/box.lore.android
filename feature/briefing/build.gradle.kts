@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "cx.aswin.boxcast.feature.explore"
+    namespace = "cx.aswin.boxcast.feature.briefing"
     compileSdk = 34
 
     defaultConfig {
@@ -36,13 +36,13 @@ android {
     buildFeatures {
         compose = true
     }
-
 }
 
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:data"))
     implementation(project(":core:model"))
+    implementation(project(":core:network"))
     
     // Compose
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
@@ -66,4 +66,7 @@ dependencies {
 
     // PostHog
     implementation(libs.posthog.android)
+
+    // Palette
+    implementation(libs.androidx.palette.ktx)
 }

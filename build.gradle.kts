@@ -6,17 +6,6 @@ plugins {
     alias(libs.plugins.androidLibrary) apply false
     alias(libs.plugins.googleServices) apply false
     alias(libs.plugins.firebaseCrashlytics) apply false
+    alias(libs.plugins.kotlinCompose) apply false
 }
 
-subprojects {
-    configurations.all {
-        resolutionStrategy {
-            force("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
-            force("org.jetbrains.kotlin:kotlin-stdlib-common:1.9.24")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24")
-            force("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.6.3")
-            force("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3")
-        }
-    }
-}

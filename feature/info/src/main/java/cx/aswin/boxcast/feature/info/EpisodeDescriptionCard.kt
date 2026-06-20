@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.outlined.*
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -294,25 +296,72 @@ internal fun EpisodeDescriptionCard(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            HtmlText(
-                text = formattedDescription,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    lineHeight = 20.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = if (expanded || !isLong) Int.MAX_VALUE else 8,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { if (isLong) expanded = !expanded },
-                onLinkClicked = { url ->
-                    if (url.startsWith("play-position:")) {
-                        val seconds = url.substringAfter("play-position:").toLongOrNull() ?: 0L
-                        onSeekTo?.invoke(seconds * 1000L)
-                        true
-                    } else {
-                        false
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                HtmlText(
+                    text = formattedDescription,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = 20.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (expanded || !isLong) Int.MAX_VALUE else 4,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { if (isLong) expanded = !expanded },
+                    onLinkClicked = { url ->
+                        if (url.startsWith("play-position:")) {
+                            val seconds = url.substringAfter("play-position:").toLongOrNull() ?: 0L
+                            onSeekTo?.invoke(seconds * 1000L)
+                            true
+                        } else {
+                            false
+                        }
                     }
+                )
+
+                if (!expanded && isLong) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                    )
+                                )
+                            )
+                    )
                 }
-            )
+            }
+
+            if (isLong) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .expressiveClickable(shape = RoundedCornerShape(8.dp)) { expanded = !expanded }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (expanded) "Show less" else "Read more",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor.copy(alpha = 0.9f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = accentColor.copy(alpha = 0.9f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
 
 
 

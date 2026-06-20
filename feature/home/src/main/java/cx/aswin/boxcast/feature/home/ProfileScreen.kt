@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -144,7 +145,7 @@ fun ProfileScreen(
             }
 
             item {
-                SectionCard("Library & Content", Icons.Rounded.LibraryBooks) {
+                SectionCard("Library & Content", Icons.AutoMirrored.Rounded.LibraryBooks) {
                     ContentLibrarySection(
                         currentRegion, 
                         { 

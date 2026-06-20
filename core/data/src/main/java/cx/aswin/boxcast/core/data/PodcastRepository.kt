@@ -4,6 +4,7 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Person
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.Transcript
+import cx.aswin.boxcast.core.model.Briefing
 import cx.aswin.boxcast.core.network.BoxCastApi
 import cx.aswin.boxcast.core.network.NetworkModule
 import kotlinx.coroutines.Dispatchers
@@ -631,6 +632,20 @@ class PodcastRepository(
         } catch (e: Exception) {
             android.util.Log.e("RadioDebug", "searchRadioStations error", e)
             emptyList()
+        }
+    }
+
+    suspend fun getBriefingMetadata(region: String): Briefing? = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getBriefingMetadata(region).execute()
+            if (response.isSuccessful) {
+                response.body()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PodcastRepository", "Failed to fetch briefing for $region", e)
+            null
         }
     }
 

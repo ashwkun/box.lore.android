@@ -19,6 +19,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.io.IOException
 import cx.aswin.boxcast.core.model.Episode
+import cx.aswin.boxcast.core.model.Briefing
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
@@ -97,7 +98,8 @@ data class HomeUiState(
     val selectedPodcastEpisodes: List<Episode> = emptyList(),
     val isSelectedPodcastLoading: Boolean = false,
     val episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
-    val showImportBanner: Boolean = false
+    val showImportBanner: Boolean = false,
+    val briefing: Briefing? = null
 )
 
 data class HomeDataWrapper(
@@ -111,7 +113,8 @@ data class HomeDataWrapper(
     val isTrendingLoaded: Boolean = false,
     val isCuratedLoaded: Boolean = false,
     val isRecommendationsLoaded: Boolean = false,
-    val hasDismissedImportBanner: Boolean = false
+    val hasDismissedImportBanner: Boolean = false,
+    val briefing: Briefing? = null
 )
 
 /**
@@ -158,6 +161,7 @@ class HomeViewModel(
     private val _isTrendingLoaded = MutableStateFlow(false)
     private val _isCuratedLoaded = MutableStateFlow(false)
     private val _isRecommendationsLoaded = MutableStateFlow(false)
+    private val _briefingState = MutableStateFlow<Briefing?>(null)
     
     private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
     
@@ -394,7 +398,7 @@ class HomeViewModel(
                 android.util.Log.d("HomeViewModel", "Fetched recommendations size: ${recs.size}")
                 val distinctRecs = recs
                     .distinctBy { it.id }
-                    .distinctBy { it.title.toLowerCase().trim() }
+                    .distinctBy { it.title.lowercase().trim() }
                 _recommendations.value = distinctRecs
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to fetch personalized recommendations", e)
@@ -441,6 +445,16 @@ class HomeViewModel(
                     fetchPersonalizedRecommendations(region)
                 }
                 activeRegion = region
+                
+                launch {
+                    try {
+                        val result = podcastRepository.getBriefingMetadata(region)
+                        _briefingState.value = result
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeViewModel", "Failed to fetch briefing for $region", e)
+                        _briefingState.value = null
+                    }
+                }
                 
                 // CRITICAL FIX: getTrendingPodcastsStream is a cold flow{} that COMPLETES 
                 // after parsing the network response. When used directly in combine(), its 
@@ -506,7 +520,8 @@ class HomeViewModel(
                     _isTrendingLoaded,
                     _isCuratedLoaded,
                     _isRecommendationsLoaded,
-                    userPrefs.hasDismissedHomeImportBannerStream
+                    userPrefs.hasDismissedHomeImportBannerStream,
+                    _briefingState
                 ) { array ->
                     HomeDataWrapper(
                         trending = array[0] as List<Podcast>,
@@ -519,7 +534,8 @@ class HomeViewModel(
                         isTrendingLoaded = array[8] as Boolean,
                         isCuratedLoaded = array[9] as Boolean,
                         isRecommendationsLoaded = array[10] as Boolean,
-                        hasDismissedImportBanner = array[11] as Boolean
+                        hasDismissedImportBanner = array[11] as Boolean,
+                        briefing = array[12] as Briefing?
                     )
                 }.collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1178,7 +1194,8 @@ class HomeViewModel(
                             selectedPodcastEpisodes = _selectedPodcastEpisodes.value,
                             isSelectedPodcastLoading = _isSelectedPodcastLoading.value,
                             episodePlaybackState = episodePlaybackState,
-                            showImportBanner = sortedSubs.isEmpty() && !wrapper.hasDismissedImportBanner
+                            showImportBanner = sortedSubs.isEmpty() && !wrapper.hasDismissedImportBanner,
+                            briefing = wrapper.briefing
                         )
                     }
                 }

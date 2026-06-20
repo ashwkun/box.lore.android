@@ -69,6 +69,8 @@ import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import androidx.compose.ui.graphics.Brush
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxcast.core.model.Briefing
+import cx.aswin.boxcast.feature.home.components.DailyBriefingCard
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -78,6 +80,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.DriveFolderUpload
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
@@ -129,6 +132,7 @@ fun HomeRoute(
     onClearSleepTimer: () -> Unit = {},
     onImportClick: () -> Unit = {},
     onAiOnboardingClick: () -> Unit = {},
+    onBriefingClick: (String) -> Unit = {},
     navController: NavController? = null,
     modifier: Modifier = Modifier
 ) {
@@ -225,6 +229,7 @@ fun HomeRoute(
         onImportClick = onImportClick,
         onAiOnboardingClick = onAiOnboardingClick,
         onDismissImportBanner = viewModel::dismissHomeImportBanner,
+        onBriefingClick = onBriefingClick,
 
         modifier = modifier
     )
@@ -275,6 +280,7 @@ fun HomeScreen(
     onImportClick: () -> Unit = {},
     onAiOnboardingClick: () -> Unit = {},
     onDismissImportBanner: () -> Unit = {},
+    onBriefingClick: (String) -> Unit = {},
 
     modifier: Modifier = Modifier
 ) {
@@ -347,6 +353,7 @@ fun HomeScreen(
                             unplayedEpisodeCount = uiState.unplayedEpisodeCount,
                             subscribedItems = uiState.subscribedPodcasts,
                             timeBlock = uiState.timeBlock,
+                            briefing = uiState.briefing,
                             gridItems = uiState.discoverPodcasts,
                             selectedCategory = uiState.selectedCategory,
                             currentPlayingPodcastId = currentPlayingPodcastId,
@@ -383,6 +390,7 @@ fun HomeScreen(
                             onImportClick = onImportClick,
                             onAiOnboardingClick = onAiOnboardingClick,
                             onDismissImportBanner = onDismissImportBanner,
+                            onBriefingClick = onBriefingClick,
                             gridState = gridState
                         )
                     }
@@ -481,6 +489,8 @@ private fun PodcastFeed(
     onImportClick: () -> Unit = {},
     onAiOnboardingClick: () -> Unit = {},
     onDismissImportBanner: () -> Unit = {},
+    briefing: Briefing? = null,
+    onBriefingClick: (String) -> Unit = {},
     gridState: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
     modifier: Modifier = Modifier
 ) {
@@ -696,6 +706,100 @@ private fun PodcastFeed(
                 }
             }
         }
+
+        // Daily Briefing Card
+        if (briefing != null) {
+            item(span = StaggeredGridItemSpan.FullLine) {
+                Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                    // Section Header matching M3 styling
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Daily Briefing",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            letterSpacing = (-0.5).sp
+                        )
+                    }
+
+                    DailyBriefingCard(
+                        briefing = briefing,
+                        isPlaying = isPlaying && currentPlayingEpisodeId == "briefing_${briefing.region}_${briefing.date}",
+                        onPlayPauseClick = {
+                            val isCurrentPlaying = isPlaying && currentPlayingEpisodeId == "briefing_${briefing.region}_${briefing.date}"
+                            if (isCurrentPlaying) {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
+                                    region = briefing.region,
+                                    date = briefing.date,
+                                    source = "home_banner"
+                                )
+                            } else {
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
+                                    region = briefing.region,
+                                    date = briefing.date,
+                                    source = "home_banner"
+                                )
+                            }
+
+                            val publishedDate = try {
+                                java.time.LocalDate.parse(briefing.date)
+                                    .atStartOfDay(java.time.ZoneOffset.UTC)
+                                    .toEpochSecond()
+                            } catch (e: Exception) {
+                                System.currentTimeMillis() / 1000
+                            }
+                            val audioUri = android.net.Uri.parse(briefing.audioUrl)
+                            val version = audioUri.getQueryParameter("v")
+                            val versionParam = if (version != null) "&v=$version" else ""
+                            onPlayEpisode(
+                                cx.aswin.boxcast.core.model.Episode(
+                                    id = "briefing_${briefing.region}_${briefing.date}",
+                                    title = briefing.title,
+                                    description = "Your daily AI-generated news briefing for ${briefing.region.uppercase()}.",
+                                    audioUrl = briefing.audioUrl,
+                                    imageUrl = briefing.coverUrl,
+                                    podcastId = "briefing_${briefing.region}",
+                                    podcastTitle = "The Boxcast Brief",
+                                    podcastImageUrl = briefing.coverUrl,
+                                    podcastArtist = "BoxCast AI",
+                                    duration = 180,
+                                    publishedDate = publishedDate,
+                                    transcriptUrl = "https://api.aswin.cx/briefings/transcript/${briefing.region}?d=${briefing.date}$versionParam",
+                                    chaptersUrl = "https://api.aswin.cx/briefings/chapters/${briefing.region}?d=${briefing.date}$versionParam"
+                                ),
+                                cx.aswin.boxcast.core.model.Podcast(
+                                    id = "briefing_${briefing.region}",
+                                    title = "The Boxcast Brief",
+                                    artist = "BoxCast AI",
+                                    imageUrl = briefing.coverUrl
+                                )
+                            )
+                        },
+                        onClick = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
+                                region = briefing.region,
+                                date = briefing.date
+                            )
+                            onBriefingClick(briefing.region)
+                        }
+                    )
+                }
+            }
+        }
+
         // 4. Discover Section (Header + Chips + Loading State)
         item(span = StaggeredGridItemSpan.FullLine) {
             cx.aswin.boxcast.feature.home.components.DiscoverSection(

@@ -249,7 +249,7 @@ private fun AiChatOnboardingScreen(
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent
                     )
                 )
@@ -1406,7 +1406,7 @@ private fun FinalSynthesisLoadingPanel(stage: AiLoadingStage, elapsedSeconds: In
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
                     DelayBypassBanner(onSwitchToManual = onSwitchToManual)
                 }
             }

@@ -1242,6 +1242,44 @@ object AnalyticsHelper {
         PostHog.capture(event = "auto_transcript_failed", properties = props)
     }
 
+    fun trackDailyBriefingBannerTapped(region: String, date: String) {
+        PostHog.capture(
+            event = "daily_briefing_banner_tapped",
+            properties = mapOf(
+                "region" to region,
+                "date" to date,
+                "user_local_timestamp" to userLocalTimestamp(),
+                "global_ist_timestamp" to globalIstTimestamp()
+            )
+        )
+    }
+
+    fun trackDailyBriefingPlayClicked(region: String, date: String, source: String) {
+        PostHog.capture(
+            event = "daily_briefing_play_clicked",
+            properties = mapOf(
+                "region" to region,
+                "date" to date,
+                "source" to source,
+                "user_local_timestamp" to userLocalTimestamp(),
+                "global_ist_timestamp" to globalIstTimestamp()
+            )
+        )
+    }
+
+    fun trackDailyBriefingPauseClicked(region: String, date: String, source: String) {
+        PostHog.capture(
+            event = "daily_briefing_pause_clicked",
+            properties = mapOf(
+                "region" to region,
+                "date" to date,
+                "source" to source,
+                "user_local_timestamp" to userLocalTimestamp(),
+                "global_ist_timestamp" to globalIstTimestamp()
+            )
+        )
+    }
+
     fun flush() {
         try {
             PostHog.flush()

@@ -32,4 +32,5 @@ include(":feature:info")
 include(":feature:explore")
 include(":feature:library")
 include(":feature:onboarding")
+include(":feature:briefing")
 

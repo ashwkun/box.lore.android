@@ -1,12 +1,12 @@
 [versions]
-agp = "8.9.0"
-kotlin = "1.9.24"
+agp = "8.9.1"
+kotlin = "2.0.21"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.1.5"
 espressoCore = "3.5.1"
 lifecycleRuntimeKtx = "2.8.7"
-activityCompose = "1.10.0"
+activityCompose = "1.13.0"
 composeBom = "2024.12.01"
 material3 = "1.5.0-alpha11"
 material3-adaptive = "1.0.0-alpha06"
@@ -85,6 +85,7 @@ androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 jetbrainsKotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version = "1.9.24-1.0.20" }
+ksp = { id = "com.google.devtools.ksp", version = "2.0.21-1.0.26" }
 googleServices = { id = "com.google.gms.google-services", version.ref = "google-services" }
 firebaseCrashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebase-crashlytics-plugin" }
+kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

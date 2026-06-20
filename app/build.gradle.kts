@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.googleServices)
     alias(libs.plugins.firebaseCrashlytics)
+    alias(libs.plugins.kotlinCompose)
 }
 
 android {
@@ -79,22 +80,10 @@ android {
         compose = true
         buildConfig = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-    }
-}
-
-configurations.all {
-    resolutionStrategy {
-        force("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
-        force("org.jetbrains.kotlin:kotlin-stdlib-common:1.9.24")
-        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24")
-        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24")
     }
 }
 
@@ -110,6 +99,7 @@ dependencies {
     implementation(project(":feature:explore"))
     implementation(project(":feature:library"))
     implementation(project(":feature:onboarding"))
+    implementation(project(":feature:briefing"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

@@ -92,6 +92,7 @@ import cx.aswin.boxcast.core.designsystem.theme.BoxCastTheme
 import cx.aswin.boxcast.core.designsystem.component.PredictiveBackWrapper
 import cx.aswin.boxcast.feature.home.HomeRoute
 import cx.aswin.boxcast.feature.player.PlayerRoute
+import cx.aswin.boxcast.feature.briefing.BriefingRoute
 import cx.aswin.boxcast.core.designsystem.component.ExpressiveAnimatedBackground
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
@@ -361,6 +362,11 @@ class MainActivity : ComponentActivity() {
             }.collectAsState(initial = null)
             val isRadioMode by userPrefs.isRadioModeStream.collectAsState(initial = false)
             val isModeSwitching by cx.aswin.boxcast.feature.home.ModeSwitchState.isSwitching.collectAsState()
+            
+            // Shared bottom padding calculation for Mini Player + NavBar clearance
+            val miniPlayerPadding = remember(currentEpisode) {
+                if (currentEpisode != null) (62 + 64 + 8).dp else 62.dp
+            }
             
             val darkTheme = when(themeConfig) {
                 "light" -> false
@@ -807,6 +813,7 @@ class MainActivity : ComponentActivity() {
                                 // Detail screens are "deeper" -> higher index
                                 if (route.startsWith("podcast/")) return 10
                                 if (route.startsWith("episode/")) return 11
+                                if (route.startsWith("briefing")) return 11
                                 if (route.startsWith("library/")) return 12 // Library sub-screens
                                 
                                 return routeOrder[route] ?: 0
@@ -950,7 +957,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         var route = "podcast/${podcast.id}"
                                         val params = mutableListOf<String>()
-                                        if (entryPointStr != null) params.add("entryPoint=$entryPointStr")
+                                        params.add("entryPoint=$entryPointStr")
                                         if (genreStr != null) params.add("genre=$genreStr")
                                         if (depthVal != null) params.add("depth=$depthVal")
                                         if (params.isNotEmpty()) route += "?" + params.joinToString("&")
@@ -1097,7 +1104,30 @@ class MainActivity : ComponentActivity() {
                                     onAiOnboardingClick = {
                                         onboardingViewModel.startOnboarding("home_import_banner")
                                         navController.navigate("onboarding")
+                                    },
+                                    onBriefingClick = { region ->
+                                        navController.navigate("briefing?region=$region")
                                     }
+                                )
+                            }
+
+                            composable(
+                                route = "briefing?region={region}",
+                                arguments = listOf(
+                                    navArgument("region") {
+                                        type = NavType.StringType
+                                        nullable = true
+                                        defaultValue = null
+                                    }
+                                )
+                            ) { backStackEntry ->
+                                val region = backStackEntry.arguments?.getString("region")
+                                BriefingRoute(
+                                    podcastRepository = podcastRepository,
+                                    playbackRepository = playbackRepository,
+                                    initialRegion = region,
+                                    onBackClick = { navController.popBackStack() },
+                                    bottomContentPadding = miniPlayerPadding
                                 )
                             }
                             
@@ -1208,7 +1238,7 @@ class MainActivity : ComponentActivity() {
                                     onPodcastClick = { podcastId, entryPointStr, genreStr, depthVal ->
                                         var route = "podcast/$podcastId"
                                         val params = mutableListOf<String>()
-                                        if (entryPointStr != null) params.add("entryPoint=$entryPointStr")
+                                        params.add("entryPoint=$entryPointStr")
                                         if (genreStr != null) params.add("genre=$genreStr")
                                         if (depthVal != null) params.add("depth=$depthVal")
                                         if (params.isNotEmpty()) route += "?" + params.joinToString("&")
@@ -1453,6 +1483,15 @@ class MainActivity : ComponentActivity() {
                                 )
                             ) { backStackEntry ->
                                 val podcastId = backStackEntry.arguments?.getString("podcastId") ?: return@composable
+                                if (podcastId.startsWith("briefing_")) {
+                                    val region = podcastId.removePrefix("briefing_")
+                                    LaunchedEffect(podcastId) {
+                                        navController.navigate("briefing?region=$region") {
+                                            popUpTo("podcast/{podcastId}?entryPoint={entryPoint}&genre={genre}&depth={depth}&query={query}") { inclusive = true }
+                                        }
+                                    }
+                                    return@composable
+                                }
                                 val entryPoint = backStackEntry.arguments?.getString("entryPoint")
                                 val genre = backStackEntry.arguments?.getString("genre")
                                 val depthStr = backStackEntry.arguments?.getString("depth")
@@ -1539,6 +1578,16 @@ class MainActivity : ComponentActivity() {
                                 )
                             ) { backStackEntry ->
                                 val args = backStackEntry.arguments ?: return@composable
+                                val episodeId = args.getString("episodeId") ?: ""
+                                if (episodeId.startsWith("briefing_")) {
+                                    val region = episodeId.removePrefix("briefing_").substringBefore("_")
+                                    LaunchedEffect(episodeId) {
+                                        navController.navigate("briefing?region=$region") {
+                                            popUpTo("episode/{episodeId}/{episodeTitle}/{episodeDescription}/{episodeImageUrl}/{episodeAudioUrl}/{episodeDuration}/{podcastId}/{podcastTitle}?entryPoint={entryPoint}&vibeId={vibeId}&carouselPosition={carouselPosition}") { inclusive = true }
+                                        }
+                                    }
+                                    return@composable
+                                }
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.info.EpisodeInfoViewModel>(
                                     factory = object : androidx.lifecycle.ViewModelProvider.Factory {
                                         @Suppress("UNCHECKED_CAST")
@@ -1558,7 +1607,6 @@ class MainActivity : ComponentActivity() {
                                 
                                 val podcastId = decode(args.getString("podcastId"))
                                 val podcastTitle = decode(args.getString("podcastTitle"))
-                                val episodeId = args.getString("episodeId") ?: ""
                                 val episodeTitle = decode(args.getString("episodeTitle"))
                                 val entryPoint = args.getString("entryPoint")
                                 val vibeId = decode(args.getString("vibeId"))
@@ -1982,25 +2030,39 @@ class MainActivity : ComponentActivity() {
                         expandTrigger = expandPlayerTrigger, // Pass the trigger here
                         isDarkTheme = darkTheme,
                         onEpisodeInfoClick = { episode ->
-                            // Navigate to episode info
-                            val podcast = playbackRepository.playerState.value.currentPodcast
-                            fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
-                            navController.navigate(
-                                "episode/${encode(episode.id)}/${encode(episode.title)}/" +
-                                "${encode(episode.description.take(500))}/" +
-                                "${encode(episode.imageUrl)}/" +
-                                "${encode(episode.audioUrl)}/" +
-                                "${episode.duration}/${encode(podcast?.id ?: "unknown")}/" +
-                                "${encode(podcast?.title ?: "Podcast")}" +
-                                "?entryPoint=player_ui"
-                            ) {
-                                launchSingleTop = true
+                            if (episode.id.startsWith("briefing_")) {
+                                val region = episode.id.removePrefix("briefing_").substringBefore("_")
+                                navController.navigate("briefing?region=$region") {
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                // Navigate to episode info
+                                val podcast = playbackRepository.playerState.value.currentPodcast
+                                fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                navController.navigate(
+                                    "episode/${encode(episode.id)}/${encode(episode.title)}/" +
+                                    "${encode(episode.description.take(500))}/" +
+                                    "${encode(episode.imageUrl)}/" +
+                                    "${encode(episode.audioUrl)}/" +
+                                    "${episode.duration}/${encode(podcast?.id ?: "unknown")}/" +
+                                    "${encode(podcast?.title ?: "Podcast")}" +
+                                    "?entryPoint=player_ui"
+                                ) {
+                                    launchSingleTop = true
+                                }
                             }
                         },
                         onPodcastInfoClick = { podcast ->
-                            // Navigate to podcast info
-                            navController.navigate("podcast/${podcast.id}?entryPoint=player_ui") {
-                                launchSingleTop = true
+                            if (podcast.id.startsWith("briefing_")) {
+                                val region = podcast.id.removePrefix("briefing_")
+                                navController.navigate("briefing?region=$region") {
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                // Navigate to podcast info
+                                navController.navigate("podcast/${podcast.id}?entryPoint=player_ui") {
+                                    launchSingleTop = true
+                                }
                             }
                         },
                         modifier = Modifier.align(Alignment.TopStart)

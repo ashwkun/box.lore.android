@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.PlaylistAddCheck
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.Toc
 import androidx.compose.material.icons.rounded.Description
@@ -236,7 +236,7 @@ fun AdvancedPlayerControls(
 
         // 4. QUEUE/ADD TO QUEUE (rightmost — closest to play button, most frequent)
         val queueIcon = if (isQueued) {
-            androidx.compose.material.icons.Icons.Rounded.PlaylistAddCheck
+            androidx.compose.material.icons.Icons.AutoMirrored.Rounded.PlaylistAddCheck
         } else if (showAddQueueIcon || style == ControlStyle.TonalSquircle || style == ControlStyle.Transparent) {
             androidx.compose.material.icons.Icons.AutoMirrored.Rounded.PlaylistAdd
         } else {

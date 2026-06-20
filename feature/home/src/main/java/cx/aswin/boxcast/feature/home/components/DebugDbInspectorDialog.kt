@@ -13,7 +13,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DebugDbInspectorDialog(
     history: List<ListeningHistoryEntity>,
@@ -89,7 +91,7 @@ fun DebugDbInspectorDialog(
                     }
                 }
 
-                TabRow(selectedTabIndex = selectedTabIndex) {
+                PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTabIndex == index,
