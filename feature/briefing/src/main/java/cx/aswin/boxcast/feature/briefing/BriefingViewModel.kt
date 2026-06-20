@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.PlaybackRepository
 import cx.aswin.boxcast.core.data.PodcastRepository
+import cx.aswin.boxcast.core.data.ChapterRepository
 import cx.aswin.boxcast.core.model.Briefing
+import cx.aswin.boxcast.core.model.Chapter
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,7 @@ class BriefingViewModel(
     val selectedRegion: StateFlow<String> = _selectedRegion.asStateFlow()
 
     private val _briefingState = MutableStateFlow<Briefing?>(null)
+    private val _briefingChapters = MutableStateFlow<List<Chapter>>(emptyList())
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
 
@@ -40,14 +43,27 @@ class BriefingViewModel(
         }
 
         // Combine network briefing state with local media playback state
+        val briefingSubState = combine(
+            _briefingState,
+            _isLoading,
+            _error,
+            _selectedRegion,
+            _briefingChapters
+        ) { briefing, isLoading, error, region, chapters ->
+            BriefingSubState(briefing, isLoading, error, region, chapters)
+        }
+
         viewModelScope.launch {
             combine(
-                _briefingState,
-                _isLoading,
-                _error,
-                _selectedRegion,
+                briefingSubState,
                 playbackRepository.playerState
-            ) { briefing, isLoading, error, region, playerState ->
+            ) { subState, playerState ->
+                val briefing = subState.briefing
+                val isLoading = subState.isLoading
+                val error = subState.error
+                val region = subState.region
+                val chapters = subState.chapters
+
                 when {
                     isLoading -> BriefingUiState.Loading
                     error != null -> BriefingUiState.Error(error, region)
@@ -61,7 +77,8 @@ class BriefingViewModel(
                             isPlaying = isCurrentBriefing && playerState.isPlaying,
                             currentPosition = if (isCurrentBriefing) playerState.position else 0L,
                             duration = if (isCurrentBriefing) playerState.duration else 0L,
-                            isBuffering = isCurrentBriefing && playerState.isLoading
+                            isBuffering = isCurrentBriefing && playerState.isLoading,
+                            chapters = chapters
                         )
                     }
                     else -> BriefingUiState.Error("Unknown error", region)
@@ -80,9 +97,21 @@ class BriefingViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            _briefingChapters.value = emptyList()
             val result = podcastRepository.getBriefingMetadata(region)
             if (result != null) {
                 _briefingState.value = result
+                // Fetch chapters asynchronously
+                val audioUri = android.net.Uri.parse(result.audioUrl)
+                val version = audioUri.getQueryParameter("v")
+                val versionParam = if (version != null) "&v=$version" else ""
+                val chaptersUrl = "https://api.aswin.cx/briefings/chapters/${result.region}?d=${result.date}$versionParam"
+                try {
+                    val chaptersList = ChapterRepository.getChapters(chaptersUrl)
+                    _briefingChapters.value = chaptersList
+                } catch (e: Exception) {
+                    _briefingChapters.value = emptyList()
+                }
             } else {
                 _error.value = "Failed to load briefing for ${region.uppercase()}. Please check your connection."
             }
@@ -175,3 +204,11 @@ class BriefingViewModel(
         return "briefing_${briefing.region}_${briefing.date}"
     }
 }
+
+private data class BriefingSubState(
+    val briefing: Briefing?,
+    val isLoading: Boolean,
+    val error: String?,
+    val region: String,
+    val chapters: List<Chapter>
+)
