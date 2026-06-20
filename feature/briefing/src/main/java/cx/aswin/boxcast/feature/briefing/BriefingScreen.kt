@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -31,6 +33,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,6 +46,10 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +61,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -157,8 +166,6 @@ fun BriefingScreen(
         is BriefingUiState.Error -> uiState.selectedRegion
     }
 
-    var expanded by remember { mutableStateOf(false) }
-
     // Shared scroll state (hoisted so header can react to content scroll)
     val scrollState = rememberScrollState()
 
@@ -168,14 +175,8 @@ fun BriefingScreen(
     val morphThreshold = with(density) { 180.dp.toPx() }
     val scrollFraction = (scrollState.value.toFloat() / morphThreshold).coerceIn(0f, 1f)
 
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
-    val headerColor by animateColorAsState(
-        targetValue = surfaceColor.copy(alpha = scrollFraction),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "headerColor"
-    )
-    // Title fades in only when header is mostly collapsed
-    val titleAlpha = if (scrollFraction > 0.8f) (scrollFraction - 0.8f) / 0.2f else 0f
+    val headerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.4f)
+    val titleAlpha = 1f
 
     // Key only on the state TYPE so Crossfade only animates on Loading→Success→Error
     // transitions, NOT on every playback position update (~200ms).
@@ -232,6 +233,8 @@ fun BriefingScreen(
                     val remainingSeconds = if (successState.duration > 0) (successState.duration - successState.currentPosition) / 1000 else 0L
                     val timeText = formatRemaining(remainingSeconds)
 
+                    var showSourcesBottomSheet by remember { mutableStateOf(false) }
+
                     BriefingContent(
                         briefing = successState.briefing,
                         chapters = successState.chapters,
@@ -241,6 +244,9 @@ fun BriefingScreen(
                         timeText = timeText,
                         accentColor = accentColor,
                         currentPositionMs = successState.currentPosition,
+                        currentRegion = successState.selectedRegion,
+                        onRegionSelect = onRegionSelect,
+                        onShowSources = { showSourcesBottomSheet = true },
                         onPlayPauseClick = {
                             if (successState.isPlaying) {
                                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
@@ -262,6 +268,90 @@ fun BriefingScreen(
                         contentTopPadding = collapsedHeaderHeight,
                         bottomContentPadding = bottomContentPadding
                     )
+
+                    if (showSourcesBottomSheet) {
+                        val uriHandler = LocalUriHandler.current
+                        ModalBottomSheet(
+                            onDismissRequest = { showSourcesBottomSheet = false },
+                            shape = MaterialTheme.shapes.extraLarge,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                            ) {
+                                Text(
+                                    text = "References & Sources",
+                                    fontFamily = SectionHeaderFontFamily,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+                                androidx.compose.foundation.lazy.LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(successState.briefing.sources) { source ->
+                                        val cleanDomain = remember(source.url) { getDomainName(source.url) }
+                                        Card(
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                            ),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .expressiveClickable(
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    onClick = { 
+                                                        uriHandler.openUri(source.url)
+                                                    }
+                                                )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                                        modifier = Modifier.padding(bottom = 4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = cleanDomain.uppercase(),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                        )
+                                                    }
+                                                    Text(
+                                                        text = source.title,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        modifier = Modifier.padding(top = 2.dp)
+                                                    )
+                                                }
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Link,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp).padding(start = 4.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 "error" -> {
                     val errorState = uiState as? BriefingUiState.Error ?: return@Crossfade
@@ -273,12 +363,10 @@ fun BriefingScreen(
             }
         }
 
-        // FLOATING HEADER OVERLAY — transparent → opaque on scroll (matches EpisodeInfoScreen)
+        // FLOATING HEADER OVERLAY (Immersive, transparent)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(collapsedHeaderHeight)
-                .background(headerColor)
                 .statusBarsPadding()
         ) {
             Row(
@@ -295,93 +383,25 @@ fun BriefingScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Go back",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                            .padding(8.dp)
                     )
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
                     text = "The Boxcast Brief",
                     fontFamily = SectionHeaderFontFamily,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp)
-                        .alpha(titleAlpha)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-
-                val currentRegionLabel = when (currentRegion.lowercase()) {
-                    "in" -> "India"
-                    "us" -> "United States"
-                    "uk" -> "United Kingdom"
-                    else -> "Global"
-                }
-
-                Box(modifier = Modifier.padding(end = 12.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .height(36.dp)
-                            .expressiveClickable(
-                                shape = RoundedCornerShape(12.dp),
-                                onClick = { expanded = true }
-                            )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = currentRegionLabel,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = "Select Region",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        shape = RoundedCornerShape(16.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.width(160.dp)
-                    ) {
-                        val regions = listOf(
-                            "in" to "India",
-                            "us" to "United States",
-                            "uk" to "United Kingdom",
-                            "global" to "Global"
-                        )
-                        regions.forEach { (code, label) ->
-                            val isSelected = currentRegion == code
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                onClick = {
-                                    expanded = false
-                                    onRegionSelect(code)
-                                }
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -398,6 +418,9 @@ fun BriefingContent(
     timeText: String?,
     accentColor: Color,
     currentPositionMs: Long,
+    currentRegion: String,
+    onRegionSelect: (String) -> Unit,
+    onShowSources: () -> Unit,
     onPlayPauseClick: () -> Unit,
     onSeekTo: (Long) -> Unit,
     scrollState: ScrollState = rememberScrollState(),
@@ -406,103 +429,53 @@ fun BriefingContent(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val scrollOffset = scrollState.value.toFloat()
-    val morphThreshold = with(density) { 180.dp.toPx() }
-    val scrollFraction = (scrollOffset / morphThreshold).coerceIn(0f, 1f)
+
+    val pagerState = rememberPagerState(pageCount = { chapters.size })
+    val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
+
+    // 1. Playback -> UI Paging Sync
+    // Find the currently active chapter index based on playback position
+    val activeChapterIndex = remember(chapters, currentPositionMs) {
+        val index = chapters.indexOfLast { currentPositionMs >= it.startTime * 1000 }
+        if (index != -1) index else 0
+    }
+
+    LaunchedEffect(activeChapterIndex) {
+        if (!isDragged && activeChapterIndex >= 0 && activeChapterIndex < chapters.size) {
+            pagerState.animateScrollToPage(activeChapterIndex)
+        }
+    }
+
+    val paragraphs = remember(briefing.script) {
+        briefing.script.split("\n\n").filter { it.isNotBlank() }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .navigationBarsPadding()
     ) {
-        // Blurred Background Header (Top section blending into background)
-        Box(
+        // Immersive blurred background image filling the whole screen
+        OptimizedImage(
+            url = briefing.coverUrl,
+            proxyWidth = 600,
+            contentDescription = null,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(contentTopPadding + 240.dp)
-                .graphicsLayer {
-                    translationY = -scrollOffset * 0.5f
-                    alpha = 1f - scrollFraction
-                }
-        ) {
-            OptimizedImage(
-                url = briefing.coverUrl,
-                proxyWidth = 200,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(0.35f)
-                    .blur(40.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                MaterialTheme.colorScheme.background
-                            )
-                        )
-                    )
-            )
-        }
+                .fillMaxSize()
+                .blur(32.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                .alpha(0.9f),
+            contentScale = ContentScale.Crop
+        )
 
-        // Scrollable content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 20.dp),
+                .padding(top = contentTopPadding, bottom = bottomContentPadding + 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Space for the floating header overlay
-            Spacer(modifier = Modifier.height(contentTopPadding + 16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Cover Art Card - Retain standard rounded corners & elevation as per M3
-            Card(
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier
-                    .size(240.dp)
-                    .shadow(8.dp, RoundedCornerShape(28.dp))
-                    .clip(RoundedCornerShape(28.dp)),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                OptimizedImage(
-                    url = briefing.coverUrl,
-                    proxyWidth = 520,
-                    contentDescription = briefing.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Custom Show Branding Tag
-            Text(
-                text = "THE BOXCAST BRIEF",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    letterSpacing = 2.sp
-                ),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-
-            // Title
-            Text(
-                text = briefing.title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Subtitle Details (Show Region and formatted Date)
+            // Subtitle details (Show Region and formatted Date)
             val regionName = when (briefing.region.lowercase()) {
                 "in" -> "India"
                 "us" -> "United States"
@@ -517,298 +490,301 @@ fun BriefingContent(
                     briefing.date
                 }
             }
+
             Text(
-                text = "$regionName • $displayDate • 3 min listen",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-                fontWeight = FontWeight.SemiBold
+                text = "$regionName • $displayDate • 3 min listen".uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Title of current briefing
+            Text(
+                text = briefing.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
 
-            // Action Row: Prominent Play Button (reusing design system ExpressivePlayButton)
-            ExpressivePlayButton(
-                onClick = onPlayPauseClick,
-                isPlaying = isPlaying,
-                isResume = isResume,
-                accentColor = accentColor,
-                progress = progress,
-                timeText = timeText,
+            // Region Selector Chips Row
+            val regions = listOf(
+                "in" to "India",
+                "us" to "US",
+                "uk" to "UK",
+                "global" to "Global"
+            )
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Interactive Chapter Timeline
-            val paragraphs = remember(briefing.script) {
-                briefing.script.split("\n\n").filter { it.isNotBlank() }
+                    .padding(vertical = 12.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                regions.forEachIndexed { index, (code, label) ->
+                    val isSelected = currentRegion == code
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .expressiveClickable(
+                                shape = RoundedCornerShape(12.dp),
+                                onClick = { onRegionSelect(code) }
+                            )
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Swipable cards pager
             if (chapters.isNotEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Stories in this briefing",
-                        fontFamily = SectionHeaderFontFamily,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.align(Alignment.Start)
-                    )
+                HorizontalPager(
+                    state = pagerState,
+                    contentPadding = PaddingValues(horizontal = 24.dp),
+                    pageSpacing = 16.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) { page ->
+                    val chapter = chapters[page]
+                    val paragraph = paragraphs.getOrNull(page) ?: ""
+                    val isThisCardActive = activeChapterIndex == page && isPlaying
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    chapters.forEachIndexed { index, chapter ->
-                        val isActive = currentPositionMs >= chapter.startTime * 1000 &&
-                                (index == chapters.size - 1 || currentPositionMs < chapters[index + 1].startTime * 1000)
-
-                        val paragraph = paragraphs.getOrNull(index) ?: ""
-
-                        Row(
+                    Card(
+                       shape = RoundedCornerShape(24.dp),
+                       colors = CardDefaults.cardColors(
+                           containerColor = if (isThisCardActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f)
+                                           else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f)
+                       ),
+                       border = BorderStroke(
+                           1.dp,
+                           if (isThisCardActive) accentColor.copy(alpha = 0.4f)
+                           else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
+                       ),
+                       modifier = Modifier
+                           .fillMaxWidth()
+                           .fillMaxHeight()
+                           .shadow(6.dp, RoundedCornerShape(24.dp))
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(IntrinsicSize.Min)
+                                .fillMaxSize()
+                                .padding(18.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // Left Timeline bar
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.width(36.dp)
-                            ) {
-                                // Dynamic indicator dot
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(androidx.compose.foundation.shape.CircleShape)
-                                        .background(
-                                            if (isActive) accentColor 
-                                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                                        )
-                                )
-                                // Vertical line connecting steps
-                                if (index < chapters.size - 1) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(2.dp)
-                                            .weight(1f)
-                                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                    )
-                                }
-                            }
-
-                            // Interactive Card
-                            Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                                                    else MaterialTheme.colorScheme.surfaceContainer
-                                ),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isActive) accentColor.copy(alpha = 0.4f)
-                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(bottom = 16.dp)
-                                    .expressiveClickable(
-                                        shape = RoundedCornerShape(16.dp),
-                                        onClick = {
-                                            if (currentPositionMs == 0L) {
-                                                onPlayPauseClick()
-                                            }
-                                            onSeekTo(chapter.startTime.toLong() * 1000L)
-                                        }
-                                    )
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                // Card Header: STORY X OF Y & Time Badge
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isThisCardActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
+                                                else MaterialTheme.colorScheme.secondaryContainer,
                                     ) {
                                         Text(
-                                            text = chapter.title,
-                                            style = MaterialTheme.typography.titleMedium,
+                                            text = "STORY ${page + 1} OF ${chapters.size}".uppercase(),
+                                            style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
-                                                    else MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = formatChapterTime(chapter.startTime.toLong()),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isActive) accentColor
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = if (isThisCardActive) MaterialTheme.colorScheme.onPrimaryContainer
+                                                    else MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
-                                    if (paragraph.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = formatChapterTime(chapter.startTime.toLong()),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isThisCardActive) accentColor
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Story Headline
+                                Text(
+                                    text = chapter.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isThisCardActive) MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Story Paragraph (Scrollable inside the card)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState())
+                                    ) {
                                         Text(
                                             text = paragraph.trim(),
                                             style = MaterialTheme.typography.bodyMedium,
                                             lineHeight = 22.sp,
-                                            color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                            color = if (isThisCardActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            } else {
-                // Fallback to plain paragraphs if chapters aren't loaded yet
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Podcasts,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Transcript",
-                                fontFamily = SectionHeaderFontFamily,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        paragraphs.forEachIndexed { index, paragraph ->
-                            Text(
-                                text = paragraph.trim(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                lineHeight = 24.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (index < paragraphs.size - 1) {
-                                Spacer(modifier = Modifier.height(14.dp))
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(28.dp))
-            }
-
-            // References & Sources Panel (Horizontal Carousel lazy row)
-            if (briefing.sources.isNotEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = "References & Sources",
-                        fontFamily = SectionHeaderFontFamily,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val uriHandler = LocalUriHandler.current
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 8.dp)
-                    ) {
-                        items(briefing.sources) { source ->
-                            val cleanDomain = remember(source.url) { getDomainName(source.url) }
-                            Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            // Card prominent play button
+                            Button(
+                                onClick = {
+                                    if (isThisCardActive) {
+                                        onPlayPauseClick()
+                                    } else {
+                                        onSeekTo(chapter.startTime.toLong() * 1000L)
+                                        if (!isPlaying) {
+                                            onPlayPauseClick()
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isThisCardActive) MaterialTheme.colorScheme.onPrimaryContainer
+                                                    else MaterialTheme.colorScheme.primary
                                 ),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                                shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
-                                    .width(180.dp)
-                                    .height(115.dp)
-                                    .expressiveClickable(
-                                        shape = RoundedCornerShape(16.dp),
-                                        onClick = { uriHandler.openUri(source.url) }
-                                    )
+                                    .fillMaxWidth()
+                                    .height(48.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(12.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
-                                    // Styled domain badge
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)),
-                                        modifier = Modifier.padding(bottom = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = cleanDomain.uppercase(),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                        )
-                                    }
-
-                                    // Article Title
-                                    Text(
-                                        text = source.title,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.Medium,
-                                        lineHeight = 16.sp,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f).padding(top = 4.dp)
+                                    Icon(
+                                        imageVector = if (isThisCardActive) Icons.Rounded.Pause
+                                                      else Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = if (isThisCardActive) MaterialTheme.colorScheme.primaryContainer
+                                               else MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(18.dp)
                                     )
-
-                                    // Link indicator
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Link,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isThisCardActive) "PAUSE STORY" else "PLAY THIS STORY",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = if (isThisCardActive) MaterialTheme.colorScheme.primaryContainer
+                                               else MaterialTheme.colorScheme.onPrimary
+                                    )
                                 }
                             }
                         }
                     }
                 }
+            } else {
+                // Fallback if chapters are empty
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Loading script...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(32.dp + bottomContentPadding))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Page indicators dots
+            if (chapters.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .height(16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(chapters.size) { iteration ->
+                        val isSelected = pagerState.currentPage == iteration
+                        val color = if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        Box(
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(color)
+                                .size(if (isSelected) 8.dp else 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Sources Button
+            if (briefing.sources.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                    modifier = Modifier.expressiveClickable(
+                        shape = RoundedCornerShape(16.dp),
+                        onClick = onShowSources
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Link,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "${briefing.sources.size} Sources",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }
