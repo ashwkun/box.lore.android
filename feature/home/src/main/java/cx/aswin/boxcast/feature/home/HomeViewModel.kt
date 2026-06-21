@@ -119,7 +119,8 @@ data class HomeDataWrapper(
     val briefing: Briefing? = null,
     val briefingChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
     val briefingDismissedDate: String = "",
-    val briefingDismissedForever: Boolean = false
+    val briefingDismissedForever: Boolean = false,
+    val hasDismissedRegionNudge: Boolean = false
 )
 
 /**
@@ -445,12 +446,9 @@ class HomeViewModel(
             }
 
             // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
-            combine(
-                userPrefs.regionStream,
-                userPrefs.hasDismissedRegionNudgeStream
-            ) { region, hasDismissed ->
-                region to hasDismissed
-            }.collectLatest { (region, hasDismissed) ->
+            userPrefs.regionStream
+                .distinctUntilChanged()
+                .collectLatest { region ->
                 if (cachedRegion != region) {
                     cachedRegion = region
                     cachedForYouTrending = emptyList()
@@ -557,7 +555,8 @@ class HomeViewModel(
                     _briefingState,
                     _briefingDismissedDate,
                     _briefingChaptersState,
-                    _briefingDismissedForever
+                    _briefingDismissedForever,
+                    userPrefs.hasDismissedRegionNudgeStream
                 ) { array ->
                     val dismissedDate = array[13] as String
                     val dismissedForever = array[15] as Boolean
@@ -576,7 +575,8 @@ class HomeViewModel(
                         briefing = array[12] as Briefing?,
                         briefingChapters = array[14] as List<cx.aswin.boxcast.core.model.Chapter>,
                         briefingDismissedDate = dismissedDate,
-                        briefingDismissedForever = dismissedForever
+                        briefingDismissedForever = dismissedForever,
+                        hasDismissedRegionNudge = array[16] as Boolean
                     )
                 }.collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1211,7 +1211,7 @@ class HomeViewModel(
                             }
                         }
 
-                        val shouldShowNudge = !hasDismissed && (systemCountry != region)
+                        val shouldShowNudge = !wrapper.hasDismissedRegionNudge && (systemCountry != region)
 
                         val initialLoading = !wrapper.isTrendingLoaded || !wrapper.isCuratedLoaded || !wrapper.isRecommendationsLoaded
 

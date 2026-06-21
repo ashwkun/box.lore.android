@@ -153,11 +153,12 @@ class PlaybackRepository(
                                         val audioUri = android.net.Uri.parse(episode?.audioUrl ?: "")
                                         val version = audioUri.getQueryParameter("v")
                                         val versionParam = if (version != null) "&v=$version" else ""
-                                        android.util.Log.d("PlaybackRepo", "monitorChaptersAndTranscripts: region=$region, date=$date, version=$version")
+                                        val mappedRegion = mapRegionForBriefing(region)
+                                        android.util.Log.d("PlaybackRepo", "monitorChaptersAndTranscripts: region=$region, mappedRegion=$mappedRegion, date=$date, version=$version")
                                         
                                         val updatedEpisode = episode?.copy(
-                                            chaptersUrl = "https://api.aswin.cx/briefings/chapters/$region?d=$date$versionParam",
-                                            transcriptUrl = "https://api.aswin.cx/briefings/transcript/$region?d=$date$versionParam"
+                                            chaptersUrl = "https://api.aswin.cx/briefings/chapters/$mappedRegion?d=$date$versionParam",
+                                            transcriptUrl = "https://api.aswin.cx/briefings/transcript/$mappedRegion?d=$date$versionParam"
                                         )
                                         android.util.Log.d("PlaybackRepo", "monitorChaptersAndTranscripts: updatedEpisode chaptersUrl=${updatedEpisode?.chaptersUrl}, transcriptUrl=${updatedEpisode?.transcriptUrl}")
                                         if (updatedEpisode != null) {
@@ -747,9 +748,10 @@ class PlaybackRepository(
                                     val audioUri = android.net.Uri.parse(newEpisode.audioUrl)
                                     val version = audioUri.getQueryParameter("v")
                                     val versionParam = if (version != null) "&v=$version" else ""
+                                    val mappedRegion = mapRegionForBriefing(region)
                                     newEpisode = newEpisode.copy(
-                                        chaptersUrl = "https://api.aswin.cx/briefings/chapters/$region?d=$date$versionParam",
-                                        transcriptUrl = "https://api.aswin.cx/briefings/transcript/$region?d=$date$versionParam"
+                                        chaptersUrl = "https://api.aswin.cx/briefings/chapters/$mappedRegion?d=$date$versionParam",
+                                        transcriptUrl = "https://api.aswin.cx/briefings/transcript/$mappedRegion?d=$date$versionParam"
                                     )
                                     android.util.Log.d("PlaybackRepo", "onMediaItemTransition: Enriched briefing episode ${newEpisode.id} with chaptersUrl=${newEpisode.chaptersUrl}")
                                 }

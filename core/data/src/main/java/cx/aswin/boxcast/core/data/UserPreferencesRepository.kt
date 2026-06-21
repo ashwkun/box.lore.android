@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
@@ -56,6 +57,7 @@ class UserPreferencesRepository(context: Context) {
                 }
             }
         }
+        .distinctUntilChanged()
 
     suspend fun setRegion(region: String) {
         dataStore.edit { preferences ->
@@ -75,6 +77,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HAS_DISMISSED_REGION_NUDGE] ?: false
         }
+        .distinctUntilChanged()
 
     suspend fun dismissRegionNudge() {
         dataStore.edit { preferences ->
@@ -93,6 +96,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HAS_DISMISSED_EXPLORE_REGION_NUDGE] ?: false
         }
+        .distinctUntilChanged()
 
     suspend fun dismissExploreRegionNudge() {
         dataStore.edit { preferences ->
@@ -111,6 +115,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HAS_DISMISSED_HOME_IMPORT_BANNER] ?: false
         }
+        .distinctUntilChanged()
 
     suspend fun dismissHomeImportBanner() {
         dataStore.edit { preferences ->
@@ -129,6 +134,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.BRIEFING_DISMISSED_DATE] ?: ""
         }
+        .distinctUntilChanged()
 
     suspend fun dismissBriefing(date: String) {
         dataStore.edit { preferences ->
@@ -147,6 +153,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.BRIEFING_DISMISSED_FOREVER] ?: false
         }
+        .distinctUntilChanged()
 
     suspend fun dismissBriefingForever() {
         dataStore.edit { preferences ->
@@ -165,6 +172,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.WAS_INITIAL_REGION_MATCH]
         }
+        .distinctUntilChanged()
 
     suspend fun setWasInitialRegionMatch(match: Boolean) {
         dataStore.edit { preferences ->
@@ -183,6 +191,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.THEME_CONFIG] ?: "system"
         }
+        .distinctUntilChanged()
 
     suspend fun setThemeConfig(themeConfig: String) {
         dataStore.edit { preferences ->
@@ -197,6 +206,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.USE_DYNAMIC_COLOR] ?: true
         }
+        .distinctUntilChanged()
 
     suspend fun setUseDynamicColor(useDynamicColor: Boolean) {
         dataStore.edit { preferences ->
@@ -211,6 +221,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.THEME_BRAND] ?: "violet"
         }
+        .distinctUntilChanged()
 
     suspend fun setThemeBrand(themeBrand: String) {
         dataStore.edit { preferences ->
@@ -226,6 +237,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.IS_RADIO_MODE] ?: false
         }
+        .distinctUntilChanged()
 
     suspend fun setRadioMode(isRadioMode: Boolean) {
         dataStore.edit { preferences ->
@@ -241,6 +253,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.SUBSCRIPTION_SORT] ?: "SmartRank"
         }
+        .distinctUntilChanged()
 
     suspend fun setSubscriptionSort(sort: String) {
         dataStore.edit { preferences ->
@@ -255,6 +268,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.LATEST_EPISODES_SORT_USE_SMART] ?: true
         }
+        .distinctUntilChanged()
 
     suspend fun setLatestEpisodesSortUseSmart(useSmart: Boolean) {
         dataStore.edit { preferences ->
@@ -269,6 +283,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.SKIP_BEHAVIOR] ?: "just_skip"
         }
+        .distinctUntilChanged()
 
     suspend fun setSkipBehavior(behavior: String) {
         dataStore.edit { preferences ->
@@ -287,14 +302,17 @@ class UserPreferencesRepository(context: Context) {
     val hasSeenSwipeDismissTip: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[TooltipKeys.HAS_SEEN_SWIPE_DISMISS_TIP] ?: false }
+        .distinctUntilChanged()
 
     val hasSeenTitleTapTip: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[TooltipKeys.HAS_SEEN_TITLE_TAP_TIP] ?: false }
+        .distinctUntilChanged()
 
     val hasSeenSwipeMinimizeTip: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[TooltipKeys.HAS_SEEN_SWIPE_MINIMIZE_TIP] ?: false }
+        .distinctUntilChanged()
 
     suspend fun markSwipeDismissTipSeen() {
         dataStore.edit { it[TooltipKeys.HAS_SEEN_SWIPE_DISMISS_TIP] = true }
@@ -311,6 +329,7 @@ class UserPreferencesRepository(context: Context) {
     val hasSeenMarkPlayedTip: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[TooltipKeys.HAS_SEEN_MARK_PLAYED_TIP] ?: false }
+        .distinctUntilChanged()
 
     suspend fun markMarkPlayedTipSeen() {
         dataStore.edit { it[TooltipKeys.HAS_SEEN_MARK_PLAYED_TIP] = true }
@@ -328,6 +347,7 @@ class UserPreferencesRepository(context: Context) {
     val hasLoggedFirstPlay: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[AnalyticsKeys.HAS_LOGGED_FIRST_PLAY] ?: false }
+        .distinctUntilChanged()
 
     suspend fun markFirstPlayLogged() {
         dataStore.edit { it[AnalyticsKeys.HAS_LOGGED_FIRST_PLAY] = true }
@@ -341,6 +361,7 @@ class UserPreferencesRepository(context: Context) {
     val dismissedFeatureVersion: Flow<String> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[FeatureKeys.DISMISSED_FEATURE_VERSION] ?: "" }
+        .distinctUntilChanged()
     
     suspend fun dismissFeatureAnnouncement(version: String) {
         dataStore.edit { it[FeatureKeys.DISMISSED_FEATURE_VERSION] = version }
@@ -372,6 +393,7 @@ class UserPreferencesRepository(context: Context) {
                 )
             } else null
         }
+        .distinctUntilChanged()
         
     suspend fun setAnnouncement(title: String, body: String, route: String?, imageUrl: String?, timestamp: Long) {
         dataStore.edit {
@@ -396,6 +418,7 @@ class UserPreferencesRepository(context: Context) {
     val reviewHasReviewed: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[AnalyticsKeys.REVIEW_HAS_REVIEWED] ?: false }
+        .distinctUntilChanged()
 
     suspend fun markReviewed() {
         dataStore.edit { it[AnalyticsKeys.REVIEW_HAS_REVIEWED] = true }
@@ -460,6 +483,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HIDE_COMPLETED_IN_FEEDS] ?: true
         }
+        .distinctUntilChanged()
 
     suspend fun setHideCompletedInFeeds(hide: Boolean) {
         dataStore.edit { preferences ->
@@ -474,6 +498,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HIDE_COMPLETED_IN_SHOW_DETAILS] ?: false
         }
+        .distinctUntilChanged()
 
     suspend fun setHideCompletedInShowDetails(hide: Boolean) {
         dataStore.edit { preferences ->
@@ -488,6 +513,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HIDE_COMPLETED_IN_HOME] ?: true
         }
+        .distinctUntilChanged()
 
     suspend fun setHideCompletedInHome(hide: Boolean) {
         dataStore.edit { preferences ->
@@ -502,6 +528,7 @@ class UserPreferencesRepository(context: Context) {
         .map { preferences ->
             preferences[Keys.HIDE_COMPLETED_IN_SUBS] ?: true
         }
+        .distinctUntilChanged()
 
     suspend fun setHideCompletedInSubs(hide: Boolean) {
         dataStore.edit { preferences ->

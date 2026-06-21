@@ -79,6 +79,7 @@ fun OptimizedImage(
         model = remember(currentUrl, proxyWidth) {
             ImageRequest.Builder(context)
                 .data(currentUrl)
+                .size(coil.size.Size(proxyWidth, proxyWidth))
                 .memoryCacheKey("$currentUrl-w$proxyWidth")
                 .build()
         }

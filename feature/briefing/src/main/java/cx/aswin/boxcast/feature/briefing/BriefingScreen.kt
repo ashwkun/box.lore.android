@@ -568,7 +568,7 @@ fun BriefingContent(
                 .fillMaxWidth()
                 .verticalScroll(scrollState)
                 .padding(top = contentTopPadding, bottom = bottomContentPadding + 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Start
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -579,6 +579,7 @@ fun BriefingContent(
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier
                     .height(72.dp)
+                    .padding(horizontal = 24.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -603,7 +604,8 @@ fun BriefingContent(
                 text = "$displayDate • $durationMin min listen".uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
                 color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -613,7 +615,7 @@ fun BriefingContent(
                 text = briefing.title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.Start,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -630,8 +632,10 @@ fun BriefingContent(
                 "global" to "Global"
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 regions.forEachIndexed { index, (code, label) ->
@@ -646,7 +650,7 @@ fun BriefingContent(
                             else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         ),
                         modifier = Modifier
-                            .padding(horizontal = 4.dp)
+                            .padding(end = 8.dp)
                             .expressiveClickable(
                                 shape = RoundedCornerShape(12.dp),
                                 onClick = {
@@ -683,7 +687,7 @@ fun BriefingContent(
                 timeText = timeText,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 48.dp)
+                    .padding(horizontal = 24.dp)
                     .height(56.dp)
             )
 

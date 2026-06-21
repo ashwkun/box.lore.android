@@ -31,6 +31,15 @@ private fun String?.toHttps(): String {
     }
 }
 
+fun mapRegionForBriefing(region: String): String {
+    return when (region.lowercase().trim()) {
+        "us" -> "us"
+        "in" -> "in"
+        "uk", "gb" -> "uk"
+        else -> "global"
+    }
+}
+
 data class SearchResult(
     val podcasts: List<cx.aswin.boxcast.core.model.Podcast>,
     val correctedQuery: String? = null
@@ -637,15 +646,16 @@ class PodcastRepository(
     }
 
     suspend fun getBriefingMetadata(region: String): Briefing? = withContext(Dispatchers.IO) {
+        val mappedRegion = mapRegionForBriefing(region)
         try {
-            val response = api.getBriefingMetadata(region).execute()
+            val response = api.getBriefingMetadata(mappedRegion).execute()
             if (response.isSuccessful) {
                 response.body()
             } else {
                 null
             }
         } catch (e: Exception) {
-            android.util.Log.e("PodcastRepository", "Failed to fetch briefing for $region", e)
+            android.util.Log.e("PodcastRepository", "Failed to fetch briefing for $region (mapped: $mappedRegion)", e)
             null
         }
     }
@@ -707,9 +717,29 @@ class PodcastRepository(
                     entry.value.map { mapToPodcast(it) }
                 }
 
+                var briefing = body.briefing
+                var briefingChapters = body.briefingChapters
+                if (briefing == null) {
+                    val mappedRegion = mapRegionForBriefing(country)
+                    android.util.Log.d("PodcastRepository", "HomeBootstrapData briefing was null for country $country, attempting fallback fetch with mapped region $mappedRegion")
+                    val fallbackBriefing = getBriefingMetadata(mappedRegion)
+                    if (fallbackBriefing != null) {
+                        briefing = fallbackBriefing
+                        val audioUri = android.net.Uri.parse(fallbackBriefing.audioUrl)
+                        val version = audioUri.getQueryParameter("v")
+                        val versionParam = if (version != null) "&v=$version" else ""
+                        val chaptersUrl = "https://api.aswin.cx/briefings/chapters/${fallbackBriefing.region}?d=${fallbackBriefing.date}$versionParam"
+                        try {
+                            briefingChapters = cx.aswin.boxcast.core.data.ChapterRepository.getChapters(chaptersUrl)
+                        } catch (e: Exception) {
+                            android.util.Log.e("PodcastRepository", "Failed to fetch chapters for fallback briefing", e)
+                        }
+                    }
+                }
+
                 HomeBootstrapData(
-                    briefing = body.briefing,
-                    briefingChapters = body.briefingChapters,
+                    briefing = briefing,
+                    briefingChapters = briefingChapters,
                     trending = trendingList,
                     curatedVibes = curatedVibesMap,
                     recommendations = recommendationsList
