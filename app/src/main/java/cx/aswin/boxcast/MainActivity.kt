@@ -220,7 +220,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         intentState.value = intent
         
-        enableEdgeToEdge()
+        try {
+            enableEdgeToEdge()
+        } catch (e: NoClassDefFoundError) {
+            // Some OEM ROMs (budget Android 12/13 devices) strip android.window.SplashScreenView
+            // from their framework, causing a NoClassDefFoundError when the splash screen's
+            // hierarchy listener fires during enableEdgeToEdge(). Gracefully degrade — the app
+            // will still work, just without edge-to-edge on those devices.
+            android.util.Log.w("MainActivity", "enableEdgeToEdge() failed due to missing framework class, skipping", e)
+        }
         
         // Analytics: Track cold start
         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackFirstLaunchIfNecessary(this)

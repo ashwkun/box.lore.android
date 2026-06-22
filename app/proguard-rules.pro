@@ -65,3 +65,7 @@
 # Fix R8 compilation errors due to missing Kotlin 2.0 classes in transitive dependencies
 -dontwarn kotlin.uuid.**
 -dontwarn kotlinx.serialization.builtins.BuiltinSerializersKt
+
+# Fix NoClassDefFoundError on OEM ROMs that strip android.window.SplashScreenView
+-dontwarn android.window.SplashScreenView
+-keep class androidx.core.splashscreen.** { *; }
