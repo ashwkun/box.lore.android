@@ -425,7 +425,7 @@ fun BriefingScreen(
         ) {
             // Centered Title — fades in on scroll
             Image(
-                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxcast_brief_logo),
+                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_brief_logo),
                 contentDescription = "The Boxcast Brief",
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier
@@ -622,7 +622,7 @@ fun BriefingContent(
 
             // Page title (visible in body, fades into header on scroll)
             Image(
-                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxcast_brief_logo),
+                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_brief_logo),
                 contentDescription = "The Boxcast Brief",
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier

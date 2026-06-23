@@ -20,7 +20,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "boxcast"
+rootProject.name = "boxlore"
 include(":app")
 include(":core:network")
 include(":core:data")

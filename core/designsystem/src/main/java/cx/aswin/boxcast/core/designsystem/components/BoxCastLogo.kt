@@ -21,11 +21,11 @@ fun BoxCastLogo(
     fontSize: TextUnit = 24.sp // Kept for backward compatibility
 ) {
     Icon(
-        painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxcast_logo),
-        contentDescription = "BOXCAST",
+        painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_logo),
+        contentDescription = "BOXLORE",
         tint = textColor,
         modifier = modifier
             .height(20.dp)
-            .aspectRatio(778f / 112f)
+            .aspectRatio(805f / 110f)
     )
 }

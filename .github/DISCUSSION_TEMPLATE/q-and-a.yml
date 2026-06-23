@@ -3,7 +3,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Have a question about using BoxCast? Can't figure something out?
+        Have a question about using BoxLore? Can't figure something out?
         Ask the community here! 🙋‍♂️
 
   - type: dropdown

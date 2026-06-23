@@ -156,7 +156,7 @@ class DownloadRepository(
             val databaseProvider = getDatabaseProvider(context)
             val cache = getDownloadCache(context)
             val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                .setUserAgent(androidx.media3.common.util.Util.getUserAgent(context, "BoxCast"))
+                .setUserAgent(androidx.media3.common.util.Util.getUserAgent(context, "BoxLore"))
                 .setAllowCrossProtocolRedirects(true)
             
             return DownloadManager(

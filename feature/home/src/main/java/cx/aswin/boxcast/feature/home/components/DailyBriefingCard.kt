@@ -199,7 +199,7 @@ fun DailyBriefingCard(
                 ) {
                     androidx.compose.foundation.Image(
                         painter = painterResource(
-                            id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxcast_brief_logo
+                            id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_brief_logo
                         ),
                         contentDescription = "The Boxcast Brief",
                         modifier = Modifier.height(48.dp),

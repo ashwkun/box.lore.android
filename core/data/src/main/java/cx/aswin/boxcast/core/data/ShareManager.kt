@@ -234,7 +234,7 @@ object ShareManager {
                         // Draw the logo inside the capsule (below "listen on", right-aligned)
                         val drawable = androidx.core.content.ContextCompat.getDrawable(
                             context,
-                            cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxcast_logo
+                            cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_logo
                         )?.mutate()
                         if (drawable != null) {
                             val logoLeft = contentEndX - logoWidth

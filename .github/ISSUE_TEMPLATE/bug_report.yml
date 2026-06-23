@@ -11,7 +11,7 @@ body:
     id: app-version
     attributes:
       label: App Version
-      description: "Which version of BoxCast are you running? (Check Settings or About)"
+      description: "Which version of BoxLore are you running? (Check Settings or About)"
       placeholder: "e.g. v1.2.8"
     validations:
       required: true
@@ -55,7 +55,7 @@ body:
       label: Steps to reproduce
       description: "How can we trigger this bug?"
       placeholder: |
-        1. Open BoxCast
+        1. Open BoxLore
         2. Go to Library
         3. Select a Podcast
         4. ...

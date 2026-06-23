@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="images/boxcastlogo.png" width="250" alt="BoxCast Logo"/>
+<img src="images/boxlorelogo.png" width="250" alt="BoxLore Logo"/>
 
 ### *The Ultimate Podcast App For Android*
 
 *Built completely with Jetpack Compose featuring a beautiful Material 3 Design.*
 *Download the APK below and start listening!*
 
-[![Download APK](https://img.shields.io/badge/⬇_DOWNLOAD_APK-Latest_Release-00C853?style=for-the-badge&logo=android&logoColor=white&labelColor=1a1a2e)](https://github.com/ashwkun/box.cast.android/releases/latest/download/boxcast-release.apk)
+[![Download APK](https://img.shields.io/badge/⬇_DOWNLOAD_APK-Latest_Release-00C853?style=for-the-badge&logo=android&logoColor=white&labelColor=1a1a2e)](https://github.com/ashwkun/box.lore.android/releases/latest/download/boxlore-release.apk)
 
 [![GPL v3 License](https://img.shields.io/badge/License-GPLv3-ff0080.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Android](https://img.shields.io/badge/Platform-Android-3DDC84.svg)](https://www.android.com/)
@@ -152,8 +152,8 @@ This app aggregates data from multiple public sources to provide a unified podca
 
 ```bash
 # Clone the repository
-git clone https://github.com/ashwkun/box.cast.android.git
-cd box.cast.android
+git clone https://github.com/ashwkun/box.lore.android.git
+cd box.lore.android
 
 # Build the APK
 ./gradlew assembleDebug

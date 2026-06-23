@@ -99,7 +99,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
         val downloadCache = cx.aswin.boxcast.core.data.DownloadRepository.getDownloadCache(this)
         val streamCache = cx.aswin.boxcast.core.data.DownloadRepository.getStreamCache(this)
         val httpDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent(androidx.media3.common.util.Util.getUserAgent(this, "BoxCast"))
+            .setUserAgent(androidx.media3.common.util.Util.getUserAgent(this, "BoxLore"))
             .setAllowCrossProtocolRedirects(true)
 
         // Stream cache: writes streamed data here (auto-evicts at 250MB)
@@ -1168,7 +1168,7 @@ class BoxCastPlaybackService : MediaLibraryService() {
                 .setMediaId(ROOT_ID)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
-                        .setTitle("BoxCast")
+                        .setTitle("BoxLore")
                         .setIsPlayable(false)
                         .setIsBrowsable(true)
                         .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)

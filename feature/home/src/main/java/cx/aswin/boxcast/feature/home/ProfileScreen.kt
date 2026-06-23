@@ -503,7 +503,7 @@ fun PrivacySection(
         OutlinedButton(
             onClick = {
                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("github_repo_clicked")
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.cast.android"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.lore.android"))
                 try { context.startActivity(intent) } catch(_:Exception){}
             },
             modifier = Modifier.fillMaxWidth()
@@ -660,7 +660,7 @@ fun CommunitySection(context: android.content.Context) {
             },
             modifier = Modifier.clickable {
                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("github_repo_clicked")
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.cast.android"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ashwkun/box.lore.android"))
                 try { context.startActivity(intent) } catch(_:Exception){}
             }
         )
