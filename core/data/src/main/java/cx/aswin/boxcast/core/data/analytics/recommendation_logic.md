@@ -1,4 +1,4 @@
-This document provides a detailed technical breakdown of the boxcast personalized recommendation engine and vector lookup system. It covers the client-side payloads, server-side processing, mathematical weights, recency decay algorithms, and the background ETL (Extract, Transform, Load) pipelines that build the vector pool.
+This document provides a detailed technical breakdown of the boxlore personalized recommendation engine and vector lookup system. It covers the client-side payloads, server-side processing, mathematical weights, recency decay algorithms, and the background ETL (Extract, Transform, Load) pipelines that build the vector pool.
 
 **Client-Side Payloads and Transmission Schemas**
 Personalization begins on the client device, which transmits listening state metadata to the Cloudflare Worker proxy via a POST request to https://api.aswin.cx/recommendations. 

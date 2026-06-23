@@ -1,6 +1,6 @@
-# Contributing to BoxCast
+# Contributing to BoxLore
 
-Thank you for your interest in contributing to BoxCast! We welcome contributions from everyone.
+Thank you for your interest in contributing to BoxLore! We welcome contributions from everyone.
 
 ## Getting Started
 
@@ -23,6 +23,6 @@ If you have an idea for a new feature or improvement, please submit an issue usi
 
 ## Development Setup
 
-See the main [README.md](README.md) for instructions on setting up the BoxCast development environment. 
+See the main [README.md](README.md) for instructions on setting up the BoxLore development environment. 
 
-We appreciate your effort in helping improve BoxCast!
+We appreciate your effort in helping improve BoxLore!

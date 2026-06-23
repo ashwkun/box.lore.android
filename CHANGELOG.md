@@ -1,4 +1,4 @@
-# BoxCast Android - Major Release Changelog (v1.4.1 ➔ HEAD)
+# BoxLore Android - Major Release Changelog (v1.4.1 ➔ HEAD)
 *Features sorted by direct user impact, comparing the current repository state against the last v1 release.*
 
 ---
@@ -13,7 +13,7 @@ We have replaced the basic, static layout of the old Home screen—which only sh
 - **Premium Cards & Layout Spacing**: Re-engineered library and spotlight cards with dedicated action rows. Play buttons are positioned to prevent layout squeezing and ensure titles and subtitles never clip.
 
 ### 2. 🧠 Intelligent Subscription Sorting & Personalized Curation
-We have completely re-engineered how your feed list and homepage are prioritized. Rather than a simple chronological timeline that floods your screen with daily news and pushes weekly serials out of sight, BoxCast now computes an engagement-driven hierarchy:
+We have completely re-engineered how your feed list and homepage are prioritized. Rather than a simple chronological timeline that floods your screen with daily news and pushes weekly serials out of sight, BoxLore now computes an engagement-driven hierarchy:
 - **Listening Affinity & Engagement Curation**: Feeds are ranked dynamically based on your actual listening habits—incorporating how often you play a show, the episodes you like, and your subscription recency.
 - **Serial Continuation Mode**: For podcasts marked as serial (best enjoyed in order), the engine automatically tracks and queues the *next chronological episode* you need to listen to, ensuring a smooth, spoiler-free narrative journey.
 - **Hiatus & Inactivity Guard**: Dynamically detects when shows have gone on hiatus or ended, down-ranking stale feeds so they never clutter your active updates.
@@ -25,7 +25,7 @@ For podcast feeds that do not natively share their update schedule:
 - **Premium Episode Frequency Modal**: Tapping the new frequency indicator badge on any Podcast Details page opens an interactive, premium details modal. It breaks down the show's activity status, typical intervals, and publication trends so you always know when to expect the next drop.
 
 ### 4. 🎬 Immersive Video Podcasts & Full Podcasting 2.0 Integration
-BoxCast is now a fully featured, modern client supporting the rich features of the new Podcasting 2.0 standard:
+BoxLore is now a fully featured, modern client supporting the rich features of the new Podcasting 2.0 standard:
 - **Interactive, Synced Transcripts**: Read along with live-scrolling text sheets. Tap on any word or sentence to instantly jump the audio playback to that exact millisecond.
 - **Seekbar Chapter Notches & Lists**: Clickable chapter lists let you easily jump sections. The seekbar overlays custom tick notches matching chapter boundaries, featuring a safety buffer so your thumb navigation never overlaps adjacent chapters.
 - **Fullscreen 16:9 Video Podcasts**: Built-in high-performance video media support with an orientation lock system. Rotating your device between landscape and portrait remains completely smooth and never interrupts or pauses playback.
@@ -62,4 +62,4 @@ Finding your next favorite show is now instantaneous, even on slower cellular ne
 - **Smooth 60fps Scrolling**: Stabilized Compose list layouts and optimized image loaders, completely eliminating scrolling jitters or image flickers on the homepage.
 
 ---
-*BoxCast Android - Engineered for the modern podcast enthusiast.*
+*BoxLore Android - Engineered for the modern podcast enthusiast.*

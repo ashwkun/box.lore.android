@@ -35,9 +35,9 @@
 
 ## 📱 About
 
-BoxCast is an open-source podcast companion app designed to bring all your listening needs into a single, beautiful interface.
+BoxLore is an open-source podcast companion app designed to bring all your listening needs into a single, beautiful interface.
 
-Tired of clunky audio players, rigid grids, and missing out on trending shows? **BoxCast simplifies it all.**
+Tired of clunky audio players, rigid grids, and missing out on trending shows? **BoxLore simplifies it all.**
 
 - **Material 3 Expressive Design System** with custom podcast theming
 - **M3 Dynamic Theming** that extracts colors from album art in real-time
@@ -198,6 +198,6 @@ This project is licensed under the **GNU General Public License v3.0** — see t
 
 **If you love podcasts and this app, give it a ⭐ on GitHub!**
 
-[⬆ Back to Top](#%EF%B8%8F-boxcast)
+[⬆ Back to Top](#%EF%B8%8F-boxlore)
 
 </div>

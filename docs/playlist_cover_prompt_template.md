@@ -1,6 +1,6 @@
 # Daily News Playlist Cover Prompt Template
 
-This is the default template used to generate the cover artwork for the daily news playlist (**"the boxcast brief"**). It is designed to visually synthesize the day's top 3 headlines without generating any text, labels, or numbers.
+This is the default template used to generate the cover artwork for the daily news playlist (**"the boxlore brief"**). It is designed to visually synthesize the day's top 3 headlines without generating any text, labels, or numbers.
 
 ## Default Template
 
