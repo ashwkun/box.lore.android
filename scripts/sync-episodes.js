@@ -370,7 +370,7 @@ async function main() {
 
     sql += `
         ORDER BY p.last_ep_sync ASC
-        LIMIT 2000
+        LIMIT 100
     `;
 
     console.log("Fetching sync candidates...");
