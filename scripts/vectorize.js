@@ -285,7 +285,7 @@ async function main() {
         console.log(`[SYNC] Filtering candidates for country: ${country}`);
     }
 
-    sql += ` LIMIT 100`;
+    sql += ` LIMIT 1000`;
 
     console.log("[SYNC] Querying Turso for chart podcasts...");
     const res = await executeSQL(sql, args);
