@@ -81,13 +81,18 @@ async function executeBatch(statements) {
     });
     if (!response.ok) throw new Error(`Turso HTTP error: ${response.status}`);
     const res = await response.json();
+    let totalRowsWritten = 0;
     if (res.results) {
         for (const result of res.results) {
             if (result.type === "error") {
                 throw new Error(`Turso SQL batch error: ${result.error.message}`);
             }
+            if (result.response?.result) {
+                totalRowsWritten += result.response.result.rows_written || 0;
+            }
         }
     }
+    console.log(`  -> Batch completed. Rows written/affected: ${totalRowsWritten}`);
 }
 
 async function scrollQdrant(collection, fields, limit = 5000) {
@@ -147,6 +152,7 @@ async function scrollQdrant(collection, fields, limit = 5000) {
 
 async function main() {
     console.log("=== Starting Database Status Backfill ===");
+    console.log(`[DATABASE] Connecting to Turso URL: ${TURSO_URL?.substring(0, 30)}...`);
 
     // 1. Scroll 'podcasts' collection to get all show UUIDs
     const { idsSet: qdrantPodcastsUuids } = await scrollQdrant('podcasts', false);
