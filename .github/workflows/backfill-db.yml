@@ -31,5 +31,5 @@ jobs:
           QDRANT_URL: ${{ secrets.QDRANT_URL }}
           QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
         run: |
-          chmod +x scripts/backfill-db-status.js
-          node scripts/backfill-db-status.js
+          chmod +x scripts/debug-qdrant-ids.js
+          node scripts/debug-qdrant-ids.js
