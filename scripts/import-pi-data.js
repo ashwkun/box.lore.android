@@ -184,6 +184,17 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
     const headers = parseCSVLine(lines[0]);
     console.log(`Headers for ${tableName}:`, headers.join(', '));
 
+    // --- TARGETED DIAGNOSTIC LOGGING ---
+    let dbCountBefore = 0;
+    try {
+        const beforeRes = await executeSQL(`SELECT COUNT(*) FROM ${tableName}`);
+        dbCountBefore = parseInt(beforeRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
+        console.log(`[DIAGNOSTIC] ${tableName} table row count BEFORE bulk import: ${dbCountBefore}`);
+    } catch (err) {
+        console.error("[DIAGNOSTIC ERROR] Failed to fetch table count before import:", err.message);
+    }
+    // ------------------------------------
+
     // Ensure schema matches
     await ensureColumns(tableName, headers);
 
@@ -274,6 +285,18 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
     }
 
     console.log(`[IMPORT] Done: Successfully imported ${imported}/${dataLines.length} rows into ${tableName}.`);
+
+    // --- TARGETED DIAGNOSTIC LOGGING ---
+    try {
+        const afterRes = await executeSQL(`SELECT COUNT(*) FROM ${tableName}`);
+        const dbCountAfter = parseInt(afterRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
+        console.log(`[DIAGNOSTIC] ${tableName} table row count AFTER bulk import: ${dbCountAfter}`);
+        console.log(`[DIAGNOSTIC] Net rows added: ${dbCountAfter - dbCountBefore}`);
+    } catch (err) {
+        console.error("[DIAGNOSTIC ERROR] Failed to fetch table count after import:", err.message);
+    }
+    // ------------------------------------
+
     return imported;
 }
 
@@ -351,6 +374,17 @@ async function main() {
         const toImport = missingIds.slice(0, 200); // safety cap
         console.log(`[IMPORT] Fetching metadata for ${toImport.length} shows directly via Podcast Index API...`);
 
+        // --- TARGETED DIAGNOSTIC LOGGING ---
+        let dbCountBefore = 0;
+        try {
+            const beforeRes = await executeSQL("SELECT COUNT(*) FROM podcasts");
+            dbCountBefore = parseInt(beforeRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
+            console.log(`[DIAGNOSTIC] podcasts table row count BEFORE incremental API import: ${dbCountBefore}`);
+        } catch (err) {
+            console.error("[DIAGNOSTIC ERROR] Failed to fetch table count before incremental import:", err.message);
+        }
+        // ------------------------------------
+
         const batchStatements = [];
         const BATCH_SIZE = 50;
 
@@ -425,6 +459,17 @@ async function main() {
         }
 
         console.log(`[IMPORT] Incremental sync complete! Successfully imported ${importedCount}/${toImport.length} missing podcasts.`);
+
+        // --- TARGETED DIAGNOSTIC LOGGING ---
+        try {
+            const afterRes = await executeSQL("SELECT COUNT(*) FROM podcasts");
+            const dbCountAfter = parseInt(afterRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
+            console.log(`[DIAGNOSTIC] podcasts table row count AFTER incremental API import: ${dbCountAfter}`);
+            console.log(`[DIAGNOSTIC] Net rows added: ${dbCountAfter - dbCountBefore}`);
+        } catch (err) {
+            console.error("[DIAGNOSTIC ERROR] Failed to fetch table count after incremental import:", err.message);
+        }
+        // ------------------------------------
     }
 
     console.log("\nImport complete!");

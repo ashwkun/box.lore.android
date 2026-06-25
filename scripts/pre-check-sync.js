@@ -57,6 +57,26 @@ async function main() {
     const podcastsRes = await executeSQL("SELECT DISTINCT itunes_id FROM podcasts WHERE itunes_id IS NOT NULL;");
     const existingIds = new Set(podcastsRes?.results?.[0]?.response?.result?.rows?.map(r => r[0].value).filter(Boolean).map(String));
 
+    // --- TARGETED DIAGNOSTIC LOGGING ---
+    try {
+        const totalPodsRes = await executeSQL("SELECT COUNT(*) FROM podcasts;");
+        const totalPods = totalPodsRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0;
+        console.log(`[DIAGNOSTIC] Podcasts count in DB at start of ${country || 'all'} run: ${totalPods}`);
+        
+        if (chartIds.length > 0 && podcastsRes?.results?.[0]?.response?.result?.rows?.length > 0) {
+            const sampleChartRow = chartsRes.results[0].response.result.rows[0][0];
+            const samplePodRow = podcastsRes.results[0].response.result.rows[0][0];
+            console.log(`[DIAGNOSTIC] Sample Chart iTunes ID: type=${sampleChartRow.type}, value='${sampleChartRow.value}'`);
+            console.log(`[DIAGNOSTIC] Sample Podcast iTunes ID: type=${samplePodRow.type}, value='${samplePodRow.value}'`);
+        }
+        
+        const plainOverlap = chartIds.filter(id => existingIds.has(String(id))).length;
+        console.log(`[DIAGNOSTIC] Overlap (plain comparison): ${plainOverlap} / ${chartIds.length}`);
+    } catch (err) {
+        console.error("[DIAGNOSTIC ERROR]", err.message);
+    }
+    // ------------------------------------
+
     // 3. Calculate missing count
     const missingIds = chartIds.filter(id => !existingIds.has(String(id)));
 
