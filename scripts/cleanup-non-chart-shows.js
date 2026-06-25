@@ -152,6 +152,23 @@ async function main() {
     const activeChartCount = parseInt(countRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
     console.log(`[CLEANUP] Found ${activeChartCount} unique iTunes IDs in charts table.`);
 
+    // --- TARGETED DIAGNOSTIC LOGGING ---
+    let dbCountBefore = 0;
+    try {
+        const beforeRes = await executeSQL("SELECT COUNT(*) FROM podcasts");
+        dbCountBefore = parseInt(beforeRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
+        console.log(`[DIAGNOSTIC] podcasts table row count BEFORE cleanup: ${dbCountBefore}`);
+        
+        const chartsBreakdown = await executeSQL("SELECT country, COUNT(DISTINCT itunes_id) FROM charts GROUP BY country");
+        console.log(`[DIAGNOSTIC] Charts breakdown in database right now:`);
+        chartsBreakdown?.results?.[0]?.response?.result?.rows?.forEach(r => {
+            console.log(`  - ${r[0].value}: ${r[1].value} unique iTunes IDs`);
+        });
+    } catch (err) {
+        console.error("[DIAGNOSTIC ERROR]", err.message);
+    }
+    // ------------------------------------
+
     if (activeChartCount < SAFETY_THRESHOLD) {
         console.warn(`[SAFETY TRIGGERED] Active chart count (${activeChartCount}) is below safety threshold (${SAFETY_THRESHOLD}).`);
         console.warn("[SAFETY TRIGGERED] Aborting cleanup operation to prevent accidental mass database deletion.");
@@ -182,15 +199,7 @@ async function main() {
         process.exit(0);
     }
 
-    // Log a sample of podcasts to delete
-    const sampleSize = Math.min(10, candidates.length);
-    console.log(`[CLEANUP] Sample of podcasts to be deleted (${sampleSize}/${candidates.length}):`);
-    for (let idx = 0; idx < sampleSize; idx++) {
-        console.log(`  - "${candidates[idx].title}" (ID: ${candidates[idx].id}, iTunes ID: ${candidates[idx].itunesId || 'N/A'})`);
-    }
-    if (candidates.length > 10) {
-        console.log(`  - ... and ${candidates.length - 10} more shows.`);
-    }
+
 
     // 3. Delete from Qdrant first (since we need the candidate IDs)
     console.log(`\n[CLEANUP] Starting Qdrant vector deletion in batches of ${BATCH_SIZE}...`);
@@ -270,6 +279,17 @@ async function main() {
     console.log(`Total Podcasts Cleaned:  ${candidates.length}`);
     console.log(`Total Duration:          ${elapsed}s`);
     console.log(`=================================`);
+
+    // --- TARGETED DIAGNOSTIC LOGGING ---
+    try {
+        const afterRes = await executeSQL("SELECT COUNT(*) FROM podcasts");
+        const dbCountAfter = parseInt(afterRes?.results?.[0]?.response?.result?.rows?.[0]?.[0]?.value || 0);
+        console.log(`[DIAGNOSTIC] podcasts table row count AFTER cleanup: ${dbCountAfter}`);
+        console.log(`[DIAGNOSTIC] Net rows deleted: ${dbCountBefore - dbCountAfter}`);
+    } catch (err) {
+        console.error("[DIAGNOSTIC ERROR] Failed to fetch table count after cleanup:", err.message);
+    }
+    // ------------------------------------
 }
 
 main().catch(console.error);
