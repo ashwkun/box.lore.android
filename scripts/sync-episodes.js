@@ -125,75 +125,111 @@ function cleanDescription(raw) {
 
 async function executeSQL(sql, args = []) {
     const startTime = Date.now();
-    try {
-        const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${TURSO_TOKEN}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                requests: [{
-                    type: "execute",
-                    stmt: { sql, args: args.map(mapArgType) }
-                }, { type: "close" }]
-            })
-        });
-        const duration = Date.now() - startTime;
-        if (!response.ok) {
-            throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    const MAX_RETRIES = 5;
+    const INITIAL_DELAY = 1000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${TURSO_TOKEN}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    requests: [{
+                        type: "execute",
+                        stmt: { sql, args: args.map(mapArgType) }
+                    }, { type: "close" }]
+                })
+            });
+            const duration = Date.now() - startTime;
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+            }
+            const res = await response.json();
+            if (res.results && res.results[0] && res.results[0].type === "error") {
+                throw new Error(`SQL execution error: ${res.results[0].error.message}`);
+            }
+            return { ...res, _durationMs: duration };
+        } catch (e) {
+            const isTransient = e.message.includes('fetch failed') || 
+                              e.message.includes('socket') || 
+                              e.message.includes('UND_ERR') || 
+                              e.message.includes('timeout') ||
+                              e.message.includes('502') ||
+                              e.message.includes('503') ||
+                              e.message.includes('504');
+            if (isTransient && attempt < MAX_RETRIES) {
+                const backoff = INITIAL_DELAY * Math.pow(2, attempt - 1);
+                console.warn(`  [WARN] executeSQL failed (attempt ${attempt}/${MAX_RETRIES}): ${e.message}. Retrying in ${backoff}ms...`);
+                await new Promise(resolve => setTimeout(resolve, backoff));
+                continue;
+            }
+            const duration = Date.now() - startTime;
+            console.error(`[FAIL] DB query failed after ${duration}ms: ${e.message}`);
+            throw e;
         }
-        const res = await response.json();
-        if (res.results && res.results[0] && res.results[0].type === "error") {
-            throw new Error(`SQL execution error: ${res.results[0].error.message}`);
-        }
-        return { ...res, _durationMs: duration };
-    } catch (e) {
-        const duration = Date.now() - startTime;
-        console.error(`[FAIL] DB query failed after ${duration}ms: ${e.message}`);
-        throw e;
     }
 }
 
 async function executeBatch(statements) {
     if (statements.length === 0) return { _durationMs: 0, _rowsRead: 0, _rowsWritten: 0 };
     const startTime = Date.now();
-    try {
-        const requests = statements.map(stmt => ({
-            type: "execute",
-            stmt: { sql: stmt.sql, args: stmt.args.map(mapArgType) }
-        }));
-        requests.push({ type: "close" });
+    const MAX_RETRIES = 5;
+    const INITIAL_DELAY = 1000;
 
-        const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${TURSO_TOKEN}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ requests })
-        });
-        const duration = Date.now() - startTime;
-        if (!response.ok) throw new Error(`Turso HTTP error: ${response.status}`);
-        
-        const res = await response.json();
-        let totalRowsRead = 0, totalRowsWritten = 0;
-        if (res.results) {
-            for (const result of res.results) {
-                if (result.type === "error") {
-                    throw new Error(`Turso SQL batch error: ${result.error.message}`);
-                }
-                if (result.response?.result) {
-                    totalRowsRead += result.response.result.rows_read || 0;
-                    totalRowsWritten += result.response.result.rows_written || 0;
+    const requests = statements.map(stmt => ({
+        type: "execute",
+        stmt: { sql: stmt.sql, args: stmt.args.map(mapArgType) }
+    }));
+    requests.push({ type: "close" });
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${TURSO_TOKEN}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ requests })
+            });
+            const duration = Date.now() - startTime;
+            if (!response.ok) throw new Error(`Turso HTTP error: ${response.status}`);
+            
+            const res = await response.json();
+            let totalRowsRead = 0, totalRowsWritten = 0;
+            if (res.results) {
+                for (const result of res.results) {
+                    if (result.type === "error") {
+                        throw new Error(`Turso SQL batch error: ${result.error.message}`);
+                    }
+                    if (result.response?.result) {
+                        totalRowsRead += result.response.result.rows_read || 0;
+                        totalRowsWritten += result.response.result.rows_written || 0;
+                    }
                 }
             }
+            return { _durationMs: duration, _rowsRead: totalRowsRead, _rowsWritten: totalRowsWritten };
+        } catch (e) {
+            const isTransient = e.message.includes('fetch failed') || 
+                              e.message.includes('socket') || 
+                              e.message.includes('UND_ERR') || 
+                              e.message.includes('timeout') ||
+                              e.message.includes('502') ||
+                              e.message.includes('503') ||
+                              e.message.includes('504');
+            if (isTransient && attempt < MAX_RETRIES) {
+                const backoff = INITIAL_DELAY * Math.pow(2, attempt - 1);
+                console.warn(`  [WARN] executeBatch failed (attempt ${attempt}/${MAX_RETRIES}): ${e.message}. Retrying in ${backoff}ms...`);
+                await new Promise(resolve => setTimeout(resolve, backoff));
+                continue;
+            }
+            const duration = Date.now() - startTime;
+            console.error(`[FAIL] DB batch (${statements.length} stmts) failed after ${duration}ms: ${e.message}`);
+            throw e;
         }
-        return { _durationMs: duration, _rowsRead: totalRowsRead, _rowsWritten: totalRowsWritten };
-    } catch (e) {
-        const duration = Date.now() - startTime;
-        console.error(`[FAIL] DB batch (${statements.length} stmts) failed after ${duration}ms: ${e.message}`);
-        throw e;
     }
 }
 

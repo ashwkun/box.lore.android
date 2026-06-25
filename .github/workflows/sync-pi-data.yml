@@ -11,8 +11,6 @@ on:
     - cron: '0 21 * * *'  # 21:00 UTC (Optimal for US East evening / evening catch-up)
   workflow_dispatch: # Allow manual trigger
 
-concurrency:
-  group: sync-pi-data
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -21,6 +19,9 @@ jobs:
   sync-pi-data:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    concurrency:
+      group: sync-pi-data-${{ matrix.country }}-${{ github.ref }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       max-parallel: 1
