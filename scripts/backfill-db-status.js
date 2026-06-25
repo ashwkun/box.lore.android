@@ -205,7 +205,7 @@ async function main() {
         const chunk = updates.slice(i, i + BATCH_SIZE);
         const statements = chunk.map(u => ({
             sql: "UPDATE podcasts SET qdrant_vectorized = ?, qdrant_podcast_vectorized = ? WHERE id = ?;",
-            args: [u.qdrant_vectorized, u.qdrant_podcast_vectorized, u.id]
+            args: [u.qdrant_vectorized, u.qdrant_podcast_vectorized, parseInt(u.id)]
         }));
         
         console.log(`[DATABASE] Executing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(updates.length / BATCH_SIZE)} (${chunk.length} updates)...`);
