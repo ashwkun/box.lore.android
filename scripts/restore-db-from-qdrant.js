@@ -276,101 +276,104 @@ async function main() {
     const missingItunesIds = rows.map(r => String(r[0].value)).filter(Boolean);
     console.log(`[DATABASE] Found ${missingItunesIds.length} missing podcasts in podcasts table.`);
 
-    if (missingItunesIds.length === 0) {
-        console.log("[DATABASE] Database is already fully populated. No missing shows to import.");
-        return;
-    }
-
-    const CONCURRENCY = 40; // High speed concurrency batching
+    const CONCURRENCY = 20; // Safe worker pool concurrency
     console.log(`[RESTORE] Importing ${missingItunesIds.length} podcasts with concurrency of ${CONCURRENCY}...`);
 
-    for (let i = 0; i < missingItunesIds.length; i += CONCURRENCY) {
-        const chunk = missingItunesIds.slice(i, i + CONCURRENCY);
-        
-        console.log(`[RESTORE] Processing batch ${Math.floor(i / CONCURRENCY) + 1}/${Math.ceil(missingItunesIds.length / CONCURRENCY)} (podcasts ${i + 1}-${i + chunk.length}) | Current Delay: ${currentBatchDelayMs}ms...`);
+    let index = 0;
+    const promises = [];
 
-        const promises = chunk.map(async (itunesId) => {
+    async function worker() {
+        while (index < missingItunesIds.length) {
+            const currentIndex = index++;
+            const itunesId = missingItunesIds[currentIndex];
+
+            // Stagger start times slightly to prevent burst 429s
+            await new Promise(r => setTimeout(r, currentIndex * 25));
+
             try {
                 const result = await fetchPodcastAndLatestEpisode(itunesId);
-                if (!result) return;
+                if (result) {
+                    const { feed, latestEp } = result;
+                    const podIdStr = String(feed.id);
+                    const isVectorizedInQdrant = qdrantEpisodePodcastIds.has(podIdStr) ? 1 : 0;
 
-                const { feed, latestEp } = result;
-                const podIdStr = String(feed.id);
-                const isVectorizedInQdrant = qdrantEpisodePodcastIds.has(podIdStr) ? 1 : 0;
+                    // Prepare categories string
+                    let categoriesStr = "";
+                    if (feed.categories) {
+                        categoriesStr = Object.values(feed.categories).join(', ');
+                    }
 
-                // Prepare categories string
-                let categoriesStr = "";
-                if (feed.categories) {
-                    categoriesStr = Object.values(feed.categories).join(', ');
+                    const columns = [
+                        'id', 'itunes_id', 'title', 'author', 'description', 'image_url', 
+                        'feed_url', 'website_url', 'categories', 'language', 'explicit', 'type',
+                        'latest_ep_id', 'latest_ep_title', 'latest_ep_date', 'latest_ep_duration',
+                        'latest_ep_url', 'latest_ep_image', 'latest_ep_type', 'latest_ep_description',
+                        'latest_ep_chapters_url', 'latest_ep_transcript_url', 'latest_ep_persons',
+                        'latest_ep_transcripts', 'medium', 'last_ep_sync', 'qdrant_vectorized'
+                    ];
+                    const placeholders = columns.map(() => '?').join(',');
+
+                    const values = [
+                        feed.id,
+                        feed.itunesId || itunesId,
+                        feed.title || "Unknown Title",
+                        feed.author || "Unknown Author",
+                        (feed.description || "").substring(0, 1000),
+                        feed.image || feed.artwork || "",
+                        feed.url || "",
+                        feed.link || "",
+                        categoriesStr,
+                        feed.language || "en",
+                        feed.explicit ? "1" : "0",
+                        feed.itunesType || "episodic",
+                        latestEp ? String(latestEp.id) : null,
+                        latestEp ? (latestEp.title || "") : null,
+                        latestEp ? (latestEp.datePublished || 0) : null,
+                        latestEp ? (latestEp.duration || 0) : null,
+                        latestEp ? (latestEp.enclosureUrl || "") : null,
+                        latestEp ? (latestEp.image || latestEp.feedImage || "") : null,
+                        latestEp ? (latestEp.enclosureType || "audio/mpeg") : null,
+                        latestEp ? cleanDescription(latestEp.description) : null,
+                        latestEp ? (latestEp.chaptersUrl || null) : null,
+                        latestEp ? (latestEp.transcriptUrl || null) : null,
+                        latestEp ? (latestEp.persons ? JSON.stringify(latestEp.persons) : null) : null,
+                        latestEp ? (latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null) : null,
+                        feed.medium || "podcast",
+                        Date.now(),
+                        isVectorizedInQdrant
+                    ];
+
+                    await executeSQL(`
+                        INSERT INTO podcasts (${columns.join(',')}) 
+                        VALUES (${placeholders}) 
+                        ON CONFLICT(id) DO UPDATE SET 
+                            itunes_id = excluded.itunes_id,
+                            latest_ep_id = COALESCE(podcasts.latest_ep_id, excluded.latest_ep_id),
+                            qdrant_vectorized = COALESCE(podcasts.qdrant_vectorized, excluded.qdrant_vectorized);
+                    `, values);
+
+                    console.log(`  ✓ [IMPORTED & SYNCED] "${feed.title}" (Qdrant Vectorized: ${isVectorizedInQdrant}) | Delay: ${currentBatchDelayMs}ms`);
                 }
 
-                // If latest episode details are present
-                const columns = [
-                    'id', 'itunes_id', 'title', 'author', 'description', 'image_url', 
-                    'feed_url', 'website_url', 'categories', 'language', 'explicit', 'type',
-                    'latest_ep_id', 'latest_ep_title', 'latest_ep_date', 'latest_ep_duration',
-                    'latest_ep_url', 'latest_ep_image', 'latest_ep_type', 'latest_ep_description',
-                    'latest_ep_chapters_url', 'latest_ep_transcript_url', 'latest_ep_persons',
-                    'latest_ep_transcripts', 'medium', 'last_ep_sync', 'qdrant_vectorized'
-                ];
-                const placeholders = columns.map(() => '?').join(',');
-
-                const values = [
-                    feed.id,
-                    feed.itunesId || itunesId,
-                    feed.title || "Unknown Title",
-                    feed.author || "Unknown Author",
-                    (feed.description || "").substring(0, 1000),
-                    feed.image || feed.artwork || "",
-                    feed.url || "",
-                    feed.link || "",
-                    categoriesStr,
-                    feed.language || "en",
-                    feed.explicit ? "1" : "0",
-                    feed.itunesType || "episodic",
-                    latestEp ? String(latestEp.id) : null,
-                    latestEp ? (latestEp.title || "") : null,
-                    latestEp ? (latestEp.datePublished || 0) : null,
-                    latestEp ? (latestEp.duration || 0) : null,
-                    latestEp ? (latestEp.enclosureUrl || "") : null,
-                    latestEp ? (latestEp.image || latestEp.feedImage || "") : null,
-                    latestEp ? (latestEp.enclosureType || "audio/mpeg") : null,
-                    latestEp ? cleanDescription(latestEp.description) : null,
-                    latestEp ? (latestEp.chaptersUrl || null) : null,
-                    latestEp ? (latestEp.transcriptUrl || null) : null,
-                    latestEp ? (latestEp.persons ? JSON.stringify(latestEp.persons) : null) : null,
-                    latestEp ? (latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null) : null,
-                    feed.medium || "podcast",
-                    Date.now(),
-                    isVectorizedInQdrant
-                ];
-
-                await executeSQL(`
-                    INSERT INTO podcasts (${columns.join(',')}) 
-                    VALUES (${placeholders}) 
-                    ON CONFLICT(id) DO UPDATE SET 
-                        itunes_id = excluded.itunes_id,
-                        latest_ep_id = COALESCE(podcasts.latest_ep_id, excluded.latest_ep_id),
-                        qdrant_vectorized = COALESCE(podcasts.qdrant_vectorized, excluded.qdrant_vectorized);
-                `, values);
-
-                console.log(`  ✓ [IMPORTED & SYNCED] "${feed.title}" (Qdrant Vectorized: ${isVectorizedInQdrant})`);
+                // Decay the delay if operations are succeeding
+                if (currentBatchDelayMs > 100) {
+                    currentBatchDelayMs = Math.max(100, currentBatchDelayMs - 10);
+                }
             } catch (err) {
                 console.error(`  ✗ [ERROR] iTunes ID ${itunesId}: ${err.message}`);
             }
-        });
 
-        await Promise.all(promises);
-
-        // Slowly decay global batch delay back down if it was increased
-        if (currentBatchDelayMs > 100) {
-            currentBatchDelayMs = Math.max(100, currentBatchDelayMs - 50);
-        }
-
-        if (i + CONCURRENCY < missingItunesIds.length) {
+            // Cooldown delay before starting next item
             await new Promise(resolve => setTimeout(resolve, currentBatchDelayMs));
         }
     }
+
+    // Start concurrent worker promises
+    for (let w = 0; w < CONCURRENCY; w++) {
+        promises.push(worker());
+    }
+
+    await Promise.all(promises);
 
     console.log("=== Database Restoration Completed! ===");
 }

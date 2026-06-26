@@ -205,16 +205,20 @@ async function main() {
         return;
     }
 
-    const CONCURRENCY = 40; // Increased from 15 to 40 for higher speed
-
+    const CONCURRENCY = 20; // Safe worker pool concurrency
     console.log(`[BACKFILL] Processing ${rows.length} podcasts with concurrency of ${CONCURRENCY}...`);
 
-    for (let i = 0; i < rows.length; i += CONCURRENCY) {
-        const chunk = rows.slice(i, i + CONCURRENCY);
-        
-        console.log(`[BACKFILL] Processing batch ${Math.floor(i / CONCURRENCY) + 1}/${Math.ceil(rows.length / CONCURRENCY)} (podcasts ${i + 1}-${i + chunk.length}) | Current Delay: ${currentBatchDelayMs}ms...`);
-        
-        const promises = chunk.map(async (row) => {
+    let index = 0;
+    const promises = [];
+
+    async function worker() {
+        while (index < rows.length) {
+            const currentIndex = index++;
+            const row = rows[currentIndex];
+
+            // Stagger start times slightly to prevent burst 429s
+            await new Promise(r => setTimeout(r, currentIndex * 25));
+
             const podId = String(row[0].value);
             const title = row[1].value || "Unknown Show";
             const currentMedium = row[2].value || "podcast";
@@ -229,68 +233,71 @@ async function main() {
                         WHERE id = ?;
                     `, [Date.now(), parseInt(podId)]);
                     console.log(`  - [NO EPISODES] "${title}" (ID: ${podId}) marked as synced.`);
-                    return;
+                } else {
+                    // Process details
+                    const chaptersUrl = latestEp.chaptersUrl || null;
+                    const transcriptUrl = latestEp.transcriptUrl || null;
+                    const personsJson = latestEp.persons ? JSON.stringify(latestEp.persons) : null;
+                    const transcriptsJson = latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null;
+                    
+                    await executeSQL(`
+                        UPDATE podcasts SET 
+                            latest_ep_id = ?,
+                            latest_ep_title = ?,
+                            latest_ep_date = ?,
+                            latest_ep_duration = ?,
+                            latest_ep_url = ?,
+                            latest_ep_image = ?,
+                            latest_ep_type = ?,
+                            latest_ep_description = ?,
+                            latest_ep_chapters_url = ?,
+                            latest_ep_transcript_url = ?,
+                            latest_ep_persons = ?,
+                            latest_ep_transcripts = ?,
+                            medium = ?,
+                            vector = NULL,
+                            last_ep_sync = ?
+                        WHERE id = ?;
+                    `, [
+                        String(latestEp.id),
+                        latestEp.title || "",
+                        latestEp.datePublished || 0,
+                        latestEp.duration || 0,
+                        latestEp.enclosureUrl || "",
+                        latestEp.image || latestEp.feedImage || "",
+                        latestEp.enclosureType || "audio/mpeg",
+                        cleanDescription(latestEp.description),
+                        chaptersUrl,
+                        transcriptUrl,
+                        personsJson,
+                        transcriptsJson,
+                        currentMedium,
+                        Date.now(),
+                        parseInt(podId)
+                    ]);
+
+                    console.log(`  ✓ [UPDATED] "${title}" (Latest: "${latestEp.title}") | Delay: ${currentBatchDelayMs}ms`);
                 }
 
-                // Process details
-                const chaptersUrl = latestEp.chaptersUrl || null;
-                const transcriptUrl = latestEp.transcriptUrl || null;
-                const personsJson = latestEp.persons ? JSON.stringify(latestEp.persons) : null;
-                const transcriptsJson = latestEp.transcripts ? JSON.stringify(latestEp.transcripts) : null;
-                
-                await executeSQL(`
-                    UPDATE podcasts SET 
-                        latest_ep_id = ?,
-                        latest_ep_title = ?,
-                        latest_ep_date = ?,
-                        latest_ep_duration = ?,
-                        latest_ep_url = ?,
-                        latest_ep_image = ?,
-                        latest_ep_type = ?,
-                        latest_ep_description = ?,
-                        latest_ep_chapters_url = ?,
-                        latest_ep_transcript_url = ?,
-                        latest_ep_persons = ?,
-                        latest_ep_transcripts = ?,
-                        medium = ?,
-                        vector = NULL,
-                        last_ep_sync = ?
-                    WHERE id = ?;
-                `, [
-                    String(latestEp.id),
-                    latestEp.title || "",
-                    latestEp.datePublished || 0,
-                    latestEp.duration || 0,
-                    latestEp.enclosureUrl || "",
-                    latestEp.image || latestEp.feedImage || "",
-                    latestEp.enclosureType || "audio/mpeg",
-                    cleanDescription(latestEp.description),
-                    chaptersUrl,
-                    transcriptUrl,
-                    personsJson,
-                    transcriptsJson,
-                    currentMedium,
-                    Date.now(),
-                    parseInt(podId)
-                ]);
-
-                console.log(`  ✓ [UPDATED] "${title}" (Latest: "${latestEp.title}")`);
+                // Decay the delay if operations are succeeding
+                if (currentBatchDelayMs > 100) {
+                    currentBatchDelayMs = Math.max(100, currentBatchDelayMs - 10);
+                }
             } catch (err) {
                 console.error(`  ✗ [ERROR] "${title}" (ID: ${podId}): ${err.message}`);
             }
-        });
 
-        await Promise.all(promises);
-
-        // Slowly decay global batch delay back down if it was increased
-        if (currentBatchDelayMs > 100) {
-            currentBatchDelayMs = Math.max(100, currentBatchDelayMs - 50);
-        }
-
-        if (i + CONCURRENCY < rows.length) {
+            // Cooldown delay before starting next item
             await new Promise(resolve => setTimeout(resolve, currentBatchDelayMs));
         }
     }
+
+    // Start concurrent worker promises
+    for (let w = 0; w < CONCURRENCY; w++) {
+        promises.push(worker());
+    }
+
+    await Promise.all(promises);
 
     console.log("=== Backfill Completed! ===");
 }
