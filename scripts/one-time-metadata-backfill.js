@@ -153,6 +153,8 @@ function cleanDescription(raw) {
     return text.replace(/\s+/g, ' ').trim().substring(0, 1000);
 }
 
+let currentBatchDelayMs = 100; // Start with a fast 100ms delay between batches
+
 // Fetch latest episode details from Podcast Index with retry and backoff on 429
 async function fetchLatestEpisode(feedId, retries = 3, delay = 1000) {
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
@@ -161,9 +163,11 @@ async function fetchLatestEpisode(feedId, retries = 3, delay = 1000) {
             const res = await fetch(`${API_BASE}/episodes/byfeedid?id=${feedId}&max=1`, { headers });
             
             if (res.status === 429) {
+                // Dynamically increase global batch delay to slow down execution
+                currentBatchDelayMs = Math.min(3000, currentBatchDelayMs + 500);
                 if (attempt <= retries) {
                     const backoff = delay * Math.pow(2, attempt - 1);
-                    console.warn(`  [WARN] Rate limited (429) fetching episodes for pod=${feedId}. Retrying attempt ${attempt}/${retries} after ${backoff}ms...`);
+                    console.warn(`  [WARN] Rate limited (429) fetching episodes for pod=${feedId}. Increased global delay to ${currentBatchDelayMs}ms. Retrying attempt ${attempt}/${retries} after ${backoff}ms...`);
                     await new Promise(resolve => setTimeout(resolve, backoff));
                     continue;
                 }
@@ -201,15 +205,14 @@ async function main() {
         return;
     }
 
-    const CONCURRENCY = 15; // Parallel execution batches
-    const BATCH_DELAY_MS = 250; // Delay between batches to prevent 429s
+    const CONCURRENCY = 40; // Increased from 15 to 40 for higher speed
 
     console.log(`[BACKFILL] Processing ${rows.length} podcasts with concurrency of ${CONCURRENCY}...`);
 
     for (let i = 0; i < rows.length; i += CONCURRENCY) {
         const chunk = rows.slice(i, i + CONCURRENCY);
         
-        console.log(`[BACKFILL] Processing batch ${Math.floor(i / CONCURRENCY) + 1}/${Math.ceil(rows.length / CONCURRENCY)} (podcasts ${i + 1}-${i + chunk.length})...`);
+        console.log(`[BACKFILL] Processing batch ${Math.floor(i / CONCURRENCY) + 1}/${Math.ceil(rows.length / CONCURRENCY)} (podcasts ${i + 1}-${i + chunk.length}) | Current Delay: ${currentBatchDelayMs}ms...`);
         
         const promises = chunk.map(async (row) => {
             const podId = String(row[0].value);
@@ -219,10 +222,10 @@ async function main() {
             try {
                 const latestEp = await fetchLatestEpisode(podId);
                 if (!latestEp) {
-                    // No episodes returned from PI API — mark last_ep_sync and qdrant_vectorized = 1 to skip
+                    // No episodes returned from PI API — mark last_ep_sync and preserve vectorized status
                     await executeSQL(`
                         UPDATE podcasts 
-                        SET last_ep_sync = ?, qdrant_vectorized = 1 
+                        SET last_ep_sync = ?
                         WHERE id = ?;
                     `, [Date.now(), parseInt(podId)]);
                     console.log(`  - [NO EPISODES] "${title}" (ID: ${podId}) marked as synced.`);
@@ -278,8 +281,14 @@ async function main() {
         });
 
         await Promise.all(promises);
+
+        // Slowly decay global batch delay back down if it was increased
+        if (currentBatchDelayMs > 100) {
+            currentBatchDelayMs = Math.max(100, currentBatchDelayMs - 50);
+        }
+
         if (i + CONCURRENCY < rows.length) {
-            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+            await new Promise(resolve => setTimeout(resolve, currentBatchDelayMs));
         }
     }
 
