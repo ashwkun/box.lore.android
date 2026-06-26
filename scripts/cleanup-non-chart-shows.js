@@ -180,7 +180,7 @@ async function main() {
     const nonChartRes = await executeSQL(`
         SELECT id, itunes_id, title FROM podcasts 
         WHERE itunes_id IS NULL OR itunes_id NOT IN (
-            SELECT DISTINCT itunes_id FROM charts WHERE itunes_id IS NOT NULL
+            SELECT DISTINCT CAST(itunes_id AS INTEGER) FROM charts WHERE itunes_id IS NOT NULL
         )
     `);
 
@@ -239,7 +239,7 @@ async function main() {
         const deleteRes = await executeSQL(`
             DELETE FROM podcasts 
             WHERE itunes_id IS NULL OR itunes_id NOT IN (
-                SELECT DISTINCT itunes_id FROM charts WHERE itunes_id IS NOT NULL
+                SELECT DISTINCT CAST(itunes_id AS INTEGER) FROM charts WHERE itunes_id IS NOT NULL
             )
         `);
         const rowsWritten = deleteRes?.results?.[0]?.response?.result?.rows_written || 0;

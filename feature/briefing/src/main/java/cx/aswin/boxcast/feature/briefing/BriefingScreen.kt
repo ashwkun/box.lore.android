@@ -246,10 +246,18 @@ fun BriefingScreen(
                         label = "accent_color"
                     )
 
+                    val coverResId = remember(successState.briefing.region) {
+                        when (successState.briefing.region.lowercase()) {
+                            "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
+                            "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
+                            "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
+                            else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
+                        }
+                    }
                     val painter = rememberAsyncImagePainter(
-                        model = remember(successState.briefing.coverUrl) {
+                        model = remember(coverResId) {
                             ImageRequest.Builder(context)
-                                .data(successState.briefing.coverUrl)
+                                .data(coverResId)
                                 .allowHardware(false)
                                 .build()
                         }
@@ -426,7 +434,7 @@ fun BriefingScreen(
             // Centered Title — fades in on scroll
             Image(
                 painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_brief_logo),
-                contentDescription = "The Boxcast Brief",
+                contentDescription = "The Boxlore Brief",
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier
                     .height(40.dp)
@@ -481,6 +489,7 @@ fun BriefingContent(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val morphThreshold = with(density) { 180.dp.toPx() }
     val scrollFraction = (scrollState.value.toFloat() / morphThreshold).coerceIn(0f, 1f)
 
@@ -529,7 +538,9 @@ fun BriefingContent(
             var text = paragraph.trim()
             if (index == 0) {
                 val greetingPrefixes = listOf(
+                    "This is the boxlore brief for",
                     "This is the boxcast brief for",
+                    "Welcome to the boxlore brief for",
                     "Welcome to the boxcast brief for",
                     "Welcome to the daily brief for"
                 )
@@ -545,7 +556,9 @@ fun BriefingContent(
             }
             if (index == raw.lastIndex) {
                 val outroSubstrings = listOf(
+                    "That's your boxlore brief. See you tomorrow.",
                     "That's your boxcast brief. See you tomorrow.",
+                    "That's your boxlore brief. See you tomorrow",
                     "That's your boxcast brief. See you tomorrow",
                     "See you tomorrow.",
                     "See you tomorrow"
@@ -557,7 +570,10 @@ fun BriefingContent(
                         break
                     }
                 }
-                if (text.contains("boxcast brief", ignoreCase = true) && text.length - text.lastIndexOf("boxcast brief") < 100) {
+                val lastBoxloreIndex = text.lastIndexOf("boxlore brief", ignoreCase = true)
+                val lastBoxcastIndex = text.lastIndexOf("boxcast brief", ignoreCase = true)
+                val lastIndex = lastBoxloreIndex.coerceAtLeast(lastBoxcastIndex)
+                if (lastIndex != -1 && text.length - lastIndex < 100) {
                     val lastPeriod = text.lastIndexOf('.', text.length - 2)
                     if (lastPeriod != -1) {
                         text = text.substring(0, lastPeriod + 1).trim()
@@ -585,8 +601,16 @@ fun BriefingContent(
                     alpha = 1f - scrollFraction
                 }
         ) {
+            val coverResId = remember(briefing.region) {
+                when (briefing.region.lowercase()) {
+                    "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
+                    "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
+                    "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
+                    else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
+                }
+            }
             OptimizedImage(
-                url = briefing.coverUrl,
+                url = "android.resource://${context.packageName}/$coverResId",
                 proxyWidth = 600,
                 contentDescription = null,
                 modifier = Modifier
@@ -623,7 +647,7 @@ fun BriefingContent(
             // Page title (visible in body, fades into header on scroll)
             Image(
                 painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_brief_logo),
-                contentDescription = "The Boxcast Brief",
+                contentDescription = "The Boxlore Brief",
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier
                     .height(72.dp)

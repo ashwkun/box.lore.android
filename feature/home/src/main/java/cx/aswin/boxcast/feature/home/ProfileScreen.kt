@@ -28,7 +28,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cx.aswin.boxcast.core.designsystem.R
 import cx.aswin.boxcast.core.designsystem.theme.contrastColor
 
@@ -46,6 +49,8 @@ fun ProfileScreen(
     onSetThemeConfig: (String) -> Unit = {},
     onToggleDynamicColor: (Boolean) -> Unit = {},
     onSetThemeBrand: (String) -> Unit = {},
+    currentSurfaceStyle: String = "standard",
+    onSetSurfaceStyle: (String) -> Unit = {},
     onExportJson: (android.net.Uri) -> Unit = {},
     onImportJson: (android.net.Uri) -> Unit = {},
     onImportOpml: (android.net.Uri) -> Unit = {},
@@ -125,20 +130,25 @@ fun ProfileScreen(
             item {
                 SectionCard("Appearance", Icons.Rounded.Palette) {
                     AppearanceSection(
-                        currentThemeConfig, 
-                        { 
+                        currentThemeConfig = currentThemeConfig, 
+                        onSetThemeConfig = { 
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("theme_mode_changed", it)
                             onSetThemeConfig(it) 
                         }, 
-                        isDynamicColorEnabled, 
-                        { 
+                        isDynamicColorEnabled = isDynamicColorEnabled, 
+                        onToggleDynamicColor = { 
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("dynamic_color_toggled", it.toString())
                             onToggleDynamicColor(it) 
                         }, 
-                        currentThemeBrand, 
-                        { 
+                        currentThemeBrand = currentThemeBrand, 
+                        onSetThemeBrand = { 
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("theme_brand_changed", it)
                             onSetThemeBrand(it) 
+                        },
+                        currentSurfaceStyle = currentSurfaceStyle,
+                        onSetSurfaceStyle = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("surface_style_changed", it)
+                            onSetSurfaceStyle(it)
                         }
                     )
                 }
@@ -268,73 +278,184 @@ fun SectionCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVe
 fun AppearanceSection(
     currentThemeConfig: String, onSetThemeConfig: (String) -> Unit,
     isDynamicColorEnabled: Boolean, onToggleDynamicColor: (Boolean) -> Unit,
-    currentThemeBrand: String, onSetThemeBrand: (String) -> Unit
+    currentThemeBrand: String, onSetThemeBrand: (String) -> Unit,
+    currentSurfaceStyle: String = "standard", onSetSurfaceStyle: (String) -> Unit = {}
 ) {
-    Column {
-        Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-        @OptIn(ExperimentalLayoutApi::class)
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val modes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
-            modes.forEach { (mode, label) ->
-                FilterChip(
-                    selected = currentThemeConfig == mode,
-                    onClick = { onSetThemeConfig(mode) },
-                    label = { Text(label) },
-                    leadingIcon = { if (currentThemeConfig == mode) Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+
+        // ── Theme Mode (Segmented Pill Bar) ──
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Theme Mode", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val modes = listOf(
+                    "system" to "System",
+                    "light" to "Light",
+                    "dark" to "Dark"
                 )
+                modes.forEach { (mode, label) ->
+                    val isSelected = currentThemeConfig == mode
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                else Color.Transparent
+                            )
+                            .clickable { onSetThemeConfig(mode) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
-        
-        Spacer(Modifier.height(24.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(24.dp))
 
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
-                Text("Dynamic Color", style = MaterialTheme.typography.titleMedium)
-                Text("Use wallpaper colors (Android 12+)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked = isDynamicColorEnabled, onCheckedChange = onToggleDynamicColor)
-        }
+        // ── Surface Style ──
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Surface Style", style = MaterialTheme.typography.titleMedium)
 
-        AnimatedVisibility(visible = !isDynamicColorEnabled) {
-            Column {
-                Spacer(Modifier.height(24.dp))
-                Text("Color Palette", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(16.dp))
-                
-                val brands = listOf(
-                    Triple("violet", "Violet", Color(0xFF6750A4)),
-                    Triple("emerald", "Emerald", Color(0xFF006C4C)),
-                    Triple("ocean", "Ocean", Color(0xFF0061A4)),
-                    Triple("sakura", "Sakura", Color(0xFFBC004B)),
-                    Triple("tangerine", "Tangerine", Color(0xFF964900)),
-                    Triple("crimson", "Crimson", Color(0xFFB91823)),
-                    Triple("canary", "Canary", Color(0xFF725C00))
-                )
-                
-                @OptIn(ExperimentalLayoutApi::class)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            cx.aswin.boxcast.core.designsystem.theme.SurfaceStyles.entries.forEach { entry ->
+                val isSelected = currentSurfaceStyle == entry.key
+                val swatchColor = when (entry.key) {
+                    "amoled" -> Color.Black
+                    "purewhite" -> Color.White
+                    "highcontrast" -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                }
+                val swatchBorder = when (entry.key) {
+                    "purewhite" -> MaterialTheme.colorScheme.outlineVariant
+                    else -> Color.Transparent
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                            else Color.Transparent
+                        )
+                        .clickable { onSetSurfaceStyle(entry.key) }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    brands.forEach { (id, label, color) ->
-                        val isSelected = currentThemeBrand == id
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(swatchColor)
+                            .border(1.dp, swatchBorder, CircleShape)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            entry.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                        Text(
+                            entry.subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    RadioButton(
+                        selected = isSelected,
+                        onClick = null
+                    )
+                }
+            }
+        }
+
+        // ── Color ──
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Dynamic Color toggle
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable { onToggleDynamicColor(!isDynamicColorEnabled) }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Dynamic Color", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Use wallpaper colors (Android 12+)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = isDynamicColorEnabled, onCheckedChange = onToggleDynamicColor)
+            }
+
+            // Accent Color palette (when dynamic color is off)
+            AnimatedVisibility(visible = !isDynamicColorEnabled) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Accent Color", style = MaterialTheme.typography.titleMedium)
+                        val currentBrandLabel = cx.aswin.boxcast.core.designsystem.theme.BrandSeeds[currentThemeBrand]?.first ?: ""
+                        Text(
+                            text = currentBrandLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        cx.aswin.boxcast.core.designsystem.theme.BrandSeeds.forEach { (id, pair) ->
+                            val (_, color) = pair
+                            val isSelected = currentThemeBrand == id
                             Box(
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(44.dp)
+                                    .then(
+                                        if (isSelected) Modifier.border(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.primary,
+                                            CircleShape
+                                        ) else Modifier
+                                    )
+                                    .padding(if (isSelected) 3.dp else 0.dp)
                                     .clip(CircleShape)
                                     .background(color)
-                                    .clickable { onSetThemeBrand(id) }
-                                    .then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier),
+                                    .clickable { onSetThemeBrand(id) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (isSelected) Icon(Icons.Rounded.Check, null, tint = color.contrastColor(), modifier = Modifier.size(24.dp))
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Rounded.Check,
+                                        null,
+                                        tint = color.contrastColor(),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
-                            Spacer(Modifier.height(4.dp))
-                            Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }

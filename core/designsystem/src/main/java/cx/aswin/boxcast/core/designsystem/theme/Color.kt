@@ -6,6 +6,33 @@ import androidx.compose.ui.graphics.Color
 // These act as the seed colors for Material Dynamic Theme
 val SeedPurple = Color(0xFF6750A4) // M3 Baseline Purple (matches launcher icon)
 
+/**
+ * Centralized seed colors for all 20 brand palettes.
+ * Each entry maps a theme key to its seed color used by generateBrandColorScheme().
+ */
+val BrandSeeds: LinkedHashMap<String, Pair<String, Color>> = linkedMapOf(
+    "violet" to ("Violet" to Color(0xFF6750A4)),
+    "emerald" to ("Emerald" to Color(0xFF006C4C)),
+    "ocean" to ("Ocean" to Color(0xFF0061A4)),
+    "sakura" to ("Sakura" to Color(0xFFBC004B)),
+    "tangerine" to ("Tangerine" to Color(0xFF964900)),
+    "crimson" to ("Crimson" to Color(0xFFB91823)),
+    "canary" to ("Canary" to Color(0xFF725C00)),
+    "midnight" to ("Midnight" to Color(0xFF1B3A5C)),
+    "lavender" to ("Lavender" to Color(0xFF7F67BE)),
+    "teal" to ("Teal" to Color(0xFF006A6A)),
+    "coral" to ("Coral" to Color(0xFFC74E3A)),
+    "slate" to ("Slate" to Color(0xFF506070)),
+    "mint" to ("Mint" to Color(0xFF006D3F)),
+    "rose" to ("Rose" to Color(0xFF9C4057)),
+    "amber" to ("Amber" to Color(0xFF8B5E00)),
+    "graphite" to ("Graphite" to Color(0xFF5E5E5E)),
+    "plum" to ("Plum" to Color(0xFF8B2F7C)),
+    "sage" to ("Sage" to Color(0xFF4B6A32)),
+    "cobalt" to ("Cobalt" to Color(0xFF0047AB)),
+    "rust" to ("Rust" to Color(0xFF8B3A2F))
+)
+
 // Light Theme Fallbacks (Generated from #6750A4 seed)
 val md_theme_light_primary = Color(0xFF6750A4)
 val md_theme_light_onPrimary = Color(0xFFFFFFFF)

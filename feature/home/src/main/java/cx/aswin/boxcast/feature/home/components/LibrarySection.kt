@@ -568,7 +568,7 @@ fun YourShowsSection(
                                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    items(displayList) { podcast ->
+                                    items(displayList, key = { it.latestEpisode?.id ?: it.id }) { podcast ->
                                         val episode = podcast.latestEpisode!!
                                         val state = episodePlaybackState[episode.id]
                                         MixtapeEpisodeCard(

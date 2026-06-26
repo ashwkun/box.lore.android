@@ -58,9 +58,9 @@ class BriefingViewModel(
                             durationMs = playerState.duration,
                             timestamp = System.currentTimeMillis(),
                             episodeTitle = briefing.title,
-                            podcastTitle = "The Boxcast Brief",
-                            imageUrl = briefing.coverUrl,
-                            podcastImageUrl = briefing.coverUrl,
+                            podcastTitle = "The Boxlore Brief",
+                            imageUrl = getBriefingCoverUrl(briefing.region),
+                            podcastImageUrl = getBriefingCoverUrl(briefing.region),
                             audioUrl = briefing.audioUrl,
                             enclosureType = "audio/mpeg"
                         )
@@ -160,9 +160,9 @@ class BriefingViewModel(
         viewModelScope.launch {
             val dummyPodcast = Podcast(
                 id = "briefing_${briefing.region}",
-                title = "The Boxcast Brief",
+                title = "The Boxlore Brief",
                 artist = "BoxCast AI",
-                imageUrl = briefing.coverUrl
+                imageUrl = getBriefingCoverUrl(briefing.region)
             )
 
             val publishedDate = try {
@@ -200,7 +200,7 @@ class BriefingViewModel(
                 title = briefing.title,
                 description = descriptionHtml,
                 audioUrl = briefing.audioUrl,
-                imageUrl = briefing.coverUrl,
+                imageUrl = getBriefingCoverUrl(briefing.region),
                 podcastId = dummyPodcast.id,
                 podcastTitle = dummyPodcast.title,
                 podcastImageUrl = dummyPodcast.imageUrl,
@@ -242,6 +242,17 @@ class BriefingViewModel(
 
     private fun getBriefingEpisodeId(briefing: Briefing): String {
         return "briefing_${briefing.region}_${briefing.date}"
+    }
+
+    private fun getBriefingCoverUrl(region: String): String {
+        val packageName = getApplication<Application>().packageName
+        val resId = when (region.lowercase()) {
+            "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
+            "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
+            "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
+            else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
+        }
+        return "android.resource://$packageName/$resId"
     }
 }
 

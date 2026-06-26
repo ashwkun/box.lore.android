@@ -1,5 +1,8 @@
 package cx.aswin.boxcast.feature.home
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.Immutable
@@ -10,6 +13,8 @@ import cx.aswin.boxcast.core.data.HomeBootstrapData
 import cx.aswin.boxcast.core.data.SubscriptionRepository
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.EpisodeStatus
+import kotlinx.coroutines.flow.Flow
+import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +35,7 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.awaitAll
 import java.util.Calendar
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -103,7 +109,11 @@ data class HomeUiState(
     val briefing: Briefing? = null,
     val briefingChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
     val isRecommendationsLoading: Boolean = true,
-    val isCuratedLoading: Boolean = true
+    val isCuratedLoading: Boolean = true,
+    val seemsToLikePodcast: Podcast? = null,
+    val becauseYouLikeRecommendations: List<Episode> = emptyList(),
+    val becauseYouLikePodcasts: List<Podcast> = emptyList(),
+    val isBecauseYouLikeLoading: Boolean = false
 )
 
 data class HomeDataWrapper(
@@ -122,7 +132,11 @@ data class HomeDataWrapper(
     val briefingChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
     val briefingDismissedDate: String = "",
     val briefingDismissedForever: Boolean = false,
-    val hasDismissedRegionNudge: Boolean = false
+    val hasDismissedRegionNudge: Boolean = false,
+    val seemsToLikePodcast: Podcast? = null,
+    val becauseYouLikeRecommendations: List<Episode> = emptyList(),
+    val becauseYouLikePodcasts: List<Podcast> = emptyList(),
+    val isBecauseYouLikeLoading: Boolean = false
 )
 
 /**
@@ -136,6 +150,7 @@ object ModeSwitchState {
     fun start() { _isSwitching.value = true }
     fun finish() { _isSwitching.value = false }
 }
+
 
 class HomeViewModel(
     application: Application,
@@ -174,7 +189,35 @@ class HomeViewModel(
     private val _briefingChaptersState = MutableStateFlow<List<cx.aswin.boxcast.core.model.Chapter>>(emptyList())
     private val _briefingDismissedForever = MutableStateFlow(false)
     
+    private val _seemsToLikePodcast = MutableStateFlow<Podcast?>(null)
+    private val _becauseYouLikeRecommendations = MutableStateFlow<List<Episode>>(emptyList())
+    private val _becauseYouLikePodcasts = MutableStateFlow<List<Podcast>>(emptyList())
+    private val _isBecauseYouLikeLoading = MutableStateFlow(false)
+
     private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
+
+    val candidatePodcasts: Flow<List<Podcast>> = combine(
+        subscriptionRepository.subscribedPodcasts,
+        playbackRepository.getAllHistory()
+    ) { subs, history ->
+        val playedPods = history.distinctBy { it.podcastId }.map { h ->
+            Podcast(
+                id = h.podcastId,
+                title = h.podcastName,
+                artist = "",
+                imageUrl = h.podcastImageUrl ?: "",
+                fallbackImageUrl = "",
+                description = ""
+            )
+        }.filter { it.id.isNotEmpty() }
+        (subs + playedPods).distinctBy { it.id }
+    }
+
+    fun setOverriddenRecPodcast(podcastId: String?) {
+        viewModelScope.launch {
+            userPrefs.setOverriddenRecPodcastId(podcastId)
+        }
+    }
     
     // Expose region to UI
     val currentRegion = userPrefs.regionStream
@@ -189,6 +232,66 @@ class HomeViewModel(
         viewModelScope.launch {
             userPrefs.briefingDismissedForever.collect { dismissedForever ->
                 _briefingDismissedForever.value = dismissedForever
+            }
+        }
+
+        // Load cached recommendations synchronously
+        try {
+            val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+            val cached = prefs.getString("cached_recommendations", null)
+            if (cached != null) {
+                val json = Json { ignoreUnknownKeys = true }
+                val list = json.decodeFromString<List<Episode>>(cached)
+                _recommendations.value = list
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "Failed to load cached recommendations", e)
+        }
+
+        // Load cached "Because You Like" recommendations synchronously
+        try {
+            val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+            val cached = prefs.getString("cached_byl_recommendations", null)
+            val cachedPods = prefs.getString("cached_byl_podcasts", null)
+            val cachedPodId = prefs.getString("cached_byl_podcast_id", null)
+            if (cachedPodId != null) {
+                val json = Json { ignoreUnknownKeys = true }
+                if (cached != null) {
+                    val list = json.decodeFromString<List<Episode>>(cached)
+                    _becauseYouLikeRecommendations.value = list
+                }
+                if (cachedPods != null) {
+                    val podsList = json.decodeFromString<List<Podcast>>(cachedPods)
+                    _becauseYouLikePodcasts.value = podsList
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "Failed to load cached because-you-like recommendations", e)
+        }
+
+        // Start oldest-sort serial episode resolution after a delay
+        startOldestSortResolution()
+
+        // Observe overridden podcast ID and region, resolve favorite podcast, and fetch recommendations
+        viewModelScope.launch {
+            combine(
+                userPrefs.overriddenRecPodcastIdStream,
+                userPrefs.regionStream
+            ) { overriddenId, region ->
+                overriddenId to region
+            }.collectLatest { (overriddenId, region) ->
+                val activeSubs = subscriptionRepository.subscribedPodcasts.first()
+                val activeHistory = playbackRepository.getAllHistory().first()
+                
+                val resolvedPodcast = resolveFavoritePodcast(overriddenId, activeSubs, activeHistory)
+                _seemsToLikePodcast.value = resolvedPodcast
+                
+                if (resolvedPodcast != null) {
+                    fetchBecauseYouLikeRecommendations(resolvedPodcast, region)
+                } else {
+                    _becauseYouLikeRecommendations.value = emptyList()
+                    _becauseYouLikePodcasts.value = emptyList()
+                }
             }
         }
     }
@@ -256,6 +359,97 @@ class HomeViewModel(
                 playbackRepository.togglePlayPause()
             } else {
                 playbackRepository.playQueue(listOf(episode), podcast, 0)
+            }
+        }
+    }
+
+    private fun startOldestSortResolution() {
+        viewModelScope.launch {
+            // 3-second startup delay
+            kotlinx.coroutines.delay(3000)
+            
+            // Combine subscribed podcasts and history to watch for changes
+            combine(
+                subscriptionRepository.subscribedPodcasts,
+                playbackRepository.getAllHistory(),
+                playbackRepository.completedEpisodeIds
+            ) { subs, allHistory, completedEpisodeIds ->
+                Triple(subs, allHistory, completedEpisodeIds)
+            }.collect { (subs, allHistory, completedEpisodeIds) ->
+                val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet() + completedEpisodeIds
+                val inProgressEpIdsForResolve = allHistory.filter { !it.isCompleted && it.progressMs > 0L }.map { it.episodeId }.toSet()
+
+                val serialPodsToResolve = subs.filter { (it.preferredSort ?: "newest") == "oldest" }.filter { pod ->
+                    val currentResolved = _resolvedSerialEpisodes.value[pod.id]
+                    val needsResolve = currentResolved == null || currentResolved.id in completedEpIdsForResolve || currentResolved.id in inProgressEpIdsForResolve
+                    needsResolve && pod.id !in inFlightResolutions
+                }
+
+                if (serialPodsToResolve.isNotEmpty()) {
+                    serialPodsToResolve.forEach { inFlightResolutions.add(it.id) }
+                    
+                    // Parallel resolution using async/awaitAll
+                    launch(kotlinx.coroutines.Dispatchers.Default) {
+                        try {
+                            val deferredList = serialPodsToResolve.map { pod ->
+                                async {
+                                    try {
+                                        val ongoingId = allHistory.filter { h -> h.podcastId == pod.id && !h.isCompleted && h.progressMs > 0L }.maxByOrNull { it.lastPlayedAt }?.episodeId
+                                        val lastCompletedId = allHistory.filter { h -> h.podcastId == pod.id && h.isCompleted }.maxByOrNull { it.lastPlayedAt }?.episodeId
+                                        
+                                        android.util.Log.d("HomeViewModelResolve", "Resolving pod=${pod.title} id=${pod.id} ongoingId=$ongoingId lastCompletedId=$lastCompletedId")
+                                        
+                                        // Fetch all episodes chronologically oldest to newest
+                                        val page = podcastRepository.getEpisodesPaginated(pod.id, limit = 200, offset = 0, sort = "oldest")
+                                        val allEpisodes = page.episodes
+                                        
+                                        val nextEp = when {
+                                            ongoingId != null -> {
+                                                val ongoingIndex = allEpisodes.indexOfFirst { it.id == ongoingId }
+                                                if (ongoingIndex != -1 && ongoingIndex < allEpisodes.lastIndex) {
+                                                    allEpisodes[ongoingIndex + 1]
+                                                } else {
+                                                    null
+                                                }
+                                            }
+                                            lastCompletedId != null -> {
+                                                val completedIndex = allEpisodes.indexOfFirst { it.id == lastCompletedId }
+                                                if (completedIndex != -1 && completedIndex < allEpisodes.lastIndex) {
+                                                    allEpisodes[completedIndex + 1]
+                                                } else {
+                                                    null
+                                                }
+                                            }
+                                            else -> {
+                                                allEpisodes.firstOrNull()
+                                            }
+                                        } ?: allEpisodes.firstOrNull { ep ->
+                                            ep.id !in completedEpIdsForResolve && ep.id !in inProgressEpIdsForResolve
+                                        }
+                                        
+                                        if (nextEp != null) {
+                                            pod.id to nextEp
+                                        } else {
+                                            null
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("HomeViewModel", "Failed to resolve next episode for serial pod ${pod.id}", e)
+                                        null
+                                    }
+                                }
+                            }
+                            
+                            val results = deferredList.awaitAll().filterNotNull()
+                            if (results.isNotEmpty()) {
+                                _resolvedSerialEpisodes.update { current ->
+                                    current + results
+                                }
+                            }
+                        } finally {
+                            serialPodsToResolve.forEach { inFlightResolutions.remove(it.id) }
+                        }
+                    }
+                }
             }
         }
     }
@@ -425,6 +619,13 @@ class HomeViewModel(
                     .distinctBy { it.id }
                     .distinctBy { it.title.lowercase().trim() }
                 _recommendations.value = distinctRecs
+                try {
+                    val json = Json { ignoreUnknownKeys = true }
+                    val serialized = json.encodeToString(distinctRecs)
+                    prefs.edit().putString("cached_recommendations", serialized).apply()
+                } catch (ce: Exception) {
+                    android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
+                }
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to fetch personalized recommendations", e)
             } finally {
@@ -530,6 +731,13 @@ class HomeViewModel(
                             .distinctBy { it.id }
                             .distinctBy { it.title.lowercase().trim() }
                         _recommendations.value = distinctRecs
+                        try {
+                            val json = Json { ignoreUnknownKeys = true }
+                            val serialized = json.encodeToString(distinctRecs)
+                            prefs.edit().putString("cached_recommendations", serialized).apply()
+                        } catch (ce: Exception) {
+                            android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
+                        }
                         
                         // Curated Vibes
                         val daySeed = java.time.LocalDate.now().toEpochDay()
@@ -576,7 +784,11 @@ class HomeViewModel(
                     _briefingDismissedDate,
                     _briefingChaptersState,
                     _briefingDismissedForever,
-                    userPrefs.hasDismissedRegionNudgeStream
+                    userPrefs.hasDismissedRegionNudgeStream,
+                    _seemsToLikePodcast,
+                    _becauseYouLikeRecommendations,
+                    _becauseYouLikePodcasts,
+                    _isBecauseYouLikeLoading
                 ) { array ->
                     val dismissedDate = array[13] as String
                     val dismissedForever = array[15] as Boolean
@@ -596,9 +808,13 @@ class HomeViewModel(
                         briefingChapters = array[14] as List<cx.aswin.boxcast.core.model.Chapter>,
                         briefingDismissedDate = dismissedDate,
                         briefingDismissedForever = dismissedForever,
-                        hasDismissedRegionNudge = array[16] as Boolean
+                        hasDismissedRegionNudge = array[16] as Boolean,
+                        seemsToLikePodcast = array[17] as Podcast?,
+                        becauseYouLikeRecommendations = array[18] as List<Episode>,
+                        becauseYouLikePodcasts = array[19] as List<Podcast>,
+                        isBecauseYouLikeLoading = array[20] as Boolean
                     )
-                }.collect { wrapper ->
+                }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         val trendingList = wrapper.trending
                         val resumeList = wrapper.resume
@@ -606,79 +822,6 @@ class HomeViewModel(
                         val allHistory = wrapper.history
                         val resolvedSerial = wrapper.resolvedSerial
                         val completedEpisodeIds = wrapper.completedEpisodeIds
-
-                        // Asynchronously resolve next episodes for oldest-sort podcasts
-                        val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet() + completedEpisodeIds
-                        val inProgressEpIdsForResolve = allHistory.filter { !it.isCompleted && it.progressMs > 0L }.map { it.episodeId }.toSet()
-
-                        android.util.Log.d("HomeViewModelResolve", "Completed Ep IDs: $completedEpIdsForResolve")
-
-                        val serialPodsToResolve = subs.filter { (it.preferredSort ?: "newest") == "oldest" }.filter { pod ->
-                            val currentResolved = resolvedSerial[pod.id]
-                            val needsResolve = currentResolved == null || currentResolved.id in completedEpIdsForResolve || currentResolved.id in inProgressEpIdsForResolve
-                            needsResolve && pod.id !in inFlightResolutions
-                        }
-
-                        if (serialPodsToResolve.isNotEmpty()) {
-                            serialPodsToResolve.forEach { inFlightResolutions.add(it.id) }
-                            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                            try {
-                                val newResolved = _resolvedSerialEpisodes.value.toMutableMap()
-                                var changed = false
-                                for (pod in serialPodsToResolve) {
-                                    try {
-                                         val ongoingId = allHistory.filter { h -> h.podcastId == pod.id && !h.isCompleted && h.progressMs > 0L }.maxByOrNull { it.lastPlayedAt }?.episodeId
-                                         val lastCompletedId = allHistory.filter { h -> h.podcastId == pod.id && h.isCompleted }.maxByOrNull { it.lastPlayedAt }?.episodeId
-                                         
-                                         android.util.Log.d("HomeViewModelResolve", "Resolving pod=${pod.title} id=${pod.id} ongoingId=$ongoingId lastCompletedId=$lastCompletedId")
-                                         
-                                         // Fetch all episodes chronologically oldest to newest
-                                         val page = podcastRepository.getEpisodesPaginated(pod.id, limit = 200, offset = 0, sort = "oldest")
-                                         val allEpisodes = page.episodes
-                                         
-                                         val nextEp = when {
-                                             ongoingId != null -> {
-                                                 val ongoingIndex = allEpisodes.indexOfFirst { it.id == ongoingId }
-                                                 android.util.Log.d("HomeViewModelResolve", "Ongoing ep index in feed: $ongoingIndex")
-                                                 if (ongoingIndex != -1 && ongoingIndex < allEpisodes.lastIndex) {
-                                                     allEpisodes[ongoingIndex + 1]
-                                                 } else {
-                                                     null
-                                                 }
-                                             }
-                                             lastCompletedId != null -> {
-                                                 val completedIndex = allEpisodes.indexOfFirst { it.id == lastCompletedId }
-                                                 android.util.Log.d("HomeViewModelResolve", "Last completed ep index in feed: $completedIndex")
-                                                 if (completedIndex != -1 && completedIndex < allEpisodes.lastIndex) {
-                                                     allEpisodes[completedIndex + 1]
-                                                 } else {
-                                                     null
-                                                 }
-                                             }
-                                             else -> {
-                                                 allEpisodes.firstOrNull()
-                                             }
-                                         } ?: allEpisodes.firstOrNull { ep ->
-                                             ep.id !in completedEpIdsForResolve && ep.id !in inProgressEpIdsForResolve
-                                         }
-                                         
-                                         android.util.Log.d("HomeViewModelResolve", "Resolved next episode: ${nextEp?.title ?: "NULL"}")
-                                         if (nextEp != null) {
-                                             newResolved[pod.id] = nextEp
-                                             changed = true
-                                         }          
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("HomeViewModel", "Failed to resolve next episode for serial pod ${pod.id}", e)
-                                    }
-                                }
-                                if (changed) {
-                                    _resolvedSerialEpisodes.value = newResolved
-                                }
-                            } finally {
-                                serialPodsToResolve.forEach { inFlightResolutions.remove(it.id) }
-                            }
-                        }
-                    }
                     
                     // Compute completed count for review prompt logic
                     val completedCount = allHistory.count { it.isCompleted }
@@ -1282,7 +1425,11 @@ class HomeViewModel(
                             briefing = if (showBriefing) rawBriefing else null,
                             briefingChapters = if (showBriefing) wrapper.briefingChapters else emptyList(),
                             isRecommendationsLoading = !wrapper.isRecommendationsLoaded,
-                            isCuratedLoading = !wrapper.isCuratedLoaded
+                            isCuratedLoading = !wrapper.isCuratedLoaded,
+                            seemsToLikePodcast = wrapper.seemsToLikePodcast,
+                            becauseYouLikeRecommendations = wrapper.becauseYouLikeRecommendations,
+                            becauseYouLikePodcasts = wrapper.becauseYouLikePodcasts,
+                            isBecauseYouLikeLoading = wrapper.isBecauseYouLikeLoading
                         )
                     }
                 }
@@ -1571,6 +1718,174 @@ class HomeViewModel(
         }
     }
     
+    private suspend fun resolveFavoritePodcast(
+        overriddenId: String?,
+        subscriptions: List<Podcast>,
+        historyList: List<ListeningHistoryEntity>
+    ): Podcast? {
+        if (overriddenId != null) {
+            val sub = subscriptions.find { it.id == overriddenId }
+            if (sub != null) return sub
+            
+            val localEntity = database.podcastDao().getPodcast(overriddenId)
+            if (localEntity != null) {
+                return Podcast(
+                    id = localEntity.podcastId,
+                    title = localEntity.title,
+                    artist = localEntity.author ?: "",
+                    imageUrl = localEntity.imageUrl ?: "",
+                    fallbackImageUrl = localEntity.latestEpisode?.imageUrl ?: "",
+                    description = localEntity.description,
+                    genre = localEntity.genre ?: "Podcast"
+                )
+            }
+            
+            val hist = historyList.find { it.podcastId == overriddenId }
+            if (hist != null) {
+                return Podcast(
+                    id = hist.podcastId,
+                    title = hist.podcastName,
+                    artist = "",
+                    imageUrl = hist.podcastImageUrl ?: "",
+                    fallbackImageUrl = "",
+                    description = ""
+                )
+            }
+            
+            return null
+        }
+
+        if (subscriptions.isEmpty() && historyList.isEmpty()) return null
+
+        val scores = mutableMapOf<String, Int>()
+        val lastPlayedMap = mutableMapOf<String, Long>()
+        val podcastNameMap = mutableMapOf<String, String>()
+        val podcastImageMap = mutableMapOf<String, String>()
+
+        historyList.forEach { history ->
+            val podId = history.podcastId
+            if (podId.isNotEmpty()) {
+                podcastNameMap[podId] = history.podcastName
+                podcastImageMap[podId] = history.podcastImageUrl ?: ""
+                
+                val currentLastPlayed = lastPlayedMap.getOrDefault(podId, 0L)
+                if (history.lastPlayedAt > currentLastPlayed) {
+                    lastPlayedMap[podId] = history.lastPlayedAt
+                }
+
+                var score = scores.getOrDefault(podId, 0)
+                if (history.isCompleted) {
+                    score += 20
+                } else {
+                    // In-progress scoring based on significance:
+                    // - 5+ minutes played: +15 points (significant enough to trigger on its own)
+                    // - 1+ minute played: +5 points (requires multiple episodes to trigger)
+                    if (history.progressMs >= 300_000L) {
+                        score += 15
+                    } else if (history.progressMs >= 60_000L) {
+                        score += 5
+                    }
+                }
+                if (history.isLiked) {
+                    score += 40
+                }
+                scores[podId] = score
+            }
+        }
+
+        subscriptions.forEach { sub ->
+            val score = scores.getOrDefault(sub.id, 0) + 100
+            scores[sub.id] = score
+            podcastNameMap[sub.id] = sub.title
+            podcastImageMap[sub.id] = sub.imageUrl
+        }
+
+        if (scores.isEmpty()) return null
+
+        val topEntry = scores.maxByOrNull { entry ->
+            entry.value.toLong() * 1_000_000_000_000L + lastPlayedMap.getOrDefault(entry.key, 0L)
+        } ?: return null
+
+        val topPodId = topEntry.key
+        val topScore = topEntry.value
+
+        if (topScore < 15) return null
+
+        val sub = subscriptions.find { it.id == topPodId }
+        if (sub != null) return sub
+
+        val localEntity = database.podcastDao().getPodcast(topPodId)
+        if (localEntity != null) {
+            return Podcast(
+                id = localEntity.podcastId,
+                title = localEntity.title,
+                artist = localEntity.author ?: "",
+                imageUrl = localEntity.imageUrl ?: "",
+                fallbackImageUrl = localEntity.latestEpisode?.imageUrl ?: "",
+                description = localEntity.description,
+                genre = localEntity.genre ?: "Podcast"
+            )
+        }
+
+        return Podcast(
+            id = topPodId,
+            title = podcastNameMap[topPodId] ?: "Podcast",
+            artist = "",
+            imageUrl = podcastImageMap[topPodId] ?: "",
+            fallbackImageUrl = "",
+            description = ""
+        )
+    }
+
+    private fun fetchBecauseYouLikeRecommendations(podcast: Podcast, region: String) {
+        viewModelScope.launch {
+            _isBecauseYouLikeLoading.value = true
+            try {
+                val title = podcast.title
+                val desc = podcast.description ?: ""
+                val id = podcast.id
+                
+                android.util.Log.d("HomeViewModel", "Fetching because-you-like recommendations for: $title (ID: $id), region: $region")
+                val data = podcastRepository.getBecauseYouLikeRecommendations(
+                    podcastTitle = title,
+                    podcastDescription = desc,
+                    excludePodcastId = id,
+                    country = region
+                )
+                
+                val distinctPodcasts = data.podcasts
+                    .distinctBy { it.id }
+                    .distinctBy { it.title.lowercase().trim() }
+                val distinctEpisodes = data.episodes
+                    .distinctBy { it.id }
+                    .distinctBy { it.title.lowercase().trim() }
+                
+                android.util.Log.d("HomeViewModel", "Fetched because-you-like: podcasts count = ${distinctPodcasts.size}, episodes count = ${distinctEpisodes.size}")
+                
+                _becauseYouLikePodcasts.value = distinctPodcasts
+                _becauseYouLikeRecommendations.value = distinctEpisodes
+                
+                try {
+                    val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+                    val json = Json { ignoreUnknownKeys = true }
+                    val serializedEpisodes = json.encodeToString(distinctEpisodes)
+                    val serializedPodcasts = json.encodeToString(distinctPodcasts)
+                    prefs.edit()
+                        .putString("cached_byl_recommendations", serializedEpisodes)
+                        .putString("cached_byl_podcasts", serializedPodcasts)
+                        .putString("cached_byl_podcast_id", id)
+                        .apply()
+                } catch (ce: Exception) {
+                    android.util.Log.e("HomeViewModel", "Failed to cache because-you-like recommendations", ce)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to fetch because-you-like recommendations", e)
+            } finally {
+                _isBecauseYouLikeLoading.value = false
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
     }

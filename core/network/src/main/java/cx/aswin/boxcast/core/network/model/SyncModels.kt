@@ -72,3 +72,19 @@ data class BootstrapResponse(
     val curatedVibes: Map<String, List<TrendingFeed>> = emptyMap(),
     val recommendations: List<EpisodeItem> = emptyList()
 )
+
+@Serializable
+data class BecauseYouLikeRequest(
+    val podcastTitle: String,
+    val podcastDescription: String,
+    val excludePodcastId: String? = null,
+    val country: String? = null
+)
+
+@Serializable
+data class BecauseYouLikeResponse(
+    val status: String,
+    val podcasts: List<TrendingFeed> = emptyList(),
+    val episodes: List<EpisodeItem> = emptyList()
+)
+

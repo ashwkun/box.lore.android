@@ -451,6 +451,7 @@ class MainActivity : ComponentActivity() {
             val hideCompletedInShowDetails by userPrefs.hideCompletedInShowDetailsStream.collectAsState(initial = false)
             val useDynamicColor by userPrefs.useDynamicColorStream.collectAsState(initial = true)
             val themeBrand by userPrefs.themeBrandStream.collectAsState(initial = "violet")
+            val surfaceStyle by userPrefs.surfaceStyleStream.collectAsState(initial = "standard")
             val hasSeenMarkPlayedTip by userPrefs.hasSeenMarkPlayedTip.collectAsState(initial = true)
             val hasLoggedFirstPlay by userPrefs.hasLoggedFirstPlay.collectAsState(initial = true)
             val activeAnnouncement by userPrefs.activeAnnouncementStream.collectAsState(initial = null)
@@ -657,7 +658,8 @@ class MainActivity : ComponentActivity() {
             BoxCastTheme(
                 darkTheme = darkTheme,
                 dynamicColor = useDynamicColor,
-                themeBrand = themeBrand
+                themeBrand = themeBrand,
+                surfaceStyle = surfaceStyle
             ) {
                 // Show Announcement Dialog if onboarding is completed
                 if (onboardingCompleted && activeAnnouncement != null) {
@@ -1236,6 +1238,8 @@ class MainActivity : ComponentActivity() {
                                     onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
                                     onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
                                     onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
+                                    currentSurfaceStyle = surfaceStyle,
+                                    onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
                                     skipBehavior = skipBehavior,
                                     onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
                                      hideCompletedInHome = hideCompletedInHome,

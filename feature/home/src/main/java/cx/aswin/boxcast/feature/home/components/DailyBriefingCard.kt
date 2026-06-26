@@ -55,7 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyRow
@@ -82,6 +82,7 @@ fun DailyBriefingCard(
     modifier: Modifier = Modifier,
     playbackStatus: EpisodeStatus? = null,
     playbackProgress: Float? = null,
+    isBuffering: Boolean = false,
     onDismissForever: () -> Unit = {},
     onFeedbackClick: () -> Unit = {}
 ) {
@@ -143,10 +144,18 @@ fun DailyBriefingCard(
                 onClick = onClick
             )
     ) {
+        val coverResId = remember(briefing.region) {
+            when (briefing.region.lowercase()) {
+                "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
+                "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
+                "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
+                else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
+            }
+        }
+
         // Background cover art
-        OptimizedImage(
-            url = briefing.coverUrl,
-            proxyWidth = 720,
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = coverResId),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -193,7 +202,7 @@ fun DailyBriefingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                // BoxCast Brief logo and date column
+                // Boxlore Brief logo and date column
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -201,7 +210,7 @@ fun DailyBriefingCard(
                         painter = painterResource(
                             id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_brief_logo
                         ),
-                        contentDescription = "The Boxcast Brief",
+                        contentDescription = "The Boxlore Brief",
                         modifier = Modifier.height(48.dp),
                         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
                     )
@@ -305,12 +314,19 @@ fun DailyBriefingCard(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                        contentDescription = if (isPlaying) "Pause briefing" else "Play briefing",
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    if (isBuffering) {
+                                        BoxLoreLoader.CircularWavy(
+                                            size = 20.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                            contentDescription = if (isPlaying) "Pause briefing" else "Play briefing",
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = when {

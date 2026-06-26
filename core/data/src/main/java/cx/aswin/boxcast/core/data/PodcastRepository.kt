@@ -481,6 +481,44 @@ class PodcastRepository(
         }
     }
 
+    suspend fun getBecauseYouLikeRecommendations(
+        podcastTitle: String,
+        podcastDescription: String,
+        excludePodcastId: String? = null,
+        country: String? = null
+    ): BecauseYouLikeData = withContext(Dispatchers.IO) {
+        val cacheKey = "byl|$podcastTitle|$excludePodcastId|$country"
+        val now = System.currentTimeMillis()
+        val cached = becauseYouLikeCache[cacheKey]
+        if (cached != null && now - cached.second < 900_000L) { // 15-minute client-side memory cache
+            android.util.Log.d("PodcastRepository", "Cache HIT for getBecauseYouLikeRecommendations: key=$cacheKey")
+            return@withContext cached.first
+        }
+
+        try {
+            val request = cx.aswin.boxcast.core.network.model.BecauseYouLikeRequest(
+                podcastTitle = podcastTitle,
+                podcastDescription = podcastDescription,
+                excludePodcastId = excludePodcastId,
+                country = country
+            )
+            val response = api.getBecauseYouLikeRecommendations(publicKey, request).execute()
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val mappedPodcasts = body.podcasts.map { mapToPodcast(it) }
+                val mappedEpisodes = body.episodes.mapNotNull { mapToEpisode(it) }
+                val data = BecauseYouLikeData(podcasts = mappedPodcasts, episodes = mappedEpisodes)
+                becauseYouLikeCache[cacheKey] = Pair(data, now)
+                data
+            } else {
+                BecauseYouLikeData()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("BoxCastRepo", "Because You Like Recommendations Error", e)
+            BecauseYouLikeData()
+        }
+    }
+
     suspend fun getSimilarEpisodes(
         episodeId: String,
         podcastId: String,
@@ -756,6 +794,7 @@ class PodcastRepository(
     companion object {
         private val episodesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<EpisodePage, Long>>()
         private val recommendationsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<Episode>, Long>>()
+        private val becauseYouLikeCache = java.util.concurrent.ConcurrentHashMap<String, Pair<BecauseYouLikeData, Long>>()
     }
 }
 
@@ -765,4 +804,9 @@ data class HomeBootstrapData(
     val trending: List<Podcast>,
     val curatedVibes: Map<String, List<Podcast>>,
     val recommendations: List<Episode>
+)
+
+data class BecauseYouLikeData(
+    val podcasts: List<Podcast> = emptyList(),
+    val episodes: List<Episode> = emptyList()
 )

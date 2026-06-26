@@ -8,6 +8,8 @@ import cx.aswin.boxcast.core.network.model.TrendingResponse
 import cx.aswin.boxcast.core.network.model.SyncRequest
 import cx.aswin.boxcast.core.network.model.SyncResponse
 import cx.aswin.boxcast.core.network.model.RecommendationsRequest
+import cx.aswin.boxcast.core.network.model.BecauseYouLikeRequest
+import cx.aswin.boxcast.core.network.model.BecauseYouLikeResponse
 import cx.aswin.boxcast.core.network.model.SingleEpisodeResponse
 import cx.aswin.boxcast.core.network.model.FeedbackRequest
 import cx.aswin.boxcast.core.network.model.FeedbackResponse
@@ -133,6 +135,12 @@ interface BoxLoreApi {
         @Header("X-Device-UUID") deviceUuid: String,
         @Body request: RecommendationsRequest
     ): retrofit2.Call<EpisodesResponse>
+
+    @POST("recommendations/because-you-like")
+    fun getBecauseYouLikeRecommendations(
+        @Header("X-App-Key") publicKey: String,
+        @Body request: BecauseYouLikeRequest
+    ): retrofit2.Call<BecauseYouLikeResponse>
 
     @POST("episodes/similar")
     fun getSimilarEpisodes(

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fallback Splash Logo color for Dark Mode on pre-API 31 devices -->
+    <color name="splash_logo_color">#FFFFFF</color>
+</resources>

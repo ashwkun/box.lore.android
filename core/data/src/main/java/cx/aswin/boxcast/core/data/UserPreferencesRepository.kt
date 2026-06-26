@@ -23,6 +23,7 @@ class UserPreferencesRepository(context: Context) {
         val THEME_CONFIG = stringPreferencesKey("theme_config")
         val USE_DYNAMIC_COLOR = androidx.datastore.preferences.core.booleanPreferencesKey("use_dynamic_color")
         val THEME_BRAND = stringPreferencesKey("theme_brand")
+        val SURFACE_STYLE = stringPreferencesKey("surface_style")
         val IS_RADIO_MODE = androidx.datastore.preferences.core.booleanPreferencesKey("is_radio_mode")
         val HAS_DISMISSED_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_region_nudge")
         val HAS_DISMISSED_EXPLORE_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_explore_region_nudge")
@@ -37,6 +38,7 @@ class UserPreferencesRepository(context: Context) {
         val HAS_DISMISSED_HOME_IMPORT_BANNER = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_home_import_banner")
         val BRIEFING_DISMISSED_DATE = stringPreferencesKey("briefing_dismissed_date")
         val BRIEFING_DISMISSED_FOREVER = androidx.datastore.preferences.core.booleanPreferencesKey("briefing_dismissed_forever")
+        val OVERRIDDEN_REC_PODCAST_ID = stringPreferencesKey("overridden_rec_podcast_id")
     }
 
     val regionStream: Flow<String> = dataStore.data
@@ -226,6 +228,21 @@ class UserPreferencesRepository(context: Context) {
     suspend fun setThemeBrand(themeBrand: String) {
         dataStore.edit { preferences ->
             preferences[Keys.THEME_BRAND] = themeBrand
+        }
+    }
+
+    val surfaceStyleStream: Flow<String> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.SURFACE_STYLE] ?: "standard"
+        }
+        .distinctUntilChanged()
+
+    suspend fun setSurfaceStyle(surfaceStyle: String) {
+        dataStore.edit { preferences ->
+            preferences[Keys.SURFACE_STYLE] = surfaceStyle
         }
     }
 
@@ -533,6 +550,25 @@ class UserPreferencesRepository(context: Context) {
     suspend fun setHideCompletedInSubs(hide: Boolean) {
         dataStore.edit { preferences ->
             preferences[Keys.HIDE_COMPLETED_IN_SUBS] = hide
+        }
+    }
+
+    val overriddenRecPodcastIdStream: Flow<String?> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.OVERRIDDEN_REC_PODCAST_ID]
+        }
+        .distinctUntilChanged()
+
+    suspend fun setOverriddenRecPodcastId(podcastId: String?) {
+        dataStore.edit { preferences ->
+            if (podcastId == null) {
+                preferences.remove(Keys.OVERRIDDEN_REC_PODCAST_ID)
+            } else {
+                preferences[Keys.OVERRIDDEN_REC_PODCAST_ID] = podcastId
+            }
         }
     }
 }

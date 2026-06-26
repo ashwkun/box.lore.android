@@ -40,6 +40,7 @@ fun ForYouSection(
     onPlayEpisode: (Episode, Podcast) -> Unit,
     timeBlock: CuratedTimeBlock?,
     onSeeAllClick: () -> Unit,
+    showTasteHeader: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     if (recommendations.isNotEmpty()) {
@@ -58,74 +59,48 @@ fun ForYouSection(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // --- Curated For You Main Header ---
-        ForYouHeader(onSeeAllClick = onSeeAllClick)
+        if (showTasteHeader) {
+            ForYouHeader()
+        }
 
-        if (recommendations.isEmpty()) {
-            // --- Skeletal Shimmer Loader for Recommendations ---
-            val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-            val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-
-            // Hero Skeleton
-            ForYouHeroSkeleton(baseColor = baseColor, highlightColor = highlightColor)
-
-            // 4 uniform rows of 2 skeletons each
-            repeat(4) {
-                Row(
+        androidx.compose.animation.Crossfade(
+            targetState = items,
+            animationSpec = androidx.compose.animation.core.tween(500),
+            label = "foryou_crossfade"
+        ) { currentItems ->
+            if (currentItems.isEmpty()) {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    ForYouBentoSkeleton(baseColor = baseColor, highlightColor = highlightColor, modifier = Modifier.weight(1f))
-                    ForYouBentoSkeleton(baseColor = baseColor, highlightColor = highlightColor, modifier = Modifier.weight(1f))
-                }
-            }
-        } else {
-            // --- Uniform Grid Layout ---
-
-            // Item 1 (Hero Card - index 0)
-            if (items.isNotEmpty()) {
-                val ep = items[0]
-                val parentPodcast = Podcast(
-                    id = ep.podcastId ?: "",
-                    title = ep.podcastTitle ?: "Podcast",
-                    artist = "",
-                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                    description = "",
-                    genre = ep.podcastGenre ?: "Podcast"
-                )
-                ForYouHeroCard(
-                    episode = ep,
-                    parentPodcast = parentPodcast,
-                    onClick = {
-                        AnalyticsHelper.trackHomeRecommendationCardTapped(
-                            episodeId = ep.id,
-                            episodeTitle = ep.title,
-                            podcastId = parentPodcast.id,
-                            podcastName = parentPodcast.title,
-                            positionIndex = 0,
-                            timeBlockTitle = timeBlock?.title
-                        )
-                        onEpisodeClick(ep, parentPodcast)
-                    }
-                )
-            }
-
-            // Remaining items in 2-column masonry layout (indices 1..8)
-            val remaining = items.drop(1)
-            val remainingWithIndex = remaining.mapIndexed { index, ep -> ep to (index + 1) }
-            val leftColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 0 }
-            val rightColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 1 }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Left column
-                Column(
-                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    leftColumn.forEach { (ep, originalIndex) ->
+                    // --- Skeletal Shimmer Loader for Recommendations ---
+                    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+
+                    // Hero Skeleton
+                    ForYouHeroSkeleton(baseColor = baseColor, highlightColor = highlightColor)
+
+                    // 4 uniform rows of 2 skeletons each
+                    repeat(4) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            ForYouBentoSkeleton(baseColor = baseColor, highlightColor = highlightColor, modifier = Modifier.weight(1f))
+                            ForYouBentoSkeleton(baseColor = baseColor, highlightColor = highlightColor, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // --- Uniform Grid Layout ---
+
+                    // Item 1 (Hero Card - index 0)
+                    if (currentItems.isNotEmpty()) {
+                        val ep = currentItems[0]
                         val parentPodcast = Podcast(
                             id = ep.podcastId ?: "",
                             title = ep.podcastTitle ?: "Podcast",
@@ -134,50 +109,93 @@ fun ForYouSection(
                             description = "",
                             genre = ep.podcastGenre ?: "Podcast"
                         )
-                        ForYouBentoCard(
+                        ForYouHeroCard(
                             episode = ep,
+                            parentPodcast = parentPodcast,
                             onClick = {
                                 AnalyticsHelper.trackHomeRecommendationCardTapped(
                                     episodeId = ep.id,
                                     episodeTitle = ep.title,
                                     podcastId = parentPodcast.id,
                                     podcastName = parentPodcast.title,
-                                    positionIndex = originalIndex,
+                                    positionIndex = 0,
                                     timeBlockTitle = timeBlock?.title
                                 )
                                 onEpisodeClick(ep, parentPodcast)
                             }
                         )
                     }
-                }
-                // Right column
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    rightColumn.forEach { (ep, originalIndex) ->
-                        val parentPodcast = Podcast(
-                            id = ep.podcastId ?: "",
-                            title = ep.podcastTitle ?: "Podcast",
-                            artist = "",
-                            imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                            description = "",
-                            genre = ep.podcastGenre ?: "Podcast"
-                        )
-                        ForYouBentoCard(
-                            episode = ep,
-                            onClick = {
-                                AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                    episodeId = ep.id,
-                                    episodeTitle = ep.title,
-                                    podcastId = parentPodcast.id,
-                                    podcastName = parentPodcast.title,
-                                    positionIndex = originalIndex,
-                                    timeBlockTitle = timeBlock?.title
+
+                    // Remaining items in 2-column masonry layout (indices 1..8)
+                    val remaining = currentItems.drop(1)
+                    val remainingWithIndex = remaining.mapIndexed { index, ep -> ep to (index + 1) }
+                    val leftColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 0 }
+                    val rightColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 1 }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Left column
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            leftColumn.forEach { (ep, originalIndex) ->
+                                val parentPodcast = Podcast(
+                                    id = ep.podcastId ?: "",
+                                    title = ep.podcastTitle ?: "Podcast",
+                                    artist = "",
+                                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                    description = "",
+                                    genre = ep.podcastGenre ?: "Podcast"
                                 )
-                                onEpisodeClick(ep, parentPodcast)
+                                ForYouBentoCard(
+                                    episode = ep,
+                                    onClick = {
+                                        AnalyticsHelper.trackHomeRecommendationCardTapped(
+                                            episodeId = ep.id,
+                                            episodeTitle = ep.title,
+                                            podcastId = parentPodcast.id,
+                                            podcastName = parentPodcast.title,
+                                            positionIndex = originalIndex,
+                                            timeBlockTitle = timeBlock?.title
+                                        )
+                                        onEpisodeClick(ep, parentPodcast)
+                                    }
+                                )
                             }
-                        )
+                        }
+                        // Right column
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            rightColumn.forEach { (ep, originalIndex) ->
+                                val parentPodcast = Podcast(
+                                    id = ep.podcastId ?: "",
+                                    title = ep.podcastTitle ?: "Podcast",
+                                    artist = "",
+                                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                    description = "",
+                                    genre = ep.podcastGenre ?: "Podcast"
+                                )
+                                ForYouBentoCard(
+                                    episode = ep,
+                                    onClick = {
+                                        AnalyticsHelper.trackHomeRecommendationCardTapped(
+                                            episodeId = ep.id,
+                                            episodeTitle = ep.title,
+                                            podcastId = parentPodcast.id,
+                                            podcastName = parentPodcast.title,
+                                            positionIndex = originalIndex,
+                                            timeBlockTitle = timeBlock?.title
+                                        )
+                                        onEpisodeClick(ep, parentPodcast)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -411,50 +429,22 @@ private fun ForYouBentoCard(
 
 @Composable
 private fun ForYouHeader(
-    onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 18.dp), // Premium breathing room above content
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(top = 8.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Curated For You",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = SectionHeaderFontFamily,
-                    fontWeight = FontWeight.Bold
-                ),
-                letterSpacing = (-0.5).sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        // Action chevron decorator
-        FilledTonalIconButton(
-            onClick = onSeeAllClick,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = "See All",
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        Text(
+            text = "Based on Your Taste",
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontFamily = SectionHeaderFontFamily,
+                fontWeight = FontWeight.Bold
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

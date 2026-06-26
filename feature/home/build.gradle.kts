@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
     
     // Media3
     implementation(libs.androidx.media3.exoplayer)

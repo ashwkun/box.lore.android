@@ -92,6 +92,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.FilledTonalIconButton
+import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.FlowRow
@@ -108,6 +110,8 @@ import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.feature.home.components.TopControlBar
 import cx.aswin.boxcast.feature.home.components.YourShowsSection
 import cx.aswin.boxcast.feature.home.components.ForYouSection
+import cx.aswin.boxcast.feature.home.components.BecauseYouLikeSection
+import cx.aswin.boxcast.feature.home.components.ChangeRecommendationPodcastSheet
 
 import cx.aswin.boxcast.feature.home.components.DebugDbInspectorDialog
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
@@ -172,6 +176,9 @@ fun HomeRoute(
     val currentPlayingEpisodeId by remember(viewModel) {
         viewModel.playerState.map { it.currentEpisode?.id }.distinctUntilChanged()
     }.collectAsState(initial = null)
+    val isPlayerLoading by remember(viewModel) {
+        viewModel.playerState.map { it.isLoading }.distinctUntilChanged()
+    }.collectAsState(initial = false)
     val debugHistory by viewModel.debugHistory.collectAsState(initial = emptyList())
     val debugPodcasts by viewModel.debugPodcasts.collectAsState(initial = emptyList())
 
@@ -181,13 +188,18 @@ fun HomeRoute(
     
 
     
+    val candidatePodcasts by viewModel.candidatePodcasts.collectAsState(initial = emptyList())
+
     HomeScreen(
         uiState = uiState,
         currentPlayingPodcastId = currentPlayingPodcastId,
         currentPlayingEpisodeId = currentPlayingEpisodeId,
         isPlaying = isPlaying,
+        isPlayerLoading = isPlayerLoading,
         debugHistory = debugHistory,
         debugPodcasts = debugPodcasts,
+        candidatePodcasts = candidatePodcasts,
+        onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
         onPodcastClick = onPodcastClick,
         onHeroArrowClick = onHeroArrowClick,
         onEpisodeClick = onEpisodeClick,
@@ -245,6 +257,7 @@ fun HomeScreen(
     currentPlayingPodcastId: String?,
     currentPlayingEpisodeId: String?,
     isPlaying: Boolean,
+    isPlayerLoading: Boolean = false,
     debugHistory: List<ListeningHistoryEntity>,
     debugPodcasts: List<PodcastEntity>,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
@@ -286,6 +299,8 @@ fun HomeScreen(
     onBriefingClick: (String) -> Unit = {},
     onDismissBriefing: () -> Unit = {},
     onDismissBriefingForever: () -> Unit = {},
+    candidatePodcasts: List<Podcast> = emptyList(),
+    onOverrideRecommendationPodcast: (String?) -> Unit = {},
 
     modifier: Modifier = Modifier
 ) {
@@ -293,6 +308,7 @@ fun HomeScreen(
     // Track scroll state for collapsing top bar
     val gridState = rememberLazyStaggeredGridState()
     var showDebugDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showChangePodcastSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
     
     // Calculate scroll fraction: 0 = at top (expanded), 1 = scrolled (collapsed)
     val scrollFraction by remember {
@@ -366,6 +382,7 @@ fun HomeScreen(
                             currentPlayingEpisodeId = currentPlayingEpisodeId,
                             recommendations = uiState.recommendations,
                             isPlaying = isPlaying,
+                            isPlayerLoading = isPlayerLoading,
                             isFilterLoading = uiState.isFilterLoading,
                             selectedPodcastId = uiState.selectedPodcastId,
                             selectedPodcastEpisodes = uiState.selectedPodcastEpisodes,
@@ -374,6 +391,10 @@ fun HomeScreen(
                             isLoading = uiState.isLoading,
                             isRecommendationsLoading = uiState.isRecommendationsLoading,
                             isCuratedLoading = uiState.isCuratedLoading,
+                            seemsToLikePodcast = uiState.seemsToLikePodcast,
+                            becauseYouLikeRecommendations = uiState.becauseYouLikeRecommendations,
+                            becauseYouLikePodcasts = uiState.becauseYouLikePodcasts,
+                            onChangePodcastClick = { showChangePodcastSheet = true },
                             onPodcastSelected = onPodcastSelected,
                             onPlayMix = onPlayMix,
                             onPlayEpisode = onPlayEpisode,
@@ -454,6 +475,17 @@ fun HomeScreen(
             onDismissRequest = onDismissFeedback
         )
     }
+
+    if (showChangePodcastSheet) {
+        ChangeRecommendationPodcastSheet(
+            candidatePodcasts = candidatePodcasts,
+            onDismissRequest = { showChangePodcastSheet = false },
+            onPodcastSelect = { podcast ->
+                showChangePodcastSheet = false
+                onOverrideRecommendationPodcast(podcast?.id)
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -470,6 +502,7 @@ private fun PodcastFeed(
     currentPlayingEpisodeId: String?,
     recommendations: List<Episode> = emptyList(),
     isPlaying: Boolean,
+    isPlayerLoading: Boolean = false,
     isFilterLoading: Boolean,
     selectedPodcastId: String? = null,
     selectedPodcastEpisodes: List<Episode> = emptyList(),
@@ -507,11 +540,17 @@ private fun PodcastFeed(
     onBriefingClick: (String) -> Unit = {},
     onDismissBriefing: () -> Unit = {},
     onDismissBriefingForever: () -> Unit = {},
+    seemsToLikePodcast: Podcast? = null,
+    becauseYouLikeRecommendations: List<Episode> = emptyList(),
+    becauseYouLikePodcasts: List<Podcast> = emptyList(),
+    onChangePodcastClick: () -> Unit = {},
     onFeedbackClick: () -> Unit = {},
     gridState: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
     modifier: Modifier = Modifier
 ) {
     LogRecomposition(name = "PodcastFeed")
+
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Track whether initial content has loaded (for staggered entrance animation)
     val heroLoaded = !isLoading && heroItems.isNotEmpty()
@@ -585,21 +624,12 @@ private fun PodcastFeed(
 
 
         // 2. "Your Shows" (Interactive selector grid & filtered stack)
-        item(span = StaggeredGridItemSpan.FullLine) {
-            // Crossfade: skeleton → your shows → empty (nothing)
-            androidx.compose.animation.Crossfade(
-                targetState = when {
-                    isLoading -> "skeleton"
-                    subscribedItems.isNotEmpty() -> "content"
-                    showImportBanner -> "banner"
-                    else -> "empty"
-                },
-                animationSpec = tween(500),
-                label = "your_shows_crossfade"
-            ) { state ->
-                when (state) {
-                    "skeleton" -> YourShowsSkeleton(subscribedCount = subscribedItems.size)
-                    "content" -> YourShowsSection(
+        // Only occupy a grid slot when there is content to render (avoids dead spacing)
+        if (isLoading || subscribedItems.isNotEmpty() || showImportBanner) {
+            item(span = StaggeredGridItemSpan.FullLine) {
+                when {
+                    isLoading -> YourShowsSkeleton(subscribedCount = subscribedItems.size)
+                    subscribedItems.isNotEmpty() -> YourShowsSection(
                         subscribedPodcasts = subscribedItems,
                         latestEpisodes = latestItems,
                         unplayedEpisodeCount = unplayedEpisodeCount,
@@ -618,7 +648,7 @@ private fun PodcastFeed(
                         onPlayEpisode = onPlayEpisode,
                         onViewLibrary = { onNavigateToLibrary?.invoke() }
                     )
-                    "banner" -> {
+                    showImportBanner -> {
                         LaunchedEffect(Unit) {
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerImpression()
                         }
@@ -642,7 +672,6 @@ private fun PodcastFeed(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                    else -> {} // No subs, render nothing
                 }
             }
         }
@@ -676,6 +705,7 @@ private fun PodcastFeed(
                         isPlaying = isPlaying && currentPlayingEpisodeId == briefingId,
                         playbackStatus = playbackState?.first,
                         playbackProgress = playbackState?.second,
+                        isBuffering = isPlayerLoading && currentPlayingEpisodeId == briefingId,
                         onPlayPauseClick = {
                             val isCurrentPlaying = isPlaying && currentPlayingEpisodeId == briefingId
                             if (isCurrentPlaying) {
@@ -702,16 +732,26 @@ private fun PodcastFeed(
                             val audioUri = android.net.Uri.parse(briefing.audioUrl)
                             val version = audioUri.getQueryParameter("v")
                             val versionParam = if (version != null) "&v=$version" else ""
+                            
+                            val packageName = context.packageName
+                            val resId = when (briefing.region.lowercase()) {
+                                "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
+                                "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
+                                "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
+                                else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
+                            }
+                            val localCoverUrl = "android.resource://$packageName/$resId"
+
                             onPlayEpisode(
                                 cx.aswin.boxcast.core.model.Episode(
                                     id = briefingId,
                                     title = briefing.title,
                                     description = "Your daily AI-generated news briefing for ${briefing.region.uppercase()}.",
                                     audioUrl = briefing.audioUrl,
-                                    imageUrl = briefing.coverUrl,
+                                    imageUrl = localCoverUrl,
                                     podcastId = "briefing_${briefing.region}",
-                                    podcastTitle = "The Boxcast Brief",
-                                    podcastImageUrl = briefing.coverUrl,
+                                    podcastTitle = "The Boxlore Brief",
+                                    podcastImageUrl = localCoverUrl,
                                     podcastArtist = "BoxCast AI",
                                     duration = 180,
                                     publishedDate = publishedDate,
@@ -720,9 +760,9 @@ private fun PodcastFeed(
                                 ),
                                 cx.aswin.boxcast.core.model.Podcast(
                                     id = "briefing_${briefing.region}",
-                                    title = "The Boxcast Brief",
+                                    title = "The Boxlore Brief",
                                     artist = "BoxCast AI",
-                                    imageUrl = briefing.coverUrl
+                                    imageUrl = localCoverUrl
                                 )
                             )
                         },
@@ -744,34 +784,94 @@ private fun PodcastFeed(
             }
         }
 
-        // "For You" Personalized Recommendations Section (Magazine Split Layout)
-        // Render this item slot unconditionally so its skeleton is shown during loading
-        item(span = StaggeredGridItemSpan.FullLine) {
-            AnimatedVisibility(
-                visible = isRecommendationsLoading || recommendations.isNotEmpty(),
-                enter = fadeIn(animationSpec = tween(600)) + expandVertically(
-                    animationSpec = tween(500),
-                    expandFrom = Alignment.Top
-                ),
-                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
-                    animationSpec = tween(300),
-                    shrinkTowards = Alignment.Top
-                )
-            ) {
-                ForYouSection(
-                    recommendations = recommendations,
-                    currentPlayingEpisodeId = currentPlayingEpisodeId,
-                    isPlaying = isPlaying,
-                    onEpisodeClick = { episode, podcast ->
-                        onEpisodeClick?.invoke(episode, podcast, "home_for_you")
-                    },
-                    onPlayEpisode = onPlayEpisode,
-                    timeBlock = timeBlock,
-                    onSeeAllClick = {
-                        onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
-                    },
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+        // Curated For You Main Header + Sections
+        val hasBecauseYouLike = seemsToLikePodcast != null && (becauseYouLikeRecommendations.isNotEmpty() || becauseYouLikePodcasts.isNotEmpty())
+        val hasRecommendations = isRecommendationsLoading || recommendations.isNotEmpty()
+        if (hasBecauseYouLike || hasRecommendations) {
+            item(span = StaggeredGridItemSpan.FullLine) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                text = "Curated For You",
+                                fontSize = 20.sp,
+                                fontFamily = SectionHeaderFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        FilledTonalIconButton(
+                            onClick = {
+                                onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = "See All",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // "Because You Like" Section
+                    if (hasBecauseYouLike) {
+                        BecauseYouLikeSection(
+                            podcast = seemsToLikePodcast!!,
+                            recommendations = becauseYouLikeRecommendations,
+                            suggestedPodcasts = becauseYouLikePodcasts,
+                            currentPlayingEpisodeId = currentPlayingEpisodeId,
+                            isPlaying = isPlaying,
+                            onEpisodeClick = { episode, podcast ->
+                                onEpisodeClick?.invoke(episode, podcast, "home_because_you_like")
+                            },
+                            onPlayEpisode = onPlayEpisode,
+                            onPodcastClick = { podcast ->
+                                onPodcastClick(podcast, "home_because_you_like", null, null)
+                            },
+                            onChangePodcastClick = onChangePodcastClick,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+
+                    // "For You" normal recommendations section
+                    if (hasRecommendations) {
+                        ForYouSection(
+                            recommendations = recommendations,
+                            currentPlayingEpisodeId = currentPlayingEpisodeId,
+                            isPlaying = isPlaying,
+                            onEpisodeClick = { episode, podcast ->
+                                onEpisodeClick?.invoke(episode, podcast, "home_for_you")
+                            },
+                            onPlayEpisode = onPlayEpisode,
+                            timeBlock = timeBlock,
+                            onSeeAllClick = {
+                                onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
+                            },
+                            showTasteHeader = hasBecauseYouLike,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
             }
         }
 
@@ -802,7 +902,7 @@ private fun PodcastFeed(
         }
 
         // "See All Recommendations" button — between timeblock and discover
-        if (!isLoading && (recommendations.isNotEmpty() || timeBlock != null)) {
+        if (!isLoading && recommendations.isNotEmpty()) {
             item(span = StaggeredGridItemSpan.FullLine) {
                 Box(
                     modifier = Modifier
