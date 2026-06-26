@@ -474,7 +474,7 @@ async function main() {
                 feed.itunesType || "episodic"
             ];
 
-            const sql = `INSERT OR IGNORE INTO podcasts (${columns.join(',')}) VALUES (${placeholders})`;
+            const sql = `INSERT INTO podcasts (${columns.join(',')}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET itunes_id = excluded.itunes_id WHERE itunes_id IS NULL OR itunes_id != excluded.itunes_id`;
             batchStatements.push({ sql, args: values });
             importedCount++;
 
