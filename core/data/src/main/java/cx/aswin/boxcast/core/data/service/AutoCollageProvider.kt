@@ -18,7 +18,7 @@ import java.io.File
 class AutoCollageProvider : ContentProvider() {
 
     companion object {
-        const val AUTHORITY = "cx.aswin.boxcast.collage"
+        const val AUTHORITY = "cx.aswin.boxlore.collage"
         
         fun getUri(filename: String): Uri {
             return Uri.parse("content://$AUTHORITY/$filename")

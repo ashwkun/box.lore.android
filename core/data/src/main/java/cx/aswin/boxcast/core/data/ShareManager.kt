@@ -255,7 +255,7 @@ object ShareManager {
                         
                         sharedUri = androidx.core.content.FileProvider.getUriForFile(
                             context,
-                            "cx.aswin.boxcast.fileprovider",
+                            "${context.packageName}.fileprovider",
                             cacheFile
                         )
                     }

@@ -6,7 +6,7 @@
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "cx.aswin.boxcast",
+      "package_name": "cx.aswin.boxlore",
       "sha256_cert_fingerprints": [
         "06:1C:89:99:0E:AD:53:06:D4:1D:4D:4F:AF:0A:AE:05:90:72:33:26:4F:A6:E1:CB:77:B0:20:11:BC:DA:02:14",
         "1E:36:EF:92:DE:4B:B5:31:C4:0E:26:8B:BA:BD:A8:A9:41:EF:E7:FA:41:79:12:02:AF:9C:8C:CE:4B:73:43:15"

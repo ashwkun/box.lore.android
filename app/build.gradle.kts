@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cx.aswin.boxcast"
+        applicationId = "cx.aswin.boxlore"
         minSdk = 31
         targetSdk = 36
         versionCode = 42

@@ -79,13 +79,13 @@
 
         <provider
             android:name="cx.aswin.boxcast.core.data.service.AutoCollageProvider"
-            android:authorities="cx.aswin.boxcast.collage"
+            android:authorities="${applicationId}.collage"
             android:exported="true"
             android:grantUriPermissions="true" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="cx.aswin.boxcast.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
