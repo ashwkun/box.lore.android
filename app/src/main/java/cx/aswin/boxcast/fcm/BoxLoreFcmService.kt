@@ -70,7 +70,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         val podcastTitle = data["podcastTitle"] ?: "New Release"
         val episodeTitle = data["episodeTitle"] ?: "New Episode"
         val imageUrl = data["image"] ?: data["imageUrl"]
-        val route = data["route"] ?: "boxcast://podcast/$podcastId"
+        val route = data["route"] ?: "boxlore://podcast/$podcastId"
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "boxcast_new_episodes"
@@ -87,6 +87,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         }
 
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(route)).apply {
+            setPackage(packageName)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("from_push", true)
         }
