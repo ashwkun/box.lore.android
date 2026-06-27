@@ -1080,8 +1080,9 @@ fun PodcastIndexSection() {
             painter = androidx.compose.ui.res.painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.ic_podcast_index_logo),
             contentDescription = "Podcast Index Logo",
             modifier = Modifier
-                .height(96.dp)
-                .padding(vertical = 4.dp),
+                .fillMaxWidth(0.85f)
+                .height(180.dp)
+                .padding(vertical = 8.dp),
             contentScale = androidx.compose.ui.layout.ContentScale.Fit
         )
         
