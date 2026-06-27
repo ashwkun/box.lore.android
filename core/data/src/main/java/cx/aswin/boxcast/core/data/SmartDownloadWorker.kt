@@ -28,8 +28,8 @@ class SmartDownloadWorker(
 
         try {
             // Instantiate dependencies dynamically in worker context
-            val apiBaseUrl = "https://api.aswin.cx"
-            val publicKey = "wisby"
+            val apiBaseUrl = BuildConfig.BOXCAST_API_BASE_URL
+            val publicKey = BuildConfig.BOXCAST_PUBLIC_KEY
             val app = context.applicationContext as android.app.Application
             
             val podcastRepository = PodcastRepository(apiBaseUrl, publicKey, app)

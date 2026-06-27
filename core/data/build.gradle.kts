@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.jetbrainsKotlinAndroid)
@@ -8,8 +10,20 @@ android {
     namespace = "cx.aswin.boxcast.core.data"
     compileSdk = 35
 
+    buildFeatures {
+        buildConfig = true
+    }
+
+    val localProps = Properties()
+    val localPropsFile = rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        localPropsFile.inputStream().use { localProps.load(it) }
+    }
+
     defaultConfig {
         minSdk = 31
+        buildConfigField("String", "BOXCAST_API_BASE_URL", "\"${localProps.getProperty("BOXCAST_API_BASE_URL", "https://api.aswin.cx")}\"")
+        buildConfigField("String", "BOXCAST_PUBLIC_KEY", "\"${localProps.getProperty("BOXCAST_PUBLIC_KEY", "")}\"")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

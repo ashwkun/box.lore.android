@@ -82,12 +82,22 @@ class DownloadRepository(
             )
             .build()
             
-        DownloadService.sendAddDownload(
-            context,
-            MediaDownloadService::class.java,
-            downloadRequest,
-            true
-        )
+        try {
+            DownloadService.sendAddDownload(
+                context,
+                MediaDownloadService::class.java,
+                downloadRequest,
+                true
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("DownloadRepo", "Foreground service start rejected in background. Retrying with foreground=false", e)
+            DownloadService.sendAddDownload(
+                context,
+                MediaDownloadService::class.java,
+                downloadRequest,
+                false
+            )
+        }
         
         android.util.Log.d("DownloadRepo", "Optimistically adding download: ${episode.id}")
         // Optimistically insert into DB as "Downloading"
