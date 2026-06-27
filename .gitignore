@@ -63,3 +63,6 @@ posthog-setup-report.md
 
 # Scratch files
 scratch/
+
+# GCP service account key (ephemeral, never commit)
+gcp-key.json
