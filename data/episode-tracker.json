@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-06-27T19:18:15.710Z",
+  "lastRun": "2026-06-27T20:07:43.698Z",
   "podcasts": {
     "2123": {
       "lastEpisodeId": "56772272198",
@@ -16,6 +16,11 @@
       "lastEpisodeTitle": "The Cemetery Shadow Man",
       "lastCheckedAt": 1782580346119
     },
+    "415434": {
+      "lastEpisodeId": "56750077986",
+      "lastEpisodeTitle": "Of course Meta thinks gambling is the future",
+      "lastCheckedAt": 1782590864083
+    },
     "448245": {
       "lastEpisodeId": "56601446692",
       "lastEpisodeTitle": "Back To Our Roots",
@@ -25,6 +30,11 @@
       "lastEpisodeId": "38607417022",
       "lastEpisodeTitle": "Special announcement - a new podcast",
       "lastCheckedAt": 1782585870863
+    },
+    "585994": {
+      "lastEpisodeId": "40591739575",
+      "lastEpisodeTitle": "1865 Presents American Criminal | The Murder of Medgar Evers",
+      "lastCheckedAt": 1782590864149
     },
     "947138": {
       "lastEpisodeId": "56759563861",
@@ -40,6 +50,11 @@
       "lastEpisodeId": "22189360071",
       "lastEpisodeTitle": "#92 | FREE COMIC BOOK DAY 2024!!!",
       "lastCheckedAt": 1782580347307
+    },
+    "7492905": {
+      "lastEpisodeId": "56496627586",
+      "lastEpisodeTitle": "Roomba: Rise of the robovac",
+      "lastCheckedAt": 1782590864477
     }
   }
 }
