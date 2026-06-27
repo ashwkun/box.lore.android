@@ -290,7 +290,9 @@ class PodcastInfoViewModel(
                     updateFrequency = entity.updateFrequency,
                     location = entity.location,
                     license = entity.license,
-                    isLocked = entity.isLocked
+                    isLocked = entity.isLocked,
+                    notificationsEnabled = entity.notificationsEnabled,
+                    autoDownloadEnabled = entity.autoDownloadEnabled
                 )
             }
 
@@ -345,7 +347,10 @@ class PodcastInfoViewModel(
                     val apiPodcastWithFallback = apiPodcast.copy(
                         fallbackImageUrl = apiPodcast.fallbackImageUrl.takeIf { !it.isNullOrBlank() }
                             ?: currentPodcast?.fallbackImageUrl
-                            ?: page.episodes.firstOrNull()?.imageUrl
+                            ?: page.episodes.firstOrNull()?.imageUrl,
+                        subscribedAt = currentPodcast?.subscribedAt ?: 0L,
+                        notificationsEnabled = localPodcastEntity?.notificationsEnabled ?: false,
+                        autoDownloadEnabled = localPodcastEntity?.autoDownloadEnabled ?: false
                     )
                     currentPodcast = apiPodcastWithFallback
                     currentPodcastId = apiPodcastWithFallback.id // Update to the real numeric ID
@@ -416,7 +421,9 @@ class PodcastInfoViewModel(
                                             location = enrichedPodcast.location,
                                             license = enrichedPodcast.license,
                                             isLocked = enrichedPodcast.isLocked,
-                                            preferredSort = preferredSortVal
+                                            preferredSort = preferredSortVal,
+                                            notificationsEnabled = localPodcastEntity?.notificationsEnabled ?: false,
+                                            autoDownloadEnabled = localPodcastEntity?.autoDownloadEnabled ?: false
                                         )
                                         database.podcastDao().upsert(updatedEntity)
                                     }

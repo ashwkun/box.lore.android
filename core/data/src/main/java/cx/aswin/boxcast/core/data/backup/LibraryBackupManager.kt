@@ -13,10 +13,35 @@ import org.xmlpull.v1.XmlPullParserFactory
 import java.io.InputStream
 import android.util.Log
 
+data class GlobalPreferencesBackup(
+    val region: String? = null,
+    val themeConfig: String? = null,
+    val themeBrand: String? = null,
+    val surfaceStyle: String? = null,
+    val useDynamicColor: Boolean? = null,
+    val subscriptionSort: String? = null,
+    val latestEpisodesSortUseSmart: Boolean? = null,
+    val skipBehavior: String? = null,
+    val hideCompletedInFeeds: Boolean? = null,
+    val hideCompletedInShowDetails: Boolean? = null,
+    val hideCompletedInHome: Boolean? = null,
+    val hideCompletedInSubs: Boolean? = null,
+    val smartDownloadsEnabled: Boolean? = null,
+    val smartDownloadsMaxEpisodes: Int? = null,
+    val smartDownloadsStorageBudget: Long? = null,
+    val smartDownloadsWifiOnly: Boolean? = null,
+    val smartDownloadsChargingOnly: Boolean? = null,
+    val smartDownloadsCleanupRule: String? = null,
+    val autoDownloadWifiOnly: Boolean? = null,
+    val autoDownloadMaxEpisodes: Int? = null,
+    val autoDownloadDeleteCompleted: Boolean? = null
+)
+
 data class BoxCastBackup(
-    val version: Int = 1,
+    val version: Int = 2,
     val subscriptions: List<PodcastEntity>,
-    val history: List<ListeningHistoryEntity>
+    val history: List<ListeningHistoryEntity>,
+    val globalPreferences: GlobalPreferencesBackup? = null
 )
 
 data class OpmlFeed(
@@ -27,7 +52,9 @@ data class OpmlFeed(
 class LibraryBackupManager(
     private val subscriptionRepository: SubscriptionRepository,
     private val playbackRepository: PlaybackRepository,
-    private val podcastRepository: PodcastRepository
+    private val podcastRepository: PodcastRepository,
+    private val userPrefs: cx.aswin.boxcast.core.data.UserPreferencesRepository? = null,
+    private val context: android.content.Context? = null
 ) {
     private val gson: Gson = GsonBuilder()
         .setPrettyPrinting()
@@ -37,10 +64,37 @@ class LibraryBackupManager(
         val subscriptions = subscriptionRepository.getAllSubscribedPodcasts().first()
         val allHistory = playbackRepository.getAllHistory().first()
         
+        val globalPrefs = if (userPrefs != null) {
+            GlobalPreferencesBackup(
+                region = userPrefs.regionStream.first(),
+                themeConfig = userPrefs.themeConfigStream.first(),
+                themeBrand = userPrefs.themeBrandStream.first(),
+                surfaceStyle = userPrefs.surfaceStyleStream.first(),
+                useDynamicColor = userPrefs.useDynamicColorStream.first(),
+                subscriptionSort = userPrefs.subscriptionSortStream.first(),
+                latestEpisodesSortUseSmart = userPrefs.latestEpisodesSortUseSmartStream.first(),
+                skipBehavior = userPrefs.skipBehaviorStream.first(),
+                hideCompletedInFeeds = userPrefs.hideCompletedInFeedsStream.first(),
+                hideCompletedInShowDetails = userPrefs.hideCompletedInShowDetailsStream.first(),
+                hideCompletedInHome = userPrefs.hideCompletedInHomeStream.first(),
+                hideCompletedInSubs = userPrefs.hideCompletedInSubsStream.first(),
+                smartDownloadsEnabled = userPrefs.smartDownloadsEnabledStream.first(),
+                smartDownloadsMaxEpisodes = userPrefs.smartDownloadsMaxEpisodesStream.first(),
+                smartDownloadsStorageBudget = userPrefs.smartDownloadsStorageBudgetStream.first(),
+                smartDownloadsWifiOnly = userPrefs.smartDownloadsWifiOnlyStream.first(),
+                smartDownloadsChargingOnly = userPrefs.smartDownloadsChargingOnlyStream.first(),
+                smartDownloadsCleanupRule = userPrefs.smartDownloadsCleanupRuleStream.first(),
+                autoDownloadWifiOnly = userPrefs.autoDownloadWifiOnlyStream.first(),
+                autoDownloadMaxEpisodes = userPrefs.autoDownloadMaxEpisodesStream.first(),
+                autoDownloadDeleteCompleted = userPrefs.autoDownloadDeleteCompletedStream.first()
+            )
+        } else null
+
         val backup = BoxCastBackup(
-            version = 1,
+            version = 2,
             subscriptions = subscriptions,
-            history = allHistory
+            history = allHistory,
+            globalPreferences = globalPrefs
         )
         return gson.toJson(backup)
     }
@@ -75,10 +129,48 @@ class LibraryBackupManager(
             .replace("'", "&apos;")
     }
 
-    suspend fun importLibraryFromJson(jsonString: String): Int {
+    suspend fun importLibraryFromJson(jsonString: String): Pair<Int, Boolean> {
         return try {
             val backup = gson.fromJson(jsonString, BoxCastBackup::class.java)
             
+            // 0. Restore global preferences
+            backup.globalPreferences?.let { prefs ->
+                userPrefs?.let { up ->
+                    prefs.region?.let { up.setRegion(it) }
+                    prefs.themeConfig?.let { up.setThemeConfig(it) }
+                    prefs.themeBrand?.let { up.setThemeBrand(it) }
+                    prefs.surfaceStyle?.let { up.setSurfaceStyle(it) }
+                    prefs.useDynamicColor?.let { up.setUseDynamicColor(it) }
+                    prefs.subscriptionSort?.let { up.setSubscriptionSort(it) }
+                    prefs.latestEpisodesSortUseSmart?.let { up.setLatestEpisodesSortUseSmart(it) }
+                    prefs.skipBehavior?.let { up.setSkipBehavior(it) }
+                    prefs.hideCompletedInFeeds?.let { up.setHideCompletedInFeeds(it) }
+                    prefs.hideCompletedInShowDetails?.let { up.setHideCompletedInShowDetails(it) }
+                    prefs.hideCompletedInHome?.let { up.setHideCompletedInHome(it) }
+                    prefs.hideCompletedInSubs?.let { up.setHideCompletedInSubs(it) }
+                    prefs.smartDownloadsEnabled?.let { enabled ->
+                        up.setSmartDownloadsEnabled(enabled)
+                        if (context != null) {
+                            if (enabled) {
+                                val wifiOnly = prefs.smartDownloadsWifiOnly ?: true
+                                val chargingOnly = prefs.smartDownloadsChargingOnly ?: false
+                                cx.aswin.boxcast.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
+                            } else {
+                                cx.aswin.boxcast.core.data.SmartDownloadManager.cancelPeriodicSync(context)
+                            }
+                        }
+                    }
+                    prefs.smartDownloadsMaxEpisodes?.let { up.setSmartDownloadsMaxEpisodes(it) }
+                    prefs.smartDownloadsStorageBudget?.let { up.setSmartDownloadsStorageBudget(it) }
+                    prefs.smartDownloadsWifiOnly?.let { up.setSmartDownloadsWifiOnly(it) }
+                    prefs.smartDownloadsChargingOnly?.let { up.setSmartDownloadsChargingOnly(it) }
+                    prefs.smartDownloadsCleanupRule?.let { up.setSmartDownloadsCleanupRule(it) }
+                    prefs.autoDownloadWifiOnly?.let { up.setAutoDownloadWifiOnly(it) }
+                    prefs.autoDownloadMaxEpisodes?.let { up.setAutoDownloadMaxEpisodes(it) }
+                    prefs.autoDownloadDeleteCompleted?.let { up.setAutoDownloadDeleteCompleted(it) }
+                }
+            }
+
             val importedIds = mutableListOf<String>()
             
             // 1. Restore subscriptions
@@ -97,6 +189,14 @@ class LibraryBackupManager(
                     updateFrequency = entity.updateFrequency
                 )
                 subscriptionRepository.subscribe(podcast)
+                
+                // Restore per-podcast settings & FCM registrations
+                if (entity.notificationsEnabled) {
+                    subscriptionRepository.setNotificationsEnabled(podcast, true)
+                }
+                if (entity.autoDownloadEnabled) {
+                    subscriptionRepository.setAutoDownloadEnabled(podcast.id, true)
+                }
                 importedIds.add(podcast.id)
             }
             
@@ -137,10 +237,11 @@ class LibraryBackupManager(
                 }
             }
             
-            backup.subscriptions.size
+            val hasNotificationsEnabled = backup.subscriptions.any { it.notificationsEnabled || it.autoDownloadEnabled }
+            Pair(backup.subscriptions.size, hasNotificationsEnabled)
         } catch (e: Exception) {
             e.printStackTrace()
-            -1
+            Pair(-1, false)
         }
     }
 

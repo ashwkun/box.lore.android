@@ -130,6 +130,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.ImportExport
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 
 // PixelPlayer-inspired transition specs
@@ -606,12 +607,13 @@ class MainActivity : ComponentActivity() {
                             }
                             return@launch
                         }
-                        val count = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).importLibraryFromJson(jsonStr)
+                        val (count, hasNotificationsEnabled) = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository, userPrefs, applicationContext).importLibraryFromJson(jsonStr)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             opmlImportState = OpmlImportState.Success(
                                 importedCount = count,
                                 completedCount = 0,
-                                isJson = true
+                                isJson = true,
+                                hasNotificationsEnabled = hasNotificationsEnabled
                             )
                         }
                     } catch (e: Exception) {
@@ -1382,7 +1384,7 @@ class MainActivity : ComponentActivity() {
                                     onExportJson = { uri -> 
                                         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                             try {
-                                                val backupJson = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).exportLibraryAsJson()
+                                                val backupJson = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository, userPrefs, application).exportLibraryAsJson()
                                                 application.contentResolver.openOutputStream(uri)?.use { it.write(backupJson.toByteArray()) }
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Library Exported Successfully", android.widget.Toast.LENGTH_SHORT).show() }
                                             } catch(e: Exception){
@@ -2745,7 +2747,8 @@ sealed interface OpmlImportState {
         val importedCount: Int,
         val completedCount: Int,
         val isJson: Boolean = false,
-        val importedPodcasts: List<cx.aswin.boxcast.core.model.Podcast> = emptyList()
+        val importedPodcasts: List<cx.aswin.boxcast.core.model.Podcast> = emptyList(),
+        val hasNotificationsEnabled: Boolean = false
     ) : OpmlImportState
     data class Error(val message: String) : OpmlImportState
 }
@@ -3416,8 +3419,83 @@ fun OpmlImportDialog(
                                         }
                                     }
                                 }
+
+                                // Check notification permission if JSON import has notification/auto-download items
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                val hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                    androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.POST_NOTIFICATIONS
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                } else {
+                                    true
+                                }
+
+                                if (state.isJson && state.hasNotificationsEnabled && !hasNotificationPermission) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    androidx.compose.material3.Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            androidx.compose.material3.Icon(
+                                                imageVector = Icons.Rounded.NotificationsActive,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "Enable Notifications",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = "Your backup has podcasts with active notifications or auto-downloads. Please enable notification permissions so background auto-downloads can trigger correctly.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            
+                                            val requestPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                                                contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+                                                onResult = { isGranted ->
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackNotificationPermissionDecided(isGranted)
+                                                }
+                                            )
+                                            
+                                            androidx.compose.material3.Button(
+                                                onClick = {
+                                                    if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                                        requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                                    }
+                                                },
+                                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error
+                                                ),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Text("Grant Permission", color = MaterialTheme.colorScheme.onError)
+                                            }
+                                        }
+                                    }
+                                }
                                 
-                                Spacer(modifier = Modifier.height(48.dp))
+                                Spacer(modifier = Modifier.height(24.dp))
                                 
                                 Button(
                                     onClick = onDismissRequest,

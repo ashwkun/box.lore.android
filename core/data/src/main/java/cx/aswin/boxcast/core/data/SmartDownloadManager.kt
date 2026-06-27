@@ -198,7 +198,9 @@ class SmartDownloadManager(
                     100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
                 } else 0.0
 
-                pod.podcastId to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore)
+                val notificationsBoost = if (pod.notificationsEnabled) 30.0 else 0.0
+
+                pod.podcastId to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost)
             }
 
             val subIds = subs.map { it.podcastId }.toSet()
