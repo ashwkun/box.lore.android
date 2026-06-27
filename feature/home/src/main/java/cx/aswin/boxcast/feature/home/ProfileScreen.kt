@@ -905,7 +905,7 @@ fun DataManagementSection(
                 Text("Our Philosophy", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "BoxLore is a 0-monetary-gain, exploratory pet project. We track anonymous app usage (including device models and approximate regions via PostHog) solely to understand what features work and what to build next. Your data is completely anonymous and will never be sold. 0 ads, forever.",
+                    "boxlore is a 0-monetary-gain, exploratory pet project. We track anonymous app usage (including device models and approximate regions via PostHog) solely to understand what features work and what to build next. Your data is completely anonymous and will never be sold. 0 ads, forever.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -1132,7 +1132,7 @@ fun PodcastIndexSection() {
                 "Unknown"
             }
         }
-        Text("BoxLore v$versionName", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+        Text("boxlore v$versionName", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(4.dp))
         Text("Made with ❤️", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
     }
