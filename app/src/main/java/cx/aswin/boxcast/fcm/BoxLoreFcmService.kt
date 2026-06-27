@@ -103,7 +103,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         val bodyText = if (duration > 0) "\"$episodeTitle\" ($duration mins)" else "\"$episodeTitle\""
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_notification)
+            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_launcher_foreground_png)
             .setColor(android.graphics.Color.parseColor("#000000"))
             .setContentTitle("New Episode • $podcastTitle")
             .setContentText(bodyText)
@@ -195,7 +195,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_notification) 
+            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_launcher_foreground_png)
             .setColor(android.graphics.Color.parseColor("#000000")) // Must be black so the white mask is visible
             .setContentTitle(title)
             .setContentText(body)
