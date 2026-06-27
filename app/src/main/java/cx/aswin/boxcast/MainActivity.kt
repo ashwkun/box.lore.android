@@ -139,6 +139,7 @@ private val TRANSITION_EASING = FastOutSlowInEasing
 class MainActivity : ComponentActivity() {
     // Reactive intent state to track incoming intents for deep linking skips
     private val intentState = androidx.compose.runtime.mutableStateOf<android.content.Intent?>(null)
+    private val warmStartIntent = androidx.compose.runtime.mutableStateOf<android.content.Intent?>(null)
 
     // State for Player Expansion (Notification handling)
     private var expandPlayerTrigger by androidx.compose.runtime.mutableLongStateOf(0L)
@@ -162,6 +163,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         intentState.value = intent
+        warmStartIntent.value = intent
         handlePlayerIntent(intent)
     }
 
@@ -287,7 +289,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             val scope = rememberCoroutineScope()
             val navController = rememberNavController()
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            
+            // Handle warm-start deep links when the activity is already running
+            val currentWarmIntent = warmStartIntent.value
+            LaunchedEffect(currentWarmIntent) {
+                if (currentWarmIntent != null && currentWarmIntent.data != null) {
+                    navController.handleDeepLink(currentWarmIntent)
+                    warmStartIntent.value = null
+                }
+            }
+            val navBackStackEntry = navController.currentBackStackEntryAsState().value
             val currentRoute = navBackStackEntry?.destination?.route ?: "home"
 
             // Deferred deep link and onboarding states are defined below to satisfy variable ordering

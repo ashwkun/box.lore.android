@@ -103,8 +103,8 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         val bodyText = if (duration > 0) "\"$episodeTitle\" ($duration mins)" else "\"$episodeTitle\""
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_launcher_foreground_png)
-            .setColor(android.graphics.Color.parseColor("#000000"))
+            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_notification_custom)
+            .setColor(android.graphics.Color.parseColor("#5B5BD6"))
             .setContentTitle("New Episode • $podcastTitle")
             .setContentText(bodyText)
             .setAutoCancel(true)
@@ -195,8 +195,8 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_launcher_foreground_png)
-            .setColor(android.graphics.Color.parseColor("#000000")) // Must be black so the white mask is visible
+            .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_notification_custom)
+            .setColor(android.graphics.Color.parseColor("#5B5BD6")) // Brand purple color matching launcher icon
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
