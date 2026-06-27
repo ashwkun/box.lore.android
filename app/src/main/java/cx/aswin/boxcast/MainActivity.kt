@@ -1969,36 +1969,42 @@ class MainActivity : ComponentActivity() {
 
                             // Simplified Episode Deep Link Screen
                             composable(
-                                route = "episode/{episodeId}?entryPoint={entryPoint}&t={t}&start={start}&end={end}",
+                                route = "episode/{episodeId}?entryPoint={entryPoint}&t={t}&start={start}&end={end}&autoplay={autoplay}",
                                 arguments = listOf(
                                     navArgument("episodeId") { type = NavType.StringType },
                                     navArgument("entryPoint") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("t") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("start") { type = NavType.StringType; nullable = true; defaultValue = null },
-                                    navArgument("end") { type = NavType.StringType; nullable = true; defaultValue = null }
+                                    navArgument("end") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("autoplay") { type = NavType.StringType; nullable = true; defaultValue = "true" }
                                 ),
                                 deepLinks = listOf(
-                                    navDeepLink { uriPattern = "boxlore://episode/{episodeId}?t={t}&start={start}&end={end}" },
-                                    navDeepLink { uriPattern = "boxlore://episode/{episodeId}?t={t}" },
+                                    navDeepLink { uriPattern = "boxlore://episode/{episodeId}?t={t}&start={start}&end={end}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "boxlore://episode/{episodeId}?t={t}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "boxlore://episode/{episodeId}?autoplay={autoplay}" },
                                     navDeepLink { uriPattern = "boxlore://episode/{episodeId}" },
-                                    navDeepLink { uriPattern = "boxcast://episode/{episodeId}?t={t}&start={start}&end={end}" },
-                                    navDeepLink { uriPattern = "boxcast://episode/{episodeId}?t={t}" },
+                                    navDeepLink { uriPattern = "boxcast://episode/{episodeId}?t={t}&start={start}&end={end}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "boxcast://episode/{episodeId}?t={t}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "boxcast://episode/{episodeId}?autoplay={autoplay}" },
                                     navDeepLink { uriPattern = "boxcast://episode/{episodeId}" },
-                                    navDeepLink { uriPattern = "https://aswin.cx/boxlore/share?type=episode&id={episodeId}&t={t}&start={start}&end={end}" },
-                                    navDeepLink { uriPattern = "https://aswin.cx/boxlore/share?type=episode&id={episodeId}&t={t}" },
+                                    navDeepLink { uriPattern = "https://aswin.cx/boxlore/share?type=episode&id={episodeId}&t={t}&start={start}&end={end}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "https://aswin.cx/boxlore/share?type=episode&id={episodeId}&t={t}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "https://aswin.cx/boxlore/share?type=episode&id={episodeId}&autoplay={autoplay}" },
                                     navDeepLink { uriPattern = "https://aswin.cx/boxlore/share?type=episode&id={episodeId}" },
-                                    navDeepLink { uriPattern = "https://aswin.cx/boxcast/share?type=episode&id={episodeId}&t={t}&start={start}&end={end}" },
-                                    navDeepLink { uriPattern = "https://aswin.cx/boxcast/share?type=episode&id={episodeId}&t={t}" },
+                                    navDeepLink { uriPattern = "https://aswin.cx/boxcast/share?type=episode&id={episodeId}&t={t}&start={start}&end={end}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "https://aswin.cx/boxcast/share?type=episode&id={episodeId}&t={t}&autoplay={autoplay}" },
+                                    navDeepLink { uriPattern = "https://aswin.cx/boxcast/share?type=episode&id={episodeId}&autoplay={autoplay}" },
                                     navDeepLink { uriPattern = "https://aswin.cx/boxcast/share?type=episode&id={episodeId}" }
                                 )
-                            ) { backStackEntry ->
+                             ) { backStackEntry ->
                                 val args = backStackEntry.arguments ?: return@composable
                                 val episodeId = args.getString("episodeId") ?: ""
                                 val entryPoint = args.getString("entryPoint")
                                 val t = args.getString("t")?.toLongOrNull()
                                 val start = args.getString("start")?.toLongOrNull()
                                 val end = args.getString("end")?.toLongOrNull()
-
+                                val autoplay = args.getString("autoplay") ?: "true"
+ 
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.info.EpisodeInfoViewModel>(
                                     factory = object : androidx.lifecycle.ViewModelProvider.Factory {
                                         @Suppress("UNCHECKED_CAST")
@@ -2014,20 +2020,20 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 )
-
+ 
                                 LaunchedEffect(episodeId) {
                                     viewModel.loadEpisode(episodeId = episodeId)
                                 }
-
+ 
                                 val coroutineScope = rememberCoroutineScope()
                                 val state by viewModel.uiState.collectAsState()
-
+ 
                                 // Handle Autoplay & Seek for deep links
-                                LaunchedEffect(state, t, start, end) {
+                                LaunchedEffect(state, t, start, end, autoplay) {
                                     val success = state as? cx.aswin.boxcast.feature.info.EpisodeInfoUiState.Success
                                     if (success != null && success.episode.id == episodeId) {
                                         val playerState = playbackRepository.playerState.value
-                                        if (playerState.currentEpisode?.id != episodeId) {
+                                        if (autoplay == "true" && playerState.currentEpisode?.id != episodeId) {
                                             val localPodcastEntity = database.podcastDao().getPodcast(success.podcastId)
                                             val podcast = localPodcastEntity?.let {
                                                 cx.aswin.boxcast.core.model.Podcast(
@@ -2047,9 +2053,9 @@ class MainActivity : ComponentActivity() {
                                         
                                         // Seek if timestamp / clip is specified
                                         if (t != null && t > 0L) {
-                                            playbackRepository.seekTo(t * 1000L, play = true)
+                                            playbackRepository.seekTo(t * 1000L, play = autoplay == "true")
                                         } else if (start != null && start > 0L) {
-                                            playbackRepository.seekTo(start * 1000L, play = true)
+                                            playbackRepository.seekTo(start * 1000L, play = autoplay == "true")
                                         }
                                     }
                                 }
