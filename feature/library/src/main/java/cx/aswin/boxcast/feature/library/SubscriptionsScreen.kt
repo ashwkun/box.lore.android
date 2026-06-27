@@ -892,7 +892,10 @@ private fun LatestTabContent(
                     0.0
                 }
 
-                val podScore = playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore
+                val notificationsBoost = if (pod.notificationsEnabled) 30.0 else 0.0
+                val autoDownloadBoost = if (pod.autoDownloadEnabled) 60.0 else 0.0
+
+                val podScore = playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost + autoDownloadBoost
 
                 // Episode recency boost
                 val episodeRecencyBoost = if (latestEp != null) {
