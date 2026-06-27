@@ -38,6 +38,8 @@ node_modules/
 proxy/
 # Sensitive files
 *.keystore
+*.log
+*_logcat.txt
 *.jks
 google-services.json
 bench_node.js
