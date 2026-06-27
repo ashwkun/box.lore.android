@@ -152,9 +152,23 @@ class SubscriptionRepository(
                 
                 com.google.firebase.messaging.FirebaseMessaging.getInstance()
                     .subscribeToTopic("new_ep_$podcastId")
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            android.util.Log.d("FCM_Topic", "Successfully subscribed to topic: new_ep_$podcastId")
+                        } else {
+                            android.util.Log.e("FCM_Topic", "Failed to subscribe to topic: new_ep_$podcastId", task.exception)
+                        }
+                    }
             } else {
                 com.google.firebase.messaging.FirebaseMessaging.getInstance()
                     .unsubscribeFromTopic("new_ep_$podcastId")
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            android.util.Log.d("FCM_Topic", "Successfully unsubscribed from topic: new_ep_$podcastId")
+                        } else {
+                            android.util.Log.e("FCM_Topic", "Failed to unsubscribe from topic: new_ep_$podcastId", task.exception)
+                        }
+                    }
             }
         } catch (e: Exception) {
             android.util.Log.e("SubscriptionRepository", "Firebase update failed for $podcastId", e)
