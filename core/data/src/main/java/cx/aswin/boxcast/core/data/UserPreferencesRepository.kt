@@ -59,6 +59,9 @@ class UserPreferencesRepository(context: Context) {
         val SMART_DOWNLOADS_CHARGING_ONLY = androidx.datastore.preferences.core.booleanPreferencesKey("smart_downloads_charging_only")
         val SMART_DOWNLOADS_CLEANUP_RULE = stringPreferencesKey("smart_downloads_cleanup_rule")
         val SMART_DOWNLOADS_LAST_SYNC_TIME = androidx.datastore.preferences.core.longPreferencesKey("smart_downloads_last_sync_time")
+        val AUTO_DOWNLOAD_WIFI_ONLY = androidx.datastore.preferences.core.booleanPreferencesKey("auto_download_wifi_only")
+        val AUTO_DOWNLOAD_MAX_EPISODES = androidx.datastore.preferences.core.intPreferencesKey("auto_download_max_episodes")
+        val AUTO_DOWNLOAD_DELETE_COMPLETED = androidx.datastore.preferences.core.booleanPreferencesKey("auto_download_delete_completed")
     }
 
     val regionStream: Flow<String> = dataStore.data
@@ -706,6 +709,51 @@ class UserPreferencesRepository(context: Context) {
     suspend fun setSmartDownloadsLastSyncTime(lastSyncTime: Long) {
         dataStore.edit { preferences ->
             preferences[Keys.SMART_DOWNLOADS_LAST_SYNC_TIME] = lastSyncTime
+        }
+    }
+
+    val autoDownloadWifiOnlyStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.AUTO_DOWNLOAD_WIFI_ONLY] ?: true
+        }
+        .distinctUntilChanged()
+
+    suspend fun setAutoDownloadWifiOnly(wifiOnly: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.AUTO_DOWNLOAD_WIFI_ONLY] = wifiOnly
+        }
+    }
+
+    val autoDownloadMaxEpisodesStream: Flow<Int> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.AUTO_DOWNLOAD_MAX_EPISODES] ?: 2
+        }
+        .distinctUntilChanged()
+
+    suspend fun setAutoDownloadMaxEpisodes(maxEpisodes: Int) {
+        dataStore.edit { preferences ->
+            preferences[Keys.AUTO_DOWNLOAD_MAX_EPISODES] = maxEpisodes
+        }
+    }
+
+    val autoDownloadDeleteCompletedStream: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[Keys.AUTO_DOWNLOAD_DELETE_COMPLETED] ?: true
+        }
+        .distinctUntilChanged()
+
+    suspend fun setAutoDownloadDeleteCompleted(deleteCompleted: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[Keys.AUTO_DOWNLOAD_DELETE_COMPLETED] = deleteCompleted
         }
     }
 }

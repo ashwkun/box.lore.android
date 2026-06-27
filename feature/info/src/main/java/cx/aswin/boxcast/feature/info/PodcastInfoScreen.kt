@@ -18,6 +18,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
@@ -51,6 +53,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyRow
@@ -60,7 +63,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Article
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.res.vectorResource
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+import android.os.Build
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.PlayArrow
@@ -261,6 +273,26 @@ fun PodcastInfoScreen(
     var toolbarWarning by remember { mutableStateOf(ToolbarWarning.NONE) }
     var showMarkAllPlayedDialog by remember { mutableStateOf(false) }
     var showMarkAllUnplayedDialog by remember { mutableStateOf(false) }
+
+    // Permission Launcher for Android 13+ Notification Permission
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.enableBothNotificationsAndAutoDownload()
+            toolbarWarning = ToolbarWarning.NONE
+        } else {
+            toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED
+        }
+    }
+
+    // 10-second auto-dismiss for toolbar warning banner
+    LaunchedEffect(toolbarWarning) {
+        if (toolbarWarning != ToolbarWarning.NONE) {
+            delay(10000L)
+            toolbarWarning = ToolbarWarning.NONE
+        }
+    }
 
     // Use theme primary color (no dynamic extraction)
     val accentColor = MaterialTheme.colorScheme.primary
@@ -1112,17 +1144,33 @@ fun PodcastInfoScreen(
                             accentColor = accentColor,
                             notificationsEnabled = state.podcast.notificationsEnabled,
                             onNotificationsToggle = {
-                                if (!areAppNotificationsEnabled(context)) {
-                                    toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED
+                                if (!state.podcast.notificationsEnabled) {
+                                    // Turning notifications ON
+                                    if (!areAppNotificationsEnabled(context)) {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        } else {
+                                            toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED
+                                        }
+                                    } else {
+                                        viewModel.toggleNotifications()
+                                    }
                                 } else {
+                                    // Turning notifications OFF
                                     viewModel.toggleNotifications()
                                 }
                             },
                             autoDownloadEnabled = state.podcast.autoDownloadEnabled,
                             onAutoDownloadToggle = {
-                                if (!state.podcast.notificationsEnabled) {
-                                    toolbarWarning = ToolbarWarning.NOTIFICATIONS_REQUIRED
+                                if (!state.podcast.autoDownloadEnabled) {
+                                    // Turning auto-download ON
+                                    if (!state.podcast.notificationsEnabled) {
+                                        toolbarWarning = ToolbarWarning.NOTIFICATIONS_REQUIRED
+                                    } else {
+                                        viewModel.toggleAutoDownload()
+                                    }
                                 } else {
+                                    // Turning auto-download OFF
                                     viewModel.toggleAutoDownload()
                                 }
                             },
@@ -1132,88 +1180,129 @@ fun PodcastInfoScreen(
                     }
 
                     // TOOLBAR WARNING BANNER (Space Reveal)
-                    item(key = "toolbar_warning") {
-                        AnimatedVisibility(
-                            visible = toolbarWarning != ToolbarWarning.NONE,
-                            enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-                            exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
-                        ) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                shape = MaterialTheme.shapes.medium,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.15f))
+                    if (toolbarWarning != ToolbarWarning.NONE) {
+                        item(key = "toolbar_warning") {
+                            AnimatedVisibility(
+                                visible = toolbarWarning != ToolbarWarning.NONE,
+                                enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+                                exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
                             ) {
-                                Row(
+                                androidx.compose.material3.Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
                                     modifier = Modifier
-                                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                                        .fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.WarningAmber,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    
-                                    val text = when (toolbarWarning) {
-                                        ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Auto-download requires alerts to be active."
-                                        ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "App alerts are blocked in Android settings."
-                                        else -> ""
-                                    }
-                                    
-                                    val actionText = when (toolbarWarning) {
-                                        ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Enable Both"
-                                        ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Settings"
-                                        else -> ""
-                                    }
-                                    
-                                    Text(
-                                        text = text,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    
-                                    TextButton(
-                                        onClick = {
-                                            when (toolbarWarning) {
-                                                ToolbarWarning.NOTIFICATIONS_REQUIRED -> {
-                                                    viewModel.enableBothNotificationsAndAutoDownload()
-                                                }
-                                                ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> {
-                                                    openAppNotificationSettings(context)
-                                                }
-                                                else -> {}
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.WarningAmber,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                Text(
+                                                    text = when (toolbarWarning) {
+                                                        ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Action Required"
+                                                        ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Notifications Disabled"
+                                                        else -> "Notice"
+                                                    },
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
                                             }
-                                            toolbarWarning = ToolbarWarning.NONE
-                                        },
-                                        colors = ButtonDefaults.textButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.error
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
+                                            IconButton(
+                                                onClick = { toolbarWarning = ToolbarWarning.NONE },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Close,
+                                                    contentDescription = "Dismiss",
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        
                                         Text(
-                                            text = actionText,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.labelLarge
+                                            text = when (toolbarWarning) {
+                                                ToolbarWarning.NOTIFICATIONS_REQUIRED -> "In order for us to download the latest episode of this show when it arrives, you need to toggle notifications on as well."
+                                                ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Notification permissions are disabled in system settings. Please allow notifications and try again. We promise we will never spam."
+                                                else -> ""
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
                                         )
-                                    }
-                                    
-                                    IconButton(
-                                        onClick = { toolbarWarning = ToolbarWarning.NONE },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = "Dismiss",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                        )
+                                        
+                                        val actionText = when (toolbarWarning) {
+                                            ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Enable Both"
+                                            ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Go to Settings"
+                                            else -> ""
+                                        }
+                                        
+                                        if (actionText.isNotEmpty()) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        val currentWarning = toolbarWarning
+                                                        toolbarWarning = ToolbarWarning.NONE
+                                                        when (currentWarning) {
+                                                            ToolbarWarning.NOTIFICATIONS_REQUIRED -> {
+                                                                if (areAppNotificationsEnabled(context)) {
+                                                                    viewModel.enableBothNotificationsAndAutoDownload()
+                                                                } else {
+                                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                                                        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                                    } else {
+                                                                        toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED
+                                                                    }
+                                                                }
+                                                            }
+                                                            ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> {
+                                                                openAppNotificationSettings(context)
+                                                            }
+                                                            else -> {}
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.error,
+                                                        contentColor = MaterialTheme.colorScheme.onError
+                                                    ),
+                                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                                                ) {
+                                                    Text(
+                                                        text = actionText,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = MaterialTheme.typography.labelLarge
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1992,6 +2081,34 @@ fun EpisodeListItem(
 }
 
 /**
+ * A custom non-overlapping icon button for the toolbar to bypass minimum touch target overlap.
+ */
+@Composable
+private fun ToolbarIconButton(
+    icon: ImageVector,
+    contentDescription: String?,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 20.dp
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .expressiveClickable(onClick = onClick, shape = ExpressiveShapes.Pill)
+            .background(containerColor, ExpressiveShapes.Pill)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = contentColor,
+            modifier = Modifier.size(iconSize)
+        )
+    }
+}
+
+/**
  * Episode Toolbar - M3 Expressive
  * Contains: Search, Sort Toggle, Subscribe Button
  */
@@ -2052,6 +2169,7 @@ private fun EpisodeToolbar(
             kotlinx.coroutines.delay(900L) // Hold the genre icon
             celebrationPhase = 2
         } else if (!isSubscribed) {
+            kotlinx.coroutines.delay(120L)
             celebrationPhase = 0
         }
         prevSubscribed = isSubscribed
@@ -2085,11 +2203,41 @@ private fun EpisodeToolbar(
         }
     }
 
+    // Screen configuration for layout optimization on narrow screens
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+    val isSmallScreen = screenWidth < 360
+
+    val spacing = if (isSmallScreen) 6.dp else 8.dp
+    val buttonHeight = if (isSmallScreen) 40.dp else 48.dp
+    val buttonSize = if (isSmallScreen) 40.dp else 48.dp
+    val iconSize = if (isSmallScreen) 20.dp else 22.dp
+    val textStyle = MaterialTheme.typography.labelLarge
+    val subIconSize = if (isSmallScreen) 18.dp else 20.dp
+    val subIconGap = if (isSmallScreen) 6.dp else 8.dp
+    
+    val targetHorizontalPadding = if (celebrationPhase == 2) {
+        if (isSmallScreen) 10.dp else 16.dp
+    } else {
+        if (isSmallScreen) 16.dp else 24.dp
+    }
+    val animatedHorizontalPadding by animateDpAsState(
+        targetValue = targetHorizontalPadding,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "horizontalPadding"
+    )
+
+    val sortRotation by animateFloatAsState(
+        targetValue = if (currentSort == EpisodeSort.NEWEST) 0f else 180f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "sortRotation"
+    )
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Subscribe Button
@@ -2130,11 +2278,11 @@ private fun EpisodeToolbar(
                 contentColor = contentColor
             ),
             shape = ExpressiveShapes.Pill,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = animatedHorizontalPadding, vertical = 10.dp),
             interactionSource = subInteractionSource,
             modifier = Modifier
                 .weight(1f)
-                .height(48.dp)
+                .height(buttonHeight)
                 .graphicsLayer {
                     scaleX = subScale
                     scaleY = subScale
@@ -2144,15 +2292,14 @@ private fun EpisodeToolbar(
             AnimatedContent(
                 targetState = celebrationPhase,
                 transitionSpec = {
-                    (fadeIn(tween(200)) + scaleIn(tween(200), initialScale = 0.8f))
-                        .togetherWith(fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.8f))
+                    fadeIn(tween(150)).togetherWith(fadeOut(tween(100)))
                 },
+                contentAlignment = Alignment.Center,
                 label = "subContent"
             ) { phase ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     when (phase) {
                         0 -> {
@@ -2160,12 +2307,12 @@ private fun EpisodeToolbar(
                             Icon(
                                 imageVector = Icons.Rounded.Add,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(subIconSize)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(subIconGap))
                             Text(
                                 text = "Subscribe",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = textStyle,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -2184,16 +2331,10 @@ private fun EpisodeToolbar(
                             )
                         }
                         else -> {
-                            // Normal "Subscribed" state
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            // Normal "Subscribed" state (text-only)
                             Text(
                                 text = "Subscribed",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = textStyle,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -2202,130 +2343,143 @@ private fun EpisodeToolbar(
             }
         }
 
-        if (celebrationPhase == 2) {
-            // Notification Toggle Button (Bell icon)
-            val bellInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            val isBellPressed by bellInteractionSource.collectIsPressedAsState()
-            val bellScale by animateFloatAsState(
-                targetValue = if (isBellPressed) 0.9f else 1f,
-                animationSpec = if (isBellPressed) cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.QuickSpring else cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.BouncySpring,
-                label = "bellScale"
-            )
-
-            val bellContainerColor by animateColorAsState(
-                targetValue = if (notificationsEnabled) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerLow
-                },
-                animationSpec = tween(300),
-                label = "bellContainerColor"
-            )
-
-            val bellContentColor by animateColorAsState(
-                targetValue = if (notificationsEnabled) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                animationSpec = tween(300),
-                label = "bellContentColor"
-            )
-
-            IconButton(
-                onClick = onNotificationsToggle,
-                modifier = Modifier
-                    .size(48.dp)
-                    .graphicsLayer {
-                        scaleX = bellScale
-                        scaleY = bellScale
+        AnimatedContent(
+            targetState = celebrationPhase == 2,
+            transitionSpec = {
+                (fadeIn(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)) +
+                        scaleIn(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), initialScale = 0.85f))
+                    .togetherWith(
+                        fadeOut(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)) +
+                                scaleOut(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), targetScale = 0.85f)
+                    ) using androidx.compose.animation.SizeTransform(clip = false) { _, _ ->
+                        spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
                     }
-                    .background(bellContainerColor, ExpressiveShapes.Pill)
+            },
+            contentAlignment = Alignment.CenterEnd,
+            label = "actionsGroup"
+        ) { showExtraActions ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = if (notificationsEnabled) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone,
-                    contentDescription = "Toggle notifications",
-                    tint = bellContentColor,
-                    modifier = Modifier.size(22.dp)
+                if (showExtraActions) {
+                    // Notification Toggle Button (Bell icon)
+                    val bellInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    val isBellPressed by bellInteractionSource.collectIsPressedAsState()
+                    val bellScale by animateFloatAsState(
+                        targetValue = if (isBellPressed) 0.9f else 1f,
+                        animationSpec = if (isBellPressed) cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.QuickSpring else cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.BouncySpring,
+                        label = "bellScale"
+                    )
+
+                    val bellContainerColor by animateColorAsState(
+                        targetValue = if (notificationsEnabled) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerLow
+                        },
+                        animationSpec = tween(300),
+                        label = "bellContainerColor"
+                    )
+
+                    val bellContentColor by animateColorAsState(
+                        targetValue = if (notificationsEnabled) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        animationSpec = tween(300),
+                        label = "bellContentColor"
+                    )
+
+                    ToolbarIconButton(
+                        icon = if (notificationsEnabled) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone,
+                        contentDescription = "Toggle notifications",
+                        containerColor = bellContainerColor,
+                        contentColor = bellContentColor,
+                        onClick = onNotificationsToggle,
+                        modifier = Modifier
+                            .size(buttonSize)
+                            .graphicsLayer {
+                                scaleX = bellScale
+                                scaleY = bellScale
+                            },
+                        iconSize = iconSize
+                    )
+
+                    // Auto-Download Toggle Button
+                    val downloadInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    val isDownloadPressed by downloadInteractionSource.collectIsPressedAsState()
+                    val downloadScale by animateFloatAsState(
+                        targetValue = if (isDownloadPressed) 0.9f else 1f,
+                        animationSpec = if (isDownloadPressed) cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.QuickSpring else cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.BouncySpring,
+                        label = "downloadScale"
+                    )
+
+                    val downloadContainerColor by animateColorAsState(
+                        targetValue = if (autoDownloadEnabled) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerLow
+                        },
+                        animationSpec = tween(300),
+                        label = "downloadContainerColor"
+                    )
+
+                    val downloadContentColor by animateColorAsState(
+                        targetValue = if (autoDownloadEnabled) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        animationSpec = tween(300),
+                        label = "downloadContentColor"
+                    )
+
+                    val cloudDownloadIcon = ImageVector.vectorResource(cx.aswin.boxcast.feature.info.R.drawable.ic_cloud_download)
+                    ToolbarIconButton(
+                        icon = cloudDownloadIcon,
+                        contentDescription = "Toggle auto-download",
+                        containerColor = downloadContainerColor,
+                        contentColor = downloadContentColor,
+                        onClick = onAutoDownloadToggle,
+                        modifier = Modifier
+                            .size(buttonSize)
+                            .graphicsLayer {
+                                scaleX = downloadScale
+                                scaleY = downloadScale
+                            },
+                        iconSize = iconSize
+                    )
+                }
+
+                // Sort Button
+                ToolbarIconButton(
+                    icon = Icons.AutoMirrored.Rounded.Sort,
+                    contentDescription = "Sort",
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onSortToggle,
+                    modifier = Modifier
+                        .graphicsLayer { rotationX = sortRotation }
+                        .size(buttonSize),
+                    iconSize = iconSize
+                )
+
+                // Search Button
+                ToolbarIconButton(
+                    icon = Icons.Rounded.Search,
+                    contentDescription = "Search",
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onSearchFocused,
+                    modifier = Modifier.size(buttonSize),
+                    iconSize = iconSize
                 )
             }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Auto-Download Toggle Button
-            val downloadInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            val isDownloadPressed by downloadInteractionSource.collectIsPressedAsState()
-            val downloadScale by animateFloatAsState(
-                targetValue = if (isDownloadPressed) 0.9f else 1f,
-                animationSpec = if (isDownloadPressed) cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.QuickSpring else cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion.BouncySpring,
-                label = "downloadScale"
-            )
-
-            val downloadContainerColor by animateColorAsState(
-                targetValue = if (autoDownloadEnabled) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerLow
-                },
-                animationSpec = tween(300),
-                label = "downloadContainerColor"
-            )
-
-            val downloadContentColor by animateColorAsState(
-                targetValue = if (autoDownloadEnabled) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                animationSpec = tween(300),
-                label = "downloadContentColor"
-            )
-
-            IconButton(
-                onClick = onAutoDownloadToggle,
-                modifier = Modifier
-                    .size(48.dp)
-                    .graphicsLayer {
-                        scaleX = downloadScale
-                        scaleY = downloadScale
-                    }
-                    .background(downloadContainerColor, ExpressiveShapes.Pill)
-            ) {
-                Icon(
-                    imageVector = if (autoDownloadEnabled) Icons.Rounded.FileDownload else Icons.Rounded.FileDownloadOff,
-                    contentDescription = "Toggle auto-download",
-                    tint = downloadContentColor,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-
-        // Sort Button
-        IconButton(
-            onClick = onSortToggle,
-            modifier = Modifier
-                .size(48.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow, ExpressiveShapes.Pill)
-        ) {
-            Icon(
-                imageVector = if (currentSort == EpisodeSort.NEWEST) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
-                contentDescription = "Sort",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        // Search Button
-        IconButton(
-            onClick = onSearchFocused,
-            modifier = Modifier
-                .size(48.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow, ExpressiveShapes.Pill)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Search,
-                contentDescription = "Search",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -2857,6 +3011,11 @@ private enum class ToolbarWarning {
 }
 
 private fun areAppNotificationsEnabled(context: android.content.Context): Boolean {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return false
+        }
+    }
     val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
     return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
         notificationManager.areNotificationsEnabled()

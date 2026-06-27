@@ -16,6 +16,7 @@ import cx.aswin.boxcast.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import com.google.firebase.messaging.FirebaseMessaging
 
 class BoxLoreFcmService : FirebaseMessagingService() {
@@ -132,8 +133,44 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
         notificationManager.notify(podcastId.hashCode(), notificationBuilder.build())
 
+        // Trigger the per-podcast Auto-Download check
+        triggerAutoDownload(podcastId, episodeId)
+
         // Trigger Smart Download sync automatically to fetch new content in background
         triggerSmartDownloadSync()
+    }
+
+    private fun triggerAutoDownload(podcastId: String, episodeId: String) {
+        try {
+            android.util.Log.i("BoxLore_BackgroundTrace", "[FCM] Received new_episode trigger for podcastId: $podcastId, episodeId: $episodeId")
+            
+            CoroutineScope(Dispatchers.IO).launch {
+                val userPrefs = UserPreferencesRepository(applicationContext)
+                val wifiOnly = userPrefs.autoDownloadWifiOnlyStream.first()
+                val requiredNetwork = if (wifiOnly) androidx.work.NetworkType.UNMETERED else androidx.work.NetworkType.CONNECTED
+                
+                android.util.Log.i("BoxLore_BackgroundTrace", "[FCM] Preparing AutoDownloadWorker. wifiOnly=$wifiOnly -> networkConstraint=$requiredNetwork")
+
+                val inputData = androidx.work.Data.Builder()
+                    .putString(cx.aswin.boxcast.core.data.AutoDownloadWorker.KEY_PODCAST_ID, podcastId)
+                    .putString(cx.aswin.boxcast.core.data.AutoDownloadWorker.KEY_EPISODE_ID, episodeId)
+                    .build()
+
+                val workRequest = androidx.work.OneTimeWorkRequestBuilder<cx.aswin.boxcast.core.data.AutoDownloadWorker>()
+                    .setInputData(inputData)
+                    .setConstraints(
+                        androidx.work.Constraints.Builder()
+                            .setRequiredNetworkType(requiredNetwork)
+                            .build()
+                    )
+                    .build()
+
+                androidx.work.WorkManager.getInstance(applicationContext).enqueue(workRequest)
+                android.util.Log.i("BoxLore_BackgroundTrace", "[FCM] Successfully enqueued AutoDownloadWorker into WorkManager for podcast $podcastId")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("BoxLore_BackgroundTrace", "[FCM] Error enqueuing AutoDownloadWorker", e)
+        }
     }
 
     private fun triggerSmartDownloadSync() {

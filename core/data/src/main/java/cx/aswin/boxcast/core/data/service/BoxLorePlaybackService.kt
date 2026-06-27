@@ -590,6 +590,23 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     entryPoint = entryPoint,
                     entryPointContext = entryPointContext
                 )
+
+                // Auto-delete completed download if enabled in preferences
+                val completedEpId = currentEpisodeId
+                if (completedEpId.isNotEmpty()) {
+                    serviceScope.launch(Dispatchers.IO) {
+                        try {
+                            val shouldDelete = userPreferencesRepository.autoDownloadDeleteCompletedStream.first()
+                            if (shouldDelete) {
+                                val downloadRepo = cx.aswin.boxcast.core.data.DownloadRepository(this@BoxLorePlaybackService, database)
+                                downloadRepo.removeDownload(completedEpId)
+                                android.util.Log.d("BoxLorePlaybackService", "Auto-deleted completed downloaded episode: $completedEpId")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("BoxLorePlaybackService", "Failed to auto-delete completed download", e)
+                        }
+                    }
+                }
             } else {
                 val pauseReason = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.consumePauseReason()
                 cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackPaused(

@@ -585,7 +585,9 @@ class PodcastInfoViewModel(
                 // Refresh state
                 val isSubscribed = subscriptionRepository.isSubscribed(currentState.podcast.id)
                 val updatedPodcast = currentState.podcast.copy(
-                    subscribedAt = if (isSubscribed) System.currentTimeMillis() else 0L
+                    subscribedAt = if (isSubscribed) System.currentTimeMillis() else 0L,
+                    notificationsEnabled = if (isSubscribed) false else false,
+                    autoDownloadEnabled = if (isSubscribed) false else false
                 )
                 _uiState.value = currentState.copy(
                     podcast = updatedPodcast,

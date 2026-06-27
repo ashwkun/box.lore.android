@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cx.aswin.boxcast.core.designsystem.R
@@ -66,7 +68,8 @@ fun ProfileScreen(
     onSetHideCompletedInSubs: (Boolean) -> Unit = {},
     hideCompletedInShowDetails: Boolean = false,
     onSetHideCompletedInShowDetails: (Boolean) -> Unit = {},
-    onNavigateToSmartDownloads: () -> Unit = {}
+    onNavigateToSmartDownloads: () -> Unit = {},
+    onNavigateToAutoDownloads: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
@@ -145,7 +148,8 @@ fun ProfileScreen(
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSettingsInteraction("library_import_opml")
                             importOpmlLauncher.launch(arrayOf("*/*")) 
                         },
-                        onSmartDownloadsClick = onNavigateToSmartDownloads
+                        onSmartDownloadsClick = onNavigateToSmartDownloads,
+                        onAutoDownloadsClick = onNavigateToAutoDownloads
                     )
                 }
             }
@@ -698,7 +702,8 @@ fun ContentLibrarySection(
     onExportOpml: () -> Unit, 
     onImportJson: () -> Unit, 
     onImportOpml: () -> Unit,
-    onSmartDownloadsClick: () -> Unit
+    onSmartDownloadsClick: () -> Unit,
+    onAutoDownloadsClick: () -> Unit
 ) {
     var backupExpanded by remember { mutableStateOf(false) }
 
@@ -830,6 +835,41 @@ fun ContentLibrarySection(
                 )
                 Text(
                     text = "Smart Downloads",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onAutoDownloadsClick() }
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(cx.aswin.boxcast.feature.home.R.drawable.ic_cloud_download),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = "Auto-Download New Episodes",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )

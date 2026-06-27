@@ -1410,6 +1410,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToSmartDownloads = {
                                         navController.navigate("library/downloads/settings")
+                                    },
+                                    onNavigateToAutoDownloads = {
+                                        navController.navigate("library/auto_downloads/settings")
                                     }
                                 )
                             }
@@ -1710,6 +1713,13 @@ class MainActivity : ComponentActivity() {
 
                             composable("library/downloads/settings") {
                                 cx.aswin.boxcast.feature.library.SmartDownloadsSettingsScreen(
+                                    userPrefs = userPrefs,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+
+                            composable("library/auto_downloads/settings") {
+                                cx.aswin.boxcast.feature.library.AutoDownloadSettingsScreen(
                                     userPrefs = userPrefs,
                                     onBack = { navController.popBackStack() }
                                 )
