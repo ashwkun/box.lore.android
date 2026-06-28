@@ -25,6 +25,74 @@ import coil.request.ImageRequest
 import cx.aswin.boxcast.core.model.Chapter
 
 @Composable
+private fun ChaptersHeader(onClose: () -> Unit, colorScheme: ColorScheme) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Chapters",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = colorScheme.onSurface
+        )
+        TextButton(onClick = onClose) {
+            Text("Close", color = colorScheme.primary)
+        }
+    }
+}
+
+@Composable
+private fun ChaptersEmptyPlaceholder(
+    hasTranscript: Boolean,
+    colorScheme: ColorScheme,
+    onClose: () -> Unit,
+    onGenerateChapters: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "No chapters available",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+        if (hasTranscript) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    onClose()
+                    onGenerateChapters()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorScheme.primaryContainer,
+                    contentColor = colorScheme.onPrimaryContainer
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Generate AI Chapters",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun ChaptersSheetContent(
     chapters: List<Chapter>,
     positionFlow: kotlinx.coroutines.flow.Flow<Long>,
@@ -46,24 +114,7 @@ fun ChaptersSheetContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Chapters",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.onSurface
-                )
-                TextButton(onClick = onClose) {
-                    Text("Close", color = colorScheme.primary)
-                }
-            }
+            ChaptersHeader(onClose = onClose, colorScheme = colorScheme)
 
             if (isChaptersLoading) {
                 Box(
@@ -78,44 +129,12 @@ fun ChaptersSheetContent(
                     )
                 }
             } else if (chapters.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "No chapters available",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                    if (hasTranscript) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                onClose()
-                                onGenerateChapters()
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorScheme.primaryContainer,
-                                contentColor = colorScheme.onPrimaryContainer
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Generate AI Chapters",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
-                }
+                ChaptersEmptyPlaceholder(
+                    hasTranscript = hasTranscript,
+                    colorScheme = colorScheme,
+                    onClose = onClose,
+                    onGenerateChapters = onGenerateChapters
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
