@@ -87,14 +87,7 @@ fun AnimatedShapesFallback() {
 }
 
 internal fun calculateFallbackPlacedShapes(): List<PlacedShape> {
-    val allShapes = listOf(
-        ExpressiveShapes.Sunny, ExpressiveShapes.VerySunny, 
-        ExpressiveShapes.Cookie4, ExpressiveShapes.Cookie6, ExpressiveShapes.Cookie9, ExpressiveShapes.Cookie12,
-        ExpressiveShapes.Burst, ExpressiveShapes.SoftBurst, ExpressiveShapes.Boom, ExpressiveShapes.SoftBoom,
-        ExpressiveShapes.Flower, ExpressiveShapes.Puffy, ExpressiveShapes.PuffyDiamond,
-        ExpressiveShapes.Heart, ExpressiveShapes.Bun, ExpressiveShapes.GhostIsh,
-        ExpressiveShapes.Diamond, ExpressiveShapes.Gem, ExpressiveShapes.Pentagon
-    ).shuffled()
+    val allShapes = ExpressiveShapes.Decorative.shuffled()
     
     val placedShapes = mutableListOf<PlacedShape>()
     val availableShapes = allShapes.toMutableList()
