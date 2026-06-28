@@ -5,7 +5,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-    <application>
+    <application
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false">
         <service
             android:name=".service.MediaDownloadService"
             android:exported="false"

@@ -4,5 +4,7 @@
    for more reference.
 -->
 <full-backup-content>
-    <!-- Back up everything by default -->
+    <!-- Explicitly include databases and preferences to avoid ambiguity on OEM skins -->
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
 </full-backup-content>

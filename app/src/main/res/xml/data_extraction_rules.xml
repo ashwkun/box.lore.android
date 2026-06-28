@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Back up everything -->
+        <!-- Explicitly include databases and preferences to avoid ambiguity on OEM skins -->
+        <include domain="database" path="." />
+        <include domain="sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
-        <!-- Transfer everything -->
+        <include domain="database" path="." />
+        <include domain="sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>
