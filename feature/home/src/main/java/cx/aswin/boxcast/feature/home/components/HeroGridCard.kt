@@ -45,8 +45,16 @@ fun HeroGridCard(
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val shape1 = ExpressiveShapes.Flower
-    val shape2 = ExpressiveShapes.Sunny
+    
+    val shapes = remember(title) {
+        when {
+            title.contains("JUMP", ignoreCase = true) -> Pair(ExpressiveShapes.Flower, ExpressiveShapes.Sunny)
+            title.contains("NEW", ignoreCase = true) -> Pair(ExpressiveShapes.Boom, ExpressiveShapes.Heart)
+            else -> Pair(ExpressiveShapes.Puffy, ExpressiveShapes.Diamond)
+        }
+    }
+    val shape1 = shapes.first
+    val shape2 = shapes.second
 
     Card(
         shape = MaterialTheme.shapes.extraLarge,
@@ -55,60 +63,94 @@ fun HeroGridCard(
         modifier = modifier
             .fillMaxSize()
             .clip(MaterialTheme.shapes.extraLarge)
-            .drawWithCache {
-                val size1Px = 180.dp.toPx()
-                val size2Px = 220.dp.toPx()
-                
-                val outline1 = shape1.createOutline(
-                    size = Size(size1Px, size1Px),
-                    layoutDirection = layoutDirection,
-                    density = this
-                )
-                val outline2 = shape2.createOutline(
-                    size = Size(size2Px, size2Px),
-                    layoutDirection = layoutDirection,
-                    density = this
-                )
-                
-                onDrawBehind {
-                    // Shape 1 (Top Left)
-                    translate(left = -50.dp.toPx(), top = -30.dp.toPx()) {
-                        drawOutline(
-                            outline = outline1,
-                            color = primaryColor,
-                            alpha = 0.05f
-                        )
-                    }
-                    // Shape 2 (Bottom Right)
-                    translate(left = size.width - 150.dp.toPx(), top = size.height - 150.dp.toPx()) {
-                        drawOutline(
-                            outline = outline2,
-                            color = primaryColor,
-                            alpha = 0.05f
-                        )
-                    }
-                }
-            }
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Header
-            RowHeader(title = title)
-
-            // Adaptive Grid Content
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background shapes wrapper
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
-            ) {
-                val displayItems = items.take(4)
-                when (displayItems.size) {
-                    2 -> StackedLayout(displayItems, onPlayClick)
-                    3 -> TwoOneLayout(displayItems, onPlayClick)
-                    4 -> GridLayout2x2(displayItems, onPlayClick)
-                    else -> if (displayItems.isNotEmpty()) {
-                        // Fallback: single item fills the space
-                        GridCell(displayItems[0], onPlayClick, modifier = Modifier.fillMaxSize())
+                    .fillMaxSize()
+                    .drawWithCache {
+                        val size1Px = 180.dp.toPx()
+                        val size2Px = 220.dp.toPx()
+                        
+                        // Cache the translation offsets to avoid dp.toPx() inside onDrawBehind (Qodo optimization)
+                        val shape1OffsetX = -50.dp.toPx()
+                        val shape1OffsetY = -30.dp.toPx()
+                        val shape2Inset = 150.dp.toPx()
+                        
+                        val outline1 = shape1.createOutline(
+                            size = Size(size1Px, size1Px),
+                            layoutDirection = layoutDirection,
+                            density = this
+                        )
+                        val outline2 = shape2.createOutline(
+                            size = Size(size2Px, size2Px),
+                            layoutDirection = layoutDirection,
+                            density = this
+                        )
+                        
+                        val isJumpBackIn = title.contains("JUMP", ignoreCase = true)
+                        
+                        onDrawBehind {
+                            if (isJumpBackIn) {
+                                // Shape 1 (Top Left)
+                                translate(left = shape1OffsetX, top = shape1OffsetY) {
+                                    drawOutline(
+                                        outline = outline1,
+                                        color = primaryColor,
+                                        alpha = 0.10f
+                                    )
+                                }
+                                // Shape 2 (Bottom Right)
+                                translate(left = size.width - shape2Inset, top = size.height - shape2Inset) {
+                                    drawOutline(
+                                        outline = outline2,
+                                        color = primaryColor,
+                                        alpha = 0.10f
+                                    )
+                                }
+                            } else {
+                                // Shape 1 (Bottom Left)
+                                translate(left = shape1OffsetX, top = size.height - shape2Inset) {
+                                    drawOutline(
+                                        outline = outline1,
+                                        color = primaryColor,
+                                        alpha = 0.10f
+                                    )
+                                }
+                                // Shape 2 (Top Right)
+                                translate(left = size.width - shape2Inset, top = shape1OffsetY) {
+                                    drawOutline(
+                                        outline = outline2,
+                                        color = primaryColor,
+                                        alpha = 0.10f
+                                    )
+                                }
+                            }
+                        }
+                    }
+            )
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                RowHeader(title = title)
+
+                // Adaptive Grid Content
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                ) {
+                    val displayItems = items.take(4)
+                    when (displayItems.size) {
+                        2 -> StackedLayout(displayItems, onPlayClick)
+                        3 -> TwoOneLayout(displayItems, onPlayClick)
+                        4 -> GridLayout2x2(displayItems, onPlayClick)
+                        else -> if (displayItems.isNotEmpty()) {
+                            // Fallback: single item fills the space
+                            GridCell(displayItems[0], onPlayClick, modifier = Modifier.fillMaxSize())
+                        }
                     }
                 }
             }
