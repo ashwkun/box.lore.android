@@ -14,6 +14,8 @@ import androidx.media3.session.MediaSession
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,9 +33,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
     private val userPreferencesRepository by lazy {
         cx.aswin.boxcast.core.data.UserPreferencesRepository(this)
     }
-    private val mainDispatcher = Dispatchers.Main
-    private val ioDispatcher = Dispatchers.IO
-    private val serviceScope = CoroutineScope(mainDispatcher + SupervisorJob())
+    @VisibleForTesting internal var mainDispatcher: CoroutineDispatcher = Dispatchers.Main
+    @VisibleForTesting internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val serviceScope by lazy { CoroutineScope(mainDispatcher + SupervisorJob()) }
 
     // Lazy-init database & repos (avoid creating them if Auto is never used)
     private val database by lazy {
@@ -303,7 +305,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     // Save one final time on pause
                     progressSaverJob?.cancel()
                     progressSaverJob = null
-                    serviceScope.launch(ioDispatcher) {
+                    serviceScope.launch {
                         saveProgressOnce(player)
                         activePlaybackStartTimeMs = 0L
                     }
@@ -596,7 +598,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 // Auto-delete completed download if enabled in preferences
                 val completedEpId = currentEpisodeId
                 if (completedEpId.isNotEmpty()) {
-                    serviceScope.launch(ioDispatcher) {
+                    serviceScope.launch {
                         try {
                             val shouldDelete = userPreferencesRepository.autoDownloadDeleteCompletedStream.first()
                             if (shouldDelete) {
@@ -1004,7 +1006,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         val durationMs = player.duration
         val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
         if (episodeId != null) {
-            serviceScope.launch(ioDispatcher) {
+            serviceScope.launch {
                 try {
                     val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
                     if (existing != null) {
@@ -1067,7 +1069,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
      */
     private fun markCurrentEpisodeCompletedAndSkip(session: MediaSession) {
         markCurrentEpisodeCompleted()
-        serviceScope.launch(mainDispatcher) {
+        serviceScope.launch {
             val player = exoPlayer ?: return@launch
             if (player.hasNextMediaItem()) {
                 player.seekToNextMediaItem()
