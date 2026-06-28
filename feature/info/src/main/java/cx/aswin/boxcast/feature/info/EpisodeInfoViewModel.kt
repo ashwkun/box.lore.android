@@ -45,7 +45,8 @@ class EpisodeInfoViewModel(
     private val publicKey: String,
     private val playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    private val queueManager: cx.aswin.boxcast.core.data.QueueManager
+    private val queueManager: cx.aswin.boxcast.core.data.QueueManager,
+    private val userPrefs: cx.aswin.boxcast.core.data.UserPreferencesRepository
 ) : AndroidViewModel(application) {
 
     private val database = cx.aswin.boxcast.core.data.database.BoxLoreDatabase.getDatabase(application)
@@ -391,6 +392,7 @@ class EpisodeInfoViewModel(
                 val categories = podcast?.genre ?: ""
                 val author = podcast?.artist ?: ""
 
+                val region = userPrefs.regionStream.first().takeIf { it.isNotBlank() } ?: "us"
                 val similarEps = repository.getSimilarEpisodes(
                     episodeId = episodeId,
                     podcastId = podcastId,
@@ -399,7 +401,8 @@ class EpisodeInfoViewModel(
                     podcastTitle = podcastTitle,
                     categories = categories,
                     author = author,
-                    limit = 10
+                    limit = 10,
+                    country = region
                 )
 
                 android.util.Log.d("EpisodeInfo", "Fetched ${similarEps.size} similar episodes")

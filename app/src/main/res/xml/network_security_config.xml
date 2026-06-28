@@ -5,4 +5,12 @@
          Identify specific domains to pin or restrict in the future here.
     -->
     <base-config cleartextTrafficPermitted="true" />
+
+    <!-- Trust user-installed certificates in debug builds for proxy debugging -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+            <certificates src="system" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>
