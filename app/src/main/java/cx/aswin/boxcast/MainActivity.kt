@@ -2477,7 +2477,6 @@ class MainActivity : ComponentActivity() {
                         containerHeight = containerHeight,
                         collapsedStateHorizontalPadding = 12.dp,
                         expandTrigger = expandPlayerTrigger, // Pass the trigger here
-                        isDarkTheme = darkTheme,
                         onEpisodeInfoClick = { episode ->
                             if (episode.id.startsWith("briefing_")) {
                                 val region = episode.id.removePrefix("briefing_").substringBefore("_")

@@ -11,10 +11,24 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+
+/**
+ * CompositionLocal providing the active surface style key (e.g. [SurfaceStyles.AMOLED]).
+ * Provided by [BoxCastTheme]; available to any composable in the tree.
+ */
+val LocalSurfaceStyle = staticCompositionLocalOf { SurfaceStyles.CLASSIC_DYNAMIC }
+
+/**
+ * CompositionLocal providing the effective dark-theme boolean resolved from the
+ * surface style. Provided by [BoxCastTheme]; available to any composable in the tree.
+ */
+val LocalEffectiveDarkTheme = staticCompositionLocalOf { false }
 
 /**
  * Surface style modes that control background/surface lightness.
@@ -44,6 +58,17 @@ object SurfaceStyles {
     data class Entry(val key: String, val label: String, val subtitle: String)
 }
 
+/**
+ * Resolves whether the UI should render in dark mode based on the selected [surfaceStyle].
+ * Forced-dark styles (AMOLED, CLASSIC_DARK) → true; forced-light styles (PURE_WHITE,
+ * CLASSIC_LIGHT) → false; everything else falls back to the provided [darkTheme].
+ */
+fun computeEffectiveDarkTheme(surfaceStyle: String, darkTheme: Boolean): Boolean = when (surfaceStyle) {
+    SurfaceStyles.AMOLED, SurfaceStyles.CLASSIC_DARK -> true
+    SurfaceStyles.PURE_WHITE, SurfaceStyles.CLASSIC_LIGHT -> false
+    else -> darkTheme
+}
+
 @Composable
 fun BoxCastTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -53,11 +78,7 @@ fun BoxCastTheme(
     content: @Composable () -> Unit
 ) {
     // Determine effective darkTheme
-    val effectiveDarkTheme = when (surfaceStyle) {
-        SurfaceStyles.AMOLED, SurfaceStyles.CLASSIC_DARK -> true
-        SurfaceStyles.PURE_WHITE, SurfaceStyles.CLASSIC_LIGHT -> false
-        else -> darkTheme
-    }
+    val effectiveDarkTheme = computeEffectiveDarkTheme(surfaceStyle, darkTheme)
 
     // Determine effective dynamicColor. All themes support dynamic accent coloring if enabled.
     val effectiveDynamicColor = dynamicColor
@@ -83,12 +104,17 @@ fun BoxCastTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = BoxCastTypography,
-        shapes = BoxCastShapes,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalSurfaceStyle provides surfaceStyle,
+        LocalEffectiveDarkTheme provides effectiveDarkTheme
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = BoxCastTypography,
+            shapes = BoxCastShapes,
+            content = content
+        )
+    }
 }
 
 /**
