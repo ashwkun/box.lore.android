@@ -305,7 +305,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     // Save one final time on pause
                     progressSaverJob?.cancel()
                     progressSaverJob = null
-                    serviceScope.launch(ioDispatcher) {
+                    serviceScope.launch {
                         saveProgressOnce(player)
                         activePlaybackStartTimeMs = 0L
                     }
@@ -598,7 +598,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 // Auto-delete completed download if enabled in preferences
                 val completedEpId = currentEpisodeId
                 if (completedEpId.isNotEmpty()) {
-                    serviceScope.launch(ioDispatcher) {
+                    serviceScope.launch {
                         try {
                             val shouldDelete = userPreferencesRepository.autoDownloadDeleteCompletedStream.first()
                             if (shouldDelete) {
@@ -1006,7 +1006,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         val durationMs = player.duration
         val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
         if (episodeId != null) {
-            serviceScope.launch(ioDispatcher) {
+            serviceScope.launch {
                 try {
                     val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
                     if (existing != null) {
