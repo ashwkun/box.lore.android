@@ -1069,7 +1069,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
      */
     private fun markCurrentEpisodeCompletedAndSkip(session: MediaSession) {
         markCurrentEpisodeCompleted()
-        serviceScope.launch(mainDispatcher) {
+        serviceScope.launch {
             val player = exoPlayer ?: return@launch
             if (player.hasNextMediaItem()) {
                 player.seekToNextMediaItem()
