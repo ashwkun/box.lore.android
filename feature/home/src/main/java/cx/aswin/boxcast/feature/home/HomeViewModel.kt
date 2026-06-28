@@ -1857,6 +1857,23 @@ class HomeViewModel(
         )
     }
 
+    private fun getHistoryScoreIncrement(history: ListeningHistoryEntity): Int {
+        var score = 0
+        if (history.isCompleted) {
+            score += 20
+        } else {
+            if (history.progressMs >= 300_000L) {
+                score += 15
+            } else if (history.progressMs >= 60_000L) {
+                score += 5
+            }
+        }
+        if (history.isLiked) {
+            score += 40
+        }
+        return score
+    }
+
     private fun calculatePodcastAffinityScores(
         subscriptions: List<Podcast>,
         historyList: List<ListeningHistoryEntity>,
@@ -1877,19 +1894,7 @@ class HomeViewModel(
                     lastPlayedMap[podId] = history.lastPlayedAt
                 }
 
-                var score = scores.getOrDefault(podId, 0)
-                if (history.isCompleted) {
-                    score += 20
-                } else {
-                    if (history.progressMs >= 300_000L) {
-                        score += 15
-                    } else if (history.progressMs >= 60_000L) {
-                        score += 5
-                    }
-                }
-                if (history.isLiked) {
-                    score += 40
-                }
+                val score = scores.getOrDefault(podId, 0) + getHistoryScoreIncrement(history)
                 scores[podId] = score
             }
         }

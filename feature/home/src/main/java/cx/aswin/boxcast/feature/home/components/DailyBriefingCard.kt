@@ -291,14 +291,16 @@ fun DailyBriefingCard(
                 when (state) {
                     DailyBriefingCardState.NORMAL -> {
                         DailyBriefingNormalContent(
-                            briefing = briefing,
-                            chapters = chapters,
-                            isPlaying = isPlaying,
+                            state = DailyBriefingVisualState(
+                                briefing = briefing,
+                                chapters = chapters,
+                                isPlaying = isPlaying,
+                                isBuffering = isBuffering,
+                                playbackStatus = playbackStatus,
+                                durationMin = durationMin,
+                                timeLeftMin = timeLeftMin
+                            ),
                             onPlayPauseClick = onPlayPauseClick,
-                            playbackStatus = playbackStatus,
-                            timeLeftMin = timeLeftMin,
-                            durationMin = durationMin,
-                            isBuffering = isBuffering,
                             expanded = expanded,
                             onExpandedChange = { expanded = it }
                         )
@@ -323,23 +325,102 @@ fun DailyBriefingCard(
     }
 }
 
+private data class DailyBriefingVisualState(
+    val briefing: Briefing,
+    val chapters: List<cx.aswin.boxcast.core.model.Chapter>,
+    val isPlaying: Boolean,
+    val isBuffering: Boolean,
+    val playbackStatus: EpisodeStatus?,
+    val durationMin: Int,
+    val timeLeftMin: Int
+)
+
+@Composable
+private fun DailyBriefingChapterRow(
+    chapter: cx.aswin.boxcast.core.model.Chapter,
+    index: Int,
+    totalChapters: Int,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .then(
+                if ((index == 2 && !expanded && totalChapters > 3) || 
+                    (index == totalChapters - 1 && expanded && totalChapters > 3)) {
+                    Modifier.clickable { onToggleExpanded() }
+                } else {
+                    Modifier
+                }
+            )
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        val mins = chapter.startTime.toLong() / 60
+        val secs = chapter.startTime.toLong() % 60
+        val timeStr = String.format(java.util.Locale.US, "%d:%02d", mins, secs)
+        Text(
+            text = timeStr,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+            modifier = Modifier.width(36.dp)
+        )
+        Text(
+            text = chapter.title,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.85f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        
+        // Inline expand/collapse indicator
+        if (index == 2 && !expanded && totalChapters > 3) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.padding(start = 4.dp)
+            ) {
+                Text(
+                    text = "+${totalChapters - 3}",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+                Icon(
+                    imageVector = Icons.Rounded.ExpandMore,
+                    contentDescription = "Show more",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        } else if (index == totalChapters - 1 && expanded && totalChapters > 3) {
+            Icon(
+                imageVector = Icons.Rounded.ExpandLess,
+                contentDescription = "Show less",
+                tint = Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(16.dp).padding(start = 4.dp)
+            )
+        }
+    }
+}
+
 @Composable
 private fun DailyBriefingNormalContent(
-    briefing: Briefing,
-    chapters: List<cx.aswin.boxcast.core.model.Chapter>,
-    isPlaying: Boolean,
+    state: DailyBriefingVisualState,
     onPlayPauseClick: () -> Unit,
-    playbackStatus: EpisodeStatus?,
-    timeLeftMin: Int,
-    durationMin: Int,
-    isBuffering: Boolean,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Title
         Text(
-            text = briefing.title,
+            text = state.briefing.title,
             fontFamily = SectionHeaderFontFamily,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -369,15 +450,15 @@ private fun DailyBriefingNormalContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                if (isBuffering) {
+                if (state.isBuffering) {
                     BoxLoreLoader.CircularWavy(
                         size = 20.dp,
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause briefing" else "Play briefing",
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Pause briefing" else "Play briefing",
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -385,9 +466,9 @@ private fun DailyBriefingNormalContent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = when {
-                        isPlaying -> "Playing"
-                        playbackStatus == EpisodeStatus.IN_PROGRESS -> "Resume · ${timeLeftMin} min left"
-                        else -> "Listen Now · ${durationMin} min"
+                        state.isPlaying -> "Playing"
+                        state.playbackStatus == EpisodeStatus.IN_PROGRESS -> "Resume · ${state.timeLeftMin} min left"
+                        else -> "Listen Now · ${state.durationMin} min"
                     },
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
@@ -398,7 +479,7 @@ private fun DailyBriefingNormalContent(
         }
 
         // Vertical chapters list (showing 3 by default, max 1 line per chapter)
-        if (chapters.isNotEmpty()) {
+        if (state.chapters.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Column(
                 modifier = Modifier
@@ -406,80 +487,23 @@ private fun DailyBriefingNormalContent(
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val visibleChapters = if (expanded) chapters else chapters.take(3)
+                val visibleChapters = if (expanded) state.chapters else state.chapters.take(3)
                 visibleChapters.forEachIndexed { index, chapter ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp))
-                            .then(
-                                if ((index == 2 && !expanded && chapters.size > 3) || 
-                                    (index == chapters.size - 1 && expanded && chapters.size > 3)) {
-                                    Modifier.clickable {
-                                        val nextExpanded = !expanded
-                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardChaptersToggled(
-                                            region = briefing.region,
-                                            date = briefing.date,
-                                            expanded = nextExpanded
-                                        )
-                                        onExpandedChange(nextExpanded)
-                                    }
-                                } else {
-                                    Modifier
-                                }
+                    DailyBriefingChapterRow(
+                        chapter = chapter,
+                        index = index,
+                        totalChapters = state.chapters.size,
+                        expanded = expanded,
+                        onToggleExpanded = {
+                            val nextExpanded = !expanded
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardChaptersToggled(
+                                region = state.briefing.region,
+                                date = state.briefing.date,
+                                expanded = nextExpanded
                             )
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val mins = chapter.startTime.toLong() / 60
-                        val secs = chapter.startTime.toLong() % 60
-                        val timeStr = String.format(java.util.Locale.US, "%d:%02d", mins, secs)
-                        Text(
-                            text = timeStr,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                            modifier = Modifier.width(36.dp)
-                        )
-                        Text(
-                            text = chapter.title,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.85f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        
-                        // Inline expand/collapse indicator
-                        if (index == 2 && !expanded && chapters.size > 3) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                modifier = Modifier.padding(start = 4.dp)
-                            ) {
-                                Text(
-                                    text = "+${chapters.size - 3}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.6f)
-                                )
-                                Icon(
-                                    imageVector = Icons.Rounded.ExpandMore,
-                                    contentDescription = "Show more",
-                                    tint = Color.White.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        } else if (index == chapters.size - 1 && expanded && chapters.size > 3) {
-                            Icon(
-                                imageVector = Icons.Rounded.ExpandLess,
-                                contentDescription = "Show less",
-                                tint = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.size(16.dp).padding(start = 4.dp)
-                            )
+                            onExpandedChange(nextExpanded)
                         }
-                    }
+                    )
                 }
             }
         }
