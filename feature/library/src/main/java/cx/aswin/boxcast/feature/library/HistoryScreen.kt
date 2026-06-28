@@ -461,84 +461,97 @@ fun ActivityCalendarStrip(
                 contentPadding = PaddingValues(horizontal = 2.dp)
             ) {
                 items(dates) { date ->
-                    val isSelected = date == selectedDate
-                    val isToday = date == today
-                    val hasActivity = activeDays.contains(date)
-                    
-                    val dayOfWeek = date.dayOfWeek.getDisplayName(
-                        java.time.format.TextStyle.SHORT,
-                        java.util.Locale.getDefault()
-                    ).take(1)
-                    val dayOfMonth = date.dayOfMonth.toString()
-                    
-                    val containerColor = when {
-                        isSelected -> MaterialTheme.colorScheme.primary
-                        isToday -> MaterialTheme.colorScheme.primaryContainer
-                        hasActivity -> MaterialTheme.colorScheme.surfaceContainerHigh
-                        else -> MaterialTheme.colorScheme.surfaceContainerLowest
-                    }
-                    
-                    val contentColor = when {
-                        isSelected -> MaterialTheme.colorScheme.onPrimary
-                        isToday -> MaterialTheme.colorScheme.onPrimaryContainer
-                        hasActivity -> MaterialTheme.colorScheme.onSurface
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    }
-                    
-                    val borderStroke = if (isToday && !isSelected) {
-                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-                    } else null
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = containerColor,
-                        contentColor = contentColor,
-                        border = borderStroke,
-                        modifier = Modifier
-                            .width(46.dp)
-                            .aspectRatio(0.8f)
-                            .clickable {
-                                if (isSelected) {
-                                    onDateSelected(null)
-                                } else {
-                                    onDateSelected(date)
-                                }
-                            }
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Text(
-                                text = dayOfWeek,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = contentColor.copy(alpha = 0.8f)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = dayOfMonth,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = contentColor
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            if (hasActivity) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
-                                        )
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.size(6.dp))
-                            }
-                        }
-                    }
+                    CalendarDayItem(
+                        date = date,
+                        isSelected = date == selectedDate,
+                        isToday = date == today,
+                        hasActivity = activeDays.contains(date),
+                        onDateSelected = onDateSelected
+                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarDayItem(
+    date: LocalDate,
+    isSelected: Boolean,
+    isToday: Boolean,
+    hasActivity: Boolean,
+    onDateSelected: (LocalDate?) -> Unit
+) {
+    val dayOfWeek = date.dayOfWeek.getDisplayName(
+        java.time.format.TextStyle.SHORT,
+        java.util.Locale.getDefault()
+    ).take(1)
+    val dayOfMonth = date.dayOfMonth.toString()
+    
+    val containerColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isToday -> MaterialTheme.colorScheme.primaryContainer
+        hasActivity -> MaterialTheme.colorScheme.surfaceContainerHigh
+        else -> MaterialTheme.colorScheme.surfaceContainerLowest
+    }
+    
+    val contentColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+        hasActivity -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    }
+    
+    val borderStroke = if (isToday && !isSelected) {
+        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+    } else null
+    
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        contentColor = contentColor,
+        border = borderStroke,
+        modifier = Modifier
+            .width(46.dp)
+            .aspectRatio(0.8f)
+            .clickable {
+                if (isSelected) {
+                    onDateSelected(null)
+                } else {
+                    onDateSelected(date)
+                }
+            }
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                text = dayOfWeek,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor.copy(alpha = 0.8f)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = dayOfMonth,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            if (hasActivity) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                        )
+                )
+            } else {
+                Spacer(modifier = Modifier.size(6.dp))
             }
         }
     }
@@ -873,22 +886,8 @@ fun HabitsStatsCard(stats: DetailedHistoryStats) {
     }
     val contentColor = MaterialTheme.colorScheme.onTertiaryContainer
 
-    val vibeIcon = when (stats.peakListeningVibe) {
-        "Morning Ritual" -> Icons.Rounded.LightMode
-        "Midday Flow" -> Icons.Rounded.Bolt
-        "Evening Unwind" -> Icons.Rounded.ModeNight
-        "Night Owl" -> Icons.Rounded.Bedtime
-        else -> Icons.Rounded.AccessTime
-    }
-
-    val peakHourText = if (stats.peakListeningHour >= 0) {
-        val hour = stats.peakListeningHour
-        val ampm = if (hour >= 12) "PM" else "AM"
-        val hour12 = if (hour % 12 == 0) 12 else hour % 12
-        "$hour12 $ampm peak"
-    } else {
-        "No activity"
-    }
+    val vibeIcon = calculateHabitsVibeIcon(stats.peakListeningVibe)
+    val peakHourText = calculatePeakHourText(stats.peakListeningHour)
 
     HistoryStatsCardContainer(
         gradientColors = gradientColors,
@@ -1577,19 +1576,8 @@ fun CalendarInsightBanner(
             label = "insight_banner_transition"
         ) { targetDate ->
             val hasFilter = targetDate != null
-            val icon = if (hasFilter) {
-                Icons.Rounded.PlayArrow
-            } else {
-                val last14Days = remember(today) { (0..13).map { today.minusDays(it.toLong()) } }
-                val activeCount = last14Days.count { stats.activeDays.contains(it) }
-                if (activeCount >= 5) Icons.Rounded.Whatshot else Icons.Rounded.Bolt
-            }
-            
-            val iconColor = if (hasFilter) {
-                MaterialTheme.colorScheme.secondary
-            } else {
-                MaterialTheme.colorScheme.primary
-            }
+            val icon = calculateBannerIcon(hasFilter, today, stats)
+            val iconColor = if (hasFilter) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
 
             Row(
                 modifier = Modifier
@@ -1615,32 +1603,9 @@ fun CalendarInsightBanner(
                 Spacer(modifier = Modifier.width(12.dp))
                 
                 val descText = if (hasFilter) {
-                    val dateStr = when (targetDate) {
-                        today -> "Today"
-                        today.minusDays(1) -> "Yesterday"
-                        else -> targetDate!!.format(DateTimeFormatter.ofPattern("MMMM d"))
-                    }
-                    val episodes = groupedHistory[targetDate] ?: emptyList()
-                    var dailyMs = 0L
-                    episodes.forEach { entity ->
-                        val isComplete = entity.isCompleted || (entity.durationMs > 0 && entity.progressMs > entity.durationMs * 0.9f)
-                        dailyMs += if (isComplete && entity.durationMs > 0) entity.durationMs else entity.progressMs
-                    }
-                    val hours = TimeUnit.MILLISECONDS.toHours(dailyMs)
-                    val mins = TimeUnit.MILLISECONDS.toMinutes(dailyMs) % 60
-                    val durationStr = if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
-                    val epCount = episodes.size
-                    "On $dateStr, you played $epCount ${if (epCount == 1) "episode" else "episodes"} for a total of $durationStr."
+                    calculateBannerFilteredText(targetDate!!, today, groupedHistory[targetDate] ?: emptyList())
                 } else {
-                    val last14Days = remember(today) { (0..13).map { today.minusDays(it.toLong()) } }
-                    val activeCount = last14Days.count { stats.activeDays.contains(it) }
-                    when {
-                        activeCount == 14 -> "Perfect fortnight! You listened every day for the last 14 days."
-                        activeCount >= 10 -> "Incredible consistency! You listened on $activeCount of the last 14 days."
-                        activeCount >= 5 -> "Great habit! You listened on $activeCount of the last 14 days."
-                        activeCount >= 1 -> "You listened on $activeCount of the last 14 days recently. Keep it up!"
-                        else -> "No listening history in the last 14 days. Start listening today!"
-                    }
+                    calculateBannerUnfilteredText(today, stats)
                 }
 
                 Text(
@@ -1667,5 +1632,63 @@ fun CalendarInsightBanner(
                 }
             }
         }
+    }
+}
+
+private fun calculateHabitsVibeIcon(vibe: String?): androidx.compose.ui.graphics.vector.ImageVector {
+    return when (vibe) {
+        "Morning Ritual" -> Icons.Rounded.LightMode
+        "Midday Flow" -> Icons.Rounded.Bolt
+        "Evening Unwind" -> Icons.Rounded.ModeNight
+        "Night Owl" -> Icons.Rounded.Bedtime
+        else -> Icons.Rounded.AccessTime
+    }
+}
+
+private fun calculatePeakHourText(hour: Int): String {
+    if (hour < 0) return "No activity"
+    val ampm = if (hour >= 12) "PM" else "AM"
+    val hour12 = if (hour % 12 == 0) 12 else hour % 12
+    return "$hour12 $ampm peak"
+}
+
+private fun calculateBannerIcon(hasFilter: Boolean, today: LocalDate, stats: DetailedHistoryStats): androidx.compose.ui.graphics.vector.ImageVector {
+    if (hasFilter) return Icons.Rounded.PlayArrow
+    val last14Days = (0..13).map { today.minusDays(it.toLong()) }
+    val activeCount = last14Days.count { stats.activeDays.contains(it) }
+    return if (activeCount >= 5) Icons.Rounded.Whatshot else Icons.Rounded.Bolt
+}
+
+private fun calculateBannerFilteredText(
+    targetDate: LocalDate,
+    today: LocalDate,
+    episodes: List<ListeningHistoryEntity>
+): String {
+    val dateStr = when (targetDate) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> targetDate.format(DateTimeFormatter.ofPattern("MMMM d"))
+    }
+    var dailyMs = 0L
+    episodes.forEach { entity ->
+        val isComplete = entity.isCompleted || (entity.durationMs > 0 && entity.progressMs > entity.durationMs * 0.9f)
+        dailyMs += if (isComplete && entity.durationMs > 0) entity.durationMs else entity.progressMs
+    }
+    val hours = TimeUnit.MILLISECONDS.toHours(dailyMs)
+    val mins = TimeUnit.MILLISECONDS.toMinutes(dailyMs) % 60
+    val durationStr = if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+    val epCount = episodes.size
+    return "On $dateStr, you played $epCount ${if (epCount == 1) "episode" else "episodes"} for a total of $durationStr."
+}
+
+private fun calculateBannerUnfilteredText(today: LocalDate, stats: DetailedHistoryStats): String {
+    val last14Days = (0..13).map { today.minusDays(it.toLong()) }
+    val activeCount = last14Days.count { stats.activeDays.contains(it) }
+    return when {
+        activeCount == 14 -> "Perfect fortnight! You listened every day for the last 14 days."
+        activeCount >= 10 -> "Incredible consistency! You listened on $activeCount of the last 14 days."
+        activeCount >= 5 -> "Great habit! You listened on $activeCount of the last 14 days."
+        activeCount >= 1 -> "You listened on $activeCount of the last 14 days recently. Keep it up!"
+        else -> "No listening history in the last 14 days. Start listening today!"
     }
 }
