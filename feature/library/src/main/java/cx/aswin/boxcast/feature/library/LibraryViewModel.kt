@@ -8,6 +8,8 @@ import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.Episode
+import cx.aswin.boxcast.core.data.PodcastScoring
+import cx.aswin.boxcast.core.data.toScorable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
@@ -118,47 +120,10 @@ class LibraryViewModel(
         // Apply sorting
         val sortedPodcasts = when (sort) {
             SubscriptionSort.SmartRank -> {
-                val podScoresMap = enrichedPodcasts.associate { pod ->
-                    val playCount = allHistory.count { it.podcastId == pod.id }
-                    val likeCount = allHistory.count { it.podcastId == pod.id && it.isLiked }
-                    val playScore = 12.0 * playCount
-                    val likeScore = 25.0 * likeCount
-
-                    val lastPlayTime = allHistory.filter { it.podcastId == pod.id }.maxOfOrNull { it.lastPlayedAt }
-                    val playRecencyScore = if (lastPlayTime != null) {
-                        val hoursSinceLastPlay = (System.currentTimeMillis() - lastPlayTime).toDouble() / (1000.0 * 3600.0)
-                        250.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
-                    } else {
-                        0.0
-                    }
-
-                    val latestEp = pod.latestEpisode
-                    val freshnessScore = if (latestEp != null) {
-                        val latestEpHistory = allHistory.find { it.episodeId == latestEp.id }
-                        val isUnplayed = latestEpHistory == null || (latestEpHistory.progressMs == 0L && !latestEpHistory.isCompleted)
-                        val releasedAfterSub = latestEp.publishedDate > (pod.subscribedAt / 1000L)
-                        if (isUnplayed && releasedAfterSub) {
-                            val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
-                            (150.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)) + 80.0
-                        } else {
-                            0.0
-                        }
-                    } else {
-                        0.0
-                    }
-
-                    val subRecencyScore = if (pod.subscribedAt > 0L) {
-                        val hoursSinceSubscribed = (System.currentTimeMillis() - pod.subscribedAt).toDouble() / (1000.0 * 3600.0)
-                        100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
-                    } else {
-                        0.0
-                    }
-
-                    val notificationsBoost = if (pod.notificationsEnabled) 30.0 else 0.0
-                    val autoDownloadBoost = if (pod.autoDownloadEnabled) 60.0 else 0.0
-
-                    pod.id to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost + autoDownloadBoost)
-                }
+                val podScoresMap = PodcastScoring.calculateScores(
+                    podcasts = enrichedPodcasts.map { it.toScorable() },
+                    allHistory = allHistory
+                )
 
                 enrichedPodcasts.map { pod ->
                     pod to (podScoresMap[pod.id] ?: 0.0)

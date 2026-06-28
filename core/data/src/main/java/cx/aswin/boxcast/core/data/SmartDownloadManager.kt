@@ -170,38 +170,16 @@ class SmartDownloadManager(
             }
 
             // 5. Run the Mixtape scoring algorithm
-            val podScoresMap = subs.associate { pod ->
-                val playCount = allHistory.count { it.podcastId == pod.podcastId }
-                val likeCount = allHistory.count { it.podcastId == pod.podcastId && it.isLiked }
-                val playScore = 12.0 * playCount
-                val likeScore = 25.0 * likeCount
+            // Group/Index listening history for O(N + M) efficiency
+            val historyByPodcast = allHistory.groupBy { it.podcastId }
+            val historyByEpisode = allHistory.associateBy { it.episodeId }
+            val subsMap = subs.associateBy { it.podcastId }
 
-                val lastPlayTime = allHistory.filter { it.podcastId == pod.podcastId }.maxOfOrNull { it.lastPlayedAt }
-                val playRecencyScore = if (lastPlayTime != null) {
-                    val hoursSinceLastPlay = (System.currentTimeMillis() - lastPlayTime).toDouble() / (1000.0 * 3600.0)
-                    250.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
-                } else 0.0
-
-                val latestEp = pod.latestEpisode
-                val freshnessScore = if (latestEp != null) {
-                    val latestEpHistory = allHistory.find { it.episodeId == latestEp.id }
-                    val isUnplayed = latestEpHistory == null || (latestEpHistory.progressMs == 0L && !latestEpHistory.isCompleted)
-                    val releasedAfterSub = latestEp.publishedDate > (pod.subscribedAt / 1000L)
-                    if (isUnplayed && releasedAfterSub) {
-                        val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
-                        (150.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)) + 80.0
-                    } else 0.0
-                } else 0.0
-
-                val subRecencyScore = if (pod.subscribedAt > 0L) {
-                    val hoursSinceSubscribed = (System.currentTimeMillis() - pod.subscribedAt).toDouble() / (1000.0 * 3600.0)
-                    100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
-                } else 0.0
-
-                val notificationsBoost = if (pod.notificationsEnabled) 30.0 else 0.0
-
-                pod.podcastId to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost)
-            }
+            val podScoresMap = PodcastScoring.calculateScores(
+                podcasts = subs.map { it.toScorable() },
+                allHistory = allHistory,
+                includeAutoDownloadBoost = false // Disable autoDownloadBoost as per original logic
+            )
 
             val subIds = subs.map { it.podcastId }.toSet()
             
@@ -213,7 +191,7 @@ class SmartDownloadManager(
              .values.filterNotNull()
 
             val inProgressMixtapeCandidates = inProgressCandidates.mapNotNull { history ->
-                val parentPod = subs.find { it.podcastId == history.podcastId } ?: return@mapNotNull null
+                val parentPod = subsMap[history.podcastId] ?: return@mapNotNull null
                 val hoursSinceLastPlay = (System.currentTimeMillis() - history.lastPlayedAt).toDouble() / (1000.0 * 3600.0)
                 val score = 1000.0 + 500.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
 
@@ -223,7 +201,7 @@ class SmartDownloadManager(
                     description = "",
                     audioUrl = history.episodeAudioUrl ?: "",
                     imageUrl = history.episodeImageUrl ?: "",
-                    podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl,
+                    podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl ?: "",
                     podcastTitle = history.podcastName.takeIf { it.isNotBlank() && it != "Unknown Podcast" } ?: parentPod.title,
                     podcastId = history.podcastId,
                     duration = (history.durationMs / 1000).toInt(),
@@ -250,13 +228,13 @@ class SmartDownloadManager(
                         pod to resolved.copy(podcastTitle = pod.title, podcastId = pod.podcastId)
                     } else {
                         val latestEp = pod.latestEpisode ?: return@mapNotNull null
-                        val history = allHistory.find { it.episodeId == latestEp.id }
+                        val history = historyByEpisode[latestEp.id]
                         val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
                         if (isUnplayed) pod to latestEp.copy(podcastTitle = pod.title, podcastId = pod.podcastId) else null
                     }
                 } else {
                     val latestEp = pod.latestEpisode ?: return@mapNotNull null
-                    val history = allHistory.find { it.episodeId == latestEp.id }
+                    val history = historyByEpisode[latestEp.id]
                     val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
                     if (isUnplayed) {
                         pod to latestEp.copy(podcastTitle = pod.title, podcastId = pod.podcastId)

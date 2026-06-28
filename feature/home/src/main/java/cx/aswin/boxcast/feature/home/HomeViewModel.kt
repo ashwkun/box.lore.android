@@ -10,7 +10,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.HomeBootstrapData
-import cx.aswin.boxcast.core.data.SubscriptionRepository
+import cx.aswin.boxcast.core.data.PodcastScoring
+import cx.aswin.boxcast.core.data.toScorable
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import kotlinx.coroutines.flow.Flow
@@ -200,6 +201,7 @@ class HomeViewModel(
     private var cachedHeroItems: List<SmartHeroItem> = emptyList()
     private var cachedTimeBlock: CuratedTimeBlock? = null
     private var cachedLatestEpisodes: List<Podcast> = emptyList()
+    private var stablePodcastOrder: List<String>? = null
 
     private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
 
@@ -1055,56 +1057,50 @@ class HomeViewModel(
                         }
 
 
-                        // Calculate score map for all subscribed podcasts
-                        val podScoresMap = subs.associate { pod ->
-                            val playCount = allHistory.count { it.podcastId == pod.id }
-                            val likeCount = allHistory.count { it.podcastId == pod.id && it.isLiked }
-                            val playScore = 12.0 * playCount
-                            val likeScore = 25.0 * likeCount
+                        // 1. Group/Index listening history for O(N + M) efficiency
+                        val historyByPodcast = allHistory.groupBy { it.podcastId }
+                        val historyByEpisode = allHistory.associateBy { it.episodeId }
+                        val subsMap = subs.associateBy { it.id }
 
-                            val lastPlayTime = allHistory.filter { it.podcastId == pod.id }.maxOfOrNull { it.lastPlayedAt }
-                            val playRecencyScore = if (lastPlayTime != null) {
-                                val hoursSinceLastPlay = (System.currentTimeMillis() - lastPlayTime).toDouble() / (1000.0 * 3600.0)
-                                250.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
+                        // Calculate score map for all subscribed podcasts using the shared utility
+                        val podScoresMap = PodcastScoring.calculateScores(
+                            podcasts = subs.map { it.toScorable() },
+                            allHistory = allHistory
+                        )
+
+                        // Hybrid Session-Stable sorting order logic
+                        val currentSubIds = subs.map { it.id }.toSet()
+                        val previousOrder = stablePodcastOrder
+
+                        val orderToUse = if (previousOrder == null) {
+                            // First calculation: calculate scores and sort
+                            val sortedList = subs.map { pod ->
+                                pod to (podScoresMap[pod.id] ?: 0.0)
+                            }.sortedWith(
+                                compareByDescending<Pair<Podcast, Double>> { it.second }
+                                    .thenBy { it.first.title }
+                            ).map { it.first.id }
+                            stablePodcastOrder = sortedList
+                            sortedList
+                        } else {
+                            // Check if a show was unsubscribed/removed
+                            val existingOrder = previousOrder.filter { it in currentSubIds }
+                            
+                            // Check if a new show was subscribed (added)
+                            val newSubscribedIds = currentSubIds.filter { it !in existingOrder.toSet() }
+                            
+                            if (newSubscribedIds.isNotEmpty()) {
+                                // Prepend new subscriptions to the start of the list in memory
+                                val updatedOrder = newSubscribedIds + existingOrder
+                                stablePodcastOrder = updatedOrder
+                                updatedOrder
                             } else {
-                                0.0
+                                stablePodcastOrder = existingOrder
+                                existingOrder
                             }
-
-                            val latestEp = pod.latestEpisode
-                            val freshnessScore = if (latestEp != null) {
-                                val latestEpHistory = allHistory.find { it.episodeId == latestEp.id }
-                                val isUnplayed = latestEpHistory == null || (latestEpHistory.progressMs == 0L && !latestEpHistory.isCompleted)
-                                val releasedAfterSub = latestEp.publishedDate > (pod.subscribedAt / 1000L)
-                                if (isUnplayed && releasedAfterSub) {
-                                    val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
-                                    (150.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)) + 80.0
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                0.0
-                            }
-
-                            val subRecencyScore = if (pod.subscribedAt > 0L) {
-                                val hoursSinceSubscribed = (System.currentTimeMillis() - pod.subscribedAt).toDouble() / (1000.0 * 3600.0)
-                                100.0 / (1.0 + hoursSinceSubscribed.coerceAtLeast(0.0) / 24.0)
-                            } else {
-                                0.0
-                            }
-
-                            val notificationsBoost = if (pod.notificationsEnabled) 30.0 else 0.0
-                            val autoDownloadBoost = if (pod.autoDownloadEnabled) 60.0 else 0.0
-
-                            val totalScore = playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost + autoDownloadBoost
-                            pod.id to totalScore
                         }
 
-                        val sortedSubs = subs.map { pod ->
-                            pod to (podScoresMap[pod.id] ?: 0.0)
-                        }.sortedWith(
-                            compareByDescending<Pair<Podcast, Double>> { it.second }
-                                .thenBy { it.first.title }
-                        ).map { it.first }
+                        val sortedSubs = orderToUse.mapNotNull { subsMap[it] }
 
                         // 2. Mixtape Episodes Calculation & Scoring
                         val subIds = subs.map { it.id }.toSet()
@@ -1117,7 +1113,7 @@ class HomeViewModel(
                          .values.filterNotNull()
 
                         val inProgressMixtapeCandidates = inProgressCandidates.mapNotNull { history ->
-                            val parentPod = subs.find { it.id == history.podcastId } ?: return@mapNotNull null
+                            val parentPod = subsMap[history.podcastId] ?: return@mapNotNull null
                             val hoursSinceLastPlay = (System.currentTimeMillis() - history.lastPlayedAt).toDouble() / (1000.0 * 3600.0)
                             val score = 1000.0 + 500.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
 
@@ -1155,14 +1151,14 @@ class HomeViewModel(
                                 } else {
                                     // Fallback synchronously to latest episode
                                     val latestEp = pod.latestEpisode ?: return@mapNotNull null
-                                    val history = allHistory.find { it.episodeId == latestEp.id }
+                                    val history = historyByEpisode[latestEp.id]
                                     val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
                                     if (isUnplayed) pod to latestEp.copy(podcastTitle = pod.title, podcastId = pod.id) else null
                                 }
                             } else {
                                 // Standard: use latest episode
                                 val latestEp = pod.latestEpisode ?: return@mapNotNull null
-                                val history = allHistory.find { it.episodeId == latestEp.id }
+                                val history = historyByEpisode[latestEp.id]
                                 val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
                                 if (isUnplayed) {
                                     pod to latestEp.copy(podcastTitle = pod.title, podcastId = pod.id)
