@@ -350,7 +350,10 @@ class PodcastInfoViewModel(
                             ?: page.episodes.firstOrNull()?.imageUrl,
                         subscribedAt = currentPodcast?.subscribedAt ?: 0L,
                         notificationsEnabled = localPodcastEntity?.notificationsEnabled ?: false,
-                        autoDownloadEnabled = localPodcastEntity?.autoDownloadEnabled ?: false
+                        autoDownloadEnabled = localPodcastEntity?.autoDownloadEnabled ?: false,
+                        latestEpisode = apiPodcast.latestEpisode 
+                            ?: currentPodcast?.latestEpisode 
+                            ?: (if (sortParam == "newest") page.episodes.firstOrNull() else page.episodes.maxByOrNull { it.publishedDate })
                     )
                     currentPodcast = apiPodcastWithFallback
                     currentPodcastId = apiPodcastWithFallback.id // Update to the real numeric ID

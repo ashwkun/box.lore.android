@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.google.firebase.messaging.FirebaseMessaging
+import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 
 class BoxLoreFcmService : FirebaseMessagingService() {
 
@@ -118,7 +119,8 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
         if (!imageUrl.isNullOrBlank()) {
             try {
-                val url = java.net.URL(imageUrl)
+                val optimizedUrl = imageUrl.optimizedImageUrl(500)
+                val url = java.net.URL(optimizedUrl)
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.doInput = true
                 connection.connect()
@@ -246,7 +248,8 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
         if (!imageUrl.isNullOrBlank()) {
             try {
-                val url = java.net.URL(imageUrl)
+                val optimizedUrl = imageUrl.optimizedImageUrl(500)
+                val url = java.net.URL(optimizedUrl)
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.doInput = true
                 connection.connect()

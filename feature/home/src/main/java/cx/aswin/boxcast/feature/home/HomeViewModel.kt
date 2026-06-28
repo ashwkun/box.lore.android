@@ -1095,7 +1095,8 @@ class HomeViewModel(
                             val notificationsBoost = if (pod.notificationsEnabled) 30.0 else 0.0
                             val autoDownloadBoost = if (pod.autoDownloadEnabled) 60.0 else 0.0
 
-                            pod.id to (playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost + autoDownloadBoost)
+                            val totalScore = playScore + likeScore + playRecencyScore + freshnessScore + subRecencyScore + notificationsBoost + autoDownloadBoost
+                            pod.id to totalScore
                         }
 
                         val sortedSubs = subs.map { pod ->
