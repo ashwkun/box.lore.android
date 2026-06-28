@@ -824,60 +824,84 @@ class BoxLorePlaybackService : MediaLibraryService() {
     /**
      * Periodically saves playback position and dispatches heartbeat telemetry (runs on Dispatchers.Main).
      */
+    /**
+     * Periodically saves playback position and dispatches heartbeat telemetry (runs on Dispatchers.Main).
+     * Also checks and enforces sleep timer expiration continuously while the foreground service is active.
+     */
     private suspend fun startPlaybackTicker(player: ExoPlayer) {
+        var tickCount = 0
         while (true) {
-            kotlinx.coroutines.delay(10_000)
+            kotlinx.coroutines.delay(1_000)
             
-            // 1. Save progress once
-            saveProgressOnce(player)
-            
-            // 2. Dispatch lightweight playback heartbeat telemetry
-            val episodeId = playbackSessionEpisodeId
-            if (episodeId != null && player.isPlaying) {
-                val currentPosMs = player.currentPosition
-                val durationMs = player.duration
-                if (durationMs > 0) {
-                    val currentPosSec = currentPosMs / 1000f
-                    val durationSec = durationMs / 1000f
-                    val percent = (currentPosMs.toFloat() / durationMs.toFloat()) * 100f
-                    
-                    // 10%, 25%, 50%, 75%, 90%
-                    val percentMilestones = listOf(10, 25, 50, 75, 90)
-                    for (milestone in percentMilestones) {
-                        if (percent >= milestone && !firedHeartbeats.contains("percent_$milestone")) {
-                            firedHeartbeats.add("percent_$milestone")
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackHeartbeat(
-                                podcastId = playbackSessionPodcastId,
-                                podcastName = playbackSessionPodcastName,
-                                episodeId = episodeId,
-                                episodeTitle = playbackSessionEpisodeTitle,
-                                currentPositionSeconds = currentPosSec,
-                                totalDurationSeconds = durationSec,
-                                heartbeatPercentage = milestone,
-                                heartbeatType = "percent"
-                            )
-                        }
-                    }
-                    
-                    // Time-based: every 5 minutes (300 seconds)
-                    val fiveMinuteIntervals = (currentPosSec / 300f).toInt()
-                    if (fiveMinuteIntervals > 0) {
-                        val milestoneKey = "time_${fiveMinuteIntervals * 5}m"
-                        if (!firedHeartbeats.contains(milestoneKey)) {
-                            firedHeartbeats.add(milestoneKey)
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackHeartbeat(
-                                podcastId = playbackSessionPodcastId,
-                                podcastName = playbackSessionPodcastName,
-                                episodeId = episodeId,
-                                episodeTitle = playbackSessionEpisodeTitle,
-                                currentPositionSeconds = currentPosSec,
-                                totalDurationSeconds = durationSec,
-                                heartbeatPercentage = 0,
-                                heartbeatType = "interval"
-                            )
-                        }
-                    }
+            // Continuous Service-Level Sleep Timer Enforcement (fires even when locked in Doze mode)
+            val sleepEnd = cx.aswin.boxcast.core.data.SleepTimerHolder.activeSleepTimerEndMs
+            if (sleepEnd != null && System.currentTimeMillis() >= sleepEnd) {
+                cx.aswin.boxcast.core.data.SleepTimerHolder.activeSleepTimerEndMs = null
+                android.util.Log.d("BoxCastPlayer", "Foreground Service Sleep Timer: Expired! Pausing player.")
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    if (player.isPlaying) player.pause()
                 }
+            }
+
+            tickCount++
+            if (tickCount % 10 == 0) {
+                saveProgressOnce(player)
+                dispatchHeartbeatTelemetry(player)
+            }
+        }
+    }
+
+    private fun dispatchHeartbeatTelemetry(player: ExoPlayer) {
+        val episodeId = playbackSessionEpisodeId ?: return
+        if (!player.isPlaying) return
+        
+        val currentPosMs = player.currentPosition
+        val durationMs = player.duration
+        if (durationMs <= 0) return
+        
+        val currentPosSec = currentPosMs / 1000f
+        val durationSec = durationMs / 1000f
+        val percent = (currentPosMs.toFloat() / durationMs.toFloat()) * 100f
+        
+        checkPercentHeartbeats(episodeId, currentPosSec, durationSec, percent)
+        checkIntervalHeartbeats(episodeId, currentPosSec, durationSec)
+    }
+
+    private fun checkPercentHeartbeats(episodeId: String, currentPosSec: Float, durationSec: Float, percent: Float) {
+        val percentMilestones = listOf(10, 25, 50, 75, 90)
+        for (milestone in percentMilestones) {
+            if (percent >= milestone && !firedHeartbeats.contains("percent_$milestone")) {
+                firedHeartbeats.add("percent_$milestone")
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackHeartbeat(
+                    podcastId = playbackSessionPodcastId,
+                    podcastName = playbackSessionPodcastName,
+                    episodeId = episodeId,
+                    episodeTitle = playbackSessionEpisodeTitle,
+                    currentPositionSeconds = currentPosSec,
+                    totalDurationSeconds = durationSec,
+                    heartbeatPercentage = milestone,
+                    heartbeatType = "percent"
+                )
+            }
+        }
+    }
+
+    private fun checkIntervalHeartbeats(episodeId: String, currentPosSec: Float, durationSec: Float) {
+        val fiveMinuteIntervals = (currentPosSec / 300f).toInt()
+        if (fiveMinuteIntervals > 0) {
+            val milestoneKey = "time_${fiveMinuteIntervals * 5}m"
+            if (!firedHeartbeats.contains(milestoneKey)) {
+                firedHeartbeats.add(milestoneKey)
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackHeartbeat(
+                    podcastId = playbackSessionPodcastId,
+                    podcastName = playbackSessionPodcastName,
+                    episodeId = episodeId,
+                    episodeTitle = playbackSessionEpisodeTitle,
+                    currentPositionSeconds = currentPosSec,
+                    totalDurationSeconds = durationSec,
+                    heartbeatPercentage = 0,
+                    heartbeatType = "interval"
+                )
             }
         }
     }
@@ -907,33 +931,23 @@ class BoxLorePlaybackService : MediaLibraryService() {
      */
     private suspend fun saveProgressOnce(player: ExoPlayer) {
         try {
-            val currentItem = kotlinx.coroutines.withContext(Dispatchers.Main) {
-                player.currentMediaItem
-            }
-            val positionMs = kotlinx.coroutines.withContext(Dispatchers.Main) {
-                player.currentPosition
-            }
-            val durationMs = kotlinx.coroutines.withContext(Dispatchers.Main) {
-                player.duration
-            }
-            val episodeId = currentItem?.mediaId
-                ?.removePrefix("episode:")?.removePrefix("queue:") ?: return
+            val currentItem = kotlinx.coroutines.withContext(Dispatchers.Main) { player.currentMediaItem }
+            val positionMs = kotlinx.coroutines.withContext(Dispatchers.Main) { player.currentPosition }
+            val durationMs = kotlinx.coroutines.withContext(Dispatchers.Main) { player.duration }
+            val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:") ?: return
+            
             val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
             if (existing != null && positionMs > 0) {
                 val hasBeenPlayingFor10s = activePlaybackStartTimeMs > 0 && 
                         (System.currentTimeMillis() - activePlaybackStartTimeMs >= 10_000)
                 val lastPlayed = if (hasBeenPlayingFor10s) System.currentTimeMillis() else existing.lastPlayedAt
                 
-                val isCompleted = durationMs > 0 && (
-                    positionMs >= durationMs - 5000 ||
-                    positionMs >= durationMs * 0.95 ||
-                    (durationMs >= 900_000L && durationMs - positionMs <= 300_000L)
-                )
+                val isCompleted = checkIsPlaybackCompleted(positionMs, durationMs)
 
                 if (isCompleted) {
                     val updated = existing.copy(
                         isCompleted = true,
-                        progressMs = 0L, // reset progress on completion
+                        progressMs = 0L,
                         durationMs = if (durationMs > 0) durationMs else existing.durationMs,
                         lastPlayedAt = lastPlayed,
                         isDirty = true
@@ -950,7 +964,6 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     android.util.Log.d("AutoProgress", "Saved progress: $episodeId @ ${positionMs/1000}s / ${durationMs/1000}s")
                 }
                 
-                // Notify Auto to refresh browse tree so lists reorder by recency
                 kotlinx.coroutines.withContext(Dispatchers.Main) {
                     try {
                         mediaSession?.notifyChildrenChanged("home_continue_listening", 0, null)
@@ -958,8 +971,15 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("AutoProgress", "Save progress failed", e)
+            android.util.Log.e("AutoProgress", "Error saving progress once", e)
         }
+    }
+
+    private fun checkIsPlaybackCompleted(positionMs: Long, durationMs: Long): Boolean {
+        if (durationMs <= 0) return false
+        return positionMs >= durationMs - 5000 ||
+               positionMs >= durationMs * 0.95 ||
+               (durationMs >= 900_000L && durationMs - positionMs <= 300_000L)
     }
 
     /**

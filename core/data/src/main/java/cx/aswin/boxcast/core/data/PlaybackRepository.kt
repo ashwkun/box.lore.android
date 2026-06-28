@@ -64,6 +64,11 @@ data class PlayerState(
     val autoTranscriptLimitLeft: Int? = null
 )
 
+object SleepTimerHolder {
+    @Volatile var activeSleepTimerEndMs: Long? = null
+    @Volatile var sleepAtEndOfEpisode: Boolean = false
+}
+
 class PlaybackRepository(
     private val context: Context,
     private val listeningHistoryDao: cx.aswin.boxcast.core.data.database.ListeningHistoryDao,
@@ -1636,6 +1641,8 @@ class PlaybackRepository(
         
         if (durationMinutes <= 0) {
             Log.d("PlaybackRepo", "Sleep timer: OFF")
+            SleepTimerHolder.activeSleepTimerEndMs = null
+            SleepTimerHolder.sleepAtEndOfEpisode = false
             _playerState.value = _playerState.value.copy(
                 sleepTimerEnd = null, 
                 sleepAtEndOfEpisode = false,
@@ -1647,15 +1654,14 @@ class PlaybackRepository(
         // Special marker for "End of Episode" mode
         if (durationMinutes == 999) {
             Log.d("PlaybackRepo", "Sleep timer: End of Episode mode ENABLED")
-            // Just set the flag — the actual pause is handled by onMediaItemTransition
-            // and onPlaybackStateChanged(STATE_ENDED) in the Media3 listener
+            SleepTimerHolder.activeSleepTimerEndMs = null
+            SleepTimerHolder.sleepAtEndOfEpisode = true
             _playerState.value = _playerState.value.copy(
                 sleepAtEndOfEpisode = true, 
                 sleepTimerEnd = null,
                 showLateNightNudge = if (dismissNudge) false else _playerState.value.showLateNightNudge
             )
             
-            // Background job only updates the countdown display (no action logic)
             sleepTimerJob = repositoryScope.launch {
                 while (true) {
                     val state = _playerState.value
@@ -1674,6 +1680,8 @@ class PlaybackRepository(
             // Fixed timer mode
             val endTime = System.currentTimeMillis() + (durationMinutes * 60 * 1000L)
             Log.d("PlaybackRepo", "Sleep timer: Fixed ${durationMinutes}m, endTime=$endTime")
+            SleepTimerHolder.activeSleepTimerEndMs = endTime
+            SleepTimerHolder.sleepAtEndOfEpisode = false
             _playerState.value = _playerState.value.copy(
                 sleepTimerEnd = endTime, 
                 sleepAtEndOfEpisode = false,
@@ -1681,18 +1689,23 @@ class PlaybackRepository(
             )
 
             sleepTimerJob = repositoryScope.launch {
-                val waitMs = endTime - System.currentTimeMillis()
-                if (waitMs > 0) {
-                    delay(waitMs)
+                while (true) {
+                    val currentEnd = SleepTimerHolder.activeSleepTimerEndMs
+                    if (currentEnd == null) break
+                    if (System.currentTimeMillis() >= currentEnd) {
+                        Log.d("PlaybackRepo", "Sleep timer: FIRING! Pausing playback.")
+                        SleepTimerHolder.activeSleepTimerEndMs = null
+                        mediaController?.pause()
+                        stopProgressTicker()
+                        _playerState.value = _playerState.value.copy(
+                            sleepTimerEnd = null, 
+                            isPlaying = false,
+                            showLateNightNudge = false
+                        )
+                        break
+                    }
+                    delay(1000)
                 }
-                Log.d("PlaybackRepo", "Sleep timer: FIRING! Pausing playback.")
-                mediaController?.pause()
-                stopProgressTicker()
-                _playerState.value = _playerState.value.copy(
-                    sleepTimerEnd = null, 
-                    isPlaying = false,
-                    showLateNightNudge = false
-                )
             }
         }
     }
