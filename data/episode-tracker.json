@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-06-28T06:17:54.646Z",
+  "lastRun": "2026-06-28T09:41:11.456Z",
   "podcasts": {
     "2123": {
       "lastEpisodeId": "56772272198",
@@ -57,9 +57,9 @@
       "lastCheckedAt": 1782580347307
     },
     "7492905": {
-      "lastEpisodeId": "56496627586",
-      "lastEpisodeTitle": "Roomba: Rise of the robovac",
-      "lastCheckedAt": 1782590864477
+      "lastEpisodeId": "56814794641",
+      "lastEpisodeTitle": "Nest: The iPod of thermostats",
+      "lastCheckedAt": 1782639672707
     }
   }
 }
