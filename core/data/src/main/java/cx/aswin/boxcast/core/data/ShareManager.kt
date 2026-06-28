@@ -95,157 +95,16 @@ object ShareManager {
                         val mutableBitmap = originalBitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
                         val canvas = android.graphics.Canvas(mutableBitmap)
                         
-                        // Extract color palette dynamically from the artwork bitmap
-                        val palette = androidx.palette.graphics.Palette.from(originalBitmap).generate()
-                        val swatch = palette.dominantSwatch ?: palette.vibrantSwatch ?: palette.mutedSwatch
-                        val bgColor = swatch?.rgb ?: android.graphics.Color.parseColor("#0F0C20")
+                        val (adjustedBgColor, logoColor) = resolveContrastColors(originalBitmap)
                         
-                        // Calculate relative luminance to guarantee maximum text and logo visibility
-                        val bgLuminance = getRelativeLuminance(bgColor)
-                        val darkColorVal = android.graphics.Color.parseColor("#0F0C20")
-                        val darkLuminance = getRelativeLuminance(darkColorVal)
-                        
-                        val contrastWithWhite = (1.0 + 0.05) / (bgLuminance + 0.05)
-                        val contrastWithDark = (bgLuminance + 0.05) / (darkLuminance + 0.05)
-                        
-                        var logoColor = android.graphics.Color.WHITE
-                        var adjustedBgColor = bgColor
-                        
-                        if (contrastWithWhite >= contrastWithDark) {
-                            logoColor = android.graphics.Color.WHITE
-                            // If contrast with white is less than 4.5 (WCAG AA), darken the background slightly
-                            if (contrastWithWhite < 4.5) {
-                                val hsl = FloatArray(3)
-                                androidx.core.graphics.ColorUtils.colorToHSL(bgColor, hsl)
-                                hsl[2] = (hsl[2] - 0.15f).coerceAtLeast(0.12f) // Darken to safe range
-                                adjustedBgColor = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
-                            }
-                        } else {
-                            logoColor = darkColorVal
-                            // If contrast with dark is less than 4.5 (WCAG AA), lighten the background slightly
-                            if (contrastWithDark < 4.5) {
-                                val hsl = FloatArray(3)
-                                androidx.core.graphics.ColorUtils.colorToHSL(bgColor, hsl)
-                                hsl[2] = (hsl[2] + 0.15f).coerceAtMost(0.88f) // Lighten to safe range
-                                adjustedBgColor = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
-                            }
-                        }
-                        
-                        // Draw a custom corner badge at the bottom-right corner
-                        // Load Google Sans typeface from resources and make it BOLD (Product Sans style)
-                        val googleSansTypeface = try {
-                            val baseFont = androidx.core.content.res.ResourcesCompat.getFont(
-                                context,
-                                cx.aswin.boxcast.core.designsystem.R.font.google_sans_variable
-                            )
-                            if (baseFont != null) {
-                                android.graphics.Typeface.create(baseFont, android.graphics.Typeface.BOLD)
-                            } else {
-                                android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-                            }
-                        } catch (e: Exception) {
-                            android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-                        }
-                        
-                        val text = "listen on"
-                        
-                        // Keep text and logo size exactly identical to previous version (referenced to image height)
-                        val targetTextSize = (height * 0.0396f).coerceAtLeast(20f)
-                        val targetLogoHeight = (height * 0.077f).coerceAtLeast(38f)
-                        
-                        // Set up text paint for "listen on" (Google Sans Bold)
-                        val textPaint = android.graphics.Paint().apply {
-                            color = logoColor
-                            textSize = targetTextSize
-                            typeface = googleSansTypeface
-                            isAntiAlias = true
-                        }
-                        
-                        val fontMetrics = textPaint.fontMetrics
-                        val textHeight = fontMetrics.descent - fontMetrics.ascent
-                        
-                        // Tight vertical spacing and padding to eliminate wasted space
-                        var paddingTop = targetTextSize * 0.35f
-                        var paddingBottom = targetLogoHeight * 0.20f
-                        var spacing = targetLogoHeight * 0.12f
-                        
-                        var pillHeight = paddingTop + textHeight + spacing + targetLogoHeight + paddingBottom
-                        var logoHeight = targetLogoHeight
-                        
-                        // Calculate logo width (aspect ratio is 778f / 112f)
-                        var logoWidth = logoHeight * (778f / 112f)
-                        
-                        var radius = pillHeight * 0.40f
-                        
-                        // Tight horizontal padding to eliminate wasted horizontal space
-                        var paddingLeft = radius + logoHeight * 0.10f
-                        var paddingRight = logoHeight * 0.30f
-                        var textWidth = textPaint.measureText(text)
-                        var maxContentWidth = maxOf(textWidth, logoWidth)
-                        var pillWidth = maxContentWidth + paddingLeft + paddingRight
-                        
-                        // Ensure badge doesn't overflow small images (scale down proportionally if needed)
-                        if (pillWidth > width * 0.9f) {
-                            val scale = (width * 0.9f) / pillWidth
-                            val finalScale = scale.coerceAtLeast(0.5f)
-                            
-                            pillHeight *= finalScale
-                            textPaint.textSize = textPaint.textSize * finalScale
-                            logoHeight *= finalScale
-                            logoWidth = logoHeight * (778f / 112f)
-                            paddingLeft *= finalScale
-                            paddingRight *= finalScale
-                            paddingTop *= finalScale
-                            paddingBottom *= finalScale
-                            spacing *= finalScale
-                            
-                            // Recalculate text metrics after scaling
-                            val scaledFontMetrics = textPaint.fontMetrics
-                            val scaledTextHeight = scaledFontMetrics.descent - scaledFontMetrics.ascent
-                            textWidth = textPaint.measureText(text)
-                            maxContentWidth = maxOf(textWidth, logoWidth)
-                            pillWidth = maxContentWidth + paddingLeft + paddingRight
-                        }
-                        
-                        val pillLeft = width - pillWidth
-                        
-                        val paintBack = android.graphics.Paint().apply {
-                            color = adjustedBgColor
-                            style = android.graphics.Paint.Style.FILL
-                            isAntiAlias = true
-                        }
-                        
-                        val path = android.graphics.Path().apply {
-                            moveTo(pillLeft, height.toFloat()) // bottom-left of badge
-                            lineTo(pillLeft, height - pillHeight + radius) // start of top-left curve
-                            quadTo(pillLeft, height - pillHeight, pillLeft + radius, height - pillHeight) // top-left curve
-                            lineTo(width.toFloat(), height - pillHeight) // top-right (sharp)
-                            lineTo(width.toFloat(), height.toFloat()) // bottom-right (sharp)
-                            close()
-                        }
-                        canvas.drawPath(path, paintBack)
-                        
-                        // Draw "listen on" text and logo right-aligned with each other
-                        val contentEndX = width - paddingRight
-                        val textX = contentEndX - textWidth
-                        val textY = (height - pillHeight + paddingTop) - fontMetrics.ascent
-                        canvas.drawText(text, textX, textY, textPaint)
-                        
-                        // Draw the logo inside the capsule (below "listen on", right-aligned)
-                        val drawable = androidx.core.content.ContextCompat.getDrawable(
-                            context,
-                            cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_logo
-                        )?.mutate()
-                        if (drawable != null) {
-                            val logoLeft = contentEndX - logoWidth
-                            val logoTop = height - pillHeight + paddingTop + (fontMetrics.descent - fontMetrics.ascent) + spacing
-                            val logoRight = contentEndX
-                            val logoBottom = logoTop + logoHeight
-                            
-                            drawable.setBounds(logoLeft.toInt(), logoTop.toInt(), logoRight.toInt(), logoBottom.toInt())
-                            drawable.setTint(logoColor)
-                            drawable.draw(canvas)
-                        }
+                        drawCustomBadge(
+                            context = context,
+                            canvas = canvas,
+                            width = width,
+                            height = height,
+                            adjustedBgColor = adjustedBgColor,
+                            logoColor = logoColor
+                        )
                         
                         // Save bitmap to cache directory
                         val cacheFile = java.io.File(context.cacheDir, "shared_artwork.jpg")
@@ -306,5 +165,153 @@ object ShareManager {
         val bL = if (b <= 0.03928) b / 12.92 else Math.pow((b + 0.055) / 1.055, 2.4)
         
         return 0.2126 * rL + 0.7152 * gL + 0.0722 * bL
+    }
+
+    private fun resolveContrastColors(bitmap: android.graphics.Bitmap): Pair<Int, Int> {
+        val palette = androidx.palette.graphics.Palette.from(bitmap).generate()
+        val swatch = palette.dominantSwatch ?: palette.vibrantSwatch ?: palette.mutedSwatch
+        val bgColor = swatch?.rgb ?: android.graphics.Color.parseColor("#0F0C20")
+        
+        val bgLuminance = getRelativeLuminance(bgColor)
+        val darkColorVal = android.graphics.Color.parseColor("#0F0C20")
+        val darkLuminance = getRelativeLuminance(darkColorVal)
+        
+        val contrastWithWhite = (1.0 + 0.05) / (bgLuminance + 0.05)
+        val contrastWithDark = (bgLuminance + 0.05) / (darkLuminance + 0.05)
+        
+        var logoColor = android.graphics.Color.WHITE
+        var adjustedBgColor = bgColor
+        
+        if (contrastWithWhite >= contrastWithDark) {
+            logoColor = android.graphics.Color.WHITE
+            if (contrastWithWhite < 4.5) {
+                val hsl = FloatArray(3)
+                androidx.core.graphics.ColorUtils.colorToHSL(bgColor, hsl)
+                hsl[2] = (hsl[2] - 0.15f).coerceAtLeast(0.12f)
+                adjustedBgColor = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
+            }
+        } else {
+            logoColor = darkColorVal
+            if (contrastWithDark < 4.5) {
+                val hsl = FloatArray(3)
+                androidx.core.graphics.ColorUtils.colorToHSL(bgColor, hsl)
+                hsl[2] = (hsl[2] + 0.15f).coerceAtMost(0.88f)
+                adjustedBgColor = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
+            }
+        }
+        return Pair(adjustedBgColor, logoColor)
+    }
+
+    private fun drawCustomBadge(
+        context: Context,
+        canvas: android.graphics.Canvas,
+        width: Int,
+        height: Int,
+        adjustedBgColor: Int,
+        logoColor: Int
+    ) {
+        val googleSansTypeface = try {
+            val baseFont = androidx.core.content.res.ResourcesCompat.getFont(
+                context,
+                cx.aswin.boxcast.core.designsystem.R.font.google_sans_variable
+            )
+            if (baseFont != null) {
+                android.graphics.Typeface.create(baseFont, android.graphics.Typeface.BOLD)
+            } else {
+                android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            }
+        } catch (e: Exception) {
+            android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+        }
+        
+        val text = "listen on"
+        
+        val targetTextSize = (height * 0.0396f).coerceAtLeast(20f)
+        val targetLogoHeight = (height * 0.077f).coerceAtLeast(38f)
+        
+        val textPaint = android.graphics.Paint().apply {
+            color = logoColor
+            textSize = targetTextSize
+            typeface = googleSansTypeface
+            isAntiAlias = true
+        }
+        
+        val fontMetrics = textPaint.fontMetrics
+        val textHeight = fontMetrics.descent - fontMetrics.ascent
+        
+        var paddingTop = targetTextSize * 0.35f
+        var paddingBottom = targetLogoHeight * 0.20f
+        var spacing = targetLogoHeight * 0.12f
+        
+        var pillHeight = paddingTop + textHeight + spacing + targetLogoHeight + paddingBottom
+        var logoHeight = targetLogoHeight
+        
+        var logoWidth = logoHeight * (778f / 112f)
+        var radius = pillHeight * 0.40f
+        
+        var paddingLeft = radius + logoHeight * 0.10f
+        var paddingRight = logoHeight * 0.30f
+        var textWidth = textPaint.measureText(text)
+        var maxContentWidth = maxOf(textWidth, logoWidth)
+        var pillWidth = maxContentWidth + paddingLeft + paddingRight
+        
+        if (pillWidth > width * 0.9f) {
+            val scale = (width * 0.9f) / pillWidth
+            val finalScale = scale.coerceAtLeast(0.5f)
+            
+            pillHeight *= finalScale
+            textPaint.textSize = textPaint.textSize * finalScale
+            logoHeight *= finalScale
+            logoWidth = logoHeight * (778f / 112f)
+            paddingLeft *= finalScale
+            paddingRight *= finalScale
+            paddingTop *= finalScale
+            paddingBottom *= finalScale
+            spacing *= finalScale
+            
+            // Recalculate text metrics after scaling
+            textPaint.fontMetrics
+            textWidth = textPaint.measureText(text)
+            maxContentWidth = maxOf(textWidth, logoWidth)
+            pillWidth = maxContentWidth + paddingLeft + paddingRight
+        }
+        
+        val pillLeft = width - pillWidth
+        
+        val paintBack = android.graphics.Paint().apply {
+            color = adjustedBgColor
+            style = android.graphics.Paint.Style.FILL
+            isAntiAlias = true
+        }
+        
+        val path = android.graphics.Path().apply {
+            moveTo(pillLeft, height.toFloat()) // bottom-left of badge
+            lineTo(pillLeft, height - pillHeight + radius) // start of top-left curve
+            quadTo(pillLeft, height - pillHeight, pillLeft + radius, height - pillHeight) // top-left curve
+            lineTo(width.toFloat(), height - pillHeight) // top-right (sharp)
+            lineTo(width.toFloat(), height.toFloat()) // bottom-right (sharp)
+            close()
+        }
+        canvas.drawPath(path, paintBack)
+        
+        val contentEndX = width - paddingRight
+        val textX = contentEndX - textWidth
+        val textY = (height - pillHeight + paddingTop) - fontMetrics.ascent
+        canvas.drawText(text, textX, textY, textPaint)
+        
+        val drawable = androidx.core.content.ContextCompat.getDrawable(
+            context,
+            cx.aswin.boxcast.core.designsystem.R.drawable.ic_boxlore_logo
+        )?.mutate()
+        if (drawable != null) {
+            val logoLeft = contentEndX - logoWidth
+            val logoTop = height - pillHeight + paddingTop + textHeight + spacing
+            val logoRight = contentEndX
+            val logoBottom = logoTop + logoHeight
+            
+            drawable.setBounds(logoLeft.toInt(), logoTop.toInt(), logoRight.toInt(), logoBottom.toInt())
+            drawable.setTint(logoColor)
+            drawable.draw(canvas)
+        }
     }
 }

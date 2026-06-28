@@ -415,11 +415,7 @@ class HomeViewModel(
                 val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet() + completedEpisodeIds
                 val inProgressEpIdsForResolve = allHistory.filter { !it.isCompleted && it.progressMs > 0L }.map { it.episodeId }.toSet()
 
-                val serialPodsToResolve = subs.filter { (it.preferredSort ?: "newest") == "oldest" }.filter { pod ->
-                    val currentResolved = _resolvedSerialEpisodes.value[pod.id]
-                    val needsResolve = currentResolved == null || currentResolved.id in completedEpIdsForResolve || currentResolved.id in inProgressEpIdsForResolve
-                    needsResolve && pod.id !in inFlightResolutions
-                }
+                val serialPodsToResolve = findPendingSerialPodcasts(subs, allHistory, completedEpisodeIds)
 
                 if (serialPodsToResolve.isNotEmpty()) {
                     serialPodsToResolve.forEach { inFlightResolutions.add(it.id) }
@@ -439,29 +435,13 @@ class HomeViewModel(
                                         val page = podcastRepository.getEpisodesPaginated(pod.id, limit = 200, offset = 0, sort = "oldest")
                                         val allEpisodes = page.episodes
                                         
-                                        val nextEp = when {
-                                            ongoingId != null -> {
-                                                val ongoingIndex = allEpisodes.indexOfFirst { it.id == ongoingId }
-                                                if (ongoingIndex != -1 && ongoingIndex < allEpisodes.lastIndex) {
-                                                    allEpisodes[ongoingIndex + 1]
-                                                } else {
-                                                    null
-                                                }
-                                            }
-                                            lastCompletedId != null -> {
-                                                val completedIndex = allEpisodes.indexOfFirst { it.id == lastCompletedId }
-                                                if (completedIndex != -1 && completedIndex < allEpisodes.lastIndex) {
-                                                    allEpisodes[completedIndex + 1]
-                                                } else {
-                                                    null
-                                                }
-                                            }
-                                            else -> {
-                                                allEpisodes.firstOrNull()
-                                            }
-                                        } ?: allEpisodes.firstOrNull { ep ->
-                                            ep.id !in completedEpIdsForResolve && ep.id !in inProgressEpIdsForResolve
-                                        }
+                                        val nextEp = resolveNextSerialEpisode(
+                                            allEpisodes = allEpisodes,
+                                            ongoingId = ongoingId,
+                                            lastCompletedId = lastCompletedId,
+                                            completedEpIdsForResolve = completedEpIdsForResolve,
+                                            inProgressEpIdsForResolve = inProgressEpIdsForResolve
+                                        )
                                         
                                         if (nextEp != null) {
                                             pod.id to nextEp
@@ -487,6 +467,54 @@ class HomeViewModel(
                     }
                 }
             }
+        }
+    }
+
+    private fun findPendingSerialPodcasts(
+        subs: List<Podcast>,
+        allHistory: List<cx.aswin.boxcast.core.data.database.ListeningHistoryEntity>,
+        completedEpisodeIds: Set<String>
+    ): List<Podcast> {
+        val completedEpIdsForResolve = allHistory.filter { it.isCompleted }.map { it.episodeId }.toSet() + completedEpisodeIds
+        val inProgressEpIdsForResolve = allHistory.filter { !it.isCompleted && it.progressMs > 0L }.map { it.episodeId }.toSet()
+
+        return subs.filter { (it.preferredSort ?: "newest") == "oldest" }.filter { pod ->
+            val currentResolved = _resolvedSerialEpisodes.value[pod.id]
+            val needsResolve = currentResolved == null || currentResolved.id in completedEpIdsForResolve || currentResolved.id in inProgressEpIdsForResolve
+            needsResolve && pod.id !in inFlightResolutions
+        }
+    }
+
+    private fun resolveNextSerialEpisode(
+        allEpisodes: List<Episode>,
+        ongoingId: String?,
+        lastCompletedId: String?,
+        completedEpIdsForResolve: Set<String>,
+        inProgressEpIdsForResolve: Set<String>
+    ): Episode? {
+        val nextEp = when {
+            ongoingId != null -> {
+                val ongoingIndex = allEpisodes.indexOfFirst { it.id == ongoingId }
+                if (ongoingIndex != -1 && ongoingIndex < allEpisodes.lastIndex) {
+                    allEpisodes[ongoingIndex + 1]
+                } else {
+                    null
+                }
+            }
+            lastCompletedId != null -> {
+                val completedIndex = allEpisodes.indexOfFirst { it.id == lastCompletedId }
+                if (completedIndex != -1 && completedIndex < allEpisodes.lastIndex) {
+                    allEpisodes[completedIndex + 1]
+                } else {
+                    null
+                }
+            }
+            else -> {
+                allEpisodes.firstOrNull()
+            }
+        }
+        return nextEp ?: allEpisodes.firstOrNull { ep ->
+            ep.id !in completedEpIdsForResolve && ep.id !in inProgressEpIdsForResolve
         }
     }
 
@@ -1780,48 +1808,17 @@ class HomeViewModel(
 
         if (subscriptions.isEmpty() && historyList.isEmpty()) return null
 
-        val scores = mutableMapOf<String, Int>()
         val lastPlayedMap = mutableMapOf<String, Long>()
         val podcastNameMap = mutableMapOf<String, String>()
         val podcastImageMap = mutableMapOf<String, String>()
 
-        historyList.forEach { history ->
-            val podId = history.podcastId
-            if (podId.isNotEmpty()) {
-                podcastNameMap[podId] = history.podcastName
-                podcastImageMap[podId] = history.podcastImageUrl ?: ""
-                
-                val currentLastPlayed = lastPlayedMap.getOrDefault(podId, 0L)
-                if (history.lastPlayedAt > currentLastPlayed) {
-                    lastPlayedMap[podId] = history.lastPlayedAt
-                }
-
-                var score = scores.getOrDefault(podId, 0)
-                if (history.isCompleted) {
-                    score += 20
-                } else {
-                    // In-progress scoring based on significance:
-                    // - 5+ minutes played: +15 points (significant enough to trigger on its own)
-                    // - 1+ minute played: +5 points (requires multiple episodes to trigger)
-                    if (history.progressMs >= 300_000L) {
-                        score += 15
-                    } else if (history.progressMs >= 60_000L) {
-                        score += 5
-                    }
-                }
-                if (history.isLiked) {
-                    score += 40
-                }
-                scores[podId] = score
-            }
-        }
-
-        subscriptions.forEach { sub ->
-            val score = scores.getOrDefault(sub.id, 0) + 100
-            scores[sub.id] = score
-            podcastNameMap[sub.id] = sub.title
-            podcastImageMap[sub.id] = sub.imageUrl
-        }
+        val scores = calculatePodcastAffinityScores(
+            subscriptions = subscriptions,
+            historyList = historyList,
+            lastPlayedMap = lastPlayedMap,
+            podcastNameMap = podcastNameMap,
+            podcastImageMap = podcastImageMap
+        )
 
         if (scores.isEmpty()) return null
 
@@ -1858,6 +1855,53 @@ class HomeViewModel(
             fallbackImageUrl = "",
             description = ""
         )
+    }
+
+    private fun calculatePodcastAffinityScores(
+        subscriptions: List<Podcast>,
+        historyList: List<ListeningHistoryEntity>,
+        lastPlayedMap: MutableMap<String, Long>,
+        podcastNameMap: MutableMap<String, String>,
+        podcastImageMap: MutableMap<String, String>
+    ): Map<String, Int> {
+        val scores = mutableMapOf<String, Int>()
+
+        historyList.forEach { history ->
+            val podId = history.podcastId
+            if (podId.isNotEmpty()) {
+                podcastNameMap[podId] = history.podcastName
+                podcastImageMap[podId] = history.podcastImageUrl ?: ""
+                
+                val currentLastPlayed = lastPlayedMap.getOrDefault(podId, 0L)
+                if (history.lastPlayedAt > currentLastPlayed) {
+                    lastPlayedMap[podId] = history.lastPlayedAt
+                }
+
+                var score = scores.getOrDefault(podId, 0)
+                if (history.isCompleted) {
+                    score += 20
+                } else {
+                    if (history.progressMs >= 300_000L) {
+                        score += 15
+                    } else if (history.progressMs >= 60_000L) {
+                        score += 5
+                    }
+                }
+                if (history.isLiked) {
+                    score += 40
+                }
+                scores[podId] = score
+            }
+        }
+
+        subscriptions.forEach { sub ->
+            val score = scores.getOrDefault(sub.id, 0) + 100
+            scores[sub.id] = score
+            podcastNameMap[sub.id] = sub.title
+            podcastImageMap[sub.id] = sub.imageUrl
+        }
+        
+        return scores
     }
 
     private fun fetchBecauseYouLikeRecommendations(podcast: Podcast, region: String) {

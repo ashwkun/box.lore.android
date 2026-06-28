@@ -290,320 +290,373 @@ fun DailyBriefingCard(
             ) { state ->
                 when (state) {
                     DailyBriefingCardState.NORMAL -> {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            // Title
-                            Text(
-                                text = briefing.title,
-                                fontFamily = SectionHeaderFontFamily,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                lineHeight = 26.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Listen Now / Playing pill button
-                            Surface(
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier
-                                    .padding(horizontal = 20.dp)
-                                    .height(48.dp)
-                                    .widthIn(min = 180.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .expressiveClickable(onClick = onPlayPauseClick)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 24.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    if (isBuffering) {
-                                        BoxLoreLoader.CircularWavy(
-                                            size = 20.dp,
-                                            color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                            contentDescription = if (isPlaying) "Pause briefing" else "Play briefing",
-                                            tint = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = when {
-                                            isPlaying -> "Playing"
-                                            playbackStatus == EpisodeStatus.IN_PROGRESS -> "Resume · ${timeLeftMin} min left"
-                                            else -> "Listen Now · ${durationMin} min"
-                                        },
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        letterSpacing = 0.3.sp
-                                    )
-                                }
-                            }
-
-                            // Vertical chapters list (showing 3 by default, max 1 line per chapter)
-                            if (chapters.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    val visibleChapters = if (expanded) chapters else chapters.take(3)
-                                    visibleChapters.forEachIndexed { index, chapter ->
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .then(
-                                                    if ((index == 2 && !expanded && chapters.size > 3) || 
-                                                        (index == chapters.size - 1 && expanded && chapters.size > 3)) {
-                                                        Modifier.clickable {
-                                                            val nextExpanded = !expanded
-                                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardChaptersToggled(
-                                                                region = briefing.region,
-                                                                date = briefing.date,
-                                                                expanded = nextExpanded
-                                                            )
-                                                            expanded = nextExpanded
-                                                        }
-                                                    } else {
-                                                        Modifier
-                                                    }
-                                                )
-                                                .padding(vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            val mins = chapter.startTime.toLong() / 60
-                                            val secs = chapter.startTime.toLong() % 60
-                                            val timeStr = String.format(java.util.Locale.US, "%d:%02d", mins, secs)
-                                            Text(
-                                                text = timeStr,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                                                modifier = Modifier.width(36.dp)
-                                            )
-                                            Text(
-                                                text = chapter.title,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = Color.White.copy(alpha = 0.85f),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            
-                                            // Inline expand/collapse indicator
-                                            if (index == 2 && !expanded && chapters.size > 3) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                                    modifier = Modifier.padding(start = 4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "+${chapters.size - 3}",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color.White.copy(alpha = 0.6f)
-                                                    )
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.ExpandMore,
-                                                        contentDescription = "Show more",
-                                                        tint = Color.White.copy(alpha = 0.6f),
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            } else if (index == chapters.size - 1 && expanded && chapters.size > 3) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.ExpandLess,
-                                                    contentDescription = "Show less",
-                                                    tint = Color.White.copy(alpha = 0.6f),
-                                                    modifier = Modifier.size(16.dp).padding(start = 4.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Bottom padding
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
+                        DailyBriefingNormalContent(
+                            briefing = briefing,
+                            chapters = chapters,
+                            isPlaying = isPlaying,
+                            onPlayPauseClick = onPlayPauseClick,
+                            playbackStatus = playbackStatus,
+                            timeLeftMin = timeLeftMin,
+                            durationMin = durationMin,
+                            isBuffering = isBuffering,
+                            expanded = expanded,
+                            onExpandedChange = { expanded = it }
+                        )
                     }
                     DailyBriefingCardState.CONFIRM_DISMISS -> {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Dismiss for Today Button (styled exactly like the Listen Now button for visual consistency)
-                            Surface(
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier
-                                    .padding(horizontal = 20.dp)
-                                    .height(48.dp)
-                                    .widthIn(min = 180.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .clickable {
-                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingDismissedToday(
-                                            region = briefing.region,
-                                            date = briefing.date
-                                        )
-                                        onDismiss()
-                                    }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 24.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Dismiss for Today",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        letterSpacing = 0.3.sp
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = "Dismiss forever",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                                ),
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier
-                                    .padding(horizontal = 20.dp)
-                                    .clickable {
-                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingDismissForeverInitiated(
-                                            region = briefing.region,
-                                            date = briefing.date
-                                        )
-                                        cardState = DailyBriefingCardState.CONFIRM_FOREVER
-                                    }
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
+                        DailyBriefingDismissContent(
+                            briefing = briefing,
+                            onDismiss = onDismiss,
+                            onDismissForeverClick = { cardState = DailyBriefingCardState.CONFIRM_FOREVER }
+                        )
                     }
                     DailyBriefingCardState.CONFIRM_FOREVER -> {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Title
-                            Text(
-                                text = "Are you sure?",
-                                fontFamily = SectionHeaderFontFamily,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 20.dp)
+                        DailyBriefingForeverContent(
+                            briefing = briefing,
+                            onFeedbackClick = onFeedbackClick,
+                            onDismissForever = onDismissForever
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyBriefingNormalContent(
+    briefing: Briefing,
+    chapters: List<cx.aswin.boxcast.core.model.Chapter>,
+    isPlaying: Boolean,
+    onPlayPauseClick: () -> Unit,
+    playbackStatus: EpisodeStatus?,
+    timeLeftMin: Int,
+    durationMin: Int,
+    isBuffering: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Title
+        Text(
+            text = briefing.title,
+            fontFamily = SectionHeaderFontFamily,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            lineHeight = 26.sp,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Listen Now / Playing pill button
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .height(48.dp)
+                .widthIn(min = 180.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .expressiveClickable(onClick = onPlayPauseClick)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (isBuffering) {
+                    BoxLoreLoader.CircularWavy(
+                        size = 20.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause briefing" else "Play briefing",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = when {
+                        isPlaying -> "Playing"
+                        playbackStatus == EpisodeStatus.IN_PROGRESS -> "Resume · ${timeLeftMin} min left"
+                        else -> "Listen Now · ${durationMin} min"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    letterSpacing = 0.3.sp
+                )
+            }
+        }
+
+        // Vertical chapters list (showing 3 by default, max 1 line per chapter)
+        if (chapters.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val visibleChapters = if (expanded) chapters else chapters.take(3)
+                visibleChapters.forEachIndexed { index, chapter ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .then(
+                                if ((index == 2 && !expanded && chapters.size > 3) || 
+                                    (index == chapters.size - 1 && expanded && chapters.size > 3)) {
+                                    Modifier.clickable {
+                                        val nextExpanded = !expanded
+                                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardChaptersToggled(
+                                            region = briefing.region,
+                                            date = briefing.date,
+                                            expanded = nextExpanded
+                                        )
+                                        onExpandedChange(nextExpanded)
+                                    }
+                                } else {
+                                    Modifier
+                                }
                             )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = "We would love to hear your feedback and improve the brief.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.8f),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Buttons side by side (using standard M3 48.dp height & 24.dp shape)
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val mins = chapter.startTime.toLong() / 60
+                        val secs = chapter.startTime.toLong() % 60
+                        val timeStr = String.format(java.util.Locale.US, "%d:%02d", mins, secs)
+                        Text(
+                            text = timeStr,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                            modifier = Modifier.width(36.dp)
+                        )
+                        Text(
+                            text = chapter.title,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.85f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        // Inline expand/collapse indicator
+                        if (index == 2 && !expanded && chapters.size > 3) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                modifier = Modifier.padding(start = 4.dp)
                             ) {
-                                Surface(
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(24.dp))
-                                        .clickable {
-                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingFeedbackClicked(
-                                                region = briefing.region,
-                                                date = briefing.date
-                                            )
-                                            onFeedbackClick()
-                                        }
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(
-                                            text = "Send Feedback",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                    }
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                    contentColor = Color.White,
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(24.dp))
-                                        .clickable {
-                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingDismissedForever(
-                                                region = briefing.region,
-                                                date = briefing.date
-                                            )
-                                            onDismissForever()
-                                        }
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(
-                                            text = "I'm Sure",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = "+${chapters.size - 3}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White.copy(alpha = 0.6f)
+                                )
+                                Icon(
+                                    imageVector = Icons.Rounded.ExpandMore,
+                                    contentDescription = "Show more",
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
-
-                            Spacer(modifier = Modifier.height(16.dp))
+                        } else if (index == chapters.size - 1 && expanded && chapters.size > 3) {
+                            Icon(
+                                imageVector = Icons.Rounded.ExpandLess,
+                                contentDescription = "Show less",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(16.dp).padding(start = 4.dp)
+                            )
                         }
                     }
                 }
             }
         }
+
+        // Bottom padding
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun DailyBriefingDismissContent(
+    briefing: Briefing,
+    onDismiss: () -> Unit,
+    onDismissForeverClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Dismiss for Today Button (styled exactly like the Listen Now button for visual consistency)
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .height(48.dp)
+                .widthIn(min = 180.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .clickable {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingDismissedToday(
+                        region = briefing.region,
+                        date = briefing.date
+                    )
+                    onDismiss()
+                }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Dismiss for Today",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    letterSpacing = 0.3.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Dismiss forever",
+            style = MaterialTheme.typography.labelMedium.copy(
+                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+            ),
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .clickable {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingDismissForeverInitiated(
+                        region = briefing.region,
+                        date = briefing.date
+                    )
+                    onDismissForeverClick()
+                }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun DailyBriefingForeverContent(
+    briefing: Briefing,
+    onFeedbackClick: () -> Unit,
+    onDismissForever: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Title
+        Text(
+            text = "Are you sure?",
+            fontFamily = SectionHeaderFontFamily,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "We would love to hear your feedback and improve the brief.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.8f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Buttons side by side (using standard M3 48.dp height & 24.dp shape)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .height(48.dp)
+                    .weight(1f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingFeedbackClicked(
+                            region = briefing.region,
+                            date = briefing.date
+                        )
+                        onFeedbackClick()
+                    }
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(
+                        text = "Send Feedback",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White.copy(alpha = 0.15f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                contentColor = Color.White,
+                modifier = Modifier
+                    .height(48.dp)
+                    .weight(1f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingDismissedForever(
+                            region = briefing.region,
+                            date = briefing.date
+                        )
+                        onDismissForever()
+                    }
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(
+                        text = "I'm Sure",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
