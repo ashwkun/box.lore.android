@@ -69,66 +69,12 @@ fun HeroGridCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .drawWithCache {
-                        val size1Px = 180.dp.toPx()
-                        val size2Px = 220.dp.toPx()
-                        
-                        // Cache the translation offsets to avoid dp.toPx() inside onDrawBehind (Qodo optimization)
-                        val shape1OffsetX = -50.dp.toPx()
-                        val shape1OffsetY = -30.dp.toPx()
-                        val shape2Inset = 150.dp.toPx()
-                        
-                        val outline1 = shape1.createOutline(
-                            size = Size(size1Px, size1Px),
-                            layoutDirection = layoutDirection,
-                            density = this
-                        )
-                        val outline2 = shape2.createOutline(
-                            size = Size(size2Px, size2Px),
-                            layoutDirection = layoutDirection,
-                            density = this
-                        )
-                        
-                        val isJumpBackIn = title.contains("JUMP", ignoreCase = true)
-                        
-                        onDrawBehind {
-                            if (isJumpBackIn) {
-                                // Shape 1 (Top Left)
-                                translate(left = shape1OffsetX, top = shape1OffsetY) {
-                                    drawOutline(
-                                        outline = outline1,
-                                        color = primaryColor,
-                                        alpha = 0.10f
-                                    )
-                                }
-                                // Shape 2 (Bottom Right)
-                                translate(left = size.width - shape2Inset, top = size.height - shape2Inset) {
-                                    drawOutline(
-                                        outline = outline2,
-                                        color = primaryColor,
-                                        alpha = 0.10f
-                                    )
-                                }
-                            } else {
-                                // Shape 1 (Bottom Left)
-                                translate(left = shape1OffsetX, top = size.height - shape2Inset) {
-                                    drawOutline(
-                                        outline = outline1,
-                                        color = primaryColor,
-                                        alpha = 0.10f
-                                    )
-                                }
-                                // Shape 2 (Top Right)
-                                translate(left = size.width - shape2Inset, top = shape1OffsetY) {
-                                    drawOutline(
-                                        outline = outline2,
-                                        color = primaryColor,
-                                        alpha = 0.10f
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    .heroGridBackground(
+                        title = title,
+                        primaryColor = primaryColor,
+                        shape1 = shape1,
+                        shape2 = shape2
+                    )
             )
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -364,3 +310,69 @@ private fun ProgressBar(
         )
     }
 }
+
+private fun Modifier.heroGridBackground(
+    title: String,
+    primaryColor: Color,
+    shape1: androidx.compose.ui.graphics.Shape,
+    shape2: androidx.compose.ui.graphics.Shape
+): Modifier = this.drawWithCache {
+    val size1Px = 180.dp.toPx()
+    val size2Px = 220.dp.toPx()
+    
+    val shape1OffsetX = -50.dp.toPx()
+    val shape1OffsetY = -30.dp.toPx()
+    val shape2Inset = 150.dp.toPx()
+    
+    val outline1 = shape1.createOutline(
+        size = Size(size1Px, size1Px),
+        layoutDirection = layoutDirection,
+        density = this
+    )
+    val outline2 = shape2.createOutline(
+        size = Size(size2Px, size2Px),
+        layoutDirection = layoutDirection,
+        density = this
+    )
+    
+    val isJumpBackIn = title.contains("JUMP", ignoreCase = true)
+    
+    onDrawBehind {
+        if (isJumpBackIn) {
+            // Shape 1 (Top Left)
+            translate(left = shape1OffsetX, top = shape1OffsetY) {
+                drawOutline(
+                    outline = outline1,
+                    color = primaryColor,
+                    alpha = 0.10f
+                )
+            }
+            // Shape 2 (Bottom Right)
+            translate(left = size.width - shape2Inset, top = size.height - shape2Inset) {
+                drawOutline(
+                    outline = outline2,
+                    color = primaryColor,
+                    alpha = 0.10f
+                )
+            }
+        } else {
+            // Shape 1 (Bottom Left)
+            translate(left = shape1OffsetX, top = size.height - shape2Inset) {
+                drawOutline(
+                    outline = outline1,
+                    color = primaryColor,
+                    alpha = 0.10f
+                )
+            }
+            // Shape 2 (Top Right)
+            translate(left = size.width - shape2Inset, top = shape1OffsetY) {
+                drawOutline(
+                    outline = outline2,
+                    color = primaryColor,
+                    alpha = 0.10f
+                )
+            }
+        }
+    }
+}
+
