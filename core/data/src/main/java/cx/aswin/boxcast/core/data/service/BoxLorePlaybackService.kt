@@ -31,7 +31,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
     private val userPreferencesRepository by lazy {
         cx.aswin.boxcast.core.data.UserPreferencesRepository(this)
     }
-    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val mainDispatcher = Dispatchers.Main
+    private val ioDispatcher = Dispatchers.IO
+    private val serviceScope = CoroutineScope(mainDispatcher + SupervisorJob())
 
     // Lazy-init database & repos (avoid creating them if Auto is never used)
     private val database by lazy {
@@ -182,11 +184,12 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     updateHeartbeatsForPosition(newPosition.positionMs, playbackSessionTotalDurationMs)
                     val source = cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.consumeSeekSource()
                     android.util.Log.d("BoxCastPlayer", "onPositionDiscontinuity (SEEK): source=$source, reason=$reason, from ${oldPosition.positionMs} to ${newPosition.positionMs}")
-                    if (source != "resume" && source != "transition" && playbackSessionEpisodeId != null) {
+                    val epId = playbackSessionEpisodeId
+                    if (source != "resume" && source != "transition" && epId != null) {
                         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackSeeked(
                             podcastId = playbackSessionPodcastId,
                             podcastName = playbackSessionPodcastName,
-                            episodeId = playbackSessionEpisodeId!!,
+                            episodeId = epId,
                             episodeTitle = playbackSessionEpisodeTitle,
                             fromPositionSeconds = oldPosition.positionMs / 1000f,
                             toPositionSeconds = newPosition.positionMs / 1000f,
@@ -300,7 +303,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     // Save one final time on pause
                     progressSaverJob?.cancel()
                     progressSaverJob = null
-                    serviceScope.launch(Dispatchers.IO) {
+                    serviceScope.launch(ioDispatcher) {
                         saveProgressOnce(player)
                         activePlaybackStartTimeMs = 0L
                     }
@@ -500,16 +503,16 @@ class BoxLorePlaybackService : MediaLibraryService() {
             playbackSessionIsRepeating = history?.isCompleted == true
             
             var durationMs = currentItem?.mediaMetadata?.extras?.getLong("durationMs", 0L) ?: 0L
-            val exoDuration = kotlinx.coroutines.withContext(Dispatchers.Main) { 
+            val exoDuration = kotlinx.coroutines.withContext(mainDispatcher) { 
                 mediaSession?.player?.duration ?: 0L 
             }
             if (exoDuration > 0) durationMs = exoDuration
             playbackSessionTotalDurationMs = durationMs
             
-            val startPositionMs = kotlinx.coroutines.withContext(Dispatchers.Main) { 
+            val startPositionMs = kotlinx.coroutines.withContext(mainDispatcher) { 
                 mediaSession?.player?.currentPosition ?: 0L 
             }
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
+            kotlinx.coroutines.withContext(mainDispatcher) {
                 updateHeartbeatsForPosition(startPositionMs, durationMs)
             }
             val isSubscribed = podcastId?.let { subscriptionRepository.isSubscribed(it) } ?: false
@@ -531,11 +534,10 @@ class BoxLorePlaybackService : MediaLibraryService() {
     }
 
     private fun endPlaybackSession(forceCompleted: Boolean = false, isTransition: Boolean = false) {
-        if (playbackSessionStartTimeMs > 0 && playbackSessionEpisodeId != null) {
+        val currentEpisodeId = playbackSessionEpisodeId
+        if (playbackSessionStartTimeMs > 0 && currentEpisodeId != null) {
             val durationPlayedMs = System.currentTimeMillis() - playbackSessionStartTimeMs
             val durationPlayedSeconds = durationPlayedMs / 1000f
-            
-            val currentEpisodeId = playbackSessionEpisodeId!!
             val currentPodcastId = playbackSessionPodcastId
             val currentPodcastName = playbackSessionPodcastName
             val currentPodcastGenre = playbackSessionPodcastGenre
@@ -594,7 +596,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 // Auto-delete completed download if enabled in preferences
                 val completedEpId = currentEpisodeId
                 if (completedEpId.isNotEmpty()) {
-                    serviceScope.launch(Dispatchers.IO) {
+                    serviceScope.launch(ioDispatcher) {
                         try {
                             val shouldDelete = userPreferencesRepository.autoDownloadDeleteCompletedStream.first()
                             if (shouldDelete) {
@@ -740,14 +742,14 @@ class BoxLorePlaybackService : MediaLibraryService() {
             val recommendationSources = mutableListOf<String>()
 
             // Collect existing mediaIds to avoid duplicates
-            val existingIds = kotlinx.coroutines.withContext(Dispatchers.Main) {
+            val existingIds = kotlinx.coroutines.withContext(mainDispatcher) {
                 (0 until player.mediaItemCount).map { 
                     player.getMediaItemAt(it).mediaId.removePrefix("episode:").removePrefix("queue:")
                 }.toSet()
             }
             
             // Add to player queue on main thread
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
+            kotlinx.coroutines.withContext(mainDispatcher) {
                 nextEntries.forEach { entry ->
                     val ep = entry.episode
                     val pod = entry.podcast
@@ -838,7 +840,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
             if (sleepEnd != null && System.currentTimeMillis() >= sleepEnd) {
                 cx.aswin.boxcast.core.data.SleepTimerHolder.activeSleepTimerEndMs = null
                 android.util.Log.d("BoxCastPlayer", "Foreground Service Sleep Timer: Expired! Pausing player.")
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                kotlinx.coroutines.withContext(mainDispatcher) {
                     if (player.isPlaying) player.pause()
                 }
             }
@@ -931,9 +933,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
      */
     private suspend fun saveProgressOnce(player: ExoPlayer) {
         try {
-            val currentItem = kotlinx.coroutines.withContext(Dispatchers.Main) { player.currentMediaItem }
-            val positionMs = kotlinx.coroutines.withContext(Dispatchers.Main) { player.currentPosition }
-            val durationMs = kotlinx.coroutines.withContext(Dispatchers.Main) { player.duration }
+            val currentItem = kotlinx.coroutines.withContext(mainDispatcher) { player.currentMediaItem }
+            val positionMs = kotlinx.coroutines.withContext(mainDispatcher) { player.currentPosition }
+            val durationMs = kotlinx.coroutines.withContext(mainDispatcher) { player.duration }
             val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:") ?: return
             
             val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
@@ -964,7 +966,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     android.util.Log.d("AutoProgress", "Saved progress: $episodeId @ ${positionMs/1000}s / ${durationMs/1000}s")
                 }
                 
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                kotlinx.coroutines.withContext(mainDispatcher) {
                     try {
                         mediaSession?.notifyChildrenChanged("home_continue_listening", 0, null)
                     } catch (_: Exception) {}
@@ -1002,7 +1004,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         val durationMs = player.duration
         val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
         if (episodeId != null) {
-            serviceScope.launch(Dispatchers.IO) {
+            serviceScope.launch(ioDispatcher) {
                 try {
                     val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
                     if (existing != null) {
@@ -1050,7 +1052,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 markCurrentEpisodeCompleted()
             }
             
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
+            kotlinx.coroutines.withContext(mainDispatcher) {
                 if (player.hasNextMediaItem()) {
                     player.seekToNextMediaItem()
                 } else {
@@ -1065,7 +1067,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
      */
     private fun markCurrentEpisodeCompletedAndSkip(session: MediaSession) {
         markCurrentEpisodeCompleted()
-        serviceScope.launch(Dispatchers.Main) {
+        serviceScope.launch(mainDispatcher) {
             val player = exoPlayer ?: return@launch
             if (player.hasNextMediaItem()) {
                 player.seekToNextMediaItem()
@@ -1636,7 +1638,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                                     }
                                     
                                     // Safely add to player on the main thread
-                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    kotlinx.coroutines.withContext(mainDispatcher) {
                                         mediaSession.player.addMediaItems(mediaItemsToAdd)
                                         android.util.Log.d("AutoBrowse", "Async queue built: appended ${mediaItemsToAdd.size} items")
                                     }
