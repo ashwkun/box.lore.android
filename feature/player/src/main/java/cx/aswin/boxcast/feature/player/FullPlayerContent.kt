@@ -79,7 +79,6 @@ import cx.aswin.boxcast.core.designsystem.theme.LocalEffectiveDarkTheme
 fun FullPlayerContent(
     playbackRepository: PlaybackRepository,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    isDarkTheme: Boolean,
     colorScheme: ColorScheme,
     isFullscreenVideo: Boolean = false,
     onFullscreenVideoChange: (Boolean) -> Unit = {},

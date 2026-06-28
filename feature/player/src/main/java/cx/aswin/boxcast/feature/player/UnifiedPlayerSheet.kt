@@ -543,7 +543,6 @@ fun UnifiedPlayerSheet(
                             FullPlayerContent(
                                 playbackRepository = playbackRepository,
                                 downloadRepository = downloadRepository,
-                                isDarkTheme = effectiveDarkTheme,
                                 colorScheme = scheme,
                                 isFullscreenVideo = isFullscreenVideo,
                                 onFullscreenVideoChange = { isFullscreenVideo = it },
