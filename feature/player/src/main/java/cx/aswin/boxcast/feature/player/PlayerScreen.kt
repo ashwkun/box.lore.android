@@ -78,9 +78,8 @@ import kotlin.random.Random
 import cx.aswin.boxcast.feature.player.components.SimplePlayerControls
 import cx.aswin.boxcast.core.designsystem.components.AdvancedPlayerControls
 import cx.aswin.boxcast.core.designsystem.theme.generateBrandColorScheme
-import cx.aswin.boxcast.core.designsystem.theme.luminance
-import cx.aswin.boxcast.core.designsystem.theme.SurfaceStyles
-import cx.aswin.boxcast.core.data.UserPreferencesRepository
+import cx.aswin.boxcast.core.designsystem.theme.LocalSurfaceStyle
+import cx.aswin.boxcast.core.designsystem.theme.LocalEffectiveDarkTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.ColorScheme
@@ -289,14 +288,8 @@ fun PlayerContent(
 ) {
     // 1. Color Extraction Logic
     val context = LocalContext.current
-    val userPrefs = remember(context) { UserPreferencesRepository(context) }
-    val surfaceStyle by userPrefs.surfaceStyleStream.collectAsState(initial = remember { userPrefs.cachedSurfaceStyle })
-
-    val effectiveDarkTheme = when (surfaceStyle) {
-        SurfaceStyles.AMOLED, SurfaceStyles.CLASSIC_DARK -> true
-        SurfaceStyles.PURE_WHITE, SurfaceStyles.CLASSIC_LIGHT -> false
-        else -> MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    }
+    val surfaceStyle = LocalSurfaceStyle.current
+    val effectiveDarkTheme = LocalEffectiveDarkTheme.current
 
     var extractedColorScheme by remember { mutableStateOf<ColorScheme?>(null) }
     val colorScheme = extractedColorScheme ?: MaterialTheme.colorScheme

@@ -72,13 +72,13 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.*
 import androidx.compose.ui.text.style.TextOverflow
+import cx.aswin.boxcast.core.designsystem.theme.LocalEffectiveDarkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerContent(
     playbackRepository: PlaybackRepository,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    isDarkTheme: Boolean,
     colorScheme: ColorScheme,
     isFullscreenVideo: Boolean = false,
     onFullscreenVideoChange: (Boolean) -> Unit = {},
@@ -177,11 +177,12 @@ fun FullPlayerContent(
         showFullscreenTranscript = false
     }
     
+    val resolvedDark = LocalEffectiveDarkTheme.current
     SideEffect {
         window?.let { win ->
              val insetsController = androidx.core.view.WindowCompat.getInsetsController(win, win.decorView)
-             insetsController.isAppearanceLightStatusBars = !isDarkTheme
-             insetsController.isAppearanceLightNavigationBars = !isDarkTheme
+             insetsController.isAppearanceLightStatusBars = !resolvedDark
+             insetsController.isAppearanceLightNavigationBars = !resolvedDark
         }
     }
     
