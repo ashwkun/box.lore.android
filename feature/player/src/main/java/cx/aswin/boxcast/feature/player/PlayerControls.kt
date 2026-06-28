@@ -55,10 +55,6 @@ fun PlayerControls(
     onNext: () -> Unit,
     height: androidx.compose.ui.unit.Dp = 80.dp
 ) {
-    val interactionSourcePrev = remember { MutableInteractionSource() }
-    val interactionSourcePlay = remember { MutableInteractionSource() }
-    val interactionSourceNext = remember { MutableInteractionSource() }
-    
     var lastClickedId by remember { mutableStateOf<Int?>(null) }
     
     // Auto-reset last clicked
@@ -79,6 +75,10 @@ fun PlayerControls(
         else -> compressionWeight
     }
     
+    val weightPrev by animateFloatAsState(getWeight(0), label = "prevW")
+    val weightPlay by animateFloatAsState(getWeight(1), label = "playW")
+    val weightNext by animateFloatAsState(getWeight(2), label = "nextW")
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -87,112 +87,140 @@ fun PlayerControls(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // REPLAY -10s (Circle like PixelPlayer)
-        val weightPrev by animateFloatAsState(getWeight(0), label = "prevW")
-        Box(
-            modifier = Modifier
-                .weight(weightPrev)
-                .fillMaxHeight()
-                .clip(CircleShape)
-                .background(colorScheme.primary.copy(alpha = 0.15f))
-                .clickable(interactionSource = interactionSourcePrev, indication = ripple(), onClick = {
-                    lastClickedId = 0
-                    onPrevious()
-                }),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Replay10,
-                contentDescription = "Replay 10s",
-                modifier = Modifier.size(32.dp),
-                tint = controlTint
-            )
-        }
-
-        // PLAY / PAUSE (Smooth Squircle like PixelPlayer)
-        val weightPlay by animateFloatAsState(getWeight(1), label = "playW")
-        
-        // Debounce loader: only show if loading persists > 300ms (prevents flicker on quick seeks)
-        var showLoader by remember { mutableStateOf(false) }
-        LaunchedEffect(isLoading) {
-            if (isLoading) {
-                kotlinx.coroutines.delay(500)
-                showLoader = true
-            } else {
-                showLoader = false
+        ControlIconButton(
+            weight = weightPrev,
+            icon = Icons.Rounded.Replay10,
+            contentDescription = "Replay 10s",
+            colorScheme = colorScheme,
+            controlTint = controlTint,
+            onClick = {
+                lastClickedId = 0
+                onPrevious()
             }
+        )
+
+        PlayPauseButton(
+            weight = weightPlay,
+            isPlaying = isPlaying,
+            isLoading = isLoading,
+            colorScheme = colorScheme,
+            controlTint = controlTint,
+            onClick = {
+                lastClickedId = 1
+                onPlayPause()
+            }
+        )
+
+        ControlIconButton(
+            weight = weightNext,
+            icon = Icons.Rounded.Forward30,
+            contentDescription = "Forward 30s",
+            colorScheme = colorScheme,
+            controlTint = controlTint,
+            onClick = {
+                lastClickedId = 2
+                onNext()
+            }
+        )
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.ControlIconButton(
+    weight: Float,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    colorScheme: ColorScheme,
+    controlTint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .weight(weight)
+            .fillMaxHeight()
+            .clip(CircleShape)
+            .background(colorScheme.primary.copy(alpha = 0.15f))
+            .clickable(interactionSource = interactionSource, indication = ripple(), onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(32.dp),
+            tint = controlTint
+        )
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.PlayPauseButton(
+    weight: Float,
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    colorScheme: ColorScheme,
+    controlTint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    var showLoader by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            kotlinx.coroutines.delay(500)
+            showLoader = true
+        } else {
+            showLoader = false
         }
-        
-        // PixelPlayer corner animation: 60dp (circle) when paused <-> 26dp (squircle) when playing
-        val playCorner by animateDpAsState(
-            targetValue = if (isPlaying) 26.dp else 60.dp,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMedium
-            ),
-            label = "playCorner"
-        )
-        val playShape = AbsoluteSmoothCornerShape(
-            cornerRadiusTL = playCorner,
-            smoothnessAsPercentTL = 60,
-            cornerRadiusTR = playCorner,
-            smoothnessAsPercentTR = 60,
-            cornerRadiusBL = playCorner,
-            smoothnessAsPercentBL = 60,
-            cornerRadiusBR = playCorner,
-            smoothnessAsPercentBR = 60
-        )
-        
-        Box(
-            modifier = Modifier
-                .weight(weightPlay)
-                .fillMaxHeight()
-                .clip(playShape)
-                .background(controlTint) // Vibrant/Primary
-                .clickable(interactionSource = interactionSourcePlay, indication = ripple(), onClick = {
-                    lastClickedId = 1
-                    onPlayPause()
-                }),
-            contentAlignment = Alignment.Center
-        ) {
-            if (showLoader) {
-                BoxLoreLoader.CircularWavy(
+    }
+    
+    val playCorner by animateDpAsState(
+        targetValue = if (isPlaying) 26.dp else 60.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "playCorner"
+    )
+    val playShape = AbsoluteSmoothCornerShape(
+        cornerRadiusTL = playCorner,
+        smoothnessAsPercentTL = 60,
+        cornerRadiusTR = playCorner,
+        smoothnessAsPercentTR = 60,
+        cornerRadiusBL = playCorner,
+        smoothnessAsPercentBL = 60,
+        cornerRadiusBR = playCorner,
+        smoothnessAsPercentBR = 60
+    )
+    
+    Box(
+        modifier = modifier
+            .weight(weight)
+            .fillMaxHeight()
+            .clip(playShape)
+            .background(controlTint)
+            .clickable(interactionSource = interactionSource, indication = ripple(), onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (showLoader) {
+            BoxLoreLoader.CircularWavy(
+                modifier = Modifier.size(36.dp),
+                size = 36.dp,
+                color = colorScheme.onPrimary
+            )
+        } else {
+            Crossfade(targetState = isPlaying, label = "playPauseCrossfade") { playing ->
+                Icon(
+                    imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (playing) "Pause" else "Play",
                     modifier = Modifier.size(36.dp),
-                    size = 36.dp,
-                    color = colorScheme.onPrimary
+                    tint = colorScheme.onPrimary
                 )
-            } else {
-                 Crossfade(targetState = isPlaying, label = "playPauseCrossfade") { playing ->
-                     Icon(
-                         imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                         contentDescription = if (playing) "Pause" else "Play",
-                         modifier = Modifier.size(36.dp),
-                         tint = colorScheme.onPrimary
-                     )
-                 }
             }
-        }
-
-        // FORWARD +30s (Circle like PixelPlayer)
-        val weightNext by animateFloatAsState(getWeight(2), label = "nextW")
-        Box(
-            modifier = Modifier
-                .weight(weightNext)
-                .fillMaxHeight()
-                .clip(CircleShape)
-                .background(colorScheme.primary.copy(alpha = 0.15f))
-                .clickable(interactionSource = interactionSourceNext, indication = ripple(), onClick = {
-                    lastClickedId = 2
-                    onNext()
-                }),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Forward30,
-                contentDescription = "Forward 30s",
-                modifier = Modifier.size(32.dp),
-                tint = controlTint
-            )
         }
     }
 }
+
+
+

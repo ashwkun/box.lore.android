@@ -34,44 +34,8 @@ fun RadioShapesFallback() {
     val iconColor = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.5f)
 
     // Random positions calculated once per composition
-    val shapes = remember {
-        val allShapes = listOf(
-            ExpressiveShapes.Sunny, ExpressiveShapes.VerySunny, 
-            ExpressiveShapes.Cookie4, ExpressiveShapes.Cookie6, ExpressiveShapes.Cookie9, ExpressiveShapes.Cookie12,
-            ExpressiveShapes.Burst, ExpressiveShapes.SoftBurst, ExpressiveShapes.Boom, ExpressiveShapes.SoftBoom,
-            ExpressiveShapes.Flower, ExpressiveShapes.Puffy, ExpressiveShapes.PuffyDiamond,
-            ExpressiveShapes.Heart, ExpressiveShapes.Bun, ExpressiveShapes.GhostIsh,
-            ExpressiveShapes.Diamond, ExpressiveShapes.Gem, ExpressiveShapes.Pentagon
-        ).shuffled()
-        
-        val placedShapes = mutableListOf<PlacedShape>()
-        val availableShapes = allShapes.toMutableList()
-        
-        // Try to place up to 6 shapes without overlapping
-        for (i in 0 until 100) {
-            if (placedShapes.size >= 6 || availableShapes.isEmpty()) break
-            
-            val x = Random.nextFloat() * 350f
-            val y = Random.nextFloat() * 600f
-            
-            var overlaps = false
-            for (placed in placedShapes) {
-                val px = placed.x
-                val py = placed.y
-                val dist = kotlin.math.sqrt((x - px) * (x - px) + (y - py) * (y - py))
-                if (dist < 200f) {
-                    overlaps = true
-                    break
-                }
-            }
-            
-            if (!overlaps) {
-                val size = 180 + Random.nextInt(170)
-                placedShapes.add(PlacedShape(x, y, size, availableShapes.removeAt(0)))
-            }
-        }
-        placedShapes
-    }
+    val shapes = remember { calculateFallbackPlacedShapes() }
+
     
     Box(
         modifier = Modifier
