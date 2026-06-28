@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -510,51 +511,65 @@ private fun ExpressiveTabSwitcher(
         // Tab Content
         Row(modifier = Modifier.fillMaxWidth()) {
             tabs.forEachIndexed { index, label ->
-                val isSelected = index == selectedIndex
-                
-                val textColor by animateColorAsState(
-                    targetValue = if (isSelected)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                    label = "tabText"
+                TabItemContent(
+                    index = index,
+                    label = label,
+                    isSelected = index == selectedIndex,
+                    badgeCount = badge[index],
+                    onTabSelected = onTabSelected
                 )
-                
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { onTabSelected(index) }
-                        ),
-                    contentAlignment = Alignment.Center
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.TabItemContent(
+    index: Int,
+    label: String,
+    isSelected: Boolean,
+    badgeCount: Int?,
+    onTabSelected: (Int) -> Unit
+) {
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.onPrimaryContainer
+        else
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "tabText"
+    )
+
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .height(48.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onTabSelected(index) }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = textColor
+            )
+            if (badgeCount != null && badgeCount > 0) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Badge(
+                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline,
+                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                  else MaterialTheme.colorScheme.surface
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = textColor
-                        )
-                        val badgeCount = badge[index]
-                        if (badgeCount != null && badgeCount > 0) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Badge(
-                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary
-                                                else MaterialTheme.colorScheme.outline,
-                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                              else MaterialTheme.colorScheme.surface
-                            ) {
-                                Text("$badgeCount")
-                            }
-                        }
-                    }
+                    Text("$badgeCount")
                 }
             }
         }
@@ -717,31 +732,9 @@ private fun ShowsTabContent(
             onExploreClick = onExploreClick
         )
     } else {
-        val distinctGenres = remember(podcasts) {
-            podcasts.flatMap { pod ->
-                pod.genre.split(",")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() && !it.equals("podcast", ignoreCase = true) }
-                    .map { genre ->
-                        genre.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                    }
-            }.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER)
-        }
-
+        val distinctGenres = remember(podcasts) { extractDistinctGenres(podcasts) }
         var selectedGenre by rememberSaveable { mutableStateOf("All") }
-
-        val filteredPodcasts = remember(podcasts, selectedGenre) {
-            if (selectedGenre == "All") {
-                podcasts
-            } else {
-                podcasts.filter { pod ->
-                    pod.genre.split(",")
-                        .map { it.trim() }
-                        .any { it.equals(selectedGenre, ignoreCase = true) }
-                }
-            }
-        }
-
+        val filteredPodcasts = remember(podcasts, selectedGenre) { filterPodcastsByGenre(podcasts, selectedGenre) }
         val distinctPodcasts = remember(filteredPodcasts) { filteredPodcasts.distinctBy { it.id } }
 
         if (isGridView) {
@@ -1141,52 +1134,13 @@ private fun LatestEpisodeRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Episode artwork with status overlay
-        Box(modifier = Modifier.size(64.dp)) {
-            OptimizedImage(
-                url = episode.imageUrl?.takeIf { it.isNotEmpty() }
-                    ?: podcast.imageUrl.takeIf { it.isNotEmpty() }
-                    ?: podcast.fallbackImageUrl,
-                proxyWidth = 400,
-                contentDescription = episode.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(10.dp))
-            )
-
-            if (isCompleted) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(3.dp)
-                        .size(18.dp)
-                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = "Played",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-            }
-
-            if (isInProgress && progress > 0f) {
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    drawStopIndicator = {}
-                )
-            }
-        }
+        EpisodeRowArtwork(
+            episode = episode,
+            podcast = podcast,
+            isCompleted = isCompleted,
+            isInProgress = isInProgress,
+            progress = progress
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 
@@ -1322,5 +1276,81 @@ private fun SubscriptionGridCard(
                     .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
             )
         }
+    }
+}
+
+@Composable
+private fun EpisodeRowArtwork(
+    episode: Episode,
+    podcast: Podcast,
+    isCompleted: Boolean,
+    isInProgress: Boolean,
+    progress: Float
+) {
+    Box(modifier = Modifier.size(64.dp)) {
+        OptimizedImage(
+            url = episode.imageUrl?.takeIf { it.isNotEmpty() }
+                ?: podcast.imageUrl.takeIf { it.isNotEmpty() }
+                ?: podcast.fallbackImageUrl,
+            proxyWidth = 400,
+            contentDescription = episode.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(10.dp))
+        )
+
+        if (isCompleted) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(3.dp)
+                    .size(18.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.4f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = "Played",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+        }
+
+        if (isInProgress && progress > 0f) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                drawStopIndicator = {}
+            )
+        }
+    }
+}
+
+private fun extractDistinctGenres(podcasts: List<Podcast>): List<String> {
+    return podcasts.flatMap { pod ->
+        pod.genre.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.equals("podcast", ignoreCase = true) }
+            .map { genre ->
+                genre.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            }
+    }.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER)
+}
+
+private fun filterPodcastsByGenre(podcasts: List<Podcast>, selectedGenre: String): List<Podcast> {
+    if (selectedGenre == "All") return podcasts
+    return podcasts.filter { pod ->
+        pod.genre.split(",")
+            .map { it.trim() }
+            .any { it.equals(selectedGenre, ignoreCase = true) }
     }
 }
