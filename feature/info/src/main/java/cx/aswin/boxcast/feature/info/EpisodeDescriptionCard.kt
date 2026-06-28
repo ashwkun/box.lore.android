@@ -139,6 +139,12 @@ internal fun extractSocialLinks(html: String): List<SocialLink> {
 }
 
 private fun buildSocialLinkFromHost(host: String, url: String, handle: String?): SocialLink {
+    return getMediaSocialLink(host, url, handle)
+        ?: getCommunitySocialLink(host, url, handle)
+        ?: buildGenericWebLink(host, url)
+}
+
+private fun getMediaSocialLink(host: String, url: String, handle: String?): SocialLink? {
     return when {
         host.contains("youtube.com") || host.contains("youtu.be") ->
             SocialLink(if (handle != null) "YouTube: $handle" else "YouTube", url, Color(0xFFFF0000), Icons.Rounded.PlayCircle)
@@ -152,6 +158,12 @@ private fun buildSocialLinkFromHost(host: String, url: String, handle: String?):
             SocialLink("Spotify", url, Color(0xFF1DB954), Icons.Rounded.MusicNote)
         host.contains("podcasts.apple.com") ->
             SocialLink("Apple Podcasts", url, Color(0xFF9933CC), Icons.Rounded.Podcasts)
+        else -> null
+    }
+}
+
+private fun getCommunitySocialLink(host: String, url: String, handle: String?): SocialLink? {
+    return when {
         host.contains("patreon.com") ->
             SocialLink(if (handle != null) "Patreon: $handle" else "Patreon", url, Color(0xFFF96854), Icons.Rounded.Loyalty)
         host.contains("tiktok.com") ->
@@ -166,12 +178,14 @@ private fun buildSocialLinkFromHost(host: String, url: String, handle: String?):
             SocialLink(if (handle != null) "Twitch: $handle" else "Twitch", url, Color(0xFF9146FF), Icons.Rounded.Videocam)
         host.contains("reddit.com") ->
             SocialLink(if (handle != null) "Reddit: $handle" else "Reddit", url, Color(0xFFFF4500), Icons.Rounded.Forum)
-        else -> {
-            val name = host.removePrefix("www.").split(".").first()
-                .replaceFirstChar { c -> c.uppercase() }
-            SocialLink(name, url, Color(0xFF607D8B), Icons.Rounded.Language)
-        }
+        else -> null
     }
+}
+
+private fun buildGenericWebLink(host: String, url: String): SocialLink {
+    val name = host.removePrefix("www.").split(".").first()
+        .replaceFirstChar { c -> c.uppercase() }
+    return SocialLink(name, url, Color(0xFF607D8B), Icons.Rounded.Language)
 }
 
 // --- Composable ---
