@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import java.net.URL
+import androidx.annotation.VisibleForTesting
 
 /**
  * Parsed transcript segment with timing.
@@ -19,21 +20,27 @@ data class TranscriptSegment(
  */
 object TranscriptRepository {
     
+    private val HTML_TAG_REGEX = Regex("<[^>]+>")
     private val cache = mutableMapOf<String, List<TranscriptSegment>>()
     
+    private const val HTTPS_SCHEME = "https://"
+    private const val HTTP_SCHEME = "http://"
+    private const val HTTPS_PREFIX = "https:"
+    private const val HTTP_PREFIX = "http:"
+
     private fun normalizeUrl(url: String): String {
         try {
             var decoded = url
             if (decoded.contains("%3A") || decoded.contains("%2F") || decoded.contains("%3a") || decoded.contains("%2f")) {
                 decoded = java.net.URLDecoder.decode(decoded, "UTF-8")
             }
-            if (decoded.startsWith("http:") && !decoded.startsWith("http://")) {
-                decoded = decoded.replaceFirst("http:", "http://")
-            } else if (decoded.startsWith("https:") && !decoded.startsWith("https://")) {
-                decoded = decoded.replaceFirst("https:", "https://")
+            if (decoded.startsWith(HTTP_PREFIX) && !decoded.startsWith(HTTP_SCHEME)) {
+                decoded = decoded.replaceFirst(HTTP_PREFIX, HTTP_SCHEME)
+            } else if (decoded.startsWith(HTTPS_PREFIX) && !decoded.startsWith(HTTPS_SCHEME)) {
+                decoded = decoded.replaceFirst(HTTPS_PREFIX, HTTPS_SCHEME)
             }
-            if (decoded.startsWith("http://")) {
-                decoded = decoded.replaceFirst("http://", "https://")
+            if (decoded.startsWith(HTTP_SCHEME)) {
+                decoded = decoded.replaceFirst(HTTP_SCHEME, HTTPS_SCHEME)
             }
             return decoded
         } catch (e: Exception) {
@@ -165,7 +172,8 @@ object TranscriptRepository {
      * 00:00:01,000 --> 00:00:04,000
      * Hello and welcome
      */
-    private fun parseSrt(content: String): List<TranscriptSegment> {
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun parseSrt(content: String): List<TranscriptSegment> {
         val segments = mutableListOf<TranscriptSegment>()
         val lines = content.lines().map { it.trim() }
         
@@ -180,7 +188,7 @@ object TranscriptRepository {
                     val times = parseTimestampLine(currentTimeLine)
                     if (times != null) {
                         val text = currentTextLines.joinToString(" ").trim()
-                            .replace(Regex("<[^>]+>"), "")
+                            .replace(HTML_TAG_REGEX, "")
                         if (text.isNotBlank()) {
                             segments.add(TranscriptSegment(startMs = times.first, endMs = times.second, text = text))
                         }
@@ -216,7 +224,7 @@ object TranscriptRepository {
             val times = parseTimestampLine(currentTimeLine)
             if (times != null) {
                 val text = currentTextLines.joinToString(" ").trim()
-                    .replace(Regex("<[^>]+>"), "")
+                    .replace(HTML_TAG_REGEX, "")
                 if (text.isNotBlank()) {
                     segments.add(TranscriptSegment(startMs = times.first, endMs = times.second, text = text))
                 }
@@ -233,7 +241,8 @@ object TranscriptRepository {
      * 00:00:01.000 --> 00:00:04.000
      * Hello and welcome
      */
-    private fun parseVtt(content: String): List<TranscriptSegment> {
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun parseVtt(content: String): List<TranscriptSegment> {
         val segments = mutableListOf<TranscriptSegment>()
         val blocks = content.trim().split(Regex("\\n\\n+"))
         
@@ -246,7 +255,7 @@ object TranscriptRepository {
             
             val times = parseTimestampLine(lines[timeLineIdx]) ?: continue
             val text = lines.drop(timeLineIdx + 1).joinToString(" ").trim()
-                .replace(Regex("<[^>]+>"), "") // Strip VTT tags (<v>, <c>, etc.)
+                .replace(HTML_TAG_REGEX, "") // Strip VTT tags (<v>, <c>, etc.)
             
             if (text.isNotBlank()) {
                 segments.add(TranscriptSegment(startMs = times.first, endMs = times.second, text = text))
