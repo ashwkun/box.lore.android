@@ -66,8 +66,6 @@ fun MiniPlayerContent(
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
-    
     Box(modifier = modifier) {
         // Main content row
         Row(
@@ -93,158 +91,23 @@ fun MiniPlayerContent(
             
             Spacer(modifier = Modifier.width(12.dp))
             
-            // Title and podcast
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Text(
-                    text = episode.title.replace("+", " "),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp
-                    ),
-                    color = colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = podcastTitle.replace("+", " "),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 13.sp,
-                        letterSpacing = 0.sp
-                    ),
-                    color = colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            // Expressive Seek Buttons with coupled animations (PixelPlayer-inspired)
-            val seekBackScale = remember { Animatable(1f) }
-            val seekForwardScale = remember { Animatable(1f) }
-            val scope = rememberCoroutineScope()
-            
-            // Seek Back -10s button
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .graphicsLayer { 
-                        scaleX = seekBackScale.value
-                        scaleY = seekBackScale.value
-                    }
-                    .clip(CircleShape)
-                    .background(colorScheme.primary.copy(alpha = 0.2f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        enabled = !isLoading
-                    ) {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        // Animate this button (bounce) + subtle nudge on sibling
-                        scope.launch {
-                            launch {
-                                seekBackScale.animateTo(0.8f, tween(80))
-                                seekBackScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
-                            }
-                            launch {
-                                // Subtle coupled reaction on the other button
-                                seekForwardScale.animateTo(0.95f, tween(60))
-                                seekForwardScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow))
-                            }
-                        }
-                        onPrevious()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Replay10,
-                    contentDescription = "Seek back 10 seconds",
-                    tint = colorScheme.primary.copy(alpha = if (isLoading) 0.5f else 1f),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            // Play/Pause button - pulses when buffering (M3 Expressive)
-            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-            val pulseAnimatedScale by infiniteTransition.animateFloat(
-                initialValue = 0.92f,
-                targetValue = 1.08f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600),
-                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                ),
-                label = "pulseScale"
+            MiniPlayerTrackDetails(
+                episodeTitle = episode.title,
+                podcastTitle = podcastTitle,
+                colorScheme = colorScheme,
+                modifier = Modifier.weight(1f)
             )
-            val pulseScale = if (isLoading) pulseAnimatedScale else 1f
-            
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .graphicsLayer { scaleX = pulseScale; scaleY = pulseScale }
-                    .clip(CircleShape)
-                    .background(colorScheme.primary)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        enabled = !isLoading
-                    ) {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onPlayPause()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = colorScheme.onPrimary.copy(alpha = if (isLoading) 0.6f else 1f),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
             
             Spacer(modifier = Modifier.width(8.dp))
             
-            // Seek Forward +30s button
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .graphicsLayer { 
-                        scaleX = seekForwardScale.value
-                        scaleY = seekForwardScale.value
-                    }
-                    .clip(CircleShape)
-                    .background(colorScheme.primary.copy(alpha = 0.2f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        enabled = !isLoading
-                    ) {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        // Animate this button (bounce) + subtle nudge on sibling
-                        scope.launch {
-                            launch {
-                                seekForwardScale.animateTo(0.8f, tween(80))
-                                seekForwardScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
-                            }
-                            launch {
-                                // Subtle coupled reaction on the other button
-                                seekBackScale.animateTo(0.95f, tween(60))
-                                seekBackScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow))
-                            }
-                        }
-                        onNext()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Forward30,
-                    contentDescription = "Seek forward 30 seconds",
-                    tint = colorScheme.primary.copy(alpha = if (isLoading) 0.5f else 1f),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            MiniPlayerActionButtons(
+                isPlaying = isPlaying,
+                isLoading = isLoading,
+                colorScheme = colorScheme,
+                onPlayPause = onPlayPause,
+                onPrevious = onPrevious,
+                onNext = onNext
+            )
         }
         
         // Progress bar at bottom - standard LinearProgressIndicator
@@ -264,3 +127,170 @@ fun MiniPlayerContent(
         }
     }
 }
+
+@Composable
+private fun MiniPlayerTrackDetails(
+    episodeTitle: String,
+    podcastTitle: String,
+    colorScheme: ColorScheme,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
+        Text(
+            text = episodeTitle.replace("+", " "),
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.2).sp
+            ),
+            color = colorScheme.onPrimaryContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = podcastTitle.replace("+", " "),
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 13.sp,
+                letterSpacing = 0.sp
+            ),
+            color = colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun MiniPlayerActionButtons(
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    colorScheme: ColorScheme,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    val hapticFeedback = LocalHapticFeedback.current
+    val seekBackScale = remember { Animatable(1f) }
+    val seekForwardScale = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // Seek Back -10s button
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .graphicsLayer { 
+                    scaleX = seekBackScale.value
+                    scaleY = seekBackScale.value
+                }
+                .clip(CircleShape)
+                .background(colorScheme.primary.copy(alpha = 0.2f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false),
+                    enabled = !isLoading
+                ) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    scope.launch {
+                        launch {
+                            seekBackScale.animateTo(0.8f, tween(80))
+                            seekBackScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+                        }
+                        launch {
+                            seekForwardScale.animateTo(0.95f, tween(60))
+                            seekForwardScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow))
+                        }
+                    }
+                    onPrevious()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.Replay10,
+                contentDescription = "Seek back 10 seconds",
+                tint = colorScheme.primary.copy(alpha = if (isLoading) 0.5f else 1f),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Play/Pause button
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val pulseAnimatedScale by infiniteTransition.animateFloat(
+            initialValue = 0.92f,
+            targetValue = 1.08f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600),
+                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+            ),
+            label = "pulseScale"
+        )
+        val pulseScale = if (isLoading) pulseAnimatedScale else 1f
+        
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .graphicsLayer { scaleX = pulseScale; scaleY = pulseScale }
+                .clip(CircleShape)
+                .background(colorScheme.primary)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false),
+                    enabled = !isLoading
+                ) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onPlayPause()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = colorScheme.onPrimary.copy(alpha = if (isLoading) 0.6f else 1f),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Seek Forward +30s button
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .graphicsLayer { 
+                    scaleX = seekForwardScale.value
+                    scaleY = seekForwardScale.value
+                }
+                .clip(CircleShape)
+                .background(colorScheme.primary.copy(alpha = 0.2f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false),
+                    enabled = !isLoading
+                ) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    scope.launch {
+                        launch {
+                            seekForwardScale.animateTo(0.8f, tween(80))
+                            seekForwardScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+                        }
+                        launch {
+                            seekBackScale.animateTo(0.95f, tween(60))
+                            seekBackScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow))
+                        }
+                    }
+                    onNext()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.Forward30,
+                contentDescription = "Seek forward 30 seconds",
+                tint = colorScheme.primary.copy(alpha = if (isLoading) 0.5f else 1f),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+

@@ -36,45 +36,8 @@ fun AnimatedShapesFallback() {
     val iconColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
 
     // Random positions and sizes calculated once per composition
-    val shapes = remember {
-        val allShapes = listOf(
-            ExpressiveShapes.Sunny, ExpressiveShapes.VerySunny, 
-            ExpressiveShapes.Cookie4, ExpressiveShapes.Cookie6, ExpressiveShapes.Cookie9, ExpressiveShapes.Cookie12,
-            ExpressiveShapes.Burst, ExpressiveShapes.SoftBurst, ExpressiveShapes.Boom, ExpressiveShapes.SoftBoom,
-            ExpressiveShapes.Flower, ExpressiveShapes.Puffy, ExpressiveShapes.PuffyDiamond,
-            ExpressiveShapes.Heart, ExpressiveShapes.Bun, ExpressiveShapes.GhostIsh,
-            ExpressiveShapes.Diamond, ExpressiveShapes.Gem, ExpressiveShapes.Pentagon
-        ).shuffled()
-        
-        val placedShapes = mutableListOf<PlacedShape>()
-        val availableShapes = allShapes.toMutableList()
-        
-        // Try to place up to 6 shapes without overlapping
-        for (i in 0 until 100) {
-            if (placedShapes.size >= 6 || availableShapes.isEmpty()) break
-            
-            // Generate in a larger virtual space 350x600 for fallback
-            val x = Random.nextFloat() * 350f
-            val y = Random.nextFloat() * 600f
-            
-            var overlaps = false
-            for (placed in placedShapes) {
-                val px = placed.x
-                val py = placed.y
-                val dist = kotlin.math.sqrt((x - px) * (x - px) + (y - py) * (y - py))
-                if (dist < 200f) { // Larger separation for fallback
-                    overlaps = true
-                    break
-                }
-            }
-            
-            if (!overlaps) {
-                val size = 180 + Random.nextInt(170)
-                placedShapes.add(PlacedShape(x, y, size, availableShapes.removeAt(0)))
-            }
-        }
-        placedShapes
-    }
+    val shapes = remember { calculateFallbackPlacedShapes() }
+
     
     Box(
         modifier = Modifier
@@ -122,6 +85,42 @@ fun AnimatedShapesFallback() {
         )
     }
 }
+
+private fun calculateFallbackPlacedShapes(): List<PlacedShape> {
+    val allShapes = listOf(
+        ExpressiveShapes.Sunny, ExpressiveShapes.VerySunny, 
+        ExpressiveShapes.Cookie4, ExpressiveShapes.Cookie6, ExpressiveShapes.Cookie9, ExpressiveShapes.Cookie12,
+        ExpressiveShapes.Burst, ExpressiveShapes.SoftBurst, ExpressiveShapes.Boom, ExpressiveShapes.SoftBoom,
+        ExpressiveShapes.Flower, ExpressiveShapes.Puffy, ExpressiveShapes.PuffyDiamond,
+        ExpressiveShapes.Heart, ExpressiveShapes.Bun, ExpressiveShapes.GhostIsh,
+        ExpressiveShapes.Diamond, ExpressiveShapes.Gem, ExpressiveShapes.Pentagon
+    ).shuffled()
+    
+    val placedShapes = mutableListOf<PlacedShape>()
+    val availableShapes = allShapes.toMutableList()
+    
+    for (i in 0 until 100) {
+        if (placedShapes.size >= 6 || availableShapes.isEmpty()) break
+        
+        val x = Random.nextFloat() * 350f
+        val y = Random.nextFloat() * 600f
+        
+        if (!isOverlappingWithPlaced(x, y, placedShapes)) {
+            val size = 180 + Random.nextInt(170)
+            placedShapes.add(PlacedShape(x, y, size, availableShapes.removeAt(0)))
+        }
+    }
+    return placedShapes
+}
+
+private fun isOverlappingWithPlaced(x: Float, y: Float, placedShapes: List<PlacedShape>): Boolean {
+    for (placed in placedShapes) {
+        val dist = kotlin.math.sqrt((x - placed.x) * (x - placed.x) + (y - placed.y) * (y - placed.y))
+        if (dist < 200f) return true
+    }
+    return false
+}
+
 
 /**
  * Custom drawOutline extension function to draw Outline primitives directly,
