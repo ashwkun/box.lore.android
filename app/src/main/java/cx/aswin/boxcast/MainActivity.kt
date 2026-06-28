@@ -1053,20 +1053,10 @@ class MainActivity : ComponentActivity() {
                                     val toRoute = targetState.destination.route
                                     val fromIndex = getRouteIndex(fromRoute)
                                     val toIndex = getRouteIndex(toRoute)
-                                    if (isTabToTab(fromRoute, toRoute)) {
-                                        if (toIndex > fromIndex) {
-                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
-                                        } else {
-                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
-                                        }
+                                    if (toIndex > fromIndex) {
+                                        slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
                                     } else {
-                                        if (toIndex > fromIndex) {
-                                            // Moving Right (Push Left)
-                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
-                                        } else {
-                                            // Moving Left (Push Right)
-                                            slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
-                                        }
+                                        slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
                                     }
                                 },
                                 exitTransition = {
