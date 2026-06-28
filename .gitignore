@@ -74,3 +74,4 @@ gcp-key.json
 
 # Editor settings
 .vscode/
+.claude/
