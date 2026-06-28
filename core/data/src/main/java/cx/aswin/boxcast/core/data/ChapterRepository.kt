@@ -15,19 +15,24 @@ object ChapterRepository {
     
     private val cache = mutableMapOf<String, List<Chapter>>()
     
+    private const val HTTPS_SCHEME = "https://"
+    private const val HTTP_SCHEME = "http://"
+    private const val HTTPS_PREFIX = "https:"
+    private const val HTTP_PREFIX = "http:"
+
     private fun normalizeUrl(url: String): String {
         try {
             var decoded = url
             if (decoded.contains("%3A") || decoded.contains("%2F") || decoded.contains("%3a") || decoded.contains("%2f")) {
                 decoded = java.net.URLDecoder.decode(decoded, "UTF-8")
             }
-            if (decoded.startsWith("http:") && !decoded.startsWith("http://")) {
-                decoded = decoded.replaceFirst("http:", "http://")
-            } else if (decoded.startsWith("https:") && !decoded.startsWith("https://")) {
-                decoded = decoded.replaceFirst("https:", "https://")
+            if (decoded.startsWith(HTTP_PREFIX) && !decoded.startsWith(HTTP_SCHEME)) {
+                decoded = decoded.replaceFirst(HTTP_PREFIX, HTTP_SCHEME)
+            } else if (decoded.startsWith(HTTPS_PREFIX) && !decoded.startsWith(HTTPS_SCHEME)) {
+                decoded = decoded.replaceFirst(HTTPS_PREFIX, HTTPS_SCHEME)
             }
-            if (decoded.startsWith("http://")) {
-                decoded = decoded.replaceFirst("http://", "https://")
+            if (decoded.startsWith(HTTP_SCHEME)) {
+                decoded = decoded.replaceFirst(HTTP_SCHEME, HTTPS_SCHEME)
             }
             return decoded
         } catch (e: Exception) {
