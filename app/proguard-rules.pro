@@ -69,3 +69,11 @@
 # Fix NoClassDefFoundError on OEM ROMs that strip android.window.SplashScreenView
 -dontwarn android.window.SplashScreenView
 -keep class androidx.core.splashscreen.** { *; }
+
+# Strip logging calls for production Release builds to prevent IPC/formatting overhead.
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
