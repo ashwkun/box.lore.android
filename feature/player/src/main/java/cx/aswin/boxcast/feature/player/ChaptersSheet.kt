@@ -10,8 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,7 +27,7 @@ import cx.aswin.boxcast.core.model.Chapter
 @Composable
 fun ChaptersSheetContent(
     chapters: List<Chapter>,
-    positionProvider: () -> Long,
+    positionFlow: kotlinx.coroutines.flow.Flow<Long>,
     colorScheme: ColorScheme,
     onSeek: (Long) -> Unit,
     onClose: () -> Unit,
@@ -37,6 +36,7 @@ fun ChaptersSheetContent(
     hasTranscript: Boolean = false,
     onGenerateChapters: () -> Unit = {}
 ) {
+    val positionMs by positionFlow.collectAsState(initial = 0L)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = colorScheme.surface
@@ -129,12 +129,7 @@ fun ChaptersSheetContent(
                         } else {
                             Long.MAX_VALUE
                         }
-                        val isActive by remember(startMs, endMs) {
-                            derivedStateOf {
-                                val currentPos = positionProvider()
-                                currentPos >= startMs && currentPos < endMs
-                            }
-                        }
+                        val isActive = positionMs >= startMs && positionMs < endMs
                         
                         ChapterRow(
                             chapter = chapter,

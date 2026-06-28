@@ -97,7 +97,12 @@ fun FullPlayerContent(
             .distinctUntilChanged()
     }.collectAsState(initial = playbackRepository.playerState.value)
     
-    val positionProvider = remember(playbackRepository) { { playbackRepository.playerState.value.position } }
+    val positionFlow = remember(playbackRepository) {
+        playbackRepository.playerState.map { it.position }.distinctUntilChanged()
+    }
+    val bufferedPositionFlow = remember(playbackRepository) {
+        playbackRepository.playerState.map { it.bufferedPosition }.distinctUntilChanged()
+    }
     
     val episode = state.currentEpisode ?: return
     val podcast = state.currentPodcast ?: return
@@ -284,9 +289,9 @@ fun FullPlayerContent(
             episode = episode,
             isPlaying = state.isPlaying,
             isLoading = state.isLoading,
-            positionProvider = positionProvider,
+            positionFlow = positionFlow,
             durationMs = state.duration,
-            bufferedPositionMs = state.bufferedPosition,
+            bufferedPositionFlow = bufferedPositionFlow,
             playbackSpeed = state.playbackSpeed,
             sleepTimerEnd = state.sleepTimerEnd,
             isLiked = state.isLiked,
@@ -451,7 +456,7 @@ fun FullPlayerContent(
         ) {
             ChaptersSheetContent(
                 chapters = state.currentChapters,
-                positionProvider = positionProvider,
+                positionFlow = positionFlow,
                 colorScheme = colorScheme,
                 onSeek = { seekPos ->
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("chapters_list")
@@ -475,7 +480,7 @@ fun FullPlayerContent(
     ) {
         FullscreenTranscriptScreen(
             transcript = state.currentTranscript,
-            positionProvider = positionProvider,
+            positionFlow = positionFlow,
             isPlaying = state.isPlaying,
             isLoading = state.isLoading,
             durationMs = state.duration,

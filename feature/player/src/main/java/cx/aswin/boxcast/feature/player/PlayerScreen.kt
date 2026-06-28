@@ -72,6 +72,8 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import androidx.media3.common.Player
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.random.Random
 import cx.aswin.boxcast.feature.player.components.SimplePlayerControls
 import cx.aswin.boxcast.core.designsystem.components.AdvancedPlayerControls
@@ -113,13 +115,19 @@ fun PlayerRoute(
     }
 
     val uiState by viewModel.uiState.collectAsState()
-    val positionProvider = remember(playbackRepository) { { playbackRepository.playerState.value.position } }
+    val positionFlow = remember(playbackRepository) {
+        playbackRepository.playerState.map { it.position }.distinctUntilChanged()
+    }
+    val bufferedPositionFlow = remember(playbackRepository) {
+        playbackRepository.playerState.map { it.bufferedPosition }.distinctUntilChanged()
+    }
     
     PlayerScreen(
         uiState = uiState,
         downloadRepository = downloadRepository,
         controller = viewModel.controller,
-        positionProvider = positionProvider,
+        positionFlow = positionFlow,
+        bufferedPositionFlow = bufferedPositionFlow,
         onBackClick = onBackClick,
         onPlayPause = viewModel::togglePlayPause,
         onEpisodeClick = viewModel::playEpisode,
@@ -139,7 +147,8 @@ fun PlayerScreen(
     uiState: PlayerUiState,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
     controller: Player?,
-    positionProvider: () -> Long,
+    positionFlow: kotlinx.coroutines.flow.Flow<Long>,
+    bufferedPositionFlow: kotlinx.coroutines.flow.Flow<Long>,
     onBackClick: () -> Unit,
     onPlayPause: () -> Unit,
     onEpisodeClick: (Episode) -> Unit,
@@ -199,7 +208,8 @@ fun PlayerScreen(
                             currentEpisode = uiState.currentEpisode,
                             isPlaying = uiState.isPlaying,
                             isLoading = uiState.isLoading,
-                            positionProvider = positionProvider,
+                            positionFlow = positionFlow,
+                            bufferedPositionFlow = bufferedPositionFlow,
                             durationMs = uiState.durationMs,
                             playbackSpeed = uiState.playbackSpeed,
                             sleepTimerEnd = uiState.sleepTimerEnd,
@@ -238,7 +248,7 @@ fun PlayerScreen(
                 subtitle = successState.podcast.title,
                 onDismissRequest = { showShareSheet = false },
                 durationMs = currentEp.duration * 1000L,
-                currentPositionMs = positionProvider(),
+                currentPositionMs = controller?.currentPosition ?: 0L,
                 showTimestampOption = true,
                 onShare = { _, _, t ->
                     cx.aswin.boxcast.core.data.ShareManager.shareEpisode(context, currentEp, successState.podcast.title, t)
@@ -255,7 +265,8 @@ fun PlayerContent(
     currentEpisode: Episode?,
     isPlaying: Boolean,
     isLoading: Boolean,
-    positionProvider: () -> Long,
+    positionFlow: kotlinx.coroutines.flow.Flow<Long>,
+    bufferedPositionFlow: kotlinx.coroutines.flow.Flow<Long>,
     durationMs: Long,
     playbackSpeed: Float,
     sleepTimerEnd: Long?,
@@ -268,7 +279,6 @@ fun PlayerContent(
     onSkipForward: () -> Unit,
     onSkipBackward: () -> Unit,
     onSetSpeed: (Float) -> Unit,
-
     onSetSleepTimer: (Int) -> Unit,
     onToggleLike: () -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState,
@@ -324,9 +334,9 @@ fun PlayerContent(
         episode = currentEpisode,
         isPlaying = isPlaying,
         isLoading = isLoading,
-        positionProvider = positionProvider,
+        positionFlow = positionFlow,
         durationMs = durationMs,
-        bufferedPositionMs = 0L, // No buffer info in this screen yet
+        bufferedPositionFlow = bufferedPositionFlow,
         playbackSpeed = playbackSpeed,
         sleepTimerEnd = sleepTimerEnd,
         colorScheme = colorScheme,

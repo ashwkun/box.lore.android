@@ -34,7 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -50,7 +50,7 @@ import cx.aswin.boxcast.core.data.TranscriptSegment
 @Composable
 fun TranscriptView(
     transcript: List<TranscriptSegment>,
-    positionProvider: () -> Long,
+    positionFlow: kotlinx.coroutines.flow.Flow<Long>,
     colorScheme: ColorScheme,
     onSeek: (Long) -> Unit,
     isSyncEnabled: Boolean,
@@ -58,13 +58,13 @@ fun TranscriptView(
     modifier: Modifier = Modifier,
     transcriptUrl: String? = null
 ) {
+    val positionMs by positionFlow.collectAsState(initial = 0L)
     val listState = rememberLazyListState()
     var clickedIndex by remember { mutableStateOf<Int?>(null) }
     
     val activeIndex by remember(transcript, clickedIndex) {
         derivedStateOf {
-            val currentPos = positionProvider()
-            clickedIndex ?: transcript.indexOfFirst { currentPos >= it.startMs && currentPos <= it.endMs }
+            clickedIndex ?: transcript.indexOfFirst { positionMs >= it.startMs && positionMs <= it.endMs }
         }
     }
 
@@ -76,13 +76,11 @@ fun TranscriptView(
         }
     }
     
-    LaunchedEffect(transcript) {
-        snapshotFlow { positionProvider() }.collect { pos ->
-            clickedIndex?.let { idx ->
-                val segment = transcript.getOrNull(idx)
-                if (segment != null && pos >= segment.startMs && pos <= segment.endMs) {
-                    clickedIndex = null
-                }
+    LaunchedEffect(positionMs) {
+        clickedIndex?.let { idx ->
+            val segment = transcript.getOrNull(idx)
+            if (segment != null && positionMs >= segment.startMs && positionMs <= segment.endMs) {
+                clickedIndex = null
             }
         }
     }
@@ -252,7 +250,7 @@ fun TranscriptView(
 @Composable
 fun FullscreenTranscriptScreen(
     transcript: List<TranscriptSegment>,
-    positionProvider: () -> Long,
+    positionFlow: kotlinx.coroutines.flow.Flow<Long>,
     isPlaying: Boolean,
     isLoading: Boolean,
     durationMs: Long,
@@ -265,6 +263,7 @@ fun FullscreenTranscriptScreen(
     modifier: Modifier = Modifier,
     transcriptUrl: String? = null
 ) {
+    val positionMs by positionFlow.collectAsState(initial = 0L)
     val containerColor = colorScheme.surface
     
     Column(
@@ -309,7 +308,7 @@ fun FullscreenTranscriptScreen(
         ) {
             TranscriptView(
                 transcript = transcript,
-                positionProvider = positionProvider,
+                positionFlow = positionFlow,
                 colorScheme = colorScheme,
                 onSeek = onSeek,
                 isSyncEnabled = isSyncEnabled,
@@ -329,7 +328,7 @@ fun FullscreenTranscriptScreen(
             // Seek bar
             if (durationMs > 0) {
                 Slider(
-                    value = positionProvider().toFloat(),
+                    value = positionMs.toFloat(),
                     onValueChange = { onSeek(it.toLong()) },
                     valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
                     modifier = Modifier.fillMaxWidth(),
@@ -347,12 +346,12 @@ fun FullscreenTranscriptScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = formatTime(positionProvider()),
+                        text = formatTime(positionMs),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = colorScheme.primary.copy(alpha = 0.85f)
                     )
                     Text(
-                        text = "-" + formatTime((durationMs - positionProvider()).coerceAtLeast(0)),
+                        text = "-" + formatTime((durationMs - positionMs).coerceAtLeast(0)),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = colorScheme.primary.copy(alpha = 0.85f)
                     )
@@ -367,8 +366,8 @@ fun FullscreenTranscriptScreen(
                 colorScheme = colorScheme,
                 controlTint = colorScheme.primary,
                 onPlayPause = onPlayPause,
-                onPrevious = { onSeek((positionProvider() - 10000L).coerceAtLeast(0L)) },
-                onNext = { onSeek((positionProvider() + 30000L).coerceAtMost(durationMs)) },
+                onPrevious = { onSeek((positionMs - 10000L).coerceAtLeast(0L)) },
+                onNext = { onSeek((positionMs + 30000L).coerceAtMost(durationMs)) },
                 height = 72.dp
             )
         }
