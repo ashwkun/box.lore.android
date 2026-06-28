@@ -123,18 +123,24 @@ abstract class BoxLoreDatabase : RoomDatabase() {
             val newDbFile = context.getDatabasePath("boxlore_database")
             
             if (oldDbFile.exists()) {
-                oldDbFile.renameTo(newDbFile)
-                
-                // Rename WAL, SHM, and Journal files if they exist
-                val suffixes = listOf("-journal", "-shm", "-wal")
-                for (suffix in suffixes) {
-                    val oldSuffixFile = java.io.File(oldDbFile.path + suffix)
-                    val newSuffixFile = java.io.File(newDbFile.path + suffix)
-                    if (oldSuffixFile.exists()) {
-                        oldSuffixFile.renameTo(newSuffixFile)
+                val success = oldDbFile.renameTo(newDbFile)
+                if (success) {
+                    // Rename WAL, SHM, and Journal files if they exist
+                    val suffixes = listOf("-journal", "-shm", "-wal")
+                    for (suffix in suffixes) {
+                        val oldSuffixFile = java.io.File(oldDbFile.path + suffix)
+                        val newSuffixFile = java.io.File(newDbFile.path + suffix)
+                        if (oldSuffixFile.exists()) {
+                            val renamed = oldSuffixFile.renameTo(newSuffixFile)
+                            if (!renamed) {
+                                android.util.Log.w("BoxLoreDatabase", "Failed to rename database suffix file: $suffix")
+                            }
+                        }
                     }
+                    android.util.Log.d("BoxLoreDatabase", "Successfully migrated database file to boxlore_database")
+                } else {
+                    android.util.Log.e("BoxLoreDatabase", "Failed to migrate database file from boxcast_database to boxlore_database")
                 }
-                android.util.Log.d("BoxLoreDatabase", "Successfully migrated database file to boxlore_database")
             }
         }
 
