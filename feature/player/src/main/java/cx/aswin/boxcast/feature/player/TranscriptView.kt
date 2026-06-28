@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -92,24 +93,7 @@ fun TranscriptView(
         }
     }
     
-    LaunchedEffect(activeIndex, isSyncEnabled) {
-        if (activeIndex != -1 && isSyncEnabled) {
-            val layoutInfo = listState.layoutInfo
-            val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-            if (viewportHeight > 0) {
-                // Find if the item is already visible to get its actual height, otherwise estimate
-                val itemInfo = layoutInfo.visibleItemsInfo.find { it.index == activeIndex }
-                val itemHeight = itemInfo?.size ?: 100 // fallback estimate in pixels
-                // Focus slightly above the center (28% of the viewport height from the top)
-                val focusOffset = - (viewportHeight * 0.28f).toInt() + (itemHeight / 2)
-                listState.animateScrollToItem(activeIndex, focusOffset)
-            } else {
-                // Fallback if layout hasn't completed yet
-                val scrollIndex = (activeIndex - 2).coerceAtLeast(0)
-                listState.animateScrollToItem(scrollIndex)
-            }
-        }
-    }
+    TranscriptScrollEffect(listState, activeIndex, isSyncEnabled)
     
     Box(
         modifier = modifier.fillMaxSize(),
@@ -158,90 +142,141 @@ fun TranscriptView(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 itemsIndexed(transcript) { index, segment ->
-                    val isActive = index == activeIndex
-                    
-                    val textColor by animateColorAsState(
-                        targetValue = if (isActive) colorScheme.primary else colorScheme.onSurface,
-                        animationSpec = tween(durationMillis = 300),
-                        label = "textColor"
+                    TranscriptSegmentItem(
+                        segment = segment,
+                        isActive = index == activeIndex,
+                        colorScheme = colorScheme,
+                        onClick = {
+                            onSeek(segment.startMs)
+                            clickedIndex = index
+                            onSyncEnabledChange(true)
+                        }
                     )
-                    
-                    val textScale by animateFloatAsState(
-                        targetValue = if (isActive) 1.03f else 1.0f,
-                        animationSpec = tween(durationMillis = 300),
-                        label = "textScale"
-                    )
-                    val textOpacity by animateFloatAsState(
-                        targetValue = if (isActive) 1.0f else 0.35f,
-                        animationSpec = tween(durationMillis = 300),
-                        label = "textOpacity"
-                    )
-                    
-                    val textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSeek(segment.startMs)
-                                clickedIndex = index
-                                onSyncEnabledChange(true)
-                            }
-                            .padding(vertical = 4.dp)
-                            .graphicsLayer {
-                                scaleX = textScale
-                                scaleY = textScale
-                                alpha = textOpacity
-                                transformOrigin = TransformOrigin(0f, 0.5f)
-                            }
-                    ) {
-                        Text(
-                            text = segment.text,
-                            style = textStyle,
-                            color = textColor
-                        )
-                    }
                 }
             }
 
-            AnimatedVisibility(
-                visible = !isSyncEnabled,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+            TranscriptSyncButton(
+                isSyncEnabled = isSyncEnabled,
+                colorScheme = colorScheme,
+                onClick = { onSyncEnabledChange(true) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TranscriptScrollEffect(
+    listState: LazyListState,
+    activeIndex: Int,
+    isSyncEnabled: Boolean
+) {
+    LaunchedEffect(activeIndex, isSyncEnabled) {
+        if (activeIndex != -1 && isSyncEnabled) {
+            val layoutInfo = listState.layoutInfo
+            val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            if (viewportHeight > 0) {
+                val itemInfo = layoutInfo.visibleItemsInfo.find { it.index == activeIndex }
+                val itemHeight = itemInfo?.size ?: 100
+                val focusOffset = - (viewportHeight * 0.28f).toInt() + (itemHeight / 2)
+                listState.animateScrollToItem(activeIndex, focusOffset)
+            } else {
+                val scrollIndex = (activeIndex - 2).coerceAtLeast(0)
+                listState.animateScrollToItem(scrollIndex)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranscriptSegmentItem(
+    segment: TranscriptSegment,
+    isActive: Boolean,
+    colorScheme: ColorScheme,
+    onClick: () -> Unit
+) {
+    val textColor by animateColorAsState(
+        targetValue = if (isActive) colorScheme.primary else colorScheme.onSurface,
+        animationSpec = tween(durationMillis = 300),
+        label = "textColor"
+    )
+    
+    val textScale by animateFloatAsState(
+        targetValue = if (isActive) 1.03f else 1.0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "textScale"
+    )
+    val textOpacity by animateFloatAsState(
+        targetValue = if (isActive) 1.0f else 0.35f,
+        animationSpec = tween(durationMillis = 300),
+        label = "textOpacity"
+    )
+    
+    val textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 4.dp)
+            .graphicsLayer {
+                scaleX = textScale
+                scaleY = textScale
+                alpha = textOpacity
+                transformOrigin = TransformOrigin(0f, 0.5f)
+            }
+    ) {
+        Text(
+            text = segment.text,
+            style = textStyle,
+            color = textColor
+        )
+    }
+}
+
+@Composable
+private fun TranscriptSyncButton(
+    isSyncEnabled: Boolean,
+    colorScheme: ColorScheme,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = !isSyncEnabled,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .shadow(4.dp, CircleShape)
+                .clip(CircleShape)
+                .background(colorScheme.secondaryContainer.copy(alpha = 0.85f))
+                .border(
+                    width = 1.dp,
+                    color = colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
+                    shape = CircleShape
+                )
+                .clickable { onClick() }
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .shadow(4.dp, CircleShape)
-                        .clip(CircleShape)
-                        .background(colorScheme.secondaryContainer.copy(alpha = 0.85f))
-                        .border(
-                            width = 1.dp,
-                            color = colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
-                            shape = CircleShape
-                        )
-                        .clickable { onSyncEnabledChange(true) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Sync,
-                            contentDescription = null,
-                            tint = colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = "Sync Scroll",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = colorScheme.onSecondaryContainer
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = Icons.Rounded.Sync,
+                    contentDescription = null,
+                    tint = colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = "Sync Scroll",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.onSecondaryContainer
+                )
             }
         }
     }
