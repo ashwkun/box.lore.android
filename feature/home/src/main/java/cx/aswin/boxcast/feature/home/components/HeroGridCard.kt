@@ -20,6 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.geometry.Size
+import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
+import cx.aswin.boxcast.core.designsystem.components.drawOutline
 
 /**
  * Hero Grid Card — Progressive Density Layout
@@ -39,6 +44,10 @@ fun HeroGridCard(
     isPlaying: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val shape1 = ExpressiveShapes.Flower
+    val shape2 = ExpressiveShapes.Sunny
+
     Card(
         shape = MaterialTheme.shapes.extraLarge,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -46,6 +55,40 @@ fun HeroGridCard(
         modifier = modifier
             .fillMaxSize()
             .clip(MaterialTheme.shapes.extraLarge)
+            .drawWithCache {
+                val size1Px = 180.dp.toPx()
+                val size2Px = 220.dp.toPx()
+                
+                val outline1 = shape1.createOutline(
+                    size = Size(size1Px, size1Px),
+                    layoutDirection = layoutDirection,
+                    density = this
+                )
+                val outline2 = shape2.createOutline(
+                    size = Size(size2Px, size2Px),
+                    layoutDirection = layoutDirection,
+                    density = this
+                )
+                
+                onDrawBehind {
+                    // Shape 1 (Top Left)
+                    translate(left = -50.dp.toPx(), top = -30.dp.toPx()) {
+                        drawOutline(
+                            outline = outline1,
+                            color = primaryColor,
+                            alpha = 0.05f
+                        )
+                    }
+                    // Shape 2 (Bottom Right)
+                    translate(left = size.width - 150.dp.toPx(), top = size.height - 150.dp.toPx()) {
+                        drawOutline(
+                            outline = outline2,
+                            color = primaryColor,
+                            alpha = 0.05f
+                        )
+                    }
+                }
+            }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
