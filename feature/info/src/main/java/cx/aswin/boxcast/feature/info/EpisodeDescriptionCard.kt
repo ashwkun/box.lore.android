@@ -57,6 +57,8 @@ private val SKIP_HOSTS = setOf(
     "podcasts.google.com"
 )
 
+private const val DISCORD_GG_HOST = "discord.gg"
+
 private fun extractHandle(url: String, host: String): String? {
     return try {
         val uri = java.net.URI(url)
@@ -65,55 +67,16 @@ private fun extractHandle(url: String, host: String): String? {
         if (segments.isEmpty()) return null
 
         when {
-            host.contains("youtube.com") || host.contains("youtu.be") -> {
-                val first = segments.firstOrNull() ?: return null
-                when {
-                    first.startsWith("@") -> first
-                    first == "c" || first == "user" -> segments.getOrNull(1)?.let { "@$it" }
-                    first == "channel" -> null
-                    else -> if (first.length > 4 && !first.startsWith("UC")) "@$first" else null
-                }
-            }
-            host.contains("reddit.com") -> {
-                if (segments.size >= 2) {
-                    val type = segments[0]
-                    val name = segments[1]
-                    if (type == "r") "r/$name"
-                    else if (type == "u" || type == "user") "u/$name"
-                    else null
-                } else {
-                    null
-                }
-            }
-            host.contains("discord.com") || host.contains("discord.gg") -> {
-                if (host.contains("discord.gg")) {
-                    segments.firstOrNull()
-                } else {
-                    if (segments.firstOrNull() == "invite") {
-                        segments.getOrNull(1)
-                    } else {
-                        segments.firstOrNull()
-                    }
-                }
-            }
+            host.contains("youtube.com") || host.contains("youtu.be") -> extractYouTubeHandle(segments)
+            host.contains("reddit.com") -> extractRedditHandle(segments)
+            host.contains("discord.com") || host.contains(DISCORD_GG_HOST) -> extractDiscordHandle(host, segments)
             host.contains("instagram.com") ||
             host.contains("twitter.com") || host.contains("x.com") ||
             host.contains("threads.net") ||
             host.contains("patreon.com") ||
             host.contains("tiktok.com") ||
             host.contains("twitch.tv") ||
-            host.contains("facebook.com") || host.contains("fb.com") -> {
-                val first = segments.firstOrNull() ?: return null
-                val ignore = setOf(
-                    "share", "intent", "hashtag", "p", "reel", "stories", 
-                    "explore", "home", "tos", "privacy", "login", "signup",
-                    "messages", "notifications", "settings", "search", "about"
-                )
-                if (ignore.contains(first.lowercase())) return null
-                if (first.length < 2) return null
-                
-                if (first.startsWith("@")) first else "@$first"
-            }
+            host.contains("facebook.com") || host.contains("fb.com") -> extractGenericSocialHandle(segments)
             else -> null
         }
     } catch (_: Exception) {
@@ -121,9 +84,45 @@ private fun extractHandle(url: String, host: String): String? {
     }
 }
 
+private fun extractYouTubeHandle(segments: List<String>): String? {
+    val first = segments.firstOrNull() ?: return null
+    return when {
+        first.startsWith("@") -> first
+        first == "c" || first == "user" -> segments.getOrNull(1)?.let { "@$it" }
+        first == "channel" -> null
+        else -> if (first.length > 4 && !first.startsWith("UC")) "@$first" else null
+    }
+}
+
+private fun extractRedditHandle(segments: List<String>): String? {
+    if (segments.size < 2) return null
+    val type = segments[0]
+    val name = segments[1]
+    return when (type) {
+        "r" -> "r/$name"
+        "u", "user" -> "u/$name"
+        else -> null
+    }
+}
+
+private fun extractDiscordHandle(host: String, segments: List<String>): String? {
+    if (host.contains(DISCORD_GG_HOST)) return segments.firstOrNull()
+    return if (segments.firstOrNull() == "invite") segments.getOrNull(1) else segments.firstOrNull()
+}
+
+private fun extractGenericSocialHandle(segments: List<String>): String? {
+    val first = segments.firstOrNull() ?: return null
+    val ignore = setOf(
+        "share", "intent", "hashtag", "p", "reel", "stories", 
+        "explore", "home", "tos", "privacy", "login", "signup",
+        "messages", "notifications", "settings", "search", "about"
+    )
+    if (ignore.contains(first.lowercase()) || first.length < 2) return null
+    return if (first.startsWith("@")) first else "@$first"
+}
+
 internal fun extractSocialLinks(html: String): List<SocialLink> {
     val urls = mutableSetOf<String>()
-
     HREF_REGEX.findAll(html).forEach { urls.add(it.groupValues[1]) }
     URL_REGEX.findAll(html).forEach { urls.add(it.value.trimEnd('.', ',', ';')) }
 
@@ -132,48 +131,47 @@ internal fun extractSocialLinks(html: String): List<SocialLink> {
             java.net.URI(url).host?.lowercase() ?: ""
         } catch (_: Exception) { "" }
 
-        if (host.isEmpty()) return@mapNotNull null
-
-        // Skip tracking/infrastructure URLs
-        if (SKIP_HOSTS.any { skip -> host.contains(skip) }) return@mapNotNull null
+        if (host.isEmpty() || SKIP_HOSTS.any { skip -> host.contains(skip) }) return@mapNotNull null
 
         val handle = extractHandle(url, host)
-
-        when {
-            host.contains("youtube.com") || host.contains("youtu.be") ->
-                SocialLink(if (handle != null) "YouTube: $handle" else "YouTube", url, Color(0xFFFF0000), Icons.Rounded.PlayCircle)
-            host.contains("instagram.com") ->
-                SocialLink(if (handle != null) "Instagram: $handle" else "Instagram", url, Color(0xFFE4405F), Icons.Rounded.CameraAlt)
-            host.contains("twitter.com") || host.contains("x.com") ->
-                SocialLink(if (handle != null) "X: $handle" else "X", url, Color(0xFF1DA1F2), Icons.Rounded.Tag)
-            host.contains("threads.net") ->
-                SocialLink(if (handle != null) "Threads: $handle" else "Threads", url, Color(0xFF101010), Icons.Rounded.AlternateEmail)
-            host.contains("spotify.com") || host.contains("open.spotify.com") ->
-                SocialLink("Spotify", url, Color(0xFF1DB954), Icons.Rounded.MusicNote)
-            host.contains("podcasts.apple.com") ->
-                SocialLink("Apple Podcasts", url, Color(0xFF9933CC), Icons.Rounded.Podcasts)
-            host.contains("patreon.com") ->
-                SocialLink(if (handle != null) "Patreon: $handle" else "Patreon", url, Color(0xFFF96854), Icons.Rounded.Loyalty)
-            host.contains("tiktok.com") ->
-                SocialLink(if (handle != null) "TikTok: $handle" else "TikTok", url, Color(0xFFEE1D52), Icons.Rounded.Videocam)
-            host.contains("facebook.com") || host.contains("fb.com") ->
-                SocialLink(if (handle != null) "Facebook: $handle" else "Facebook", url, Color(0xFF1877F2), Icons.Rounded.People)
-            host.contains("discord.com") || host.contains("discord.gg") ->
-                SocialLink(if (handle != null) "Discord: $handle" else "Discord", url, Color(0xFF5865F2), Icons.Rounded.Forum)
-            host.contains("linkedin.com") ->
-                SocialLink("LinkedIn", url, Color(0xFF0A66C2), Icons.Rounded.Work)
-            host.contains("twitch.tv") ->
-                SocialLink(if (handle != null) "Twitch: $handle" else "Twitch", url, Color(0xFF9146FF), Icons.Rounded.Videocam)
-            host.contains("reddit.com") ->
-                SocialLink(if (handle != null) "Reddit: $handle" else "Reddit", url, Color(0xFFFF4500), Icons.Rounded.Forum)
-            // Generic website — still a chip, neutral color
-            else -> {
-                val name = host.removePrefix("www.").split(".").first()
-                    .replaceFirstChar { c -> c.uppercase() }
-                SocialLink(name, url, Color(0xFF607D8B), Icons.Rounded.Language)
-            }
-        }
+        buildSocialLinkFromHost(host, url, handle)
     }.distinctBy { it.url.lowercase().trim() }
+}
+
+private fun buildSocialLinkFromHost(host: String, url: String, handle: String?): SocialLink {
+    return when {
+        host.contains("youtube.com") || host.contains("youtu.be") ->
+            SocialLink(if (handle != null) "YouTube: $handle" else "YouTube", url, Color(0xFFFF0000), Icons.Rounded.PlayCircle)
+        host.contains("instagram.com") ->
+            SocialLink(if (handle != null) "Instagram: $handle" else "Instagram", url, Color(0xFFE4405F), Icons.Rounded.CameraAlt)
+        host.contains("twitter.com") || host.contains("x.com") ->
+            SocialLink(if (handle != null) "X: $handle" else "X", url, Color(0xFF1DA1F2), Icons.Rounded.Tag)
+        host.contains("threads.net") ->
+            SocialLink(if (handle != null) "Threads: $handle" else "Threads", url, Color(0xFF101010), Icons.Rounded.AlternateEmail)
+        host.contains("spotify.com") || host.contains("open.spotify.com") ->
+            SocialLink("Spotify", url, Color(0xFF1DB954), Icons.Rounded.MusicNote)
+        host.contains("podcasts.apple.com") ->
+            SocialLink("Apple Podcasts", url, Color(0xFF9933CC), Icons.Rounded.Podcasts)
+        host.contains("patreon.com") ->
+            SocialLink(if (handle != null) "Patreon: $handle" else "Patreon", url, Color(0xFFF96854), Icons.Rounded.Loyalty)
+        host.contains("tiktok.com") ->
+            SocialLink(if (handle != null) "TikTok: $handle" else "TikTok", url, Color(0xFFEE1D52), Icons.Rounded.Videocam)
+        host.contains("facebook.com") || host.contains("fb.com") ->
+            SocialLink(if (handle != null) "Facebook: $handle" else "Facebook", url, Color(0xFF1877F2), Icons.Rounded.People)
+        host.contains("discord.com") || host.contains(DISCORD_GG_HOST) ->
+            SocialLink(if (handle != null) "Discord: $handle" else "Discord", url, Color(0xFF5865F2), Icons.Rounded.Forum)
+        host.contains("linkedin.com") ->
+            SocialLink("LinkedIn", url, Color(0xFF0A66C2), Icons.Rounded.Work)
+        host.contains("twitch.tv") ->
+            SocialLink(if (handle != null) "Twitch: $handle" else "Twitch", url, Color(0xFF9146FF), Icons.Rounded.Videocam)
+        host.contains("reddit.com") ->
+            SocialLink(if (handle != null) "Reddit: $handle" else "Reddit", url, Color(0xFFFF4500), Icons.Rounded.Forum)
+        else -> {
+            val name = host.removePrefix("www.").split(".").first()
+                .replaceFirstChar { c -> c.uppercase() }
+            SocialLink(name, url, Color(0xFF607D8B), Icons.Rounded.Language)
+        }
+    }
 }
 
 // --- Composable ---
