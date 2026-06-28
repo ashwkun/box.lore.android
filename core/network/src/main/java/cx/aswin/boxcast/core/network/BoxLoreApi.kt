@@ -157,44 +157,6 @@ interface BoxLoreApi {
         @Query("itunesId") itunesId: String? = null
     ): retrofit2.Call<cx.aswin.boxcast.core.network.model.PodcastMetaResponse>
 
-    // --- RADIO ROUTES ---
-
-    @GET("radio/locate")
-    fun getRadioLocate(
-        @Header("X-App-Key") publicKey: String
-    ): retrofit2.Call<cx.aswin.boxcast.core.network.model.RadioLocateResponse>
-
-    @GET("radio/popular")
-    fun getPopularStations(
-        @Header("X-App-Key") publicKey: String,
-        @Query("countrycode") countryCode: String? = null,
-        @Query("limit") limit: Int = 50,
-        @Query("offset") offset: Int = 0
-    ): retrofit2.Call<cx.aswin.boxcast.core.network.model.RadioStationResponse>
-
-    @GET("radio/trending")
-    fun getTrendingStations(
-        @Header("X-App-Key") publicKey: String,
-        @Query("countrycode") countryCode: String? = null,
-        @Query("limit") limit: Int = 10
-    ): retrofit2.Call<cx.aswin.boxcast.core.network.model.RadioStationResponse>
-    @GET("radio/genre")
-    fun getStationsByGenre(
-        @Header("X-App-Key") publicKey: String,
-        @Query("tag") tag: String,
-        @Query("limit") limit: Int = 50
-    ): retrofit2.Call<cx.aswin.boxcast.core.network.model.RadioStationResponse>
-
-    @GET("radio/search")
-    fun searchStations(
-        @Header("X-App-Key") publicKey: String,
-        @Query("q") query: String?,
-        @Query("tag") tag: String?,
-        @Query("country") country: String?,
-        @Query("language") language: String?,
-        @Query("limit") limit: Int = 50
-    ): retrofit2.Call<cx.aswin.boxcast.core.network.model.RadioStationResponse>
-
     @GET("api/transcript")
     fun getAutoTranscript(
         @Header("X-App-Key") publicKey: String,

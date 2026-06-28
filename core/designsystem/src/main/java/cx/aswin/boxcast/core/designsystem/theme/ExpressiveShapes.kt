@@ -309,6 +309,15 @@ object ExpressiveShapes {
          path
     }
 
+    val Decorative = listOf(
+        Sunny, VerySunny, 
+        Cookie4, Cookie6, Cookie9, Cookie12,
+        Burst, SoftBurst, Boom, SoftBoom,
+        Flower, Puffy, PuffyDiamond,
+        Heart, Bun, GhostIsh,
+        Diamond, Gem, Pentagon
+    )
+
     // --- Raw Polygons (for LoadingIndicator) ---
     object Polygons {
         private const val RADIUS = 1f

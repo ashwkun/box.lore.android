@@ -635,56 +635,6 @@ class PodcastRepository(
         }
     }
 
-    // --- RADIO METHODS ---
-
-    suspend fun getRadioLocate(): cx.aswin.boxcast.core.network.model.RadioLocateResponse? = withContext(Dispatchers.IO) {
-        try {
-            val response = api.getRadioLocate(publicKey).execute()
-            if (response.isSuccessful) response.body() else null
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    suspend fun getPopularRadioStations(country: String? = null, limit: Int = 50, offset: Int = 0): List<cx.aswin.boxcast.core.network.model.RadioStationItem> = withContext(Dispatchers.IO) {
-        try {
-            val response = api.getPopularStations(publicKey, country, limit, offset).execute()
-            if (response.isSuccessful) response.body()?.stations ?: emptyList() else emptyList()
-        } catch (e: Exception) {
-            android.util.Log.e("RadioDebug", "getPopularRadioStations error", e)
-            emptyList()
-        }
-    }
-
-    suspend fun getTrendingRadioStations(country: String? = null, limit: Int = 10): List<cx.aswin.boxcast.core.network.model.RadioStationItem> = withContext(Dispatchers.IO) {
-        try {
-            val response = api.getTrendingStations(publicKey, country, limit).execute()
-            if (response.isSuccessful) response.body()?.stations ?: emptyList() else emptyList()
-        } catch (e: Exception) {
-            android.util.Log.e("RadioDebug", "getTrendingRadioStations error", e)
-            emptyList()
-        }
-    }
-
-    suspend fun getRadioStationsByGenre(tag: String, limit: Int = 50): List<cx.aswin.boxcast.core.network.model.RadioStationItem> = withContext(Dispatchers.IO) {
-        try {
-            val response = api.getStationsByGenre(publicKey, tag, limit).execute()
-            if (response.isSuccessful) response.body()?.stations ?: emptyList() else emptyList()
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    suspend fun searchRadioStations(query: String? = null, tag: String? = null, country: String? = null, language: String? = null, limit: Int = 50): List<cx.aswin.boxcast.core.network.model.RadioStationItem> = withContext(Dispatchers.IO) {
-        try {
-            val response = api.searchStations(publicKey, query, tag, country, language, limit).execute()
-            if (response.isSuccessful) response.body()?.stations ?: emptyList() else emptyList()
-        } catch (e: Exception) {
-            android.util.Log.e("RadioDebug", "searchRadioStations error", e)
-            emptyList()
-        }
-    }
-
     suspend fun getBriefingMetadata(region: String): Briefing? = withContext(Dispatchers.IO) {
         val mappedRegion = mapRegionForBriefing(region)
         try {

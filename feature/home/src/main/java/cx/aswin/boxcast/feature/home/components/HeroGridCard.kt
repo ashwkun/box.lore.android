@@ -50,15 +50,7 @@ fun HeroGridCard(
     
     val shapes = remember(title) {
         val random = kotlin.random.Random(sessionSeed + title.hashCode())
-        val allShapes = listOf(
-            ExpressiveShapes.Sunny, ExpressiveShapes.VerySunny, 
-            ExpressiveShapes.Cookie4, ExpressiveShapes.Cookie6, ExpressiveShapes.Cookie9, ExpressiveShapes.Cookie12,
-            ExpressiveShapes.Burst, ExpressiveShapes.SoftBurst, ExpressiveShapes.Boom, ExpressiveShapes.SoftBoom,
-            ExpressiveShapes.Flower, ExpressiveShapes.Puffy, ExpressiveShapes.PuffyDiamond,
-            ExpressiveShapes.Heart, ExpressiveShapes.Bun, ExpressiveShapes.GhostIsh,
-            ExpressiveShapes.Diamond, ExpressiveShapes.Gem, ExpressiveShapes.Pentagon
-        )
-        val shuffled = allShapes.shuffled(random)
+        val shuffled = ExpressiveShapes.Decorative.shuffled(random)
         Pair(shuffled[0], shuffled[1])
     }
     val shape1 = shapes.first

@@ -37,7 +37,6 @@ class UserPreferencesRepository(context: Context) {
         val USE_DYNAMIC_COLOR = androidx.datastore.preferences.core.booleanPreferencesKey("use_dynamic_color")
         val THEME_BRAND = stringPreferencesKey("theme_brand")
         val SURFACE_STYLE = stringPreferencesKey("surface_style")
-        val IS_RADIO_MODE = androidx.datastore.preferences.core.booleanPreferencesKey("is_radio_mode")
         val HAS_DISMISSED_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_region_nudge")
         val HAS_DISMISSED_EXPLORE_REGION_NUDGE = androidx.datastore.preferences.core.booleanPreferencesKey("has_dismissed_explore_region_nudge")
         val WAS_INITIAL_REGION_MATCH = androidx.datastore.preferences.core.booleanPreferencesKey("was_initial_region_match")
@@ -280,23 +279,6 @@ class UserPreferencesRepository(context: Context) {
             preferences[Keys.SURFACE_STYLE] = surfaceStyle
         }
     }
-
-    // APP MODE PREFERENCES
-    val isRadioModeStream: Flow<Boolean> = dataStore.data
-        .catch { exception ->
-            if (exception is IOException) emit(emptyPreferences()) else throw exception
-        }
-        .map { preferences ->
-            preferences[Keys.IS_RADIO_MODE] ?: false
-        }
-        .distinctUntilChanged()
-
-    suspend fun setRadioMode(isRadioMode: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[Keys.IS_RADIO_MODE] = isRadioMode
-        }
-    }
-
     // SORTING PREFERENCES
     val subscriptionSortStream: Flow<String> = dataStore.data
         .catch { exception ->

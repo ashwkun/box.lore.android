@@ -487,7 +487,6 @@ class MainActivity : ComponentActivity() {
             val currentEpisode by remember(playbackRepository) {
                 playbackRepository.playerState.map { it.currentEpisode }.distinctUntilChanged()
             }.collectAsState(initial = null)
-            val isRadioMode by userPrefs.isRadioModeStream.collectAsState(initial = false)
             val isModeSwitching by cx.aswin.boxcast.feature.home.ModeSwitchState.isSwitching.collectAsState()
 
             var isConnectionFast by remember { mutableStateOf(true) }
@@ -2274,7 +2273,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = showLateNightNudge && isPlayerActive && !isRadioMode && !isModeSwitching,
+                        visible = showLateNightNudge && isPlayerActive && !isModeSwitching,
                         enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(400)) + 
                                 androidx.compose.animation.slideInVertically(
                                     initialOffsetY = { it }, 
@@ -2467,8 +2466,8 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // Unified Player Sheet - PixelPlayer architecture (Last so it draws ON TOP)
-                    // Hidden in Radio Mode and during mode switch animation
-                    if (!isRadioMode && !isModeSwitching) {
+                    // Hidden during mode switch animation
+                    if (!isModeSwitching) {
                     cx.aswin.boxcast.feature.player.UnifiedPlayerSheet(
                         playbackRepository = playbackRepository,
                         downloadRepository = downloadRepository,
@@ -2515,7 +2514,7 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier.align(Alignment.TopStart)
                     )
-                    } // end !isRadioMode
+                    }
                 }
 
                 OpmlImportDialog(
