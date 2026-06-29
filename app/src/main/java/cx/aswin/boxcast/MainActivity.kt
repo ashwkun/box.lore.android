@@ -137,6 +137,8 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 private const val TRANSITION_DURATION = 350
 private val TRANSITION_EASING = FastOutSlowInEasing
 
+
+
 class MainActivity : ComponentActivity() {
     // Reactive intent state to track incoming intents for deep linking skips
     private val intentState = androidx.compose.runtime.mutableStateOf<android.content.Intent?>(null)

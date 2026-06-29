@@ -1,6 +1,9 @@
 package cx.aswin.boxcast.feature.home.components
 
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
+import cx.aswin.boxcast.feature.home.StablePodcastList
+import cx.aswin.boxcast.feature.home.StableEpisodeList
+import cx.aswin.boxcast.feature.home.StablePlaybackStateMap
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
@@ -68,6 +71,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -114,13 +118,12 @@ import cx.aswin.boxcast.core.model.Podcast
 
 @Composable
 fun YourShowsSection(
-    subscribedPodcasts: List<Podcast>,
-    latestEpisodes: List<Podcast>, // Enriched with latest episodes
-    unplayedEpisodeCount: Int = 0,
+    subscribedPodcasts: StablePodcastList,
+    latestEpisodes: StablePodcastList, // Enriched with latest episodes
     selectedPodcastId: String?,
-    selectedPodcastEpisodes: List<Episode>,
+    selectedPodcastEpisodes: StableEpisodeList,
     isSelectedPodcastLoading: Boolean,
-    episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
+    episodePlaybackState: StablePlaybackStateMap,
     currentPlayingEpisodeId: String? = null,
     isPlaying: Boolean = false,
     onPodcastSelected: (String?) -> Unit,
@@ -132,23 +135,24 @@ fun YourShowsSection(
     modifier: Modifier = Modifier
 ) {
     LogRecomposition(name = "YourShowsSection")
-    if (subscribedPodcasts.isEmpty()) return
+    if (subscribedPodcasts.list.isEmpty()) return
 
 
     val interleavedPodcasts = remember(subscribedPodcasts) {
-        if (subscribedPodcasts.size > 9) {
+        val list = subscribedPodcasts.list
+        if (list.size > 9) {
             val result = mutableListOf<Podcast>()
             var i = 0
-            while (i < subscribedPodcasts.size) {
-                if (i + 1 < subscribedPodcasts.size) {
-                    result.add(subscribedPodcasts[i + 1])
+            while (i < list.size) {
+                if (i + 1 < list.size) {
+                    result.add(list[i + 1])
                 }
-                result.add(subscribedPodcasts[i])
+                result.add(list[i])
                 i += 2
             }
             result
         } else {
-            subscribedPodcasts
+            list
         }
     }
 
@@ -241,7 +245,7 @@ fun YourShowsSection(
                     ),
                     letterSpacing = (-0.5).sp
                 )
-                if (selectedPodcastId != null && subscribedPodcasts.size > 1) {
+                if (selectedPodcastId != null && subscribedPodcasts.list.size > 1) {
                     Spacer(modifier = Modifier.width(10.dp))
                     Row(
                         modifier = Modifier
@@ -285,14 +289,14 @@ fun YourShowsSection(
         }
 
         // --- The Selector Grid ---
-        if (subscribedPodcasts.size <= 4) {
+        if (subscribedPodcasts.list.size <= 4) {
             LazyRow(
                 contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (subscribedPodcasts.size > 1) {
+                if (subscribedPodcasts.list.size > 1) {
                     item(key = "mixtape") {
                         MixtapeSelectorCover(
                             isSelected = selectedPodcastId == null,
@@ -302,13 +306,13 @@ fun YourShowsSection(
                         )
                     }
                 }
-                items(subscribedPodcasts, key = { it.id }) { podcast ->
+                items(subscribedPodcasts.list, key = { it.id }) { podcast ->
                     SelectorCover(
                         podcast = podcast,
                         isSelected = selectedPodcastId == podcast.id,
                         isAnyPodcastSelected = selectedPodcastId != null,
                         onClick = {
-                            if (subscribedPodcasts.size > 1) {
+                            if (subscribedPodcasts.list.size > 1) {
                                 onPodcastSelected(if (selectedPodcastId == podcast.id) null else podcast.id)
                             }
                         },
@@ -316,13 +320,13 @@ fun YourShowsSection(
                     )
                 }
             }
-        } else if (subscribedPodcasts.size <= 9) {
+        } else if (subscribedPodcasts.list.size <= 9) {
             val allItems = remember(subscribedPodcasts) {
                 val list = mutableListOf<Any>()
-                if (subscribedPodcasts.size > 1) {
+                if (subscribedPodcasts.list.size > 1) {
                     list.add("mixtape")
                 }
-                list.addAll(subscribedPodcasts)
+                list.addAll(subscribedPodcasts.list)
                 list
             }
             val row1Items = remember(allItems) { allItems.take(5) }
@@ -477,7 +481,7 @@ fun YourShowsSection(
                 .animateContentSize() // Animates height changes smoothly with a spring curve!
         ) {
             AnimatedContent(
-                targetState = selectedPodcastId == null && subscribedPodcasts.size > 1,
+                targetState = selectedPodcastId == null && subscribedPodcasts.list.size > 1,
                 transitionSpec = {
                     fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith
                     fadeOut(animationSpec = tween(90))
@@ -487,7 +491,7 @@ fun YourShowsSection(
             ) { isMixtapeMode ->
                 if (isMixtapeMode) {
                     // Scenario A: Default State (More than 1 Sub, Nothing Selected)
-                    val displayList = latestEpisodes
+                    val displayList = latestEpisodes.list
 
                     if (displayList.isNotEmpty()) {
                         Column(
@@ -502,7 +506,7 @@ fun YourShowsSection(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Overlapping artwork stack on the left representing the mix inside expressive shapes
+                                // Overlapping artwork stack on the left
                                 Box(
                                     modifier = Modifier
                                         .width(84.dp)
@@ -516,88 +520,62 @@ fun YourShowsSection(
                                         }
                                         .distinct()
                                         .take(5)
-                                    val numImages = uniqueImages.size
                                     // Reverse so the first image (index 0) is drawn last (on top)
                                     uniqueImages.reversed().forEachIndexed { index, imageUrl ->
-                                        val stackIndex = numImages - 1 - index
-                                        val shape = when (stackIndex) {
-                                            0 -> ExpressiveShapes.Circle
-                                            1 -> ExpressiveShapes.Puffy
-                                            2 -> ExpressiveShapes.Diamond
-                                            3 -> ExpressiveShapes.Cookie12
-                                            else -> ExpressiveShapes.Burst
-                                        }
-                                        val xOffset = (stackIndex * 10).dp
-                                        val yOffset = when (stackIndex) {
-                                            1 -> 2.dp
-                                            2 -> (-2).dp
-                                            3 -> 3.dp
-                                            4 -> (-3).dp
+                                        val offsetVal = when (index) {
+                                            0 -> 0.dp
+                                            1 -> 14.dp
+                                            2 -> 26.dp
+                                            3 -> 36.dp
+                                            4 -> 44.dp
                                             else -> 0.dp
                                         }
-                                        val rotationVal = when (stackIndex) {
-                                            1 -> -6f
-                                            2 -> 6f
-                                            3 -> -10f
-                                            4 -> 10f
-                                            else -> 0f
-                                        }
-                                        val scaleVal = 1f - (stackIndex * 0.06f)
-
-                                        OptimizedImage(
-                                            url = imageUrl,
-                                            proxyWidth = 88,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
+                                        val zIndexVal = 5f - index
+                                        Box(
                                             modifier = Modifier
-                                                .size(40.dp)
-                                                .zIndex(5f - stackIndex)
-                                                .graphicsLayer {
-                                                    translationX = xOffset.toPx()
-                                                    translationY = yOffset.toPx()
-                                                    rotationZ = rotationVal
-                                                    scaleX = scaleVal
-                                                    scaleY = scaleVal
-                                                }
-                                                .clip(shape)
-                                                .border(2.dp, MaterialTheme.colorScheme.surfaceContainerLow, shape)
-                                        )
+                                                .offset(x = offsetVal)
+                                                .size(34.dp)
+                                                .zIndex(zIndexVal)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            OptimizedImage(
+                                                url = imageUrl,
+                                                proxyWidth = 68,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                if (unplayedEpisodeCount > 0) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
                                     Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier
-                                            .weight(1f)
-                                            .height(42.dp)
+                                            .height(30.dp)
                                             .expressiveClickable(onClick = onPlayMix)
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 20.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            modifier = Modifier.padding(horizontal = 10.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.PlayArrow,
-                                                contentDescription = "Play Mix",
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(20.dp)
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp)
                                             )
-                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text(
-                                                text = "Play My Daily Mix",
-                                                style = MaterialTheme.typography.labelLarge.copy(
-                                                    fontFamily = SectionHeaderFontFamily,
-                                                    fontWeight = FontWeight.Bold,
-                                                    letterSpacing = 0.2.sp
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                text = "Play Mix",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                letterSpacing = 0.2.sp
                                             )
                                         }
                                     }
@@ -608,51 +586,52 @@ fun YourShowsSection(
 
                             androidx.compose.material3.HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                                thickness = 1.dp,
-                                modifier = Modifier.padding(horizontal = 18.dp)
+                                thickness = 1.dp
                             )
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
 
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 18.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier.fillMaxWidth()
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp)
                             ) {
-                                items(displayList, key = { it.latestEpisode?.id ?: it.id }) { podcast ->
-                                    val episode = podcast.latestEpisode!!
-                                    val state = episodePlaybackState[episode.id]
-                                    MixtapeEpisodeCard(
-                                        episode = episode,
-                                        podcast = podcast,
-                                        onClick = { onEpisodeClick(episode, podcast, "home_mixtape_episodes") },
-                                        onPlay = { onPlayEpisode(episode, podcast) },
-                                        overrideStatus = state?.first,
-                                        overrideProgress = state?.second,
-                                        currentPlayingEpisodeId = currentPlayingEpisodeId,
-                                        isPlaying = isPlaying
-                                    )
+                                displayList.take(3).forEach { podcast ->
+                                    val ep = podcast.latestEpisode
+                                    if (ep != null) {
+                                        val state = episodePlaybackState.map[ep.id]
+                                        DenseEpisodeRow(
+                                            episode = ep,
+                                            podcast = podcast,
+                                            onClick = { onEpisodeClick(ep, podcast, "home_mixtape_episode") },
+                                            onPlay = { onPlayEpisode(ep, podcast) },
+                                            showPodcastTitle = true,
+                                            overrideStatus = state?.first,
+                                            overrideProgress = state?.second,
+                                            currentPlayingEpisodeId = currentPlayingEpisodeId,
+                                            isPlaying = isPlaying,
+                                            isEligibleForNewTag = false
+                                        )
+                                    }
                                 }
                             }
                         }
                     } else {
-                        // Caught up state
-                        Box(
+                        // Empty Mixtape Placeholder
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(24.dp),
-                            contentAlignment = Alignment.Center
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(32.dp)
-                                )
+                            Icon(
+                                imageVector = Icons.Rounded.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
                                 Text(
                                     text = "You're all caught up",
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -668,8 +647,8 @@ fun YourShowsSection(
                     }
                 } else {
                     // Scenario B: Filtered State (A Specific Sub is Selected) / Scenario C: Only 1 Sub Edge Case
-                    val activeId = selectedPodcastId ?: subscribedPodcasts.firstOrNull()?.id
-                    val selectedPodcast = subscribedPodcasts.find { it.id == activeId }
+                    val activeId = selectedPodcastId ?: subscribedPodcasts.list.firstOrNull()?.id
+                    val selectedPodcast = subscribedPodcasts.list.find { it.id == activeId }
                     
                     if (selectedPodcast == null) {
                         Text(
@@ -768,7 +747,7 @@ fun YourShowsSection(
                                 ) {
                                     BoxLoreLoader.Expressive(size = 48.dp)
                                 }
-                            } else if (selectedPodcastEpisodes.isEmpty()) {
+                            } else if (selectedPodcastEpisodes.list.isEmpty()) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -785,16 +764,16 @@ fun YourShowsSection(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(max = 324.dp) // Self-sizing height wraps content for fewer episodes! Eliminates empty space.
+                                        .heightIn(max = 324.dp)
                                         .nestedScroll(filteredScrollConnection)
                                         .verticalScroll(filteredScrollState),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     val latestTwoIds = remember(selectedPodcastEpisodes) {
-                                        selectedPodcastEpisodes.sortedByDescending { it.publishedDate }.take(2).map { it.id }.toSet()
+                                        selectedPodcastEpisodes.list.sortedByDescending { it.publishedDate }.take(2).map { it.id }.toSet()
                                     }
-                                    selectedPodcastEpisodes.take(8).forEach { episode ->
-                                        val state = episodePlaybackState[episode.id]
+                                    selectedPodcastEpisodes.list.take(8).forEach { episode ->
+                                        val state = episodePlaybackState.map[episode.id]
                                         DenseEpisodeRow(
                                             episode = episode,
                                             podcast = selectedPodcast,

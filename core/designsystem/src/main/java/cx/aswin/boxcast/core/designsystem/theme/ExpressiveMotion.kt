@@ -87,15 +87,15 @@ fun Modifier.expressiveClickable(
 ): Modifier = composed {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
+    val scaleState = animateFloatAsState(
         targetValue = if (isPressed) 0.85f else 1f,
         animationSpec = if (isPressed) ExpressiveMotion.QuickSpring else ExpressiveMotion.BouncySpring,
         label = "expressiveClickScale"
     )
     this
         .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
+            scaleX = scaleState.value
+            scaleY = scaleState.value
             if (shape != null) {
                 clip = true
                 this.shape = shape
@@ -119,15 +119,15 @@ fun Modifier.expressiveClickable(
 ): Modifier = composed {
     val localInteractionSource = interactionSource ?: remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isPressed by localInteractionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
+    val scaleState = animateFloatAsState(
         targetValue = if (isPressed) 0.85f else 1f,
         animationSpec = if (isPressed) ExpressiveMotion.QuickSpring else ExpressiveMotion.BouncySpring,
         label = "expressiveClickScale"
     )
     this
         .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
+            scaleX = scaleState.value
+            scaleY = scaleState.value
             if (shape != null) {
                 clip = true
                 this.shape = shape

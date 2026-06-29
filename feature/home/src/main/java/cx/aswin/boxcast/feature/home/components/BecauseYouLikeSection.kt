@@ -25,12 +25,14 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.feature.home.StablePodcastList
+import cx.aswin.boxcast.feature.home.StableEpisodeList
 
 @Composable
 fun BecauseYouLikeSection(
     podcast: Podcast,
-    recommendations: List<Episode>,
-    suggestedPodcasts: List<Podcast>,
+    recommendations: StableEpisodeList,
+    suggestedPodcasts: StablePodcastList,
     currentPlayingEpisodeId: String?,
     isPlaying: Boolean,
     onEpisodeClick: (Episode, Podcast) -> Unit,
@@ -108,7 +110,7 @@ fun BecauseYouLikeSection(
         }
 
         // --- Subsection 1: Suggested Shows (OutlinedCard Grid Matching CuratedEpisodeCard) ---
-        if (suggestedPodcasts.isNotEmpty()) {
+        if (suggestedPodcasts.list.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Column {
                 Row(
@@ -138,7 +140,7 @@ fun BecauseYouLikeSection(
                     contentPadding = PaddingValues(horizontal = 0.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(suggestedPodcasts, key = { it.id }) { suggestedPodcast ->
+                    items(suggestedPodcasts.list, key = { it.id }) { suggestedPodcast ->
                         SuggestedPodcastCard(
                             podcast = suggestedPodcast,
                             onClick = { onPodcastClick(suggestedPodcast) }
@@ -149,7 +151,7 @@ fun BecauseYouLikeSection(
         }
 
         // --- Subsection 2: Recommended Episodes ---
-        if (recommendations.isNotEmpty()) {
+        if (recommendations.list.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Column {
                 Row(
@@ -179,7 +181,7 @@ fun BecauseYouLikeSection(
                     contentPadding = PaddingValues(horizontal = 0.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(recommendations, key = { it.id }) { episode ->
+                    items(recommendations.list, key = { it.id }) { episode ->
                         val parentPodcast = Podcast(
                             id = episode.podcastId ?: "",
                             title = episode.podcastTitle ?: "Podcast",

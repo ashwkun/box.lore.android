@@ -79,6 +79,7 @@ data class CuratedTimeBlock(
     val sections: List<CuratedSectionData>
 )
 
+@Immutable
 data class CuratedSectionData(
     val title: String, 
     val category: String,
@@ -247,69 +248,72 @@ class HomeViewModel(
             }
         }
 
-        // Load cached recommendations synchronously
-        try {
-            val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
-            val cached = prefs.getString("cached_recommendations", null)
-            if (cached != null) {
-                val json = Json { ignoreUnknownKeys = true }
-                val list = json.decodeFromString<List<Episode>>(cached)
-                _recommendations.value = list
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "Failed to load cached recommendations", e)
-        }
-
-        // Load cached "Because You Like" recommendations synchronously
-        try {
-            val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
-            val cached = prefs.getString("cached_byl_recommendations", null)
-            val cachedPods = prefs.getString("cached_byl_podcasts", null)
-            val cachedPodId = prefs.getString("cached_byl_podcast_id", null)
-            if (cachedPodId != null) {
-                val json = Json { ignoreUnknownKeys = true }
+        // Load cached recommendations and curated vibes asynchronously on IO thread to prevent main-thread jank at startup
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            // Load cached recommendations
+            try {
+                val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+                val cached = prefs.getString("cached_recommendations", null)
                 if (cached != null) {
+                    val json = Json { ignoreUnknownKeys = true }
                     val list = json.decodeFromString<List<Episode>>(cached)
-                    _becauseYouLikeRecommendations.value = list
+                    _recommendations.value = list
                 }
-                if (cachedPods != null) {
-                    val podsList = json.decodeFromString<List<Podcast>>(cachedPods)
-                    _becauseYouLikePodcasts.value = podsList
-                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to load cached recommendations", e)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "Failed to load cached because-you-like recommendations", e)
-        }
 
-        // Load cached Curated Vibes synchronously
-        try {
-            val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
-            val cachedVibesJson = prefs.getString("cached_curated_vibes", null)
-            if (cachedVibesJson != null) {
-                val json = Json { ignoreUnknownKeys = true }
-                val cachedVibesMap = json.decodeFromString<Map<String, List<Podcast>>>(cachedVibesJson)
-                val blockConfig = getTimeBlockConfig()
-                val daySeed = java.time.LocalDate.now().toEpochDay()
-                val resolvedSections = blockConfig.genres.map { genre ->
-                    val list = cachedVibesMap[genre.id] ?: emptyList()
-                    val filtered = list
-                        .filter { it.latestEpisode != null }
-                        .shuffled(kotlin.random.Random(daySeed.toInt() + genre.title.hashCode()))
-                        .take(10)
-                    if (filtered.isNotEmpty()) {
-                        CuratedSectionData(genre.title, genre.id, filtered)
-                    } else null
-                }.filterNotNull()
-
-                if (resolvedSections.isNotEmpty()) {
-                    val block = CuratedTimeBlock(blockConfig.title, blockConfig.subtitle, blockConfig.icon, resolvedSections)
-                    _timeBlockState.value = block
-                    cachedTimeBlock = block
-                    _isCuratedLoaded.value = true
+            // Load cached "Because You Like" recommendations
+            try {
+                val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+                val cached = prefs.getString("cached_byl_recommendations", null)
+                val cachedPods = prefs.getString("cached_byl_podcasts", null)
+                val cachedPodId = prefs.getString("cached_byl_podcast_id", null)
+                if (cachedPodId != null) {
+                    val json = Json { ignoreUnknownKeys = true }
+                    if (cached != null) {
+                        val list = json.decodeFromString<List<Episode>>(cached)
+                        _becauseYouLikeRecommendations.value = list
+                    }
+                    if (cachedPods != null) {
+                        val podsList = json.decodeFromString<List<Podcast>>(cachedPods)
+                        _becauseYouLikePodcasts.value = podsList
+                    }
                 }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to load cached because-you-like recommendations", e)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "Failed to load cached curated vibes", e)
+
+            // Load cached Curated Vibes
+            try {
+                val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
+                val cachedVibesJson = prefs.getString("cached_curated_vibes", null)
+                if (cachedVibesJson != null) {
+                    val json = Json { ignoreUnknownKeys = true }
+                    val cachedVibesMap = json.decodeFromString<Map<String, List<Podcast>>>(cachedVibesJson)
+                    val blockConfig = getTimeBlockConfig()
+                    val daySeed = java.time.LocalDate.now().toEpochDay()
+                    val resolvedSections = blockConfig.genres.map { genre ->
+                        val list = cachedVibesMap[genre.id] ?: emptyList()
+                        val filtered = list
+                            .filter { it.latestEpisode != null }
+                            .shuffled(kotlin.random.Random(daySeed.toInt() + genre.title.hashCode()))
+                            .take(10)
+                        if (filtered.isNotEmpty()) {
+                            CuratedSectionData(genre.title, genre.id, filtered)
+                        } else null
+                    }.filterNotNull()
+
+                    if (resolvedSections.isNotEmpty()) {
+                        val block = CuratedTimeBlock(blockConfig.title, blockConfig.subtitle, blockConfig.icon, resolvedSections)
+                        _timeBlockState.value = block
+                        cachedTimeBlock = block
+                        _isCuratedLoaded.value = true
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to load cached curated vibes", e)
+            }
         }
 
         // Start oldest-sort serial episode resolution after a delay

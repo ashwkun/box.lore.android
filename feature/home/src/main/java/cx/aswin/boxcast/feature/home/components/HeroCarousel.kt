@@ -14,11 +14,12 @@ import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.feature.home.SmartHeroItem
 
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.feature.home.StableHeroList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeroCarousel(
-    heroItems: List<SmartHeroItem>,
+    heroItems: StableHeroList,
     onPlayClick: (Podcast, android.os.Bundle?) -> Unit,
     onDetailsClick: (Podcast) -> Unit,
     onArrowClick: (SmartHeroItem, Int) -> Unit,
@@ -28,9 +29,9 @@ fun HeroCarousel(
     isPlaying: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    if (heroItems.isEmpty()) return
+    if (heroItems.list.isEmpty()) return
 
-    val carouselState = rememberCarouselState { heroItems.size }
+    val carouselState = rememberCarouselState { heroItems.list.size }
     
     // Telemetry: Track Max Swipe Depth
     val maxScrolledIndex = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -40,7 +41,7 @@ fun HeroCarousel(
             kotlinx.coroutines.delay(3000) // 3s debounce
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeHeroCarouselSwiped(
                 maxCardIndexViewed = maxScrolledIndex.intValue,
-                totalCardsAvailable = heroItems.size
+                totalCardsAvailable = heroItems.list.size
             )
         }
     }
@@ -54,7 +55,7 @@ fun HeroCarousel(
             .fillMaxWidth()
             .height(420.dp)
     ) { i ->
-        val item = heroItems[i]
+        val item = heroItems.list[i]
         
         androidx.compose.runtime.DisposableEffect(i) {
             if (i > maxScrolledIndex.intValue) {

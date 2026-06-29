@@ -30,11 +30,12 @@ import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import androidx.compose.runtime.LaunchedEffect
 import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxcast.feature.home.StableEpisodeList
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun ForYouSection(
-    recommendations: List<Episode>,
+    recommendations: StableEpisodeList,
     currentPlayingEpisodeId: String?,
     isPlaying: Boolean,
     onEpisodeClick: (Episode, Podcast) -> Unit,
@@ -44,17 +45,17 @@ fun ForYouSection(
     showTasteHeader: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    if (recommendations.isNotEmpty()) {
-        LaunchedEffect(recommendations) {
+    if (recommendations.list.isNotEmpty()) {
+        LaunchedEffect(recommendations.list) {
             AnalyticsHelper.trackHomeRecommendationsImpression(
-                recommendationsCount = recommendations.size,
-                episodeIds = recommendations.map { it.id },
+                recommendationsCount = recommendations.list.size,
+                episodeIds = recommendations.list.map { it.id },
                 timeBlockTitle = timeBlock?.title
             )
         }
     }
 
-    val items = recommendations.take(9)
+    val items = recommendations.list.take(9)
 
     Column(
         modifier = modifier.fillMaxWidth()

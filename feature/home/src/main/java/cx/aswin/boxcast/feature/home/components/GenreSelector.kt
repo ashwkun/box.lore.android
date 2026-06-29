@@ -1,8 +1,8 @@
 package cx.aswin.boxcast.feature.home.components
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -37,30 +37,30 @@ fun GenreSelector(
         }
     }
 
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollState = rememberScrollState()
     
     LaunchedEffect(selectedCategory) {
-        listState.animateScrollToItem(0)
+        scrollState.animateScrollTo(0)
     }
 
-    // Top horizontal list (Subset)
-    LazyRow(
-        modifier = modifier,
-        state = listState,
-        contentPadding = PaddingValues(horizontal = 24.dp), 
+    // Top horizontal list (Subset) - Optimized by replacing LazyRow with scrollable Row for small static list
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        Spacer(modifier = Modifier.width(16.dp)) // Offset for the starting content padding (24.dp - 8.dp spacing)
+
         // 1. "Top" (Always first)
-        item {
-            GenreChip(
-                label = "Top",
-                isSelected = selectedCategory == null,
-                onClick = { onCategorySelected(null) }
-            )
-        }
+        GenreChip(
+            label = "Top",
+            isSelected = selectedCategory == null,
+            onClick = { onCategorySelected(null) }
+        )
 
         // 2. Dynamic List (Selected + Top Genres)
-        items(displayGenres, key = { it.value }) { genre ->
+        displayGenres.forEach { genre ->
             GenreChip(
                 label = genre.label,
                 isSelected = selectedCategory == genre.value,
@@ -69,21 +69,21 @@ fun GenreSelector(
         }
 
         // 3. "More" Button
-        item {
-            FilterChip(
+        FilterChip(
+            selected = false,
+            onClick = { showSheet = true },
+            label = { Text("More...") },
+            colors = FilterChipDefaults.filterChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+            ),
+            border = FilterChipDefaults.filterChipBorder(
+                enabled = true,
                 selected = false,
-                onClick = { showSheet = true },
-                label = { Text("More...") },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = false,
-                    borderColor = Color.Transparent
-                )
+                borderColor = Color.Transparent
             )
-        }
+        )
+
+        Spacer(modifier = Modifier.width(16.dp)) // Offset for the ending content padding
     }
 
     // Full Genre Sheet

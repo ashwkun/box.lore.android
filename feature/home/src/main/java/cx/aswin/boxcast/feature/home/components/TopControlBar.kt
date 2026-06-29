@@ -33,6 +33,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalView
@@ -76,24 +79,14 @@ fun TopControlBar(
     
     val expandedColor = MaterialTheme.colorScheme.surface
     val collapsedColor = MaterialTheme.colorScheme.surfaceContainerLow
-    
-    val fraction = scrollFractionProvider().coerceIn(0f, 1f)
-    
-    val verticalPadding = remember(fraction) {
-        androidx.compose.ui.unit.lerp(expandedPadding, collapsedPadding, fraction)
-    }
-    
-    val backgroundColor = remember(fraction) {
-        lerp(expandedColor, collapsedColor, fraction)
-    }
-    
-    // Update system status bar icon color to match background
+
+    // Update system status bar icon color to match background (evaluated once per theme change, not on scroll)
     val view = LocalView.current
     if (!view.isInEditMode) {
-        val isLightStatusBar = remember(backgroundColor) {
-            val luminance = (0.299f * backgroundColor.red + 
-                            0.587f * backgroundColor.green + 
-                            0.114f * backgroundColor.blue)
+        val isLightStatusBar = remember(expandedColor, collapsedColor) {
+            val luminance = (0.299f * expandedColor.red + 
+                            0.587f * expandedColor.green + 
+                            0.114f * expandedColor.blue)
             luminance > 0.5f
         }
         LaunchedEffect(isLightStatusBar) {
@@ -105,9 +98,30 @@ fun TopControlBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
+            .drawBehind {
+                val fraction = scrollFractionProvider().coerceIn(0f, 1f)
+                val color = lerp(expandedColor, collapsedColor, fraction)
+                drawRect(color)
+            }
             .statusBarsPadding()
-            .padding(horizontal = 12.dp, vertical = verticalPadding),
+            .layout { measurable, constraints ->
+                val fraction = scrollFractionProvider().coerceIn(0f, 1f)
+                val currentPadding = androidx.compose.ui.unit.lerp(expandedPadding, collapsedPadding, fraction)
+                val paddingPx = currentPadding.roundToPx()
+                
+                val placeable = measurable.measure(
+                    constraints.copy(
+                        minWidth = constraints.minWidth,
+                        maxWidth = constraints.maxWidth
+                    )
+                )
+                
+                val height = placeable.height + paddingPx * 2
+                layout(placeable.width, height) {
+                    placeable.place(0, paddingPx)
+                }
+            }
+            .padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -138,7 +152,10 @@ fun TopControlBar(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier
                         .size(36.dp)
-                        .scale(feedbackScale)
+                        .graphicsLayer {
+                            scaleX = feedbackScale
+                            scaleY = feedbackScale
+                        }
                         .clip(CircleShape)
                         .combinedClickable(
                             interactionSource = feedbackInteractionSource,
@@ -174,7 +191,10 @@ fun TopControlBar(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier
                         .size(36.dp)
-                        .scale(settingsScale)
+                        .graphicsLayer {
+                            scaleX = settingsScale
+                            scaleY = settingsScale
+                        }
                         .clip(CircleShape)
                         .combinedClickable(
                             interactionSource = settingsInteractionSource,
@@ -193,9 +213,6 @@ fun TopControlBar(
                     }
                 }
             }
+        }
     }
 }
-}
-
-
-

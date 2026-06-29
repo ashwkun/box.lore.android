@@ -17,12 +17,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -50,6 +47,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.Alignment
+import cx.aswin.boxcast.feature.home.components.GridSkeletonItem
 import cx.aswin.boxcast.feature.home.components.GridSkeletonItems
 import cx.aswin.boxcast.feature.home.components.YourShowsSkeleton
 import cx.aswin.boxcast.feature.home.components.TimeBlockSkeleton
@@ -116,6 +114,18 @@ import cx.aswin.boxcast.feature.home.components.ChangeRecommendationPodcastSheet
 import cx.aswin.boxcast.feature.home.components.DebugDbInspectorDialog
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.data.database.PodcastEntity
+
+@androidx.compose.runtime.Stable
+data class StableHeroList(val list: List<SmartHeroItem>)
+
+@androidx.compose.runtime.Stable
+data class StablePodcastList(val list: List<Podcast>)
+
+@androidx.compose.runtime.Stable
+data class StableEpisodeList(val list: List<Episode>)
+
+@androidx.compose.runtime.Stable
+data class StablePlaybackStateMap(val map: Map<String, Pair<EpisodeStatus, Float>>)
 
 @Composable
 fun HomeRoute(
@@ -309,21 +319,16 @@ fun HomeScreen(
         android.util.Log.d("BoxCastPerf", "PERF: HomeScreen uiState.isLoading changed to = ${uiState.isLoading}")
     }
     // Track scroll state for collapsing top bar
-    val gridState = rememberLazyStaggeredGridState()
+    val scrollState = rememberScrollState()
     var showDebugDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
     var showChangePodcastSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
     
     // Calculate scroll fraction: 0 = at top (expanded), 1 = scrolled (collapsed)
     val scrollFraction by remember {
         derivedStateOf {
-            val firstVisibleItem = gridState.firstVisibleItemIndex
-            val firstVisibleOffset = gridState.firstVisibleItemScrollOffset
+            val offset = scrollState.value
             val collapseThreshold = 100f
-            if (firstVisibleItem == 0) {
-                (firstVisibleOffset / collapseThreshold).coerceIn(0f, 1f)
-            } else {
-                1f
-            }
+            (offset / collapseThreshold).coerceIn(0f, 1f)
         }
     }
     
@@ -372,31 +377,30 @@ fun HomeScreen(
                         }
                     } else {
                         PodcastFeed(
-                            heroItems = uiState.heroItems,
-                            latestItems = uiState.latestEpisodes,
-                            unplayedEpisodeCount = uiState.unplayedEpisodeCount,
-                            subscribedItems = uiState.subscribedPodcasts,
+                            heroItems = StableHeroList(uiState.heroItems),
+                            latestItems = StablePodcastList(uiState.latestEpisodes),
+                            subscribedItems = StablePodcastList(uiState.subscribedPodcasts),
                             timeBlock = uiState.timeBlock,
                             briefing = uiState.briefing,
                             briefingChapters = uiState.briefingChapters,
-                            gridItems = uiState.discoverPodcasts,
+                            gridItems = StablePodcastList(uiState.discoverPodcasts),
                             selectedCategory = uiState.selectedCategory,
                             currentPlayingPodcastId = currentPlayingPodcastId,
                             currentPlayingEpisodeId = currentPlayingEpisodeId,
-                            recommendations = uiState.recommendations,
+                            recommendations = StableEpisodeList(uiState.recommendations),
                             isPlaying = isPlaying,
                             isPlayerLoading = isPlayerLoading,
                             isFilterLoading = uiState.isFilterLoading,
                             selectedPodcastId = uiState.selectedPodcastId,
-                            selectedPodcastEpisodes = uiState.selectedPodcastEpisodes,
+                            selectedPodcastEpisodes = StableEpisodeList(uiState.selectedPodcastEpisodes),
                             isSelectedPodcastLoading = uiState.isSelectedPodcastLoading,
-                            episodePlaybackState = uiState.episodePlaybackState,
+                            episodePlaybackState = StablePlaybackStateMap(uiState.episodePlaybackState),
                             isLoading = uiState.isLoading,
                             isRecommendationsLoading = uiState.isRecommendationsLoading,
                             isCuratedLoading = uiState.isCuratedLoading,
                             seemsToLikePodcast = uiState.seemsToLikePodcast,
-                            becauseYouLikeRecommendations = uiState.becauseYouLikeRecommendations,
-                            becauseYouLikePodcasts = uiState.becauseYouLikePodcasts,
+                            becauseYouLikeRecommendations = StableEpisodeList(uiState.becauseYouLikeRecommendations),
+                            becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
                             onChangePodcastClick = { showChangePodcastSheet = true },
                             onPodcastSelected = onPodcastSelected,
                             onPlayMix = onPlayMix,
@@ -408,7 +412,6 @@ fun HomeScreen(
                             onCuratedImpression = onCuratedImpression,
                             onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
                             onNavigateToLibrary = onNavigateToLibrary,
-                            onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
                             onNavigateToExplore = onNavigateToExplore,
                             onToggleSubscription = onToggleSubscription,
                             onTogglePlayback = onTogglePlayback,
@@ -426,7 +429,7 @@ fun HomeScreen(
                             onDismissBriefing = onDismissBriefing,
                             onDismissBriefingForever = onDismissBriefingForever,
                             onFeedbackClick = onFeedbackClick,
-                            gridState = gridState
+                            scrollState = scrollState
                         )
                     }
         }
@@ -494,23 +497,22 @@ fun HomeScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PodcastFeed(
-    heroItems: List<SmartHeroItem>,
-    latestItems: List<Podcast>,
-    unplayedEpisodeCount: Int,
-    subscribedItems: List<Podcast>,
+    heroItems: StableHeroList,
+    latestItems: StablePodcastList,
+    subscribedItems: StablePodcastList,
     timeBlock: CuratedTimeBlock?,
-    gridItems: List<Podcast>,
+    gridItems: StablePodcastList,
     selectedCategory: String?,
     currentPlayingPodcastId: String?,
     currentPlayingEpisodeId: String?,
-    recommendations: List<Episode> = emptyList(),
+    recommendations: StableEpisodeList,
     isPlaying: Boolean,
     isPlayerLoading: Boolean = false,
     isFilterLoading: Boolean,
     selectedPodcastId: String? = null,
-    selectedPodcastEpisodes: List<Episode> = emptyList(),
+    selectedPodcastEpisodes: StableEpisodeList,
     isSelectedPodcastLoading: Boolean = false,
-    episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
+    episodePlaybackState: StablePlaybackStateMap,
     isLoading: Boolean,
     isRecommendationsLoading: Boolean = true,
     isCuratedLoading: Boolean = true,
@@ -529,7 +531,6 @@ private fun PodcastFeed(
     onCuratedImpression: (String, List<String>) -> Unit = { _, _ -> },
     onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     onNavigateToLibrary: (() -> Unit)?,
-    onNavigateToLatestEpisodes: (() -> Unit)?,
     onNavigateToExplore: ((String?, String, String?) -> Unit)?,
     onToggleSubscription: (String) -> Unit,
     onTogglePlayback: (android.os.Bundle?) -> Unit,
@@ -544,11 +545,11 @@ private fun PodcastFeed(
     onDismissBriefing: () -> Unit = {},
     onDismissBriefingForever: () -> Unit = {},
     seemsToLikePodcast: Podcast? = null,
-    becauseYouLikeRecommendations: List<Episode> = emptyList(),
-    becauseYouLikePodcasts: List<Podcast> = emptyList(),
+    becauseYouLikeRecommendations: StableEpisodeList,
+    becauseYouLikePodcasts: StablePodcastList,
     onChangePodcastClick: () -> Unit = {},
     onFeedbackClick: () -> Unit = {},
-    gridState: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
+    scrollState: ScrollState,
     modifier: Modifier = Modifier
 ) {
     LogRecomposition(name = "PodcastFeed")
@@ -556,393 +557,419 @@ private fun PodcastFeed(
     val context = androidx.compose.ui.platform.LocalContext.current
 
     // Track whether initial content has loaded (for staggered entrance animation)
-    val heroLoaded = !isLoading && heroItems.isNotEmpty()
+    val heroLoaded = !isLoading && heroItems.list.isNotEmpty()
 
-    LazyVerticalStaggeredGrid(
-        state = gridState,
-        columns = StaggeredGridCells.Adaptive(150.dp),
-        contentPadding = PaddingValues(bottom = 160.dp, start = 16.dp, end = 16.dp), // Clear navbar + mini player 
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalItemSpacing = 24.dp,
-        modifier = modifier.fillMaxSize()
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(bottom = 160.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-
         // 1. Smart Hero (Personalized Content) and Region Nudge
-        item(span = StaggeredGridItemSpan.FullLine) {
-            Column {
-                // Crossfade between skeleton and hero carousel
-                androidx.compose.animation.Crossfade(
-                    targetState = heroLoaded,
-                    animationSpec = tween(500),
-                    label = "hero_crossfade"
-                ) { loaded ->
-                    if (!loaded) {
-                        cx.aswin.boxcast.feature.home.components.HeroSkeleton()
-                    } else {
-                        HeroCarousel(
-                            heroItems = heroItems,
-                            currentPlayingPodcastId = currentPlayingPodcastId,
-                            isPlaying = isPlaying,
-                            onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
-                            onDetailsClick = { podcast ->
-                                val ep = podcast.latestEpisode
-                                if (ep != null) {
-                                    onEpisodeClick?.invoke(ep, podcast, "home_hero_card")
-                                } else {
-                                    onPodcastClick(podcast, "home_hero_card", null, null)
-                                }
-                            },
-                            onArrowClick = onHeroArrowClick,
-                            onToggleSubscription = onToggleSubscription,
-                            onTogglePlayback = onTogglePlayback,
-                            modifier = Modifier
-                        )
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = showRegionNudge,
-                    enter = expandVertically(
-                        animationSpec = tween(400),
-                        expandFrom = androidx.compose.ui.Alignment.Top
-                    ) + fadeIn(animationSpec = tween(400)),
-                    exit = shrinkVertically(
-                        animationSpec = tween(300),
-                        shrinkTowards = androidx.compose.ui.Alignment.Top
-                    ) + fadeOut(animationSpec = tween(300))
-                ) {
-                    cx.aswin.boxcast.feature.home.components.RegionMismatchNudgeBanner(
-                        systemRegion = systemRegionCode,
-                        activeRegion = activeRegionCode,
-                        onSwitchRegion = onSwitchRegion,
-                        onDismiss = onDismissNudge,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
-        }
-
-
-
-        // 2. "Your Shows" (Interactive selector grid & filtered stack)
-        // Only occupy a grid slot when there is content to render (avoids dead spacing)
-        if (isLoading || subscribedItems.isNotEmpty() || showImportBanner) {
-            item(span = StaggeredGridItemSpan.FullLine) {
-                when {
-                    isLoading -> YourShowsSkeleton(subscribedCount = subscribedItems.size)
-                    subscribedItems.isNotEmpty() -> YourShowsSection(
-                        subscribedPodcasts = subscribedItems,
-                        latestEpisodes = latestItems,
-                        unplayedEpisodeCount = unplayedEpisodeCount,
-                        selectedPodcastId = selectedPodcastId,
-                        selectedPodcastEpisodes = selectedPodcastEpisodes,
-                        isSelectedPodcastLoading = isSelectedPodcastLoading,
-                        episodePlaybackState = episodePlaybackState,
-                        currentPlayingEpisodeId = currentPlayingEpisodeId,
-                        isPlaying = isPlaying,
-                        onPodcastSelected = onPodcastSelected,
-                        onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
-                        onEpisodeClick = { episode, podcast, entryPoint ->
-                            onEpisodeClick?.invoke(episode, podcast, entryPoint)
-                        },
-                        onPlayMix = onPlayMix,
-                        onPlayEpisode = onPlayEpisode,
-                        onViewLibrary = { onNavigateToLibrary?.invoke() }
-                    )
-                    showImportBanner -> {
-                        LaunchedEffect(Unit) {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerImpression()
-                        }
-                        HomeImportBanner(
-                            onAiOnboardingClick = {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("ai")
-                                onAiOnboardingClick()
-                            },
-                            onSearchClick = {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("search")
-                                onNavigateToExplore?.invoke(null, "home_banner", null)
-                            },
-                            onImportClick = {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("import")
-                                onImportClick()
-                            },
-                            onDismiss = {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerDismissed()
-                                onDismissImportBanner()
-                            },
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Daily Briefing Card — Shifted above ForYouSection
-        if (briefing != null) {
-            item(key = "daily_briefing", span = StaggeredGridItemSpan.FullLine) {
-                val briefingId = "briefing_${briefing.region}_${briefing.date}"
-                val playbackState = episodePlaybackState[briefingId]
-                LaunchedEffect(briefing.region, briefing.date) {
-                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardImpression(
-                        region = briefing.region,
-                        date = briefing.date,
-                        playbackStatus = playbackState?.first?.name ?: "NOT_STARTED"
-                    )
-                }
-                DailyBriefingCard(
-                    briefing = briefing,
-                    chapters = briefingChapters,
-                    isPlaying = isPlaying && currentPlayingEpisodeId == briefingId,
-                    playbackStatus = playbackState?.first,
-                    playbackProgress = playbackState?.second,
-                    isBuffering = isPlayerLoading && currentPlayingEpisodeId == briefingId,
-                    onPlayPauseClick = {
-                        val isCurrentPlaying = isPlaying && currentPlayingEpisodeId == briefingId
-                        if (isCurrentPlaying) {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
-                                region = briefing.region,
-                                date = briefing.date,
-                                source = "home_banner"
-                            )
+        // Crossfade between skeleton and hero carousel
+        androidx.compose.animation.Crossfade(
+            targetState = heroLoaded,
+            animationSpec = tween(500),
+            label = "hero_crossfade"
+        ) { loaded ->
+            if (!loaded) {
+                cx.aswin.boxcast.feature.home.components.HeroSkeleton()
+            } else {
+                HeroCarousel(
+                    heroItems = heroItems,
+                    currentPlayingPodcastId = currentPlayingPodcastId,
+                    isPlaying = isPlaying,
+                    onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
+                    onDetailsClick = { podcast ->
+                        val ep = podcast.latestEpisode
+                        if (ep != null) {
+                            onEpisodeClick?.invoke(ep, podcast, "home_hero_card")
                         } else {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
-                                region = briefing.region,
-                                date = briefing.date,
-                                source = "home_banner"
-                            )
+                            onPodcastClick(podcast, "home_hero_card", null, null)
                         }
-
-                        val publishedDate = try {
-                            java.time.LocalDate.parse(briefing.date)
-                                .atStartOfDay(java.time.ZoneOffset.UTC)
-                                .toEpochSecond()
-                        } catch (e: Exception) {
-                            System.currentTimeMillis() / 1000
-                        }
-                        val audioUri = android.net.Uri.parse(briefing.audioUrl)
-                        val version = audioUri.getQueryParameter("v")
-                        val versionParam = if (version != null) "&v=$version" else ""
-                        
-                        val packageName = context.packageName
-                        val resId = when (briefing.region.lowercase()) {
-                            "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
-                            "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
-                            "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
-                            else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
-                        }
-                        val localCoverUrl = "android.resource://$packageName/$resId"
-
-                        onPlayEpisode(
-                            cx.aswin.boxcast.core.model.Episode(
-                                id = briefingId,
-                                title = briefing.title,
-                                description = "Your daily AI-generated news briefing for ${briefing.region.uppercase()}.",
-                                audioUrl = briefing.audioUrl,
-                                imageUrl = localCoverUrl,
-                                podcastId = "briefing_${briefing.region}",
-                                podcastTitle = "The Boxlore Brief",
-                                podcastImageUrl = localCoverUrl,
-                                podcastArtist = "BoxCast AI",
-                                duration = 180,
-                                publishedDate = publishedDate,
-                                transcriptUrl = "https://api.aswin.cx/briefings/transcript/${briefing.region}?d=${briefing.date}$versionParam",
-                                chaptersUrl = "https://api.aswin.cx/briefings/chapters/${briefing.region}?d=${briefing.date}$versionParam"
-                            ),
-                            cx.aswin.boxcast.core.model.Podcast(
-                                id = "briefing_${briefing.region}",
-                                title = "The Boxlore Brief",
-                                artist = "BoxCast AI",
-                                imageUrl = localCoverUrl
-                            )
-                        )
                     },
-                    onClick = {
-                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
-                            region = briefing.region,
-                            date = briefing.date
-                        )
-                        onBriefingClick(briefing.region)
-                    },
-                    onDismiss = onDismissBriefing,
-                    onDismissForever = onDismissBriefingForever,
-                    onFeedbackClick = onFeedbackClick,
+                    onArrowClick = onHeroArrowClick,
+                    onToggleSubscription = onToggleSubscription,
+                    onTogglePlayback = onTogglePlayback,
                     modifier = Modifier
                 )
             }
         }
 
-        // Curated For You Main Header + Sections
-        val hasBecauseYouLike = seemsToLikePodcast != null && (becauseYouLikeRecommendations.isNotEmpty() || becauseYouLikePodcasts.isNotEmpty())
-        val hasRecommendations = isRecommendationsLoading || recommendations.isNotEmpty()
-        if (hasBecauseYouLike || hasRecommendations) {
-            item(span = StaggeredGridItemSpan.FullLine) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 0.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                text = "Curated For You",
-                                fontSize = 20.sp,
-                                fontFamily = SectionHeaderFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        FilledTonalIconButton(
-                            onClick = {
-                                onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = "See All",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    // "Because You Like" Section
-                    if (hasBecauseYouLike) {
-                        BecauseYouLikeSection(
-                            podcast = seemsToLikePodcast!!,
-                            recommendations = becauseYouLikeRecommendations,
-                            suggestedPodcasts = becauseYouLikePodcasts,
-                            currentPlayingEpisodeId = currentPlayingEpisodeId,
-                            isPlaying = isPlaying,
-                            onEpisodeClick = { episode, podcast ->
-                                onEpisodeClick?.invoke(episode, podcast, "home_because_you_like")
-                            },
-                            onPlayEpisode = onPlayEpisode,
-                            onPodcastClick = { podcast ->
-                                onPodcastClick(podcast, "home_because_you_like", null, null)
-                            },
-                            onChangePodcastClick = onChangePodcastClick,
-                            modifier = Modifier
-                        )
-                    }
-
-                    if (hasBecauseYouLike && hasRecommendations) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    // "For You" normal recommendations section
-                    if (hasRecommendations) {
-                        ForYouSection(
-                            recommendations = recommendations,
-                            currentPlayingEpisodeId = currentPlayingEpisodeId,
-                            isPlaying = isPlaying,
-                            onEpisodeClick = { episode, podcast ->
-                                onEpisodeClick?.invoke(episode, podcast, "home_for_you")
-                            },
-                            onPlayEpisode = onPlayEpisode,
-                            timeBlock = timeBlock,
-                            onSeeAllClick = {
-                                onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
-                            },
-                            showTasteHeader = hasBecauseYouLike,
-                            modifier = Modifier
-                        )
-                    }
-                }
-            }
-        }
-
-        // 3. Time-Based Curated Block — Crossfade skeleton → content
-        item(span = StaggeredGridItemSpan.FullLine) {
-            androidx.compose.animation.Crossfade(
-                targetState = when {
-                    isCuratedLoading -> "skeleton"
-                    timeBlock != null -> "content"
-                    else -> "empty"
-                },
-                animationSpec = tween(600),
-                label = "timeblock_crossfade"
-            ) { state ->
-                when (state) {
-                    "skeleton" -> TimeBlockSkeleton()
-                    "content" -> TimeBlockSection(
-                        data = timeBlock!!,
-                        onCuratedEpisodeClick = { episode, podcast, vibeId, pos -> onCuratedEpisodeClick?.invoke(episode, podcast, vibeId, pos) },
-                        onImpression = onCuratedImpression,
-                        onSeeAllClick = {
-                            onNavigateToExplore?.invoke(null, "home_time_block_see_all", "foryou")
-                        }
-                    )
-                    "empty" -> {}
-                }
-            }
-        }
-
-
-
-
-
-        // 4. Discover Section (Header + Chips + Loading State)
-        item(span = StaggeredGridItemSpan.FullLine) {
-            cx.aswin.boxcast.feature.home.components.DiscoverSection(
-                selectedCategory = selectedCategory,
-                onCategorySelected = onSelectCategory,
-                onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header", null) }
+        AnimatedVisibility(
+            visible = showRegionNudge,
+            enter = expandVertically(
+                animationSpec = tween(400),
+                expandFrom = androidx.compose.ui.Alignment.Top
+            ) + fadeIn(animationSpec = tween(400)),
+            exit = shrinkVertically(
+                animationSpec = tween(300),
+                shrinkTowards = androidx.compose.ui.Alignment.Top
+            ) + fadeOut(animationSpec = tween(300))
+        ) {
+            cx.aswin.boxcast.feature.home.components.RegionMismatchNudgeBanner(
+                systemRegion = systemRegionCode,
+                activeRegion = activeRegionCode,
+                onSwitchRegion = onSwitchRegion,
+                onDismiss = onDismissNudge,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
 
-        // 5. Masonry Grid Content (Discover Podcasts) - LIMITED TO 6
-        if (!isLoading && !isFilterLoading && gridItems.isNotEmpty()) {
-            val limitedItems = gridItems.distinctBy { it.id }.take(6)
-            val showGenreChip = selectedCategory == null // Only show chips for "For You" tab
-            itemsIndexed(limitedItems, key = { _, p -> p.id }) { index, podcast ->
-                val isTall = podcast.id.hashCode() % 3 == 0
-                PodcastCard(
-                    podcast = podcast,
-                    isTall = isTall,
-                    showGenreChip = showGenreChip,
-                    onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, index) }
+        // 2. "Your Shows" (Interactive selector grid & filtered stack)
+        if (isLoading || subscribedItems.list.isNotEmpty() || showImportBanner) {
+            when {
+                isLoading -> YourShowsSkeleton(subscribedCount = subscribedItems.list.size)
+                subscribedItems.list.isNotEmpty() -> YourShowsSection(
+                    subscribedPodcasts = subscribedItems,
+                    latestEpisodes = latestItems,
+                    selectedPodcastId = selectedPodcastId,
+                    selectedPodcastEpisodes = selectedPodcastEpisodes,
+                    isSelectedPodcastLoading = isSelectedPodcastLoading,
+                    episodePlaybackState = episodePlaybackState,
+                    currentPlayingEpisodeId = currentPlayingEpisodeId,
+                    isPlaying = isPlaying,
+                    onPodcastSelected = onPodcastSelected,
+                    onPodcastClick = { onPodcastClick(it, "home_your_shows", null, null) },
+                    onEpisodeClick = { episode, podcast, entryPoint ->
+                        onEpisodeClick?.invoke(episode, podcast, entryPoint)
+                    },
+                    onPlayMix = onPlayMix,
+                    onPlayEpisode = onPlayEpisode,
+                    onViewLibrary = { onNavigateToLibrary?.invoke() }
+                )
+                showImportBanner -> {
+                    LaunchedEffect(Unit) {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerImpression()
+                    }
+                    HomeImportBanner(
+                        onAiOnboardingClick = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("ai")
+                            onAiOnboardingClick()
+                        },
+                        onSearchClick = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("search")
+                            onNavigateToExplore?.invoke(null, "home_banner", null)
+                        },
+                        onImportClick = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerClicked("import")
+                            onImportClick()
+                        },
+                        onDismiss = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomeImportBannerDismissed()
+                            onDismissImportBanner()
+                        },
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+            }
+        }
+
+        // Daily Briefing Card
+        if (briefing != null) {
+            val briefingId = "briefing_${briefing.region}_${briefing.date}"
+            val playbackState = episodePlaybackState.map[briefingId]
+            LaunchedEffect(briefing.region, briefing.date) {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardImpression(
+                    region = briefing.region,
+                    date = briefing.date,
+                    playbackStatus = playbackState?.first?.name ?: "NOT_STARTED"
                 )
             }
-            
-            // "View More" Button (Full Line)
-            item(span = StaggeredGridItemSpan.FullLine) {
-                androidx.compose.foundation.layout.Box(
+            DailyBriefingCard(
+                briefing = briefing,
+                chapters = briefingChapters,
+                isPlaying = isPlaying && currentPlayingEpisodeId == briefingId,
+                playbackStatus = playbackState?.first,
+                playbackProgress = playbackState?.second,
+                isBuffering = isPlayerLoading && currentPlayingEpisodeId == briefingId,
+                onPlayPauseClick = {
+                    val isCurrentPlaying = isPlaying && currentPlayingEpisodeId == briefingId
+                    if (isCurrentPlaying) {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
+                            region = briefing.region,
+                            date = briefing.date,
+                            source = "home_banner"
+                        )
+                    } else {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
+                            region = briefing.region,
+                            date = briefing.date,
+                            source = "home_banner"
+                        )
+                    }
+
+                    val publishedDate = try {
+                        java.time.LocalDate.parse(briefing.date)
+                            .atStartOfDay(java.time.ZoneOffset.UTC)
+                            .toEpochSecond()
+                    } catch (e: Exception) {
+                        System.currentTimeMillis() / 1000
+                    }
+                    val audioUri = android.net.Uri.parse(briefing.audioUrl)
+                    val version = audioUri.getQueryParameter("v")
+                    val versionParam = if (version != null) "&v=$version" else ""
+                    
+                    val packageName = context.packageName
+                    val resId = when (briefing.region.lowercase()) {
+                        "in", "ind" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_india
+                        "uk", "gb" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_uk
+                        "us", "usa" -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_usa
+                        else -> cx.aswin.boxcast.core.designsystem.R.drawable.daily_briefing_global
+                    }
+                    val localCoverUrl = "android.resource://$packageName/$resId"
+
+                    onPlayEpisode(
+                        cx.aswin.boxcast.core.model.Episode(
+                            id = briefingId,
+                            title = briefing.title,
+                            description = "Your daily AI-generated news briefing for ${briefing.region.uppercase()}.",
+                            audioUrl = briefing.audioUrl,
+                            imageUrl = localCoverUrl,
+                            podcastId = "briefing_${briefing.region}",
+                            podcastTitle = "The Boxlore Brief",
+                            podcastImageUrl = localCoverUrl,
+                            podcastArtist = "BoxCast AI",
+                            duration = 180,
+                            publishedDate = publishedDate,
+                            transcriptUrl = "https://api.aswin.cx/briefings/transcript/${briefing.region}?d=${briefing.date}$versionParam",
+                            chaptersUrl = "https://api.aswin.cx/briefings/chapters/${briefing.region}?d=${briefing.date}$versionParam"
+                        ),
+                        cx.aswin.boxcast.core.model.Podcast(
+                            id = "briefing_${briefing.region}",
+                            title = "The Boxlore Brief",
+                            artist = "BoxCast AI",
+                            imageUrl = localCoverUrl
+                        )
+                    )
+                },
+                onClick = {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
+                        region = briefing.region,
+                        date = briefing.date
+                    )
+                    onBriefingClick(briefing.region)
+                },
+                onDismiss = onDismissBriefing,
+                onDismissForever = onDismissBriefingForever,
+                onFeedbackClick = onFeedbackClick,
+                modifier = Modifier
+            )
+        }
+
+        // Curated For You Main Header + Sections
+        val hasBecauseYouLike = seemsToLikePodcast != null && (becauseYouLikeRecommendations.list.isNotEmpty() || becauseYouLikePodcasts.list.isNotEmpty())
+        val hasRecommendations = isRecommendationsLoading || recommendations.list.isNotEmpty()
+        if (hasBecauseYouLike || hasRecommendations) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Header
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(top = 0.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    androidx.compose.material3.FilledTonalButton(
-                        onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button", null) }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                            Text("View more in ${selectedCategory ?: "Explore"}")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "Curated For You",
+                            fontSize = 20.sp,
+                            fontFamily = SectionHeaderFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    FilledTonalIconButton(
+                        onClick = {
+                            onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ChevronRight,
+                            contentDescription = "See All",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // "Because You Like" Section
+                if (hasBecauseYouLike) {
+                    BecauseYouLikeSection(
+                        podcast = seemsToLikePodcast!!,
+                        recommendations = becauseYouLikeRecommendations,
+                        suggestedPodcasts = becauseYouLikePodcasts,
+                        currentPlayingEpisodeId = currentPlayingEpisodeId,
+                        isPlaying = isPlaying,
+                        onEpisodeClick = { episode, podcast ->
+                            onEpisodeClick?.invoke(episode, podcast, "home_because_you_like")
+                        },
+                        onPlayEpisode = onPlayEpisode,
+                        onPodcastClick = { podcast ->
+                            onPodcastClick(podcast, "home_because_you_like", null, null)
+                        },
+                        onChangePodcastClick = onChangePodcastClick,
+                        modifier = Modifier
+                    )
+                }
+
+                if (hasBecauseYouLike && hasRecommendations) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // "For You" normal recommendations section
+                if (hasRecommendations) {
+                    ForYouSection(
+                        recommendations = recommendations,
+                        currentPlayingEpisodeId = currentPlayingEpisodeId,
+                        isPlaying = isPlaying,
+                        onEpisodeClick = { episode, podcast ->
+                            onEpisodeClick?.invoke(episode, podcast, "home_for_you")
+                        },
+                        onPlayEpisode = onPlayEpisode,
+                        timeBlock = timeBlock,
+                        onSeeAllClick = {
+                            onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
+                        },
+                        showTasteHeader = hasBecauseYouLike,
+                        modifier = Modifier
+                    )
+                }
+            }
+        }
+
+        // 3. Time-Based Curated Block
+        androidx.compose.animation.Crossfade(
+            targetState = when {
+                isCuratedLoading -> "skeleton"
+                timeBlock != null -> "content"
+                else -> "empty"
+            },
+            animationSpec = tween(600),
+            label = "timeblock_crossfade"
+        ) { state ->
+            when (state) {
+                "skeleton" -> TimeBlockSkeleton()
+                "content" -> TimeBlockSection(
+                    data = timeBlock!!,
+                    onCuratedEpisodeClick = { episode, podcast, vibeId, pos -> onCuratedEpisodeClick?.invoke(episode, podcast, vibeId, pos) },
+                    onImpression = onCuratedImpression,
+                    onSeeAllClick = {
+                        onNavigateToExplore?.invoke(null, "home_time_block_see_all", "foryou")
+                    }
+                )
+                "empty" -> {}
+            }
+        }
+
+        // 4. Discover Section (Header + Chips + Loading State)
+        cx.aswin.boxcast.feature.home.components.DiscoverSection(
+            selectedCategory = selectedCategory,
+            onCategorySelected = onSelectCategory,
+            onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header", null) }
+        )
+
+        // 5. Bento Masonry Grid Content (Discover Podcasts) - LIMITED TO 6
+        if (!isLoading && !isFilterLoading && gridItems.list.isNotEmpty()) {
+            val limitedItems = gridItems.list.distinctBy { it.id }.take(6)
+            val showGenreChip = selectedCategory == null
+
+            // Side-by-side Columns to build a perfect bento staggered masonry grid!
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Left column for items (0, 2, 4)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val leftItems = limitedItems.filterIndexed { idx, _ -> idx % 2 == 0 }
+                    leftItems.forEachIndexed { leftIdx, podcast ->
+                        val isTall = podcast.id.hashCode() % 3 == 0
+                        PodcastCard(
+                            podcast = podcast,
+                            isTall = isTall,
+                            showGenreChip = showGenreChip,
+                            onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, leftIdx * 2) }
+                        )
+                    }
+                }
+
+                // Right column for items (1, 3, 5)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val rightItems = limitedItems.filterIndexed { idx, _ -> idx % 2 != 0 }
+                    rightItems.forEachIndexed { rightIdx, podcast ->
+                        val isTall = podcast.id.hashCode() % 3 == 0
+                        PodcastCard(
+                            podcast = podcast,
+                            isTall = isTall,
+                            showGenreChip = showGenreChip,
+                            onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, rightIdx * 2 + 1) }
+                        )
                     }
                 }
             }
-        } else { 
-             // If loading OR empty, show Skeleton (Matches Hero/Rising behavior)
-             GridSkeletonItems()
+            
+            // "View More" Button (Full Line)
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button", null) }
+                ) {
+                        Text("View more in ${selectedCategory ?: "Explore"}")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                }
+            }
+        } else {
+            // Skeletons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GridSkeletonItem(isTall = true)
+                    GridSkeletonItem(isTall = false)
+                    GridSkeletonItem(isTall = true)
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GridSkeletonItem(isTall = false)
+                    GridSkeletonItem(isTall = true)
+                    GridSkeletonItem(isTall = false)
+                }
+            }
         }
     }
 }
