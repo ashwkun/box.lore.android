@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-06-29T17:36:30.859Z",
+  "lastRun": "2026-06-29T18:25:03.870Z",
   "podcasts": {
     "2123": {
       "lastEpisodeId": "567722198",
@@ -7,9 +7,14 @@
       "lastCheckedAt": 1782580345480
     },
     "9926": {
-      "lastEpisodeId": "567673697",
+      "lastEpisodeId": "56767913697",
       "lastEpisodeTitle": "The Mind-Bending MK Ultra Experiments of Dr Ewen Cameron",
-      "lastCheckedAt": 1782587896322
+      "lastCheckedAt": 1782757504371
+    },
+    "69930": {
+      "lastEpisodeId": "56840506162",
+      "lastEpisodeTitle": "Bengal mid-day meal row, Karnataka farmers protest, and a mass poisoning plot",
+      "lastCheckedAt": 1782757504714
     },
     "311214": {
       "lastEpisodeId": "567104661",
@@ -17,9 +22,9 @@
       "lastCheckedAt": 1782580346119
     },
     "415434": {
-      "lastEpisodeId": "567500986",
+      "lastEpisodeId": "56750077986",
       "lastEpisodeTitle": "Of course Meta thinks gambling is the future",
-      "lastCheckedAt": 1782590864083
+      "lastCheckedAt": 1782757505190
     },
     "448245": {
       "lastEpisodeId": "56601446692",
@@ -27,9 +32,9 @@
       "lastCheckedAt": 1782580346423
     },
     "461319": {
-      "lastEpisodeId": "568315317",
+      "lastEpisodeId": "56831615317",
       "lastEpisodeTitle": "We Got the Cybertruck Light Bar! | Tesla Time News 642",
-      "lastCheckedAt": 1782676452605
+      "lastCheckedAt": 1782757505502
     },
     "555427": {
       "lastEpisodeId": "386077022",
@@ -37,34 +42,34 @@
       "lastCheckedAt": 1782585870863
     },
     "585994": {
-      "lastEpisodeId": "405917575",
+      "lastEpisodeId": "40591739575",
       "lastEpisodeTitle": "1865 Presents American Criminal | The Murder of Medgar Evers",
-      "lastCheckedAt": 1782590864149
+      "lastCheckedAt": 1782757505666
     },
     "743229": {
-      "lastEpisodeId": "568565851",
+      "lastEpisodeId": "56856531851",
       "lastEpisodeTitle": "Why Everyone Cares About This World Cup",
-      "lastCheckedAt": 1782727706434
+      "lastCheckedAt": 1782757506368
     },
     "947138": {
-      "lastEpisodeId": "567595861",
+      "lastEpisodeId": "56759563861",
       "lastEpisodeTitle": "Steam Machine is Perfect-ly Divisive!",
-      "lastCheckedAt": 1782580346640
+      "lastCheckedAt": 1782757506675
     },
     "1015378": {
-      "lastEpisodeId": "568715337",
+      "lastEpisodeId": "56871500337",
       "lastEpisodeTitle": "Nate Silver Predicts: Democrats Take the House, Newsom Is Fading & AOC Might Win It All in 2028",
-      "lastCheckedAt": 1782754592306
+      "lastCheckedAt": 1782757507274
     },
     "1258562": {
-      "lastEpisodeId": "533100529",
+      "lastEpisodeId": "53310059829",
       "lastEpisodeTitle": "190. The Reality Show Triple Murder: Villupuram Case",
-      "lastCheckedAt": 1782580346970
+      "lastCheckedAt": 1782757507632
     },
     "4150268": {
-      "lastEpisodeId": "42570570",
+      "lastEpisodeId": "42575210570",
       "lastEpisodeTitle": "Introducing: Origin Stories",
-      "lastCheckedAt": 1782596307094
+      "lastCheckedAt": 1782757507934
     },
     "5377667": {
       "lastEpisodeId": "22189071",
@@ -72,14 +77,14 @@
       "lastCheckedAt": 1782580347307
     },
     "5930143": {
-      "lastEpisodeId": "56865297",
+      "lastEpisodeId": "56866175297",
       "lastEpisodeTitle": "Le Moyen-Orient s’installe dans un \"ni-guerre-ni-paix\" fragile",
-      "lastCheckedAt": 1782754592624
+      "lastCheckedAt": 1782757508283
     },
     "7492905": {
-      "lastEpisodeId": "56814641",
+      "lastEpisodeId": "56814794641",
       "lastEpisodeTitle": "Nest: The iPod of thermostats",
-      "lastCheckedAt": 1782639672707
+      "lastCheckedAt": 1782757508533
     }
   }
 }
