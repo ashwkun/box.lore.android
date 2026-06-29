@@ -53,7 +53,7 @@ data class OnboardingUiState(
     val selectedPodcasts: Map<String, Podcast> = emptyMap(),
     // AI Onboarding fields
     val aiHistory: List<OnboardingHistoryEntry> = emptyList(),
-    val aiAssistantMessage: String = "Hi! I'm boxcast. To start, what kind of a listener are you?",
+    val aiAssistantMessage: String = "Hi! I'm boxlore. To start, what kind of a listener are you?",
     val aiOptions: List<String> = listOf(
         "Storyseeker | Serialized narratives, investigative series, and immersive audio dramas",
         "Deep Diver | Detailed analysis, long-form research, and intellectual essays",

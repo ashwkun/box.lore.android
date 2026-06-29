@@ -105,7 +105,7 @@ private fun AiChatOnboardingScreen(
         
         list.add(
             ChatMessage.ModelMessage(
-                text = "Hi! I'm boxcast. To start, what kind of a listener are you?",
+                text = "Hi! I'm boxlore. To start, what kind of a listener are you?",
                 key = "init_model"
             )
         )
@@ -621,7 +621,7 @@ private fun AiChatOnboardingScreen(
                     } else {
                         // Conversational Turn (Options & Custom Input Bar)
                         AnimatedVisibility(
-                            visible = suggestionsVisible,
+                            visible = suggestionsVisible && !isKeyboardVisible && !isTextFieldFocused,
                             enter = fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300)),
                             exit = fadeOut(animationSpec = tween(250)) + shrinkVertically(animationSpec = tween(250))
                         ) {
