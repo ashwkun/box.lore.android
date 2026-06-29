@@ -1054,6 +1054,75 @@ class PlaybackRepository(
         }
     }
 
+    private fun buildMediaItems(episodes: List<Episode>, podcast: Podcast, entryPointContext: android.os.Bundle?): List<MediaItem> {
+        return episodes.map { episode ->
+            val resolvedUrl = episode.imageUrl?.takeIf { it.isNotBlank() } 
+                    ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() } 
+                    ?: podcast.imageUrl
+            Log.d("PlaybackRepo", "playQueue: epId=${episode.id}, title='${episode.title}', resolvedImageUrl='$resolvedUrl'")
+            val metadata = androidx.media3.common.MediaMetadata.Builder()
+               .setTitle(episode.title)
+               .setArtist(episode.podcastTitle ?: podcast.title)
+               .setArtworkUri(android.net.Uri.parse(resolvedUrl))
+               .setDisplayTitle(episode.title)
+               .setSubtitle(episode.podcastTitle ?: podcast.title)
+               .setGenre(episode.podcastGenre ?: podcast.genre)
+               .setExtras(entryPointContext)
+               .build()
+      
+            MediaItem.Builder()
+               .setUri(episode.audioUrl)
+               .setMediaMetadata(metadata)
+               .setMediaId(episode.id)
+               .setCustomCacheKey(episode.id)
+               .build()
+        }
+    }
+
+    private suspend fun checkSavedProgress(startEpisodeId: String?, initialPositionMs: Long?): Pair<Long, Boolean> {
+        var startPosMs = initialPositionMs ?: 0L
+        var initialLikeState = false
+        if (startEpisodeId != null) {
+            val saved = listeningHistoryDao.getHistoryItem(startEpisodeId)
+            if (saved != null) {
+                if (initialPositionMs == null && !saved.isCompleted) {
+                    startPosMs = saved.progressMs
+                }
+                initialLikeState = saved.isLiked
+            }
+            listeningHistoryDao.setCompletionStatus(startEpisodeId, false)
+        }
+        return Pair(startPosMs, initialLikeState)
+    }
+
+    private fun checkShowLateNightNudge(): Boolean {
+        if (isLateNight()) {
+            val lastShown = prefs.getLong("last_late_night_nudge_timestamp", 0L)
+            val now = System.currentTimeMillis()
+            if (now - lastShown > 43_200_000L) {
+                prefs.edit().putLong("last_late_night_nudge_timestamp", now).apply()
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun storePendingEntryPoint(entryPointContext: android.os.Bundle?) {
+        if (entryPointContext != null) {
+            val map = mutableMapOf<String, Any>()
+            entryPointContext.keySet().forEach { key ->
+                @Suppress("DEPRECATION")
+                val value = entryPointContext.get(key)
+                if (value != null) {
+                    map[key] = value
+                }
+            }
+            if (map.isNotEmpty()) {
+                cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
+            }
+        }
+    }
+
     suspend fun playQueue(episodes: List<Episode>, podcast: Podcast, startIndex: Int = 0, entryPointContext: android.os.Bundle? = null, initialPositionMs: Long? = null) {
         Log.d("PlaybackRepo", "playQueue() called: count=${episodes.size}, start=$startIndex, podcastGenre='${podcast.genre}'")
         
@@ -1064,68 +1133,21 @@ class PlaybackRepository(
         }
         
         mediaController?.let { controller ->
-            // Optimization: If playing the same context, just seek?
-            // For now, full reload ensures queue is correct.
+            val mediaItems = buildMediaItems(episodes, podcast, entryPointContext)
             
-            val mediaItems = episodes.map { episode ->
-                 val resolvedUrl = episode.imageUrl?.takeIf { it.isNotBlank() } 
-                         ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() } 
-                         ?: podcast.imageUrl
-                 Log.d("PlaybackRepo", "playQueue: epId=${episode.id}, title='${episode.title}', resolvedImageUrl='$resolvedUrl'")
-                 val metadata = androidx.media3.common.MediaMetadata.Builder()
-                    .setTitle(episode.title)
-                    .setArtist(episode.podcastTitle ?: podcast.title)
-                    .setArtworkUri(android.net.Uri.parse(resolvedUrl))
-                    .setDisplayTitle(episode.title) // Required for notification
-                    .setSubtitle(episode.podcastTitle ?: podcast.title)
-                    .setGenre(episode.podcastGenre ?: podcast.genre)
-                    .setExtras(entryPointContext)
-                    .build()
-           
-                 MediaItem.Builder()
-                    .setUri(episode.audioUrl)
-                    .setMediaMetadata(metadata)
-                    .setMediaId(episode.id) // Important for identification
-                    .setCustomCacheKey(episode.id) // Match DownloadRequest custom key
-                    .build()
-            }
-            
-            // Check for saved progress and liked status in a single DB query
-            var startPosMs = initialPositionMs ?: 0L
-            var initialLikeState = false
             val startEpisodeId = episodes.getOrNull(startIndex)?.id
-            if (startEpisodeId != null) {
-                val saved = listeningHistoryDao.getHistoryItem(startEpisodeId)
-                if (saved != null) {
-                    if (initialPositionMs == null && !saved.isCompleted) {
-                        startPosMs = saved.progressMs
-                    }
-                    initialLikeState = saved.isLiked
-                }
-                listeningHistoryDao.setCompletionStatus(startEpisodeId, false)
-            }
+            val (startPosMs, initialLikeState) = checkSavedProgress(startEpisodeId, initialPositionMs)
             
-            // Update local state BEFORE setMediaItems (onMediaItemTransition reads this)
             val currentEp = episodes.getOrNull(startIndex)
             if (currentEp != null) {
-                var showNudge = false
-                if (isLateNight()) {
-                    val lastShown = prefs.getLong("last_late_night_nudge_timestamp", 0L)
-                    val now = System.currentTimeMillis()
-                    // 12 hours = 43,200,000 milliseconds
-                    if (now - lastShown > 43_200_000L) {
-                        showNudge = true
-                        prefs.edit().putLong("last_late_night_nudge_timestamp", now).apply()
-                    }
-                }
-                
+                val showNudge = checkShowLateNightNudge()
                 _playerState.value = _playerState.value.copy(
                     currentEpisode = currentEp,
                     currentPodcast = podcast,
                     isPlaying = true,
                     position = startPosMs,
                     duration = currentEp.duration.toLong() * 1000,
-                    queue = episodes, // Update queue BEFORE Media3 triggers callbacks
+                    queue = episodes,
                     isLiked = initialLikeState,
                     showLateNightNudge = showNudge
                 )
@@ -1135,29 +1157,10 @@ class PlaybackRepository(
             controller.setMediaItems(mediaItems, startIndex, startPosMs)
             controller.prepare()
             
-            // Set entry point context via static holder (IPC-safe)
-            if (entryPointContext != null) {
-                val map = mutableMapOf<String, Any>()
-                entryPointContext.keySet().forEach { key ->
-                    @Suppress("DEPRECATION")
-                    val value = entryPointContext.get(key)
-                    if (value != null) {
-                        map[key] = value
-                    }
-                }
-                if (map.isNotEmpty()) {
-                    cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.set(map)
-                }
-            }
+            storePendingEntryPoint(entryPointContext)
             
             controller.play()
-            
-            // Sync queue to DB for restart recovery
             syncQueueToDb()
-            
-            // Save state immediately but do NOT update lastPlayedAt timestamp to prevent
-            // instant card reordering on the home screen. The timestamp will be updated
-            // after 10 seconds of active playback via the progress ticker.
             saveCurrentState(updateLastPlayedAt = false)
         }
     }

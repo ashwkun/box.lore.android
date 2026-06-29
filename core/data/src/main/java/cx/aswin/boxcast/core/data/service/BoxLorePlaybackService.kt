@@ -1409,131 +1409,83 @@ class BoxLorePlaybackService : MediaLibraryService() {
          * Resolves items into playable MediaItems AND builds a queue from the
          * same podcast, mirroring the phone's QueueManager/PlayerViewModel behavior.
          */
-        override fun onAddMediaItems(
-            mediaSession: MediaSession,
-            controller: MediaSession.ControllerInfo,
-            mediaItems: MutableList<MediaItem>
-        ): ListenableFuture<MutableList<MediaItem>> {
-            android.util.Log.d("AutoBrowse", "onAddMediaItems: ${mediaItems.size} items")
+        private suspend fun handleVoiceSearchQuery(searchQuery: String): MutableList<MediaItem> {
+            val lowerQuery = searchQuery.lowercase()
+            val isVague = lowerQuery in listOf("podcast", "something", "music", "play", "anything", "")
             
-            return serviceScope.future {
-                // If multiple items (e.g. queue restore), resolve each individually
-                if (mediaItems.size > 1) {
-                    return@future mediaItems.map { resolveMediaItem(it) }.toMutableList()
+            if (isVague || lowerQuery.contains("subscription") || lowerQuery.contains("resume")) {
+                val lastSession = database.listeningHistoryDao().getLastPlayedSession()
+                if (lastSession != null) {
+                    android.util.Log.d("AutoBrowse", "Vague query → resuming last: ${lastSession.episodeTitle}")
+                    pendingSeekMs = lastSession.progressMs
+                    pendingSeekEpisodeId = lastSession.episodeId
+                    val artworkUri = (lastSession.episodeImageUrl ?: lastSession.podcastImageUrl)
+                        ?.let { android.net.Uri.parse(it) }
+                    return mutableListOf(
+                        MediaItem.Builder()
+                            .setMediaId("episode:${lastSession.episodeId}")
+                            .setUri(lastSession.episodeAudioUrl)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(lastSession.episodeTitle)
+                                    .setArtist(lastSession.podcastName)
+                                    .setArtworkUri(artworkUri)
+                                    .setIsPlayable(true)
+                                    .setIsBrowsable(false)
+                                    .build()
+                            )
+                            .build()
+                    )
                 }
-                
-                val selectedItem = mediaItems.first()
-                val searchQuery = selectedItem.requestMetadata.searchQuery
-                
-                // Voice command: "play X on BoxCast" → searchQuery is set
-                if (!searchQuery.isNullOrBlank()) {
-                    android.util.Log.d("AutoBrowse", "Voice play request: '$searchQuery'")
-                    
-                    val lowerQuery = searchQuery.lowercase()
-                    val isVague = lowerQuery in listOf("podcast", "something", "music", "play", "anything", "")
-                    
-                    if (isVague || lowerQuery.contains("subscription") || lowerQuery.contains("resume")) {
-                        // Vague request → resume last played session
-                        val lastSession = database.listeningHistoryDao().getLastPlayedSession()
-                        if (lastSession != null) {
-                            android.util.Log.d("AutoBrowse", "Vague query → resuming last: ${lastSession.episodeTitle}")
-                            pendingSeekMs = lastSession.progressMs
-                            pendingSeekEpisodeId = lastSession.episodeId
-                            val artworkUri = (lastSession.episodeImageUrl ?: lastSession.podcastImageUrl)
-                                ?.let { android.net.Uri.parse(it) }
-                            return@future mutableListOf(
-                                MediaItem.Builder()
-                                    .setMediaId("episode:${lastSession.episodeId}")
-                                    .setUri(lastSession.episodeAudioUrl)
-                                    .setMediaMetadata(
-                                        MediaMetadata.Builder()
-                                            .setTitle(lastSession.episodeTitle)
-                                            .setArtist(lastSession.podcastName)
-                                            .setArtworkUri(artworkUri)
-                                            .setIsPlayable(true)
-                                            .setIsBrowsable(false)
-                                            .build()
-                                    )
+            }
+            
+            val subs = database.podcastDao().getSubscribedPodcastsList()
+            val matchedPod = subs.firstOrNull { 
+                it.title.lowercase().contains(lowerQuery) 
+            }
+            
+            if (matchedPod != null) {
+                android.util.Log.d("AutoBrowse", "Voice matched subscription: ${matchedPod.title}")
+                val episodes = podcastRepository.getEpisodes(matchedPod.podcastId)
+                val ep = episodes.firstOrNull()
+                if (ep != null) {
+                    val artworkUri = android.net.Uri.parse(ep.imageUrl ?: matchedPod.imageUrl)
+                    return mutableListOf(
+                        MediaItem.Builder()
+                            .setMediaId("episode:${ep.id}")
+                            .setUri(ep.audioUrl)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(ep.title)
+                                    .setArtist(matchedPod.title)
+                                    .setArtworkUri(artworkUri)
+                                    .setIsPlayable(true)
+                                    .setIsBrowsable(false)
                                     .build()
                             )
-                        }
-                    }
-                    
-                    // Specific query → search subscriptions first, then API
-                    val subs = database.podcastDao().getSubscribedPodcastsList()
-                    val matchedPod = subs.firstOrNull { 
-                        it.title.lowercase().contains(lowerQuery) 
-                    }
-                    
-                    if (matchedPod != null) {
-                        // Found a subscribed podcast → play its latest episode
-                        android.util.Log.d("AutoBrowse", "Voice matched subscription: ${matchedPod.title}")
-                        val episodes = podcastRepository.getEpisodes(matchedPod.podcastId)
-                        val ep = episodes.firstOrNull()
-                        if (ep != null) {
-                            val artworkUri = android.net.Uri.parse(ep.imageUrl ?: matchedPod.imageUrl)
-                            return@future mutableListOf(
-                                MediaItem.Builder()
-                                    .setMediaId("episode:${ep.id}")
-                                    .setUri(ep.audioUrl)
-                                    .setMediaMetadata(
-                                        MediaMetadata.Builder()
-                                            .setTitle(ep.title)
-                                            .setArtist(matchedPod.title)
-                                            .setArtworkUri(artworkUri)
-                                            .setIsPlayable(true)
-                                            .setIsBrowsable(false)
-                                            .build()
-                                    )
-                                    .build()
-                            )
-                        }
-                    }
-                    
-                    // Not in subscriptions → search Podcast Index API
-                    try {
-                        val apiResults = podcastRepository.searchPodcasts(searchQuery)
-                        val firstPod = apiResults.firstOrNull()
-                        if (firstPod != null) {
-                            android.util.Log.d("AutoBrowse", "Voice matched API: ${firstPod.title}")
-                            val episodes = podcastRepository.getEpisodes(firstPod.id)
-                            val ep = episodes.firstOrNull()
-                            if (ep != null) {
-                                val artworkUri = android.net.Uri.parse(ep.imageUrl ?: firstPod.imageUrl)
-                                return@future mutableListOf(
-                                    MediaItem.Builder()
-                                        .setMediaId("episode:${ep.id}")
-                                        .setUri(ep.audioUrl)
-                                        .setMediaMetadata(
-                                            MediaMetadata.Builder()
-                                                .setTitle(ep.title)
-                                                .setArtist(firstPod.title)
-                                                .setArtworkUri(artworkUri)
-                                                .setIsPlayable(true)
-                                                .setIsBrowsable(false)
-                                                .build()
-                                        )
-                                        .build()
-                                )
-                            }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("AutoBrowse", "Voice search API failed", e)
-                    }
-                    
-                    // Fallback: resume last session
-                    val fallback = database.listeningHistoryDao().getLastPlayedSession()
-                    if (fallback != null) {
-                        pendingSeekMs = fallback.progressMs
-                        pendingSeekEpisodeId = fallback.episodeId
-                        return@future mutableListOf(
+                            .build()
+                    )
+                }
+            }
+            
+            try {
+                val apiResults = podcastRepository.searchPodcasts(searchQuery)
+                val firstPod = apiResults.firstOrNull()
+                if (firstPod != null) {
+                    android.util.Log.d("AutoBrowse", "Voice matched API: ${firstPod.title}")
+                    val episodes = podcastRepository.getEpisodes(firstPod.id)
+                    val ep = episodes.firstOrNull()
+                    if (ep != null) {
+                        val artworkUri = android.net.Uri.parse(ep.imageUrl ?: firstPod.imageUrl)
+                        return mutableListOf(
                             MediaItem.Builder()
-                                .setMediaId("episode:${fallback.episodeId}")
-                                .setUri(fallback.episodeAudioUrl)
+                                .setMediaId("episode:${ep.id}")
+                                .setUri(ep.audioUrl)
                                 .setMediaMetadata(
                                     MediaMetadata.Builder()
-                                        .setTitle(fallback.episodeTitle)
-                                        .setArtist(fallback.podcastName)
+                                        .setTitle(ep.title)
+                                        .setArtist(firstPod.title)
+                                        .setArtworkUri(artworkUri)
                                         .setIsPlayable(true)
                                         .setIsBrowsable(false)
                                         .build()
@@ -1542,48 +1494,145 @@ class BoxLorePlaybackService : MediaLibraryService() {
                         )
                     }
                 }
+            } catch (e: Exception) {
+                android.util.Log.e("AutoBrowse", "Voice search API failed", e)
+            }
+            
+            val fallback = database.listeningHistoryDao().getLastPlayedSession()
+            if (fallback != null) {
+                pendingSeekMs = fallback.progressMs
+                pendingSeekEpisodeId = fallback.episodeId
+                return mutableListOf(
+                    MediaItem.Builder()
+                        .setMediaId("episode:${fallback.episodeId}")
+                        .setUri(fallback.episodeAudioUrl)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(fallback.episodeTitle)
+                                .setArtist(fallback.podcastName)
+                                .setIsPlayable(true)
+                                .setIsBrowsable(false)
+                                .build()
+                        )
+                        .build()
+                )
+            }
+            
+            return mutableListOf()
+        }
+
+        private suspend fun handlePlayAllNewEpisodes(): MutableList<MediaItem> {
+            android.util.Log.d("AutoBrowse", "Play All New Episodes triggered")
+            val subscriptions = subscriptionRepository.getAllSubscribedPodcasts().first()
+            
+            val newEpisodes = subscriptions
+                .mapNotNull { entity -> entity.latestEpisode?.let { ep -> ep to entity } }
+                .sortedByDescending { (ep, _) -> ep.publishedDate }
+                .take(20)
+            
+            return newEpisodes.map { (ep, pod) ->
+                val artworkUri = android.net.Uri.parse(ep.imageUrl ?: pod.imageUrl)
                 
-                // Intercept the Virtual "Play All" Action from the New Episodes tab
-                if (selectedItem.mediaId == PLAY_ALL_NEW_EPISODES_ID) {
-                    android.util.Log.d("AutoBrowse", "Play All New Episodes triggered")
-                    val subscriptions = subscriptionRepository.getAllSubscribedPodcasts().first()
-                    
-                    val newEpisodes = subscriptions
-                        .mapNotNull { entity -> entity.latestEpisode?.let { ep -> ep to entity } }
-                        .sortedByDescending { (ep, _) -> ep.publishedDate }
-                        .take(20)
-                    
-                    val playableItems = newEpisodes.map { (ep, pod) ->
-                        val artworkUri = android.net.Uri.parse(ep.imageUrl ?: pod.imageUrl)
-                        
-                        MediaItem.Builder()
-                            .setMediaId("episode:${ep.id}")
-                            .setUri(ep.audioUrl)
-                            .setMediaMetadata(
-                                MediaMetadata.Builder()
-                                    .setTitle(ep.title)
-                                    .setSubtitle(pod.title)
-                                    .setArtist(pod.author)
-                                    .setArtworkUri(artworkUri)
-                                    .setIsPlayable(true)
-                                    .setIsBrowsable(false)
-                                    .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
-                                    .build()
-                            )
+                MediaItem.Builder()
+                    .setMediaId("episode:${ep.id}")
+                    .setUri(ep.audioUrl)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(ep.title)
+                            .setSubtitle(pod.title)
+                            .setArtist(pod.author)
+                            .setArtworkUri(artworkUri)
+                            .setIsPlayable(true)
+                            .setIsBrowsable(false)
+                            .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
                             .build()
-                    }.toMutableList()
-                    
-                    // Instantly returning all 20 to the player immediately builds the queue
-                    return@future playableItems
+                    )
+                    .build()
+            }.toMutableList()
+        }
+
+        private fun buildAndAppendQueueAsync(episodeId: String, mediaSession: MediaSession) {
+            serviceScope.launch {
+                try {
+                    val podcastId = findPodcastIdForEpisode(episodeId)
+                    if (podcastId != null) {
+                        android.util.Log.d("AutoBrowse", "Async queue build: fetching episodes for $podcastId")
+                        val allEpisodes = podcastRepository.getEpisodes(podcastId)
+                        val podcastEntity = database.podcastDao().getPodcast(podcastId)
+                        
+                        val podcastApi = if (podcastEntity == null) podcastRepository.getPodcastDetails(podcastId) else null
+                        val podcastImageUrl = podcastEntity?.imageUrl ?: podcastApi?.imageUrl
+                        val podcastTitle = podcastEntity?.title ?: podcastApi?.title
+                        val podcastAuthor = podcastEntity?.author ?: podcastApi?.artist
+                        
+                        if (allEpisodes.isNotEmpty()) {
+                            val sorted = allEpisodes.sortedBy { it.publishedDate }
+                            val selectedIndex = sorted.indexOfFirst { it.id == episodeId }
+                            
+                            if (selectedIndex >= 0 && selectedIndex < sorted.size - 1) {
+                                val remainingQueue = sorted.subList(selectedIndex + 1, sorted.size)
+                                
+                                val mediaItemsToAdd = remainingQueue.map { episode ->
+                                    val artworkUri = (episode.imageUrl ?: podcastImageUrl)?.let { android.net.Uri.parse(it) }
+                                    
+                                    MediaItem.Builder()
+                                        .setMediaId("episode:${episode.id}")
+                                        .setUri(episode.audioUrl)
+                                        .setMediaMetadata(
+                                            MediaMetadata.Builder()
+                                                .setTitle(episode.title)
+                                                .setSubtitle(podcastTitle ?: episode.podcastTitle ?: "")
+                                                .setArtist(podcastAuthor ?: episode.podcastArtist ?: "")
+                                                .setArtworkUri(artworkUri)
+                                                .setIsPlayable(true)
+                                                .setIsBrowsable(false)
+                                                .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
+                                                .build()
+                                        )
+                                        .build()
+                                }
+                                
+                                kotlinx.coroutines.withContext(mainDispatcher) {
+                                    mediaSession.player.addMediaItems(mediaItemsToAdd)
+                                    android.util.Log.d("AutoBrowse", "Async queue built: appended ${mediaItemsToAdd.size} items")
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("AutoBrowse", "Async queue build failed", e)
+                }
+            }
+        }
+
+        override fun onAddMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>
+        ): ListenableFuture<MutableList<MediaItem>> {
+            android.util.Log.d("AutoBrowse", "onAddMediaItems: ${mediaItems.size} items")
+            
+            return serviceScope.future {
+                if (mediaItems.size > 1) {
+                    return@future mediaItems.map { resolveMediaItem(it) }.toMutableList()
                 }
                 
-                // Single item selection: Resolve it IMMEDIATELY so playback starts instantly
-                val resolvedItem = resolveMediaItem(selectedItem)
+                val selectedItem = mediaItems.first()
+                val searchQuery = selectedItem.requestMetadata.searchQuery
                 
+                if (!searchQuery.isNullOrBlank()) {
+                    android.util.Log.d("AutoBrowse", "Voice play request: '$searchQuery'")
+                    return@future handleVoiceSearchQuery(searchQuery)
+                }
+                
+                if (selectedItem.mediaId == PLAY_ALL_NEW_EPISODES_ID) {
+                    return@future handlePlayAllNewEpisodes()
+                }
+                
+                val resolvedItem = resolveMediaItem(selectedItem)
                 val episodeId = selectedItem.mediaId.removePrefix("episode:").removePrefix("queue:")
                 android.util.Log.d("AutoBrowse", "Returning episode instantly: $episodeId")
                 
-                // Read saved position NOW, before playback starts (no race!)
                 val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
                 if (historyItem != null && historyItem.progressMs > 2000 && !historyItem.isCompleted) {
                     pendingSeekMs = historyItem.progressMs
@@ -1594,65 +1643,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     pendingSeekEpisodeId = null
                 }
                 
-                // Launch background job to fetch all other episodes and silently append to queue
-                // This prevents Auto from showing the ugly "Getting your selection" loading screen
-                serviceScope.launch {
-                    try {
-                        val podcastId = findPodcastIdForEpisode(episodeId)
-                        if (podcastId != null) {
-                            android.util.Log.d("AutoBrowse", "Async queue build: fetching episodes for $podcastId")
-                            val allEpisodes = podcastRepository.getEpisodes(podcastId)
-                            val podcastEntity = database.podcastDao().getPodcast(podcastId)
-                            
-                            // Need API fallback if not in Local DB
-                            val podcastApi = if (podcastEntity == null) podcastRepository.getPodcastDetails(podcastId) else null
-                            val podcastImageUrl = podcastEntity?.imageUrl ?: podcastApi?.imageUrl
-                            val podcastTitle = podcastEntity?.title ?: podcastApi?.title
-                            val podcastAuthor = podcastEntity?.author ?: podcastApi?.artist
-                            
-                            if (allEpisodes.isNotEmpty()) {
-                                // Sort chronologically (oldest → newest)
-                                val sorted = allEpisodes.sortedBy { it.publishedDate }
-                                val selectedIndex = sorted.indexOfFirst { it.id == episodeId }
-                                
-                                // Take everything AFTER the selected episode
-                                if (selectedIndex >= 0 && selectedIndex < sorted.size - 1) {
-                                    val remainingQueue = sorted.subList(selectedIndex + 1, sorted.size)
-                                    
-                                    val mediaItemsToAdd = remainingQueue.map { episode ->
-                                        val artworkUri = (episode.imageUrl ?: podcastImageUrl)?.let { android.net.Uri.parse(it) }
-                                        
-                                        MediaItem.Builder()
-                                            .setMediaId("episode:${episode.id}")
-                                            .setUri(episode.audioUrl)
-                                            .setMediaMetadata(
-                                                MediaMetadata.Builder()
-                                                    .setTitle(episode.title)
-                                                    .setSubtitle(podcastTitle ?: episode.podcastTitle ?: "")
-                                                    .setArtist(podcastAuthor ?: episode.podcastArtist ?: "")
-                                                    .setArtworkUri(artworkUri)
-                                                    .setIsPlayable(true)
-                                                    .setIsBrowsable(false)
-                                                    .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
-                                                    .build()
-                                            )
-                                            .build()
-                                    }
-                                    
-                                    // Safely add to player on the main thread
-                                    kotlinx.coroutines.withContext(mainDispatcher) {
-                                        mediaSession.player.addMediaItems(mediaItemsToAdd)
-                                        android.util.Log.d("AutoBrowse", "Async queue built: appended ${mediaItemsToAdd.size} items")
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("AutoBrowse", "Async queue build failed", e)
-                    }
-                }
-                
-                // Instantly return the resolved item!
+                buildAndAppendQueueAsync(episodeId, mediaSession)
                 mutableListOf(resolvedItem)
             }
         }
