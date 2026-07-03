@@ -440,11 +440,7 @@ fun DownloadedEpisodesScreen(
                             items(items = sortedGroups, key = { it.podcastId }) { group ->
                                 val isSelected = group.podcastId in selectedPodcastIds
                                 PodcastListShowCard(
-                                    title = group.podcastName,
-                                    imageUrl = group.podcastImageUrl,
-                                    downloadCount = group.episodes.size,
-                                    totalSizeBytes = group.totalSizeBytes,
-                                    latestDownloadedAt = group.latestDownloadedAt,
+                                    group = group,
                                     onClick = {
                                         onPodcastShowClick(group.podcastId, group.podcastName)
                                     },
@@ -1138,11 +1134,7 @@ fun DownloadedShowEpisodesScreen(
 
 @Composable
 private fun PodcastListShowCard(
-    title: String,
-    imageUrl: String?,
-    downloadCount: Int,
-    totalSizeBytes: Long,
-    latestDownloadedAt: Long,
+    group: PodcastGroup,
     onClick: () -> Unit,
     onPlayClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1150,6 +1142,11 @@ private fun PodcastListShowCard(
     isSelected: Boolean = false,
     onSelectedChange: (Boolean) -> Unit = {}
 ) {
+    val title = group.podcastName
+    val imageUrl = group.podcastImageUrl
+    val downloadCount = group.episodes.size
+    val totalSizeBytes = group.totalSizeBytes
+    val latestDownloadedAt = group.latestDownloadedAt
     Row(
         modifier = modifier
             .fillMaxWidth()
