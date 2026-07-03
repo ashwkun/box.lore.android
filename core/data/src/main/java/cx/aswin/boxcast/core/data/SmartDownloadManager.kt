@@ -360,7 +360,6 @@ class SmartDownloadManager(
                     subscribedGenres = subscribedGenres
                 )
                 
-                val existingDownloads = database.downloadedEpisodeDao().getAllDownloadsSync()
                 val completedEpisodeIds = database.listeningHistoryDao().getCompletedEpisodeIds().toSet()
                 
                 val filteredRecs = recs.filter { ep ->
@@ -391,7 +390,6 @@ class SmartDownloadManager(
                 
                 val trendingEpisodes = trendingPods.mapNotNull { it.latestEpisode }
                 
-                val existingDownloads = database.downloadedEpisodeDao().getAllDownloadsSync()
                 val completedEpisodeIds = database.listeningHistoryDao().getCompletedEpisodeIds().toSet()
                 
                 val filteredTrends = trendingEpisodes.filter { ep ->
@@ -628,19 +626,19 @@ class SmartDownloadManager(
             }
         }
 
-        suspend fun purgeAllSmartDownloads(context: Context) = withContext(Dispatchers.IO) {
-            val database = BoxLoreDatabase.getDatabase(context)
-            val downloadRepository = DownloadRepository(context, database)
+        fun purgeAllSmartDownloads(context: Context) {
             try {
-                val existingDownloads = database.downloadedEpisodeDao().getAllDownloadsSync()
-                for (download in existingDownloads) {
-                    if (download.isSmartDownloaded) {
-                        writeLogToFile(context, "Purging smart-downloaded episode: '${download.episodeTitle}' due to smart downloads disabled.")
-                        downloadRepository.removeDownload(download.episodeId)
-                    }
-                }
+                val request = androidx.work.OneTimeWorkRequestBuilder<PurgeSmartDownloadsWorker>()
+                    .build()
+                androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+                    "PurgeSmartDownloads",
+                    androidx.work.ExistingWorkPolicy.REPLACE,
+                    request
+                )
+                Log.d("SmartDownloadManager", "Enqueued PurgeSmartDownloadsWorker.")
+                writeLogToFile(context, "Enqueued background smart downloads purge worker.")
             } catch (e: Exception) {
-                Log.e("SmartDownloadManager", "Failed to purge smart downloads", e)
+                Log.e("SmartDownloadManager", "Failed to enqueue purge worker", e)
             }
         }
 

@@ -95,34 +95,14 @@ class AutoDownloadWorker(
             val podcastRepository = PodcastRepository(apiBaseUrl, publicKey, app)
             val downloadRepository = DownloadRepository(app, database)
 
-            // Fetch full episode metadata with fallbacks
+            // Fetch full episode metadata with fallbacks (delegated to private helper)
             Log.i("BoxLore_BackgroundTrace", "[Worker] Fetching episode metadata from repository for episodeId: $episodeId...")
-            var episode = podcastRepository.getEpisode(episodeId)
-            if (episode == null) {
-                Log.w("BoxLore_BackgroundTrace", "[Worker] Direct getEpisode failed for $episodeId. Attempting paginated list fallback for podcast $podcastId...")
-                val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 50)
-                episode = page.episodes.find { it.id == episodeId }
-            }
-            if (episode == null) {
-                val latest = podcastEntity.latestEpisode
-                if (latest != null) {
-                    Log.w("BoxLore_BackgroundTrace", "[Worker] Using local podcastEntity.latestEpisode fallback for $episodeId.")
-                    episode = latest.copy(id = episodeId)
-                } else {
-                    Log.w("BoxLore_BackgroundTrace", "[Worker] Constructing emergency fallback episode for $episodeId.")
-                    episode = Episode(
-                        id = episodeId,
-                        title = "New Episode",
-                        description = podcastEntity.description ?: "",
-                        audioUrl = "",
-                        imageUrl = podcastEntity.imageUrl ?: "",
-                        podcastImageUrl = podcastEntity.imageUrl ?: "",
-                        podcastTitle = podcastEntity.title,
-                        podcastId = podcastId,
-                        duration = 0,
-                        publishedDate = System.currentTimeMillis() / 1000L
-                    )
-                }
+            val episode = fetchEpisodeMetadata(podcastRepository, podcastEntity, podcastId, episodeId)
+
+            // Validate episode data before enqueuing — empty audioUrl means all metadata sources failed
+            if (episode.audioUrl.isBlank()) {
+                Log.e("BoxLore_BackgroundTrace", "[Worker] Cannot enqueue download for '$episodeId': audioUrl is blank. All metadata sources failed.")
+                return Result.failure()
             }
 
             Log.i("BoxLore_BackgroundTrace", "[Worker] Fetched episode metadata successfully: '${episode.title}' (${episode.audioUrl})")
@@ -130,36 +110,85 @@ class AutoDownloadWorker(
             // Convert to domain Podcast model
             val podcast = podcastEntity.toPodcast()
 
-            // Enforce max auto-downloaded episodes per podcast rule dynamically from user preferences
-            val userPrefs = UserPreferencesRepository(context)
-            val maxAllowed = userPrefs.autoDownloadMaxEpisodesStream.first()
-            val allDownloads = database.downloadedEpisodeDao().getAllDownloadsSync()
-            val podcastAutoDownloads = allDownloads.filter { 
-                it.podcastId == podcastId && !it.isSmartDownloaded && it.status in listOf(
-                    DownloadedEpisodeEntity.STATUS_COMPLETED,
-                    DownloadedEpisodeEntity.STATUS_DOWNLOADING,
-                    DownloadedEpisodeEntity.STATUS_QUEUED
-                )
-            }
-            
-            Log.i("BoxLore_BackgroundTrace", "[Worker] Quota Check: currently retain ${podcastAutoDownloads.size} auto-downloads (Max allowed: $maxAllowed)")
-            
-            if (podcastAutoDownloads.size >= maxAllowed) {
-                val oldest = podcastAutoDownloads.minByOrNull { it.downloadedAt }
-                if (oldest != null) {
-                    Log.i("BoxLore_BackgroundTrace", "[Worker] Quota reached ($maxAllowed). Deleting oldest download '${oldest.episodeTitle}' (${oldest.episodeId})")
-                    downloadRepository.removeDownload(oldest.episodeId)
-                }
-            }
-
             // Trigger the download request (isSmartDownloaded = false, since it is a deterministic auto-download)
             Log.i("BoxLore_BackgroundTrace", "[Worker] Enqueueing download request via DownloadRepository for '${episode.title}'...")
             downloadRepository.addDownload(episode, podcast, isSmartDownloaded = false)
             Log.i("BoxLore_BackgroundTrace", "[Worker] SUCCESS! Enqueued auto-download for episode: ${episode.title} ($episodeId)")
+
+            // Post-download quota trim: enforce max episodes AFTER adding, to prevent race conditions
+            val userPrefs = UserPreferencesRepository(context)
+            val maxAllowed = userPrefs.autoDownloadMaxEpisodesStream.first()
+            enforceMaxDownloadsQuota(database, downloadRepository, podcastId, maxAllowed)
+
             return Result.success()
-        } catch (e: Exception) {
-            Log.e("BoxLore_BackgroundTrace", "[Worker] Exception encountered during auto-download", e)
+        } catch (e: java.io.IOException) {
+            Log.e("BoxLore_BackgroundTrace", "[Worker] Network error during auto-download (will retry)", e)
             return Result.retry()
+        } catch (e: Exception) {
+            Log.e("BoxLore_BackgroundTrace", "[Worker] Non-retryable error during auto-download", e)
+            return Result.failure()
+        }
+    }
+
+    private suspend fun fetchEpisodeMetadata(
+        podcastRepository: PodcastRepository,
+        podcastEntity: PodcastEntity,
+        podcastId: String,
+        episodeId: String
+    ): Episode {
+        var episode = podcastRepository.getEpisode(episodeId)
+        if (episode == null) {
+            Log.w("BoxLore_BackgroundTrace", "[Worker] Direct getEpisode failed for $episodeId. Attempting paginated list fallback for podcast $podcastId...")
+            val page = podcastRepository.getEpisodesPaginated(podcastId, limit = 50)
+            episode = page.episodes.find { it.id == episodeId }
+        }
+        if (episode == null) {
+            val latest = podcastEntity.latestEpisode
+            if (latest != null) {
+                Log.w("BoxLore_BackgroundTrace", "[Worker] Using local podcastEntity.latestEpisode fallback for $episodeId.")
+                episode = latest.copy(id = episodeId)
+            } else {
+                Log.w("BoxLore_BackgroundTrace", "[Worker] Constructing emergency fallback episode for $episodeId.")
+                episode = Episode(
+                    id = episodeId,
+                    title = "New Episode",
+                    description = podcastEntity.description ?: "",
+                    audioUrl = "",
+                    imageUrl = podcastEntity.imageUrl ?: "",
+                    podcastImageUrl = podcastEntity.imageUrl ?: "",
+                    podcastTitle = podcastEntity.title,
+                    podcastId = podcastId,
+                    duration = 0,
+                    publishedDate = System.currentTimeMillis() / 1000L
+                )
+            }
+        }
+        return episode
+    }
+
+    private suspend fun enforceMaxDownloadsQuota(
+        database: BoxLoreDatabase,
+        downloadRepository: DownloadRepository,
+        podcastId: String,
+        maxAllowed: Int
+    ) {
+        val allDownloads = database.downloadedEpisodeDao().getAllDownloadsSync()
+        val podcastAutoDownloads = allDownloads.filter { 
+            it.podcastId == podcastId && !it.isSmartDownloaded && it.status in listOf(
+                DownloadedEpisodeEntity.STATUS_COMPLETED,
+                DownloadedEpisodeEntity.STATUS_DOWNLOADING,
+                DownloadedEpisodeEntity.STATUS_QUEUED
+            )
+        }
+        
+        Log.i("BoxLore_BackgroundTrace", "[Worker] Quota Check: currently retain ${podcastAutoDownloads.size} auto-downloads (Max allowed: $maxAllowed)")
+        
+        if (podcastAutoDownloads.size >= maxAllowed) {
+            val oldest = podcastAutoDownloads.minByOrNull { it.downloadedAt }
+            if (oldest != null) {
+                Log.i("BoxLore_BackgroundTrace", "[Worker] Quota reached ($maxAllowed). Deleting oldest download '${oldest.episodeTitle}' (${oldest.episodeId})")
+                downloadRepository.removeDownload(oldest.episodeId)
+            }
         }
     }
 

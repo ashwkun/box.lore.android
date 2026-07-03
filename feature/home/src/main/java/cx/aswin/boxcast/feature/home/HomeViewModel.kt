@@ -407,15 +407,12 @@ class HomeViewModel(
         }
     }
 
-    fun playEpisode(episode: Episode, podcast: Podcast, entryPoint: String? = null) {
+    fun playEpisode(episode: Episode, podcast: Podcast, entryPoint: cx.aswin.boxcast.core.model.PlaybackEntryPoint = cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC) {
         viewModelScope.launch {
             if (playbackRepository.playerState.value.currentEpisode?.id == episode.id) {
                 playbackRepository.togglePlayPause()
             } else {
-                val bundle = if (entryPoint != null) {
-                    bundleOf("entrypoint" to entryPoint)
-                } else null
-                playbackRepository.playQueue(listOf(episode), podcast, 0, bundle)
+                playbackRepository.playQueue(listOf(episode), podcast, 0, entryPoint)
             }
         }
     }
@@ -1176,7 +1173,6 @@ mixtapePodcasts = cachedMix
                             currentUnplayedEpisodes = cachedUnplayed
                         } else {
                             // 2. Mixtape Episodes Calculation & Scoring
-                            val subIds = subs.map { it.id }.toSet()
                             val nowMs = System.currentTimeMillis()
 
                             // A. In-Progress Episodes (Deduplicated per podcast: take the most recently played)
