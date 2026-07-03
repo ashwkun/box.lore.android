@@ -222,6 +222,12 @@ fun ExploreContent(
     val state = uiState as ExploreUiState.Success
     val displayList = if (state.isSearching) state.searchResults else state.trending
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isRecommendationsFallback = remember {
+        context.getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
+            .getBoolean("is_recommendations_fallback", true)
+    }
+
     if (state.selectedTab == 1 && state.recommendations.isNotEmpty()) {
         LaunchedEffect(state.recommendations) {
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationsImpression(
@@ -440,6 +446,7 @@ fun ExploreContent(
                                 )
                                 ExploreEpisodeHeroCard(
                                     episode = heroEp,
+                                    isFallback = isRecommendationsFallback,
                                     onClick = {
                                         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                             episodeId = heroEp.id,
@@ -634,6 +641,7 @@ fun ExploreContent(
                             )
                             ExploreEpisodeHeroCard(
                                 episode = heroEp,
+                                isFallback = isRecommendationsFallback,
                                 onClick = {
                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                         episodeId = heroEp.id,
@@ -1480,6 +1488,7 @@ fun ExploreVibeChip(
 @Composable
 fun ExploreEpisodeHeroCard(
     episode: Episode,
+    isFallback: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1534,7 +1543,7 @@ fun ExploreEpisodeHeroCard(
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
-                    text = "FEATURED RECOMMENDATION",
+                    text = if (isFallback) "POPULAR IN YOUR REGION" else "FEATURED RECOMMENDATION",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 9.sp,

@@ -120,6 +120,7 @@ fun SmartDownloadsSettingsScreen(
                                         cx.aswin.boxcast.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
                                     } else {
                                         cx.aswin.boxcast.core.data.SmartDownloadManager.cancelPeriodicSync(context)
+                                        cx.aswin.boxcast.core.data.SmartDownloadManager.purgeAllSmartDownloads(context)
                                     }
                                 }
                             },
@@ -163,6 +164,7 @@ fun SmartDownloadsSettingsScreen(
                                         cx.aswin.boxcast.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
                                     } else {
                                         cx.aswin.boxcast.core.data.SmartDownloadManager.cancelPeriodicSync(context)
+                                        cx.aswin.boxcast.core.data.SmartDownloadManager.purgeAllSmartDownloads(context)
                                     }
                                 }
                             }

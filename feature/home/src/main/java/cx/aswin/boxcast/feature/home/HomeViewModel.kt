@@ -2,6 +2,7 @@ package cx.aswin.boxcast.feature.home
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
+import androidx.core.os.bundleOf
 
 import android.app.Application
 import android.content.Context
@@ -115,7 +116,8 @@ data class HomeUiState(
     val seemsToLikePodcast: Podcast? = null,
     val becauseYouLikeRecommendations: List<Episode> = emptyList(),
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
-    val isBecauseYouLikeLoading: Boolean = false
+    val isBecauseYouLikeLoading: Boolean = false,
+    val isRecommendationsFallback: Boolean = true
 )
 
 data class HomeDataWrapper(
@@ -138,7 +140,8 @@ data class HomeDataWrapper(
     val seemsToLikePodcast: Podcast? = null,
     val becauseYouLikeRecommendations: List<Episode> = emptyList(),
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
-    val isBecauseYouLikeLoading: Boolean = false
+    val isBecauseYouLikeLoading: Boolean = false,
+    val isRecommendationsFallback: Boolean = true
 )
 
 /**
@@ -164,6 +167,14 @@ class HomeViewModel(
     val podcastRepository = PodcastRepository(baseUrl = apiBaseUrl, publicKey = publicKey, context = application)
     private val database = cx.aswin.boxcast.core.data.database.BoxLoreDatabase.getDatabase(application)
     private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
+    private val downloadRepository = cx.aswin.boxcast.core.data.DownloadRepository(application, database)
+    val downloadedEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads
+        .map { list -> list.map { it.episodeId }.toSet() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet()
+        )
     // Let's leave SubscriptionRepository as is for now, it's less critical for playback state.
     // But `playbackRepository` MUST be injected.
 
@@ -195,6 +206,7 @@ class HomeViewModel(
     private val _becauseYouLikeRecommendations = MutableStateFlow<List<Episode>>(emptyList())
     private val _becauseYouLikePodcasts = MutableStateFlow<List<Podcast>>(emptyList())
     private val _isBecauseYouLikeLoading = MutableStateFlow(false)
+    private val _isRecommendationsFallback = MutableStateFlow(true)
 
     // Cached base data (For You)
     private var cachedRegion: String? = null
@@ -259,6 +271,8 @@ class HomeViewModel(
                     val list = json.decodeFromString<List<Episode>>(cached)
                     _recommendations.value = list
                 }
+                // Load cached fallback flag
+                _isRecommendationsFallback.value = prefs.getBoolean("is_recommendations_fallback", true)
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to load cached recommendations", e)
             }
@@ -393,12 +407,15 @@ class HomeViewModel(
         }
     }
 
-    fun playEpisode(episode: Episode, podcast: Podcast) {
+    fun playEpisode(episode: Episode, podcast: Podcast, entryPoint: String? = null) {
         viewModelScope.launch {
             if (playbackRepository.playerState.value.currentEpisode?.id == episode.id) {
                 playbackRepository.togglePlayPause()
             } else {
-                playbackRepository.playQueue(listOf(episode), podcast, 0)
+                val bundle = if (entryPoint != null) {
+                    bundleOf("entrypoint" to entryPoint)
+                } else null
+                playbackRepository.playQueue(listOf(episode), podcast, 0, bundle)
             }
         }
     }
@@ -838,10 +855,14 @@ class HomeViewModel(
                             .distinctBy { it.id }
                             .distinctBy { it.title.lowercase().trim() }
                         _recommendations.value = distinctRecs
+                        _isRecommendationsFallback.value = bootstrapData.isRecommendationsFallback
                         try {
                             val json = Json { ignoreUnknownKeys = true }
                             val serialized = json.encodeToString(distinctRecs)
-                            prefs.edit().putString("cached_recommendations", serialized).apply()
+                            prefs.edit()
+                                .putString("cached_recommendations", serialized)
+                                .putBoolean("is_recommendations_fallback", bootstrapData.isRecommendationsFallback)
+                                .apply()
                         } catch (ce: Exception) {
                             android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
                         }
@@ -873,7 +894,8 @@ class HomeViewModel(
                     _seemsToLikePodcast,
                     _becauseYouLikeRecommendations,
                     _becauseYouLikePodcasts,
-                    _isBecauseYouLikeLoading
+                    _isBecauseYouLikeLoading,
+                    _isRecommendationsFallback
                 ) { array ->
                     val dismissedDate = array[13] as String
                     val dismissedForever = array[15] as Boolean
@@ -897,7 +919,8 @@ class HomeViewModel(
                         seemsToLikePodcast = array[17] as Podcast?,
                         becauseYouLikeRecommendations = array[18] as List<Episode>,
                         becauseYouLikePodcasts = array[19] as List<Podcast>,
-                        isBecauseYouLikeLoading = array[20] as Boolean
+                        isBecauseYouLikeLoading = array[20] as Boolean,
+                        isRecommendationsFallback = array[21] as Boolean
                     )
                 }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1148,35 +1171,62 @@ class HomeViewModel(
                         val mixtapeCount: Int
 
                         if (cachedMix != null && cachedCount != null && cachedUnplayed != null) {
-                            mixtapePodcasts = cachedMix
+mixtapePodcasts = cachedMix
                             mixtapeCount = cachedCount
                             currentUnplayedEpisodes = cachedUnplayed
                         } else {
                             // 2. Mixtape Episodes Calculation & Scoring
                             val subIds = subs.map { it.id }.toSet()
+                            val nowMs = System.currentTimeMillis()
 
                             // A. In-Progress Episodes (Deduplicated per podcast: take the most recently played)
                             val inProgressCandidates = allHistory.filter { history ->
-                                history.podcastId in subIds && !history.isCompleted && history.progressMs > 0L
+                                if (history.isCompleted || history.progressMs <= 0L) return@filter false
+                                
+                                // 2. 30-day stale session decay rule
+                                if (nowMs - history.lastPlayedAt > 30L * 24L * 3600L * 1000L) return@filter false
+                                
+                                // 3. Intro/Outro rules for mixtape candidates
+                                val ratio = if (history.durationMs > 0L) history.progressMs.toDouble() / history.durationMs.toDouble() else 0.0
+                                val remainingMs = history.durationMs - history.progressMs
+                                if (ratio < 0.10) return@filter false
+                                if (ratio > 0.90 || (history.durationMs > 0L && remainingMs < 120_000L)) return@filter false
+                                
+                                true
                             }.groupBy { it.podcastId }
                              .mapValues { (_, eps) -> eps.maxByOrNull { it.lastPlayedAt } }
                              .values.filterNotNull()
 
                             val inProgressMixtapeCandidates = inProgressCandidates.mapNotNull { history ->
-                                val pod = subsMap[history.podcastId] ?: return@mapNotNull null
-                                val ep = pod.latestEpisode
-                                if (ep != null) {
-                                    val isCompleted = historyByEpisode[ep.id]?.isCompleted == true
-                                    if (isCompleted) null else history to ep
-                                } else null
-                            }.map { (history, ep) ->
+                                val pod = subsMap[history.podcastId] ?: Podcast(
+                                    id = history.podcastId,
+                                    title = history.podcastName,
+                                    artist = "",
+                                    imageUrl = history.podcastImageUrl ?: "",
+                                    fallbackImageUrl = history.podcastImageUrl ?: "",
+                                    subscribedAt = 0L
+                                )
+                                val ep = Episode(
+                                    id = history.episodeId,
+                                    title = history.episodeTitle,
+                                    description = history.episodeDescription ?: "",
+                                    audioUrl = history.episodeAudioUrl ?: "",
+                                    imageUrl = history.episodeImageUrl,
+                                    duration = (history.durationMs / 1000L).toInt(),
+                                    podcastId = history.podcastId,
+                                    podcastTitle = history.podcastName
+                                )
+                                val isCompleted = historyByEpisode[ep.id]?.isCompleted == true
+                                if (isCompleted) null else pod to ep to history
+                            }.map { (podAndEp, history) ->
+                                val (pod, ep) = podAndEp
                                 val parentPodScore = podScoresMap[history.podcastId] ?: 0.0
-                                val progressRatio = if (history.durationMs > 0) {
+                                val progressRatio = if (history.durationMs > 0L) {
                                     history.progressMs.toDouble() / history.durationMs.toDouble()
                                 } else 0.0
                                 val score = 1000.0 + progressRatio * 500.0 + MIXTAPE_AFFINITY_WEIGHT * parentPodScore
                                 MixtapeCandidate(
-                                    podcast = subsMap[history.podcastId]!!,
+                                    podcast = pod,
                                     episode = ep,
                                     score = score,
                                     isProgress = true,
@@ -1251,9 +1301,39 @@ class HomeViewModel(
                             // Add the remaining unplayed candidates
                             orderedCandidates.addAll(unplayedList)
 
-                            val top10Candidates = orderedCandidates.take(MAX_MIXTAPE_ITEMS)
+                            val top10Candidates = orderedCandidates.take(MAX_MIXTAPE_ITEMS).toMutableList()
 
-                            // D. No completed fallback - mixtape only contains active resume and unplayed new drops
+                            // D. Trending/Popular Episode Fallback for Empty States
+                            if (top10Candidates.size < 3) {
+                                val remaining = 3 - top10Candidates.size
+                                val fallbackEpisodes = wrapper.recommendations.filter { ep ->
+                                    val hist = historyByEpisode[ep.id]
+                                    val isUnplayed = hist == null || (hist.progressMs == 0L && !hist.isCompleted)
+                                    isUnplayed && top10Candidates.none { it.episodeId == ep.id }
+                                }.take(remaining)
+                                
+                                fallbackEpisodes.forEach { ep ->
+                                    val matchingPod = subsMap[ep.podcastId] ?: Podcast(
+                                        id = ep.podcastId ?: "",
+                                        title = ep.podcastTitle ?: "",
+                                        artist = "",
+                                        imageUrl = ep.imageUrl ?: "",
+                                        fallbackImageUrl = ep.imageUrl ?: ""
+                                    )
+                                    top10Candidates.add(
+                                        MixtapeCandidate(
+                                            podcast = matchingPod,
+                                            episode = ep,
+                                            score = 100.0,
+                                            isProgress = false,
+                                            progressMs = 0L,
+                                            durationMs = 0L,
+                                            episodeId = ep.id
+                                        )
+                                    )
+                                }
+                            }
+
                             val finalCandidates = top10Candidates
 
                             // E. Map to Podcast objects
@@ -1484,7 +1564,8 @@ class HomeViewModel(
                             seemsToLikePodcast = wrapper.seemsToLikePodcast,
                             becauseYouLikeRecommendations = wrapper.becauseYouLikeRecommendations,
                             becauseYouLikePodcasts = wrapper.becauseYouLikePodcasts,
-                            isBecauseYouLikeLoading = wrapper.isBecauseYouLikeLoading
+                            isBecauseYouLikeLoading = wrapper.isBecauseYouLikeLoading,
+                            isRecommendationsFallback = wrapper.isRecommendationsFallback
                         )
                     }
                 }

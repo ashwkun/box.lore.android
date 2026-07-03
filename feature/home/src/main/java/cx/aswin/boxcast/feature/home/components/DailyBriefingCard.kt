@@ -138,6 +138,10 @@ fun DailyBriefingCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .expressiveClickable(
+                shape = RoundedCornerShape(24.dp),
+                onClick = onClick
+            )
             .clip(RoundedCornerShape(24.dp))
             .shadow(8.dp, RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surface)
@@ -145,10 +149,6 @@ fun DailyBriefingCard(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
                 shape = RoundedCornerShape(24.dp)
-            )
-            .expressiveClickable(
-                shape = RoundedCornerShape(24.dp),
-                onClick = onClick
             )
     ) {
         val coverResId = remember(briefing.region) {

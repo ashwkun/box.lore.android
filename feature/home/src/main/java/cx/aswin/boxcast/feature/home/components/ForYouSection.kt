@@ -43,6 +43,7 @@ fun ForYouSection(
     timeBlock: CuratedTimeBlock?,
     onSeeAllClick: () -> Unit,
     showTasteHeader: Boolean = true,
+    isFallback: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     if (recommendations.list.isNotEmpty()) {
@@ -62,6 +63,7 @@ fun ForYouSection(
     ) {
         if (showTasteHeader) {
             ForYouHeader(
+                isFallback = isFallback,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
@@ -115,6 +117,7 @@ fun ForYouSection(
                         ForYouHeroCard(
                             episode = ep,
                             parentPodcast = parentPodcast,
+                            isFallback = isFallback,
                             onClick = {
                                 AnalyticsHelper.trackHomeRecommendationCardTapped(
                                     episodeId = ep.id,
@@ -210,6 +213,7 @@ fun ForYouSection(
 private fun ForYouHeroCard(
     episode: Episode,
     parentPodcast: Podcast,
+    isFallback: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -267,7 +271,7 @@ private fun ForYouHeroCard(
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
-                    text = "FEATURED RECOMMENDATION",
+                    text = if (isFallback) "POPULAR IN YOUR REGION" else "FEATURED RECOMMENDATION",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 9.sp,
@@ -432,6 +436,7 @@ private fun ForYouBentoCard(
 
 @Composable
 private fun ForYouHeader(
+    isFallback: Boolean,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -447,7 +452,7 @@ private fun ForYouHeader(
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
-            text = "Based on Your Taste",
+            text = if (isFallback) "Popular in your Region" else "Based on Your Taste",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,

@@ -200,8 +200,11 @@ fun HomeRoute(
     
     val candidatePodcasts by viewModel.candidatePodcasts.collectAsState(initial = emptyList())
 
+    val downloadedEpisodeIds by viewModel.downloadedEpisodeIds.collectAsState(initial = emptySet())
+
     HomeScreen(
         uiState = uiState,
+        downloadedEpisodeIds = downloadedEpisodeIds,
         currentPlayingPodcastId = currentPlayingPodcastId,
         currentPlayingEpisodeId = currentPlayingEpisodeId,
         isPlaying = isPlaying,
@@ -302,7 +305,7 @@ fun HomeScreen(
     onDismissNudge: () -> Unit = {},
     onPodcastSelected: (String?) -> Unit = {},
     onPlayMix: () -> Unit = {},
-    onPlayEpisode: (Episode, Podcast) -> Unit = { _, _ -> },
+    onPlayEpisode: (Episode, Podcast, String?) -> Unit = { _, _, _ -> },
     onImportClick: () -> Unit = {},
     onAiOnboardingClick: () -> Unit = {},
     onDismissImportBanner: () -> Unit = {},
@@ -311,6 +314,7 @@ fun HomeScreen(
     onDismissBriefingForever: () -> Unit = {},
     candidatePodcasts: List<Podcast> = emptyList(),
     onOverrideRecommendationPodcast: (String?) -> Unit = {},
+    downloadedEpisodeIds: Set<String> = emptySet(),
 
     modifier: Modifier = Modifier
 ) {
@@ -388,6 +392,7 @@ fun HomeScreen(
                             currentPlayingPodcastId = currentPlayingPodcastId,
                             currentPlayingEpisodeId = currentPlayingEpisodeId,
                             recommendations = StableEpisodeList(uiState.recommendations),
+                            isRecommendationsFallback = uiState.isRecommendationsFallback,
                             isPlaying = isPlaying,
                             isPlayerLoading = isPlayerLoading,
                             isFilterLoading = uiState.isFilterLoading,
@@ -403,6 +408,7 @@ fun HomeScreen(
                             becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
                             onChangePodcastClick = { showChangePodcastSheet = true },
                             onPodcastSelected = onPodcastSelected,
+                            downloadedEpisodeIds = downloadedEpisodeIds,
                             onPlayMix = onPlayMix,
                             onPlayEpisode = onPlayEpisode,
                             onPodcastClick = onPodcastClick,
@@ -515,10 +521,12 @@ private fun PodcastFeed(
     episodePlaybackState: StablePlaybackStateMap,
     isLoading: Boolean,
     isRecommendationsLoading: Boolean = true,
+    isRecommendationsFallback: Boolean = true,
     isCuratedLoading: Boolean = true,
     onPodcastSelected: (String?) -> Unit = {},
     onPlayMix: () -> Unit = {},
-    onPlayEpisode: (Episode, Podcast) -> Unit = { _, _ -> },
+    onPlayEpisode: (Episode, Podcast, String?) -> Unit = { _, _, _ -> },
+    downloadedEpisodeIds: Set<String> = emptySet(),
     showRegionNudge: Boolean = false,
     systemRegionCode: String = "",
     activeRegionCode: String = "",
@@ -638,6 +646,7 @@ private fun PodcastFeed(
                     },
                     onPlayMix = onPlayMix,
                     onPlayEpisode = onPlayEpisode,
+                    downloadedEpisodeIds = downloadedEpisodeIds,
                     onViewLibrary = { onNavigateToLibrary?.invoke() }
                 )
                 showImportBanner -> {
@@ -742,7 +751,8 @@ private fun PodcastFeed(
                             title = "The Boxlore Brief",
                             artist = "BoxCast AI",
                             imageUrl = localCoverUrl
-                        )
+                        ),
+                        null
                     )
                 },
                 onClick = {
@@ -818,7 +828,7 @@ private fun PodcastFeed(
                         onEpisodeClick = { episode, podcast ->
                             onEpisodeClick?.invoke(episode, podcast, "home_because_you_like")
                         },
-                        onPlayEpisode = onPlayEpisode,
+                        onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, null) },
                         onPodcastClick = { podcast ->
                             onPodcastClick(podcast, "home_because_you_like", null, null)
                         },
@@ -840,12 +850,13 @@ private fun PodcastFeed(
                         onEpisodeClick = { episode, podcast ->
                             onEpisodeClick?.invoke(episode, podcast, "home_for_you")
                         },
-                        onPlayEpisode = onPlayEpisode,
+                        onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, null) },
                         timeBlock = timeBlock,
                         onSeeAllClick = {
                             onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
                         },
                         showTasteHeader = hasBecauseYouLike,
+                        isFallback = isRecommendationsFallback,
                         modifier = Modifier
                     )
                 }

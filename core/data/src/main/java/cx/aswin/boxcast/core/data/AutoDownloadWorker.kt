@@ -80,6 +80,10 @@ class AutoDownloadWorker(
                 DownloadedEpisodeEntity.STATUS_COMPLETED
             )) {
             Log.i("BoxLore_BackgroundTrace", "[Worker] Episode $episodeId is already in status '${existingDownload.status}'. Skipping download.")
+            if (existingDownload.isSmartDownloaded) {
+                Log.i("BoxLore_BackgroundTrace", "[Worker] Promoting smart-downloaded episode $episodeId to standard auto-download.")
+                database.downloadedEpisodeDao().insert(existingDownload.copy(isSmartDownloaded = false))
+            }
             return Result.success()
         }
 

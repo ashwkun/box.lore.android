@@ -679,7 +679,8 @@ class PodcastRepository(
                     briefingChapters = body.briefingChapters,
                     trending = trendingList,
                     curatedVibes = emptyMap(),
-                    recommendations = emptyList()
+                    recommendations = emptyList(),
+                    isRecommendationsFallback = body.isRecommendationsFallback ?: true
                 )
             } else {
                 HomeBootstrapData(null, emptyList(), emptyList(), emptyMap(), emptyList())
@@ -754,7 +755,8 @@ class PodcastRepository(
                     briefingChapters = briefingChapters,
                     trending = trendingList,
                     curatedVibes = curatedVibesMap,
-                    recommendations = recommendationsList
+                    recommendations = recommendationsList,
+                    isRecommendationsFallback = body.isRecommendationsFallback ?: true
                 )
             } else {
                 HomeBootstrapData(null, emptyList(), emptyList(), emptyMap(), emptyList())
@@ -795,7 +797,8 @@ data class HomeBootstrapData(
     val briefingChapters: List<cx.aswin.boxcast.core.model.Chapter>,
     val trending: List<Podcast>,
     val curatedVibes: Map<String, List<Podcast>>,
-    val recommendations: List<Episode>
+    val recommendations: List<Episode>,
+    val isRecommendationsFallback: Boolean = true
 )
 
 data class BecauseYouLikeData(

@@ -70,7 +70,8 @@ data class BootstrapResponse(
     val briefingChapters: List<Chapter> = emptyList(),
     val trending: List<TrendingFeed> = emptyList(),
     val curatedVibes: Map<String, List<TrendingFeed>> = emptyMap(),
-    val recommendations: List<EpisodeItem> = emptyList()
+    val recommendations: List<EpisodeItem> = emptyList(),
+    val isRecommendationsFallback: Boolean? = null
 )
 
 @Serializable

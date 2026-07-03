@@ -1079,14 +1079,29 @@ class PlaybackRepository(
         }
     }
 
-    private suspend fun checkSavedProgress(startEpisodeId: String?, initialPositionMs: Long?): Pair<Long, Boolean> {
+    private suspend fun checkSavedProgress(
+        startEpisodeId: String?,
+        initialPositionMs: Long?,
+        entryPointContext: android.os.Bundle? = null
+    ): Pair<Long, Boolean> {
         var startPosMs = initialPositionMs ?: 0L
         var initialLikeState = false
         if (startEpisodeId != null) {
             val saved = listeningHistoryDao.getHistoryItem(startEpisodeId)
             if (saved != null) {
                 if (initialPositionMs == null && !saved.isCompleted) {
-                    startPosMs = saved.progressMs
+                    val entryPoint = entryPointContext?.getString("entrypoint")
+                    val isFromMixtape = entryPoint == "home_mixtape"
+                    
+                    val ratio = if (saved.durationMs > 0L) saved.progressMs.toDouble() / saved.durationMs.toDouble() else 0.0
+                    val remainingMs = saved.durationMs - saved.progressMs
+                    val isIntroOrOutro = ratio < 0.10 || ratio > 0.90 || (saved.durationMs > 0L && remainingMs < 120_000L)
+                    
+                    if (isFromMixtape && isIntroOrOutro) {
+                        startPosMs = 0L
+                    } else {
+                        startPosMs = saved.progressMs
+                    }
                 }
                 initialLikeState = saved.isLiked
             }
@@ -1136,7 +1151,7 @@ class PlaybackRepository(
             val mediaItems = buildMediaItems(episodes, podcast, entryPointContext)
             
             val startEpisodeId = episodes.getOrNull(startIndex)?.id
-            val (startPosMs, initialLikeState) = checkSavedProgress(startEpisodeId, initialPositionMs)
+            val (startPosMs, initialLikeState) = checkSavedProgress(startEpisodeId, initialPositionMs, entryPointContext)
             
             val currentEp = episodes.getOrNull(startIndex)
             if (currentEp != null) {
