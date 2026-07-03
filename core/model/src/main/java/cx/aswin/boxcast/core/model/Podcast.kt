@@ -36,3 +36,13 @@ data class Podcast(
     val notificationsEnabled: Boolean = false,
     val autoDownloadEnabled: Boolean = false
 )
+
+fun Podcast.isLatestEpisodeNew(lastSeenId: String?): Boolean {
+    if (episodeStatus != EpisodeStatus.UNPLAYED) return false
+    val ep = latestEpisode ?: return false
+    if (subscribedAt <= 0L) return false
+    if (ep.publishedDate <= (subscribedAt / 1000L)) return false
+    if (ep.id == lastSeenId) return false
+    val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
+    return hoursSinceRelease <= 48.0
+}

@@ -44,6 +44,13 @@ class LibraryViewModel(
     private val userPreferencesRepository: cx.aswin.boxcast.core.data.UserPreferencesRepository
 ) : ViewModel() {
 
+    val lastSeenEpisodes: StateFlow<Map<String, String>> = userPreferencesRepository.lastSeenEpisodesStream
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
+
     private val _downloadsSortOrder = MutableStateFlow(DownloadsSortOrder.RECENT)
     val downloadsSortOrder = _downloadsSortOrder.asStateFlow()
 

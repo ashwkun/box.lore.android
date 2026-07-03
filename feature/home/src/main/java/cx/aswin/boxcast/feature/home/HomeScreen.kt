@@ -51,6 +51,7 @@ import cx.aswin.boxcast.feature.home.components.GridSkeletonItem
 import cx.aswin.boxcast.feature.home.components.GridSkeletonItems
 import cx.aswin.boxcast.feature.home.components.YourShowsSkeleton
 import cx.aswin.boxcast.feature.home.components.TimeBlockSkeleton
+import cx.aswin.boxcast.feature.home.components.LocalLastSeenEpisodes
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.offset
@@ -201,66 +202,76 @@ fun HomeRoute(
     val candidatePodcasts by viewModel.candidatePodcasts.collectAsState(initial = emptyList())
 
     val downloadedEpisodeIds by viewModel.downloadedEpisodeIds.collectAsState(initial = emptySet())
+    val lastSeenEpisodes by viewModel.lastSeenEpisodes.collectAsState()
 
-    HomeScreen(
-        uiState = uiState,
-        downloadedEpisodeIds = downloadedEpisodeIds,
-        currentPlayingPodcastId = currentPlayingPodcastId,
-        currentPlayingEpisodeId = currentPlayingEpisodeId,
-        isPlaying = isPlaying,
-        isPlayerLoading = isPlayerLoading,
-        debugHistory = debugHistory,
-        debugPodcasts = debugPodcasts,
-        candidatePodcasts = candidatePodcasts,
-        onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
-        onPodcastClick = onPodcastClick,
-        onHeroArrowClick = onHeroArrowClick,
-        onEpisodeClick = onEpisodeClick,
-        onCuratedEpisodeClick = onCuratedEpisodeClick,
-        onCuratedImpression = viewModel::trackCuratedImpressionOnce,
-        onPlayClick = onPlayClick,
-        onNavigateToLibrary = onNavigateToLibrary,
-        onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
-        onNavigateToExplore = onNavigateToExplore,
-        onToggleSubscription = viewModel::toggleSubscription,
-        onTogglePlayback = viewModel::togglePlayback,
-        onSelectCategory = viewModel::selectCategory,
-        onPodcastSelected = viewModel::selectPodcast,
-        onPlayMix = viewModel::playUnplayedMix,
-        onPlayEpisode = viewModel::playEpisode,
-        onDeleteHistoryItem = viewModel::deleteHistoryItem,
-        onNavigateToSettings = onNavigateToSettings,
-        onFeedbackClick = viewModel::triggerFeedback,
-        onForceReviewPrompt = viewModel::forceReviewPrompt,
-        showReviewPrompt = showReviewPrompt,
-        showPostReview = showPostReview,
-        showFeedback = showFeedback,
-        onDismissReviewPrompt = {
-            viewModel.markReviewPromptShown()
-            viewModel.dismissReviewPrompt()
-        },
-        onDismissPostReview = viewModel::dismissPostReview,
-        onDismissFeedback = viewModel::dismissFeedback,
-        onNavigateToPlayStoreReview = {
-            viewModel.markReviewed()
-            viewModel.triggerPostReview()
-            onNavigateToPlayStoreReview()
-        },
-        onSubmitFeedback = onSubmitFeedback,
-        onResetFeatureFlag = viewModel::resetFeatureFlag,
-        onResetSleepNudge = onResetSleepNudge,
-        onClearSleepTimer = onClearSleepTimer,
-        onSwitchRegion = viewModel::setRegion,
-        onDismissNudge = viewModel::dismissRegionNudge,
-        onImportClick = onImportClick,
-        onAiOnboardingClick = onAiOnboardingClick,
-        onDismissImportBanner = viewModel::dismissHomeImportBanner,
-        onBriefingClick = onBriefingClick,
-        onDismissBriefing = viewModel::dismissBriefingForToday,
-        onDismissBriefingForever = viewModel::dismissBriefingForever,
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalLastSeenEpisodes provides lastSeenEpisodes
+    ) {
+        HomeScreen(
+            uiState = uiState,
+            downloadedEpisodeIds = downloadedEpisodeIds,
+            currentPlayingPodcastId = currentPlayingPodcastId,
+            currentPlayingEpisodeId = currentPlayingEpisodeId,
+            isPlaying = isPlaying,
+            isPlayerLoading = isPlayerLoading,
+            debugHistory = debugHistory,
+            debugPodcasts = debugPodcasts,
+            candidatePodcasts = candidatePodcasts,
+            onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
+            onPodcastClick = { podcast, entryPoint, category, index ->
+                podcast.latestEpisode?.id?.let { episodeId ->
+                    viewModel.markPodcastEpisodeAsSeen(podcast.id, episodeId)
+                }
+                onPodcastClick(podcast, entryPoint, category, index)
+            },
+            onHeroArrowClick = onHeroArrowClick,
+            onEpisodeClick = onEpisodeClick,
+            onCuratedEpisodeClick = onCuratedEpisodeClick,
+            onCuratedImpression = viewModel::trackCuratedImpressionOnce,
+            onPlayClick = onPlayClick,
+            onNavigateToLibrary = onNavigateToLibrary,
+            onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
+            onNavigateToExplore = onNavigateToExplore,
+            onToggleSubscription = viewModel::toggleSubscription,
+            onTogglePlayback = viewModel::togglePlayback,
+            onSelectCategory = viewModel::selectCategory,
+            onPodcastSelected = viewModel::selectPodcast,
+            onPlayMix = viewModel::playUnplayedMix,
+            onPlayEpisode = viewModel::playEpisode,
+            onDeleteHistoryItem = viewModel::deleteHistoryItem,
+            onNavigateToSettings = onNavigateToSettings,
+            onFeedbackClick = viewModel::triggerFeedback,
+            onForceReviewPrompt = viewModel::forceReviewPrompt,
+            showReviewPrompt = showReviewPrompt,
+            showPostReview = showPostReview,
+            showFeedback = showFeedback,
+            onDismissReviewPrompt = {
+                viewModel.markReviewPromptShown()
+                viewModel.dismissReviewPrompt()
+            },
+            onDismissPostReview = viewModel::dismissPostReview,
+            onDismissFeedback = viewModel::dismissFeedback,
+            onNavigateToPlayStoreReview = {
+                viewModel.markReviewed()
+                viewModel.triggerPostReview()
+                onNavigateToPlayStoreReview()
+            },
+            onSubmitFeedback = onSubmitFeedback,
+            onResetFeatureFlag = viewModel::resetFeatureFlag,
+            onResetSleepNudge = onResetSleepNudge,
+            onClearSleepTimer = onClearSleepTimer,
+            onSwitchRegion = viewModel::setRegion,
+            onDismissNudge = viewModel::dismissRegionNudge,
+            onImportClick = onImportClick,
+            onAiOnboardingClick = onAiOnboardingClick,
+            onDismissImportBanner = viewModel::dismissHomeImportBanner,
+            onBriefingClick = onBriefingClick,
+            onDismissBriefing = viewModel::dismissBriefingForToday,
+            onDismissBriefingForever = viewModel::dismissBriefingForever,
 
-        modifier = modifier
-    )
+            modifier = modifier
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

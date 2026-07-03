@@ -2,6 +2,7 @@ package cx.aswin.boxcast.feature.library
 
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.core.designsystem.components.NewEpisodeBadge
 import cx.aswin.boxcast.core.data.PodcastScoring
 import cx.aswin.boxcast.core.data.toScorable
 
@@ -102,6 +103,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -112,12 +123,15 @@ import coil.compose.AsyncImage
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.model.isLatestEpisodeNew
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+val LocalLastSeenEpisodes = compositionLocalOf<Map<String, String>> { emptyMap() }
 
 /**
  * Unified Subscriptions screen with M3 Expressive tab switcher.
@@ -139,6 +153,11 @@ fun SubscriptionsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = initialTab) { 2 }
+    val lastSeenEpisodes by viewModel.lastSeenEpisodes.collectAsStateWithLifecycle()
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalLastSeenEpisodes provides lastSeenEpisodes
+    ) {
     val coroutineScope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     
@@ -470,6 +489,7 @@ fun SubscriptionsScreen(
         }
     }
 }
+}
 
 // ─── M3 Expressive Tab Switcher ─────────────────────────────────────────────
 
@@ -763,8 +783,10 @@ private fun ShowsTabContent(
                 }
 
                 items(items = distinctPodcasts, key = { it.id }) { podcast ->
+                    val lastSeenEpisodes = LocalLastSeenEpisodes.current
                     SubscriptionGridCard(
                         podcast = podcast,
+                        lastSeenId = lastSeenEpisodes[podcast.id],
                         onClick = { onPodcastClick(podcast.id) }
                     )
                 }
@@ -1236,13 +1258,16 @@ private fun LatestEpisodeRow(
 @Composable
 private fun SubscriptionGridCard(
     podcast: Podcast,
+    lastSeenId: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val latestEp = podcast.latestEpisode
-    val hasNewEpisode = latestEp != null &&
-                        podcast.episodeStatus == EpisodeStatus.UNPLAYED &&
-                        latestEp.publishedDate > (podcast.subscribedAt / 1000L)
+    val latestEpisodeId = podcast.latestEpisode?.id
+    val latestEpisodePubDate = podcast.latestEpisode?.publishedDate ?: 0L
+    
+    val hasRecentNew = remember(podcast.subscribedAt, latestEpisodeId, latestEpisodePubDate, lastSeenId) {
+        podcast.isLatestEpisodeNew(lastSeenId)
+    }
 
     Box(
         modifier = modifier
@@ -1265,16 +1290,9 @@ private fun SubscriptionGridCard(
                 )
         )
 
-        // New Episode Badge (Vibrant solid blue dot on the top right)
-        if (hasNewEpisode) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(10.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
-            )
+        // New episode "NEW" text chip indicator (overlapping the top right corner) with a slow shimmer effect
+        if (hasRecentNew) {
+            NewEpisodeBadge()
         }
     }
 }
