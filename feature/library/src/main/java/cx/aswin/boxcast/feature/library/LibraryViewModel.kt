@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
 enum class SubscriptionSort { SmartRank, RecentlyUpdated, Alphabetical, MostListened }
+enum class DownloadsSortOrder { RECENT, NAME, SIZE, COUNT }
+enum class ShowSortOrder { NEWEST, OLDEST, LARGEST }
 
 sealed interface LibraryUiState {
     data object Loading : LibraryUiState
@@ -41,6 +43,20 @@ class LibraryViewModel(
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
     private val userPreferencesRepository: cx.aswin.boxcast.core.data.UserPreferencesRepository
 ) : ViewModel() {
+
+    private val _downloadsSortOrder = MutableStateFlow(DownloadsSortOrder.RECENT)
+    val downloadsSortOrder = _downloadsSortOrder.asStateFlow()
+
+    private val _showSortOrder = MutableStateFlow(ShowSortOrder.NEWEST)
+    val showSortOrder = _showSortOrder.asStateFlow()
+
+    fun setDownloadsSortOrder(sortOrder: DownloadsSortOrder) {
+        _downloadsSortOrder.value = sortOrder
+    }
+
+    fun setShowSortOrder(sortOrder: ShowSortOrder) {
+        _showSortOrder.value = sortOrder
+    }
 
     private val subscriptionSort = userPreferencesRepository.subscriptionSortStream
         .map { sortName ->
