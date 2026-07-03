@@ -15,6 +15,8 @@ import java.io.IOException
 
 val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
+private const val LAST_SEEN_EPISODE_ID_PREFIX = "last_seen_episode_id_"
+
 class UserPreferencesRepository(context: Context) {
     private val dataStore = context.userPreferencesDataStore
     private val syncPrefs = context.getSharedPreferences("boxcast_theme_fast_cache", Context.MODE_PRIVATE)
@@ -736,6 +738,35 @@ class UserPreferencesRepository(context: Context) {
     suspend fun setAutoDownloadDeleteCompleted(deleteCompleted: Boolean) {
         dataStore.edit { preferences ->
             preferences[Keys.AUTO_DOWNLOAD_DELETE_COMPLETED] = deleteCompleted
+        }
+    }
+
+    val lastSeenEpisodesStream: Flow<Map<String, String>> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences.asMap().entries
+                .filter { it.key.name.startsWith(LAST_SEEN_EPISODE_ID_PREFIX) }
+                .mapNotNull { entry ->
+                    val value = entry.value as? String
+                    if (value != null) {
+                        entry.key.name.removePrefix(LAST_SEEN_EPISODE_ID_PREFIX) to value
+                    } else null
+                }
+                .toMap()
+        }
+        .distinctUntilChanged()
+
+    suspend fun setLastSeenEpisodeId(podcastId: String, episodeId: String) {
+        dataStore.edit { preferences ->
+            preferences[stringPreferencesKey("$LAST_SEEN_EPISODE_ID_PREFIX$podcastId")] = episodeId
+        }
+    }
+
+    suspend fun removeLastSeenEpisodeId(podcastId: String) {
+        dataStore.edit { preferences ->
+            preferences.remove(stringPreferencesKey("$LAST_SEEN_EPISODE_ID_PREFIX$podcastId"))
         }
     }
 }

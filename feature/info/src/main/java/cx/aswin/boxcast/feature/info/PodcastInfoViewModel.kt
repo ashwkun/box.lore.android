@@ -43,6 +43,7 @@ sealed interface PodcastInfoUiState {
     data object Error : PodcastInfoUiState
 }
 
+@Suppress("kotlin:S6310")
 class PodcastInfoViewModel(
     application: Application,
     private val apiBaseUrl: String,
@@ -282,6 +283,15 @@ class PodcastInfoViewModel(
                     hasMoreEpisodes = true,
                     isLoadingMore = true
                 )
+                if (isSubscribed) {
+                    currentPodcast?.let { podcast ->
+                        podcast.latestEpisode?.id?.let { episodeId ->
+                            launch {
+                                userPrefs.setLastSeenEpisodeId(podcast.id, episodeId)
+                            }
+                        }
+                    }
+                }
             } else {
                 _uiState.value = PodcastInfoUiState.Loading
             }
@@ -316,6 +326,14 @@ class PodcastInfoViewModel(
                         isLoadingMore = false
                     )
 
+                    if (isSubscribed) {
+                        apiPodcastWithFallback.latestEpisode?.id?.let { episodeId ->
+                            launch {
+                                userPrefs.setLastSeenEpisodeId(apiPodcastWithFallback.id, episodeId)
+                            }
+                        }
+                    }
+
                     launch {
                         fetchAndApplyPodcastMeta(podcastId, apiPodcast.id, isSubscribed, localPodcastEntity)
                     }
@@ -338,8 +356,8 @@ class PodcastInfoViewModel(
         return Podcast(
             id = entity.podcastId,
             title = entity.title,
-            artist = entity.author ?: "Unknown",
-            imageUrl = entity.imageUrl ?: "",
+            artist = entity.author,
+            imageUrl = entity.imageUrl,
             fallbackImageUrl = entity.latestEpisode?.imageUrl ?: "",
             description = entity.description,
             genre = entity.genre ?: "Podcast",
@@ -368,11 +386,11 @@ class PodcastInfoViewModel(
         }
     }
 
-    private suspend fun kotlinx.coroutines.CoroutineScope.fetchPodcastAndEpisodes(
+    private suspend fun fetchPodcastAndEpisodes(
         podcastId: String,
         limit: Int,
         sortParam: String
-    ): Pair<Podcast?, cx.aswin.boxcast.core.data.PodcastRepository.EpisodePage> {
+    ): Pair<Podcast?, cx.aswin.boxcast.core.data.PodcastRepository.EpisodePage> = kotlinx.coroutines.coroutineScope {
         val apiPodcast: Podcast?
         val page: cx.aswin.boxcast.core.data.PodcastRepository.EpisodePage
 
@@ -391,7 +409,7 @@ class PodcastInfoViewModel(
             apiPodcast = podcastDeferred.await()
             page = episodesDeferred.await()
         }
-        return Pair(apiPodcast, page)
+        Pair(apiPodcast, page)
     }
 
     private fun enrichPodcastWithFallback(
@@ -452,7 +470,7 @@ class PodcastInfoViewModel(
                             podcastId = enrichedPodcast.id,
                             title = enrichedPodcast.title,
                             author = enrichedPodcast.artist,
-                            imageUrl = enrichedPodcast.imageUrl.takeIf { it.isNotEmpty() } ?: localPodcastEntity?.imageUrl ?: "",
+                            imageUrl = enrichedPodcast.imageUrl.ifEmpty { localPodcastEntity?.imageUrl ?: "" },
                             description = enrichedPodcast.description,
                             genre = enrichedPodcast.genre,
                             type = typeVal,
@@ -638,7 +656,7 @@ class PodcastInfoViewModel(
                         }
                     }
                 } else if (!isSubscribed && wasSubscribed) {
-
+                    userPrefs.removeLastSeenEpisodeId(currentState.podcast.id)
                 }
             }
         }

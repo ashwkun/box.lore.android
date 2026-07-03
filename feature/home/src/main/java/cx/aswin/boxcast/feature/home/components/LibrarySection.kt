@@ -7,6 +7,7 @@ import cx.aswin.boxcast.feature.home.StablePlaybackStateMap
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.core.designsystem.components.NewEpisodeBadge
 import androidx.compose.material.icons.rounded.Close
 
 import androidx.compose.animation.animateColorAsState
@@ -117,6 +118,9 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
+import cx.aswin.boxcast.core.model.isLatestEpisodeNew
+
+val LocalLastSeenEpisodes = androidx.compose.runtime.compositionLocalOf<Map<String, String>> { emptyMap() }
 
 @Composable
 fun YourShowsSection(
@@ -139,6 +143,7 @@ fun YourShowsSection(
 ) {
     LogRecomposition(name = "YourShowsSection")
     if (subscribedPodcasts.list.isEmpty()) return
+    val lastSeenEpisodes = LocalLastSeenEpisodes.current
 
 
     val interleavedPodcasts = remember(subscribedPodcasts) {
@@ -312,6 +317,7 @@ fun YourShowsSection(
                 items(subscribedPodcasts.list, key = { it.id }) { podcast ->
                     SelectorCover(
                         podcast = podcast,
+                        lastSeenId = lastSeenEpisodes[podcast.id],
                         isSelected = selectedPodcastId == podcast.id,
                         isAnyPodcastSelected = selectedPodcastId != null,
                         onClick = {
@@ -382,18 +388,11 @@ fun YourShowsSection(
                                     modifier = itemModifier
                                 )
                             } else if (item is Podcast) {
-                                val hasRecentNew = remember(item.subscribedAt, item.latestEpisode?.publishedDate) {
-                                    val ep = item.latestEpisode
-                                    if (ep != null && item.subscribedAt > 0L && ep.publishedDate > (item.subscribedAt / 1000L)) {
-                                        val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
-                                        hoursSinceRelease <= 48.0
-                                    } else false
-                                }
                                 SelectorCover(
                                     podcast = item,
+                                    lastSeenId = lastSeenEpisodes[item.id],
                                     isSelected = selectedPodcastId == item.id,
                                     isAnyPodcastSelected = selectedPodcastId != null,
-                                    hasRecentNew = hasRecentNew,
                                     onClick = {
                                         onPodcastSelected(if (selectedPodcastId == item.id) null else item.id)
                                     },
@@ -410,18 +409,11 @@ fun YourShowsSection(
                         row2Items.forEach { item ->
                             val itemModifier = Modifier.size(itemSize)
                             if (item is Podcast) {
-                                val hasRecentNew = remember(item.subscribedAt, item.latestEpisode?.publishedDate) {
-                                    val ep = item.latestEpisode
-                                    if (ep != null && item.subscribedAt > 0L && ep.publishedDate > (item.subscribedAt / 1000L)) {
-                                        val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
-                                        hoursSinceRelease <= 48.0
-                                    } else false
-                                }
                                 SelectorCover(
                                     podcast = item,
+                                    lastSeenId = lastSeenEpisodes[item.id],
                                     isSelected = selectedPodcastId == item.id,
                                     isAnyPodcastSelected = selectedPodcastId != null,
-                                    hasRecentNew = hasRecentNew,
                                     onClick = {
                                         onPodcastSelected(if (selectedPodcastId == item.id) null else item.id)
                                     },
@@ -451,18 +443,11 @@ fun YourShowsSection(
                     )
                 }
                 items(interleavedPodcasts, key = { it.id }) { podcast ->
-                    val hasRecentNew = remember(podcast.subscribedAt, podcast.latestEpisode?.publishedDate) {
-                        val ep = podcast.latestEpisode
-                        if (ep != null && podcast.subscribedAt > 0L && ep.publishedDate > (podcast.subscribedAt / 1000L)) {
-                            val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
-                            hoursSinceRelease <= 48.0
-                        } else false
-                    }
                     SelectorCover(
                         podcast = podcast,
+                        lastSeenId = lastSeenEpisodes[podcast.id],
                         isSelected = selectedPodcastId == podcast.id,
                         isAnyPodcastSelected = selectedPodcastId != null,
-                        hasRecentNew = hasRecentNew,
                         onClick = {
                             onPodcastSelected(if (selectedPodcastId == podcast.id) null else podcast.id)
                         },
@@ -518,7 +503,7 @@ fun YourShowsSection(
                                 ) {
                                     val uniqueImages = displayList
                                         .mapNotNull { podcast ->
-                                            val url = podcast.imageUrl?.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl
+                                            val url = podcast.imageUrl.takeIf { it.isNotEmpty() } ?: podcast.fallbackImageUrl
                                             url?.takeIf { it.isNotEmpty() }
                                         }
                                         .distinct()
@@ -863,43 +848,23 @@ fun YourShowsSection(
 @Composable
 private fun SelectorCover(
     podcast: Podcast,
+    lastSeenId: String?,
     isSelected: Boolean,
     isAnyPodcastSelected: Boolean,
-    hasRecentNew: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier.size(60.dp)
 ) {
+    val latestEpisodeId = podcast.latestEpisode?.id
+    val latestEpisodePubDate = podcast.latestEpisode?.publishedDate ?: 0L
+    
+    val hasRecentNew = remember(podcast.subscribedAt, latestEpisodeId, latestEpisodePubDate, lastSeenId) {
+        podcast.isLatestEpisodeNew(lastSeenId)
+    }
+
     val scale by animateFloatAsState(targetValue = if (isSelected) 1.05f else 0.95f, label = "scale")
     val alpha by animateFloatAsState(targetValue = if (isSelected) 1f else if (isAnyPodcastSelected) 0.6f else 1f, label = "alpha")
     val cornerRadius by animateDpAsState(targetValue = if (isSelected) 16.dp else 12.dp, label = "cornerRadius")
     val borderStrokeWidth by animateDpAsState(targetValue = if (isSelected) 3.dp else 0.dp, label = "borderStrokeWidth")
-
-    // Slow shimmer animation across the NEW badge background (4 seconds loop)
-    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val shimmerOffset by infiniteTransition.animateFloat(
-        initialValue = -100f,
-        targetValue = 200f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmerOffset"
-    )
-
-    val baseColor = MaterialTheme.colorScheme.primary
-    val shimmerColor = MaterialTheme.colorScheme.primaryContainer
-    
-    val brush = remember(shimmerOffset, baseColor, shimmerColor) {
-        Brush.linearGradient(
-            colors = listOf(
-                baseColor,
-                shimmerColor,
-                baseColor
-            ),
-            start = Offset(shimmerOffset, 0f),
-            end = Offset(shimmerOffset + 80f, 0f)
-        )
-    }
 
     Box(
         modifier = modifier
@@ -934,27 +899,9 @@ private fun SelectorCover(
 
         // New episode "NEW" text chip indicator (overlapping the top right corner) with a slow shimmer effect
         if (hasRecentNew && !isSelected) {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color.Transparent,
-                border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.surface),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 6.dp, y = (-4).dp)
-                    .background(brush, RoundedCornerShape(6.dp))
-            ) {
-                Text(
-                    text = "NEW",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 7.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp,
-                        lineHeight = 8.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                )
-            }
+            NewEpisodeBadge(
+                modifier = Modifier.offset(x = 6.dp, y = (-4).dp)
+            )
         }
     }
 }
