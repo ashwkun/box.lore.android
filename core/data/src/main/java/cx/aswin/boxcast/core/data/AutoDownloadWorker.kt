@@ -99,24 +99,34 @@ class AutoDownloadWorker(
             Log.i("BoxLore_BackgroundTrace", "[Worker] Fetching episode metadata from repository for episodeId: $episodeId...")
             val episode = fetchEpisodeMetadata(podcastRepository, podcastEntity, podcastId, episodeId)
 
+            // Validate episode data before enqueuing — empty audioUrl means all metadata sources failed
+            if (episode.audioUrl.isBlank()) {
+                Log.e("BoxLore_BackgroundTrace", "[Worker] Cannot enqueue download for '$episodeId': audioUrl is blank. All metadata sources failed.")
+                return Result.failure()
+            }
+
             Log.i("BoxLore_BackgroundTrace", "[Worker] Fetched episode metadata successfully: '${episode.title}' (${episode.audioUrl})")
 
             // Convert to domain Podcast model
             val podcast = podcastEntity.toPodcast()
 
-            // Enforce max auto-downloaded episodes per podcast rule (delegated to private helper)
-            val userPrefs = UserPreferencesRepository(context)
-            val maxAllowed = userPrefs.autoDownloadMaxEpisodesStream.first()
-            enforceMaxDownloadsQuota(database, downloadRepository, podcastId, maxAllowed)
-
             // Trigger the download request (isSmartDownloaded = false, since it is a deterministic auto-download)
             Log.i("BoxLore_BackgroundTrace", "[Worker] Enqueueing download request via DownloadRepository for '${episode.title}'...")
             downloadRepository.addDownload(episode, podcast, isSmartDownloaded = false)
             Log.i("BoxLore_BackgroundTrace", "[Worker] SUCCESS! Enqueued auto-download for episode: ${episode.title} ($episodeId)")
+
+            // Post-download quota trim: enforce max episodes AFTER adding, to prevent race conditions
+            val userPrefs = UserPreferencesRepository(context)
+            val maxAllowed = userPrefs.autoDownloadMaxEpisodesStream.first()
+            enforceMaxDownloadsQuota(database, downloadRepository, podcastId, maxAllowed)
+
             return Result.success()
-        } catch (e: Exception) {
-            Log.e("BoxLore_BackgroundTrace", "[Worker] Exception encountered during auto-download", e)
+        } catch (e: java.io.IOException) {
+            Log.e("BoxLore_BackgroundTrace", "[Worker] Network error during auto-download (will retry)", e)
             return Result.retry()
+        } catch (e: Exception) {
+            Log.e("BoxLore_BackgroundTrace", "[Worker] Non-retryable error during auto-download", e)
+            return Result.failure()
         }
     }
 
