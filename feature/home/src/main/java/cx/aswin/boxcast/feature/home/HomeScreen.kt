@@ -305,7 +305,7 @@ fun HomeScreen(
     onDismissNudge: () -> Unit = {},
     onPodcastSelected: (String?) -> Unit = {},
     onPlayMix: () -> Unit = {},
-    onPlayEpisode: (Episode, Podcast, String?) -> Unit = { _, _, _ -> },
+    onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit = { _, _, _ -> },
     onImportClick: () -> Unit = {},
     onAiOnboardingClick: () -> Unit = {},
     onDismissImportBanner: () -> Unit = {},
@@ -525,7 +525,7 @@ private fun PodcastFeed(
     isCuratedLoading: Boolean = true,
     onPodcastSelected: (String?) -> Unit = {},
     onPlayMix: () -> Unit = {},
-    onPlayEpisode: (Episode, Podcast, String?) -> Unit = { _, _, _ -> },
+    onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit = { _, _, _ -> },
     downloadedEpisodeIds: Set<String> = emptySet(),
     showRegionNudge: Boolean = false,
     systemRegionCode: String = "",
@@ -752,7 +752,7 @@ private fun PodcastFeed(
                             artist = "BoxCast AI",
                             imageUrl = localCoverUrl
                         ),
-                        null
+                        cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC
                     )
                 },
                 onClick = {
@@ -828,7 +828,7 @@ private fun PodcastFeed(
                         onEpisodeClick = { episode, podcast ->
                             onEpisodeClick?.invoke(episode, podcast, "home_because_you_like")
                         },
-                        onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, null) },
+                        onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC) },
                         onPodcastClick = { podcast ->
                             onPodcastClick(podcast, "home_because_you_like", null, null)
                         },
@@ -850,7 +850,7 @@ private fun PodcastFeed(
                         onEpisodeClick = { episode, podcast ->
                             onEpisodeClick?.invoke(episode, podcast, "home_for_you")
                         },
-                        onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, null) },
+                        onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC) },
                         timeBlock = timeBlock,
                         onSeeAllClick = {
                             onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
