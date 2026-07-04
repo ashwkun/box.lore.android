@@ -6,6 +6,7 @@
  * Integrates directly with Qdrant REST APIs.
  */
 
+const fs = require('fs');
 const crypto = require('crypto');
 
 // Environment Variables
@@ -27,6 +28,24 @@ const MAX_NEW_PODCASTS_PER_RUN = 1000; // Cap to prevent GHA timeouts
 // DB Cost Tracking
 let totalRowsRead = 0;
 let totalRowsWritten = 0;
+
+function saveRunStats(stepName) {
+    try {
+        const statsFile = '/tmp/db_run_stats.json';
+        let currentStats = {};
+        if (fs.existsSync(statsFile)) {
+            currentStats = JSON.parse(fs.readFileSync(statsFile, 'utf8') || '{}');
+        }
+        currentStats[stepName] = {
+            reads: (currentStats[stepName]?.reads || 0) + totalRowsRead,
+            writes: (currentStats[stepName]?.writes || 0) + totalRowsWritten
+        };
+        fs.writeFileSync(statsFile, JSON.stringify(currentStats, null, 2));
+        console.log(`[STATS] Step "${stepName}" recorded: ${totalRowsRead} reads, ${totalRowsWritten} writes.`);
+    } catch (e) {
+        console.warn(`[STATS] Failed to record step stats: ${e.message}`);
+    }
+}
 
 // Helper: Map Turso JS values to pipeline types
 function mapArgType(val) {
@@ -299,7 +318,6 @@ async function main() {
 
     // Qdrant Batch check to filter out already indexed podcasts
     const existingUuids = await qdrantCheckExistence(uuids);
-    console.log(`  -> Qdrant status: ${existingUuids.size}/${podcasts.length} podcasts already indexed in collection.`);
 
     const toVectorize = podcastMap.filter(m => !existingUuids.has(m.uuid));
     let skipped = existingUuids.size;
@@ -315,10 +333,10 @@ async function main() {
     }
 
     if (toVectorize.length === 0) {
-        console.log(`  -> All podcasts are up-to-date in Qdrant.`);
         console.log(`\n=== Qdrant Podcast Show Vector Sync Pipeline Complete ===`);
         console.log(`📊 DB COST: ${totalRowsRead.toLocaleString()} rows read | ${totalRowsWritten.toLocaleString()} rows written`);
         console.log(`============================================\n`);
+        saveRunStats('vectorize-podcasts');
         return;
     }
 
@@ -335,8 +353,6 @@ async function main() {
         const item = candidates[idx];
         const pod = item.raw;
         const uuid = item.uuid;
-
-        console.log(`[${idx + 1}/${candidates.length}] Vectorizing: "${pod.title}"`);
         
         const cleanedDesc = cleanDescription(pod.description);
 
@@ -374,26 +390,33 @@ async function main() {
                 payload
             });
             success++;
+            console.log(`[VECTORIZED] ✓ "${pod.title}" (ID: ${pod.id}) - Generated show embedding.`);
         } catch (err) {
-            console.error(`  [ERR] Failed to vectorize "${pod.title}": ${err.message}`);
+            console.error(`  ✗ [ERR] Failed to vectorize show "${pod.title}" (ID: ${pod.id}): ${err.message}`);
             errors++;
+        }
+
+        // Print milestone progress every 50 shows
+        const done = idx + 1;
+        if (done % 50 === 0 || done === candidates.length) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            const rate = (done / ((Date.now() - startTime) / 1000)).toFixed(1);
+            const eta = done < candidates.length ? Math.round(((candidates.length - done) / parseFloat(rate))).toString() + 's' : '—';
+            console.log(`[${done}/${candidates.length} ${Math.round((done / candidates.length) * 100)}%] Elapsed: ${elapsed}s | Rate: ${rate} pods/s | ETA: ${eta} | ✓${success} vectorized`);
         }
     }
 
     // Batch upload to Qdrant and update Turso in chunks of 100
     if (points.length > 0) {
-        console.log(`  -> Uploading ${points.length} vectors to Qdrant in chunks of 100 (wait=false)...`);
         const CHUNK_SIZE = 100;
         for (let i = 0; i < points.length; i += CHUNK_SIZE) {
             const chunk = points.slice(i, i + CHUNK_SIZE);
             try {
-                console.log(`  -> [CHUNK] Uploading ${chunk.length} points to Qdrant...`);
                 await qdrantUpsertBatch(chunk);
                 
                 // Mark as vectorized in Turso DB
                 const chunkIds = chunk.map(pt => pt.payload.id);
                 const placeholders = chunkIds.map(() => '?').join(',');
-                console.log(`  -> [CHUNK] Marking ${chunkIds.length} podcasts as vectorized in Turso...`);
                 await executeSQL(`UPDATE podcasts SET qdrant_podcast_vectorized = 1 WHERE id IN (${placeholders})`, chunkIds);
             } catch (err) {
                 console.error(`  -> [CHUNK ERR] Failed to process chunk starting at index ${i}: ${err.message}`);
@@ -411,6 +434,7 @@ async function main() {
     console.log(`Total Duration:       ${elapsed}s`);
     console.log(`📊 DB COST: ${totalRowsRead.toLocaleString()} rows read | ${totalRowsWritten.toLocaleString()} rows written`);
     console.log(`============================================\n`);
+    saveRunStats('vectorize-podcasts');
 }
 
 main().catch(console.error);

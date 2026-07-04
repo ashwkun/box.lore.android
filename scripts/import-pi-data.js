@@ -86,6 +86,27 @@ function mapArgType(val) {
     return { type: "text", value: String(val) };
 }
 
+let globalReads = 0;
+let globalWrites = 0;
+
+function saveRunStats(stepName) {
+    try {
+        const statsFile = '/tmp/db_run_stats.json';
+        let currentStats = {};
+        if (fs.existsSync(statsFile)) {
+            currentStats = JSON.parse(fs.readFileSync(statsFile, 'utf8') || '{}');
+        }
+        currentStats[stepName] = {
+            reads: (currentStats[stepName]?.reads || 0) + globalReads,
+            writes: (currentStats[stepName]?.writes || 0) + globalWrites
+        };
+        fs.writeFileSync(statsFile, JSON.stringify(currentStats, null, 2));
+        console.log(`[STATS] Step "${stepName}" recorded: ${globalReads} reads, ${globalWrites} writes.`);
+    } catch (e) {
+        console.warn(`[STATS] Failed to record step stats: ${e.message}`);
+    }
+}
+
 async function executeBatch(statements) {
     if (statements.length === 0) return;
 
@@ -120,6 +141,10 @@ async function executeBatch(statements) {
                 for (const result of res.results) {
                     if (result.type === "error") {
                         throw new Error(`Turso SQL batch error: ${result.error.message}`);
+                    }
+                    if (result.response?.result) {
+                        globalReads += result.response.result.rows_read || 0;
+                        globalWrites += result.response.result.rows_written || 0;
                     }
                 }
             }
@@ -171,6 +196,14 @@ async function executeSQL(sql, args = []) {
             const res = await response.json();
             if (res.results && res.results[0] && res.results[0].type === "error") {
                 throw new Error(`SQL execution error: ${res.results[0].error.message}`);
+            }
+            if (res.results) {
+                for (const result of res.results) {
+                    if (result.response?.result) {
+                        globalReads += result.response.result.rows_read || 0;
+                        globalWrites += result.response.result.rows_written || 0;
+                    }
+                }
             }
             return res;
         } catch (e) {
@@ -242,8 +275,31 @@ async function importTable(filename, tableName, limitPerGroupCol = null, limitCo
     // Ensure schema matches
     await ensureColumns(tableName, headers);
 
-    const dataLines = lines.slice(1);
-    console.log(`[IMPORT] Importing ${dataLines.length} rows into ${tableName}...`);
+    let dataLines = lines.slice(1);
+    
+    // Optimization: Filter out already imported podcasts to prevent massive conflict updates
+    if (tableName === 'podcasts') {
+        try {
+            const res = await executeSQL("SELECT DISTINCT itunes_id FROM podcasts WHERE itunes_id IS NOT NULL;");
+            const rows = res?.results?.[0]?.response?.result?.rows || [];
+            const existingIds = new Set(rows.map(r => String(r[0].value)));
+            console.log(`[IMPORT] Found ${existingIds.size} existing podcasts in Turso DB.`);
+            
+            const itunesIdIdx = headers.indexOf('itunes_id');
+            if (itunesIdIdx !== -1) {
+                dataLines = dataLines.filter(line => {
+                    const values = parseCSVLine(line);
+                    const itunesId = String(values[itunesIdIdx] || "");
+                    return !existingIds.has(itunesId);
+                });
+                console.log(`[IMPORT] Filtered bulk CSV down to ${dataLines.length} missing podcasts to insert.`);
+            }
+        } catch (e) {
+            console.warn("[IMPORT] Failed to filter existing podcasts from CSV dump:", e.message);
+        }
+    }
+
+    console.log(`[IMPORT] Staging and importing ${dataLines.length} rows into ${tableName}...`);
 
     const BATCH_SIZE = 50;
     let imported = 0;
@@ -517,6 +573,7 @@ async function main() {
     }
 
     console.log("\nImport complete!");
+    saveRunStats('import-pi-data');
 }
 
 main().catch(err => {
