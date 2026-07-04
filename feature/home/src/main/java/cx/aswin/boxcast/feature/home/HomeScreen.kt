@@ -942,33 +942,19 @@ private fun PodcastFeed(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Left column for items (0, 2, 4)
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                val leftItems = limitedItems.filterIndexed { idx, _ -> idx % 2 == 0 }
-                                leftItems.forEachIndexed { leftIdx, podcast ->
-                                    PodcastCard(
-                                        podcast = podcast,
-                                        showGenreChip = showGenreChip,
-                                        onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, leftIdx * 2) }
-                                    )
-                                }
-                            }
-
-                            // Right column for items (1, 3, 5)
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                val rightItems = limitedItems.filterIndexed { idx, _ -> idx % 2 != 0 }
-                                rightItems.forEachIndexed { rightIdx, podcast ->
-                                    PodcastCard(
-                                        podcast = podcast,
-                                        showGenreChip = showGenreChip,
-                                        onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, rightIdx * 2 + 1) }
-                                    )
+                            for (columnIndex in 0..1) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    val colItems = limitedItems.filterIndexed { idx, _ -> idx % 2 == columnIndex }
+                                    colItems.forEachIndexed { itemIdx, podcast ->
+                                        PodcastCard(
+                                            podcast = podcast,
+                                            showGenreChip = showGenreChip,
+                                            onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, itemIdx * 2 + columnIndex) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -999,21 +985,15 @@ private fun PodcastFeed(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            GridSkeletonItem(isTall = true)
-                            GridSkeletonItem(isTall = false)
-                            GridSkeletonItem(isTall = true)
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            GridSkeletonItem(isTall = false)
-                            GridSkeletonItem(isTall = true)
-                            GridSkeletonItem(isTall = false)
+                        for (columnIndex in 0..1) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                GridSkeletonItem(isTall = columnIndex == 0)
+                                GridSkeletonItem(isTall = columnIndex == 1)
+                                GridSkeletonItem(isTall = columnIndex == 0)
+                            }
                         }
                     }
                 }
