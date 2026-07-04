@@ -19,6 +19,7 @@ import okhttp3.ResponseBody
 import java.io.InputStreamReader
 
 import cx.aswin.boxcast.core.network.model.TrendingFeed
+import cx.aswin.boxcast.core.network.model.CuratedCuriosityResponseDto
 
 /**
  * Upgrade HTTP URLs to HTTPS to fix Android cleartext traffic restrictions.
@@ -783,6 +784,20 @@ class PodcastRepository(
             }
         }.awaitAll()
         result
+    }
+
+    suspend fun getCuratedCuriosity(): CuratedCuriosityResponseDto? = withContext(Dispatchers.IO) {
+        try {
+            val resp = api.getCuratedCuriosity(publicKey).execute()
+            if (resp.isSuccessful) {
+                resp.body()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PodcastRepository", "Failed to fetch curated curiosity: ${e.message}", e)
+            null
+        }
     }
 
     companion object {

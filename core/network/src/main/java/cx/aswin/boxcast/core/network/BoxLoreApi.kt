@@ -23,6 +23,7 @@ import cx.aswin.boxcast.core.network.model.OnboardingSimilarShowsRequest
 import cx.aswin.boxcast.core.network.model.OnboardingSelectedShowDto
 import cx.aswin.boxcast.core.network.model.BootstrapRequest
 import cx.aswin.boxcast.core.network.model.BootstrapResponse
+import cx.aswin.boxcast.core.network.model.CuratedCuriosityResponseDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -40,6 +41,11 @@ interface BoxLoreApi {
     fun getBriefingMetadata(
         @Path("region") region: String
     ): retrofit2.Call<Briefing>
+
+    @GET("curated/curiosity")
+    fun getCuratedCuriosity(
+        @Header("X-App-Key") publicKey: String
+    ): retrofit2.Call<CuratedCuriosityResponseDto>
     
     @GET("trending")
     fun getTrending(

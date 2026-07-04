@@ -974,15 +974,17 @@ class MainActivity : ComponentActivity() {
                             // Define route order for directional transitions
                             val routeOrder = mapOf(
                                 "home" to 0,
-                                "explore" to 1,
-                                "library" to 2
+                                "learn" to 1,
+                                "explore" to 2,
+                                "library" to 3
                             )
                             
                             fun getRouteIndex(route: String?): Int {
                                 if (route == null) return 0
                                 if (route == "home") return 0
-                                if (route.startsWith("explore")) return 1
-                                if (route == "library" || route.startsWith("library/subscriptions")) return 2
+                                if (route.startsWith("learn")) return 1
+                                if (route.startsWith("explore")) return 2
+                                if (route == "library" || route.startsWith("library/subscriptions")) return 3
                                 
                                 // Detail screens are "deeper" -> higher index
                                 if (route.startsWith("podcast/")) return 10
@@ -1282,6 +1284,42 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onBriefingClick = { region ->
                                         navController.navigate("briefing?region=$region")
+                                    }
+                                )
+                            }
+
+                            composable("learn") {
+                                val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.explore.LearnViewModel>(
+                                    factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                                        @Suppress("UNCHECKED_CAST")
+                                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                                            return cx.aswin.boxcast.feature.explore.LearnViewModel(
+                                                podcastRepository = podcastRepository,
+                                                application = application
+                                            ) as T
+                                        }
+                                    }
+                                )
+                                cx.aswin.boxcast.feature.explore.LearnScreen(
+                                    viewModel = viewModel,
+                                    playbackRepository = playbackRepository,
+                                    queueManager = queueManager,
+                                    bottomContentPadding = miniPlayerPadding,
+                                    onBackClick = { navController.popBackStack() },
+                                    onEpisodeClick = { episode ->
+                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        val route = "episode/${episode.id}/${encode(episode.title)}/" +
+                                            "${encode(episode.description.take(500))}/" +
+                                            "${encode(episode.imageUrl)}/" +
+                                            "${encode(episode.audioUrl)}/" +
+                                            "${episode.duration}/${encode(episode.podcastId ?: "learn")}/" +
+                                            "${encode(episode.podcastTitle ?: "Podcast")}?entryPoint=learn"
+                                        navController.navigate(route)
+                                    },
+                                    onPodcastClick = { feedId, itunesId, feedUrl, title ->
+                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        val route = "podcast?feedId=${feedId ?: ""}&itunesId=${itunesId ?: ""}&feedUrl=${encode(feedUrl)}&title=${encode(title)}"
+                                        navController.navigate(route)
                                     }
                                 )
                             }
@@ -2147,15 +2185,19 @@ class MainActivity : ComponentActivity() {
                     if (showBottomNav) {
                         val activeTab = when {
                             currentRoute == "home" -> "home"
-                            currentRoute.startsWith("explore") -> "explore"
-                            currentRoute.startsWith("library") -> "library"
-                            currentRoute.startsWith("podcast") || currentRoute.startsWith("episode") -> {
+                            currentRoute?.startsWith("learn") == true -> "learn"
+                            currentRoute?.startsWith("explore") == true -> "explore"
+                            currentRoute?.startsWith("library") == true -> "library"
+                            currentRoute?.startsWith("podcast") == true || currentRoute?.startsWith("episode") == true -> {
                                 val backStack = navController.currentBackStack.value
                                 var foundTab = "home"
                                 for (i in backStack.size - 2 downTo 0) {
                                     val entry = backStack.getOrNull(i)
                                     val route = entry?.destination?.route ?: continue
-                                    if (route.startsWith("explore")) {
+                                    if (route.startsWith("learn")) {
+                                        foundTab = "learn"
+                                        break
+                                    } else if (route.startsWith("explore")) {
                                         foundTab = "explore"
                                         break
                                     } else if (route.startsWith("library")) {
@@ -2182,6 +2224,14 @@ class MainActivity : ComponentActivity() {
                                     activeTab == route -> {
                                         if (route == "home") {
                                             navController.popBackStack("home", inclusive = false)
+                                        } else if (route == "learn") {
+                                            val popped = navController.popBackStack("learn", inclusive = false)
+                                            if (!popped) {
+                                                navController.navigate("learn") {
+                                                    popUpTo("home") { saveState = false }
+                                                    launchSingleTop = true
+                                                }
+                                            }
                                         } else if (route == "explore") {
                                             val popped = navController.popBackStack("explore?category={category}&entryPoint={entryPoint}", inclusive = false)
                                             if (!popped) {
