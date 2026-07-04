@@ -2,20 +2,20 @@
   "2026-07-04": {
     "in": {
       "sync-episodes": {
-        "reads": 15176,
-        "writes": 29
+        "reads": 15203,
+        "writes": 56
       },
       "populate-charts": {
         "reads": 4020,
         "writes": 0
       },
       "import-pi-data": {
-        "reads": 10929,
+        "reads": 10788,
         "writes": 0
       },
       "vectorize": {
-        "reads": 12274,
-        "writes": 137
+        "reads": 11953,
+        "writes": 56
       },
       "vectorize-podcasts": {
         "reads": 12108,
