@@ -32,8 +32,8 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -81,9 +81,9 @@ val bottomNavDestinations = listOf(
     ),
     NavDestination(
         route = "learn",
-        label = "Learn",
-        selectedIcon = Icons.Filled.Lightbulb,
-        unselectedIcon = Icons.Outlined.Lightbulb
+        label = "Lore",
+        selectedIcon = Icons.Filled.Psychology,
+        unselectedIcon = Icons.Outlined.Psychology
     ),
     NavDestination(
         route = "explore",
