@@ -142,68 +142,39 @@ fun ForYouSection(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Left column
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            leftColumn.forEach { (ep, originalIndex) ->
-                                val parentPodcast = Podcast(
-                                    id = ep.podcastId ?: "",
-                                    title = ep.podcastTitle ?: "Podcast",
-                                    artist = "",
-                                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                                    description = "",
-                                    genre = ep.podcastGenre ?: "Podcast"
-                                )
-                                CuratedEpisodeCard(
-                                    podcast = parentPodcast,
-                                    episode = ep,
-                                    onClick = {
-                                        AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                            episodeId = ep.id,
-                                            episodeTitle = ep.title,
-                                            podcastId = parentPodcast.id,
-                                            podcastName = parentPodcast.title,
-                                            positionIndex = originalIndex,
-                                            timeBlockTitle = timeBlock?.title
-                                        )
-                                        onEpisodeClick(ep, parentPodcast)
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                        // Right column
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            rightColumn.forEach { (ep, originalIndex) ->
-                                val parentPodcast = Podcast(
-                                    id = ep.podcastId ?: "",
-                                    title = ep.podcastTitle ?: "Podcast",
-                                    artist = "",
-                                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                                    description = "",
-                                    genre = ep.podcastGenre ?: "Podcast"
-                                )
-                                CuratedEpisodeCard(
-                                    podcast = parentPodcast,
-                                    episode = ep,
-                                    onClick = {
-                                        AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                            episodeId = ep.id,
-                                            episodeTitle = ep.title,
-                                            podcastId = parentPodcast.id,
-                                            podcastName = parentPodcast.title,
-                                            positionIndex = originalIndex,
-                                            timeBlockTitle = timeBlock?.title
-                                        )
-                                        onEpisodeClick(ep, parentPodcast)
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                        // Render left and right columns using a loop to avoid code duplication
+                        val columns = listOf(leftColumn, rightColumn)
+                        columns.forEach { columnItems ->
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                columnItems.forEach { (ep, originalIndex) ->
+                                    val parentPodcast = Podcast(
+                                        id = ep.podcastId ?: "",
+                                        title = ep.podcastTitle ?: "Podcast",
+                                        artist = "",
+                                        imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                        description = "",
+                                        genre = ep.podcastGenre ?: "Podcast"
+                                    )
+                                    CuratedEpisodeCard(
+                                        podcast = parentPodcast,
+                                        episode = ep,
+                                        onClick = {
+                                            AnalyticsHelper.trackHomeRecommendationCardTapped(
+                                                episodeId = ep.id,
+                                                episodeTitle = ep.title,
+                                                podcastId = parentPodcast.id,
+                                                podcastName = parentPodcast.title,
+                                                positionIndex = originalIndex,
+                                                timeBlockTitle = timeBlock?.title
+                                            )
+                                            onEpisodeClick(ep, parentPodcast)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                     }
