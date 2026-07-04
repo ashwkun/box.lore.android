@@ -6,12 +6,12 @@ This report tracks the Turso SQLite read and write metrics for the background sy
 
 | Country | Sync Step | DB Reads | DB Writes |
 | :--- | :--- | :---: | :---: |
-| **`FR`** | `import-pi-data` | 11,094 | 324 |
+| **`FR`** | `import-pi-data` | 10,817 | 0 |
 |  | `populate-charts` | 20,191 | 11,388 |
-|  | `sync-episodes` | 14,744 | 174 |
-|  | `vectorize` | 11,775 | 175 |
+|  | `sync-episodes` | 14,654 | 84 |
+|  | `vectorize` | 11,438 | 84 |
 |  | `vectorize-podcasts` | 11,516 | 108 |
-| | *Subtotal (FR)* | *69,320* | *12,169* |
+| | *Subtotal (FR)* | *68,616* | *11,664* |
 | **`GB`** | `import-pi-data` | 14,831 | 87 |
 |  | `populate-charts` | 20,144 | 11,010 |
 |  | `sync-episodes` | 15,359 | 55 |
