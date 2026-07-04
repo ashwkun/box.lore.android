@@ -30,7 +30,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -51,6 +54,7 @@ jobs:
           npm install
 
       - name: Populate Charts Table
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
@@ -82,6 +86,9 @@ jobs:
           echo ""
           echo "=== Podcasts/Feeds table schema ==="
           sqlite3 podcastindex_feeds.db ".schema podcasts" || sqlite3 podcastindex_feeds.db ".schema newsfeeds" || true
+          echo ""
+          echo "=== Sample row ==="
+          sqlite3 podcastindex_feeds.db "SELECT * FROM podcasts LIMIT 1;" 2>/dev/null || sqlite3 podcastindex_feeds.db "SELECT * FROM newsfeeds LIMIT 1;" || true
           echo ""
           echo "=== Sample row ==="
           sqlite3 podcastindex_feeds.db "SELECT * FROM podcasts LIMIT 1;" 2>/dev/null || sqlite3 podcastindex_feeds.db "SELECT * FROM newsfeeds LIMIT 1;" || true
@@ -134,14 +141,6 @@ jobs:
           " > podcasts_export.csv
           echo "[WORKFLOW] Successfully generated 'podcasts_export.csv' with $(wc -l < podcasts_export.csv) lines including headers."
 
-      - name: Create Episodes Table & Indices
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: |
-          echo "[WORKFLOW] Initializing/updating database schema..."
-          node scripts/create-episodes-table.js
-
       - name: Import to Turso
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}
@@ -183,11 +182,30 @@ jobs:
         run: |
           echo "[WORKFLOW] Running vectorize-podcasts.js to calculate and sync show embedding vectors to Qdrant Cloud for country ${{ matrix.country }}..."
           node scripts/vectorize-podcasts.js --country ${{ matrix.country }}
-          
+
+      - name: Record and Log Database Costs
+        env:
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          COUNTRY: ${{ matrix.country }}
+        run: |
+          echo "[WORKFLOW] Recording database read/write counts..."
+          node scripts/record-db-stats.js --country ${{ matrix.country }}
+
+      - name: Commit and push sync cache & stats
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/sync_cache.json data/db_cost_history.json data/db_cost_report.md || true
+          git commit -m "chore: update sync cache and db stats [skip ci]" || true
+          git pull --rebase origin master || true
+          git push || true
+
       - name: Cleanup
         run: rm -f *.db *.tgz *.csv *.txt
 
   cleanup-non-chart:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 20 * * *'
     runs-on: ubuntu-latest
     needs: sync-pi-data
     steps:

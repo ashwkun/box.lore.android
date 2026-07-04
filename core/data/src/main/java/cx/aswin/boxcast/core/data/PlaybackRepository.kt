@@ -1110,7 +1110,6 @@ class PlaybackRepository(
                 }
                 initialLikeState = saved.isLiked
             }
-            listeningHistoryDao.setCompletionStatus(startEpisodeId, false)
         }
         return Pair(startPosMs, initialLikeState)
     }

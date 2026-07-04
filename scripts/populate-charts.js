@@ -128,17 +128,19 @@ async function main() {
 
     const countryIndex = process.argv.indexOf('--country');
     const targetCountry = countryIndex !== -1 ? process.argv[countryIndex + 1] : null;
-
     const countriesToProcess = targetCountry ? [targetCountry] : DEFAULT_COUNTRIES;
-    console.log(`[CHARTS] Countries to process: ${countriesToProcess.join(', ')}`);
+
+    let totalCategories = 0;
+    let totalWrites = 0;
+    let totalErrors = 0;
 
     for (const country of countriesToProcess) {
         for (const category of CATEGORIES) {
             try {
                 const podcasts = await fetchItunesCharts(country, category);
-                console.log(`[CHARTS] Fetched ${podcasts.length} podcasts for ${country}/${category}`);
 
                 if (podcasts.length === 0) continue;
+                totalCategories++;
 
                 // Fetch existing entries from the DB to compare and update in-place
                 const existingRes = await executeSQL(
@@ -171,27 +173,43 @@ async function main() {
                 }
 
                 const statements = [];
-                if (isDifferent) {
-                    // Delete all existing rows for this country & category
+                
+                // 1. Stage in-place upserts with change-detection WHERE clause
+                for (let i = 0; i < podcasts.length; i++) {
+                    const newPod = podcasts[i];
+                    const rank = i + 1;
                     statements.push({
-                        sql: "DELETE FROM charts WHERE country = ? AND category = ?",
-                        args: [country, category]
+                        sql: `
+                            INSERT INTO charts (itunes_id, name, artist, image_url, country, category, rank) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(itunes_id, country, category) DO UPDATE SET 
+                                rank = excluded.rank,
+                                name = excluded.name,
+                                artist = excluded.artist,
+                                image_url = excluded.image_url
+                            WHERE rank != excluded.rank 
+                               OR name != excluded.name 
+                               OR artist != excluded.artist 
+                               OR image_url != excluded.image_url
+                        `,
+                        args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, rank]
                     });
-
-                    // Insert all podcasts in order
-                    for (let i = 0; i < podcasts.length; i++) {
-                        const newPod = podcasts[i];
-                        const rank = i + 1;
-                        statements.push({
-                            sql: "INSERT INTO charts (itunes_id, name, artist, image_url, country, category, rank) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                            args: [newPod.itunesId, newPod.name, newPod.artist, newPod.imageUrl, country, category, rank]
-                        });
-                    }
                 }
 
+                // 2. Stage targeted delete for any charts that fell off the top list
+                const activeIds = podcasts.map(p => String(p.itunesId));
+                const placeholders = activeIds.map(() => '?').join(',');
+                statements.push({
+                    sql: `
+                        DELETE FROM charts 
+                        WHERE country = ? 
+                          AND category = ? 
+                          AND itunes_id NOT IN (${placeholders})
+                    `,
+                    args: [country, category, ...activeIds]
+                });
+
                 if (statements.length > 0) {
-                    console.log(`[CHARTS] Updating charts for ${country}/${category} (${statements.length - 1} inserts executed)...`);
-                    
                     const requests = [];
                     // Start transaction
                     requests.push({
@@ -199,7 +217,7 @@ async function main() {
                         stmt: { sql: "BEGIN" }
                     });
 
-                    // Add delete and inserts
+                    // Add upserts and delete
                     for (const stmt of statements) {
                         requests.push({
                             type: "execute",
@@ -230,25 +248,30 @@ async function main() {
                         throw new Error(`Turso batch HTTP error: ${batchResponse.status}`);
                     }
                     const batchResult = await batchResponse.json();
+                    let rowsWritten = 0;
                     if (batchResult.results) {
                         for (const result of batchResult.results) {
                             if (result.type === "error") {
                                 throw new Error(`Turso SQL batch error: ${result.error.message}`);
                             }
+                            if (result.response?.result?.rows_written) {
+                                rowsWritten += result.response.result.rows_written;
+                            }
                         }
                     }
-                } else {
-                    console.log(`[CHARTS] Charts for ${country}/${category} are fully up-to-date. 0 database writes executed!`);
+                    totalWrites += rowsWritten;
+                    if (rowsWritten > 0) {
+                        console.log(`  ✓ ${country}/${category} - updated (Turso writes: ${rowsWritten})`);
+                    }
                 }
-
-                console.log(`[CHARTS] Successfully inserted ${podcasts.length} charts for ${country}/${category}`);
             } catch (e) {
-                console.error(`[CHARTS] Error processing ${country}/${category}:`, e.message);
+                totalErrors++;
+                console.error(`  ✗ ${country}/${category} - Error:`, e.message);
             }
         }
     }
 
-    console.log("[CHARTS] Chart population complete!");
+    console.log(`\n✅ CHARTS POPULATION COMPLETE | Country: ${countriesToProcess.join(', ').toUpperCase()} | Categories Synced: ${totalCategories} | Total DB Writes: ${totalWrites} | Errors: ${totalErrors}`);
 }
 
 main().catch(console.error);

@@ -6,6 +6,7 @@
  * Integrates directly with Qdrant REST APIs.
  */
 
+const fs = require('fs');
 const crypto = require('crypto');
 
 // Environment Variables
@@ -57,6 +58,27 @@ function mapArgType(val) {
     return { type: "text", value: String(val) };
 }
 
+let globalReads = 0;
+let globalWrites = 0;
+
+function saveRunStats(stepName) {
+    try {
+        const statsFile = '/tmp/db_run_stats.json';
+        let currentStats = {};
+        if (fs.existsSync(statsFile)) {
+            currentStats = JSON.parse(fs.readFileSync(statsFile, 'utf8') || '{}');
+        }
+        currentStats[stepName] = {
+            reads: (currentStats[stepName]?.reads || 0) + globalReads,
+            writes: (currentStats[stepName]?.writes || 0) + globalWrites
+        };
+        fs.writeFileSync(statsFile, JSON.stringify(currentStats, null, 2));
+        console.log(`[STATS] Step "${stepName}" recorded: ${globalReads} reads, ${globalWrites} writes.`);
+    } catch (e) {
+        console.warn(`[STATS] Failed to record step stats: ${e.message}`);
+    }
+}
+
 // Helper: Execute Turso SQL
 async function executeSQL(sql, args = []) {
     const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
@@ -78,6 +100,14 @@ async function executeSQL(sql, args = []) {
     const res = await response.json();
     if (res.results && res.results[0] && res.results[0].type === "error") {
         throw new Error(`SQL execution error: ${res.results[0].error.message}`);
+    }
+    if (res.results) {
+        for (const result of res.results) {
+            if (result.response?.result) {
+                globalReads += result.response.result.rows_read || 0;
+                globalWrites += result.response.result.rows_written || 0;
+            }
+        }
     }
     return res;
 }
@@ -312,17 +342,13 @@ async function main() {
 
     async function flushQueue() {
         if (pointsQueue.length === 0) return;
-        console.log(`\n  -> [QDRANT] Flushing ${pointsQueue.length} accumulated vectors to Qdrant (wait=false)...`);
         try {
             await qdrantUpsertBatch(pointsQueue);
             success += pointsQueue.length;
-            console.log(`  -> [QDRANT] Successfully pushed batch to Qdrant queue.`);
             
             // Mark as vectorized in Turso DB
-            console.log(`  -> [DATABASE] Updating ${dbUpdateQueue.length} podcasts status in Turso...`);
             const placeholders = dbUpdateQueue.map(() => '?').join(',');
             await executeSQL(`UPDATE podcasts SET qdrant_vectorized = 1 WHERE id IN (${placeholders})`, dbUpdateQueue);
-            console.log(`  -> [DATABASE] Marked ${dbUpdateQueue.length} podcasts as vectorized.`);
         } catch (err) {
             console.error(`  -> [ERR] Failed to upload batch to Qdrant/Turso: ${err.message}`);
             errors += pointsQueue.length;
@@ -331,29 +357,29 @@ async function main() {
         dbUpdateQueue.length = 0;
     }
 
+    console.log(`\nStarting vectorization: ${podcasts.length} podcasts | Concurrency: 1 | ${new Date().toISOString()}`);
+    console.log('─'.repeat(120));
+
     // 3. Process podcasts sequentially to be polite to APIs and prevent locks
     for (let idx = 0; idx < podcasts.length; idx++) {
         const pod = podcasts[idx];
-        console.log(`\n[${idx+1}/${podcasts.length}] Processing: "${pod.title}" (ID: ${pod.id})`);
 
         // Fetch latest 30 episodes
         let episodes;
         try {
             episodes = await fetchEpisodes(pod.id);
         } catch (e) {
-            console.error(`  -> Failed to fetch episodes for "${pod.title}" due to API errors. Skipping updates for this run.`);
+            console.error(`  ✗ pod ${pod.id} (${pod.title?.substring(0, 30)}): Failed to fetch episodes: ${e.message}`);
             errors++;
             await new Promise(r => setTimeout(r, 400));
             continue;
         }
 
         if (episodes.length === 0) {
-            console.log(`  -> No episodes found for "${pod.title}". Skipping.`);
             try {
                 await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
-                console.log(`  -> Marked "${pod.title}" as vectorized (no episodes).`);
             } catch (err) {
-                console.error(`  -> Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+                console.error(`  ✗ pod ${pod.id} (${pod.title?.substring(0, 30)}): Failed to mark vectorized: ${err.message}`);
             }
             await new Promise(r => setTimeout(r, 400));
             continue;
@@ -368,19 +394,26 @@ async function main() {
 
         // Qdrant Batch check
         const existingUuids = await qdrantCheckExistence(uuids);
-        console.log(`  -> Qdrant status: ${existingUuids.size}/${episodes.length} episodes already indexed.`);
 
         const toVectorize = episodeMap.filter(m => !existingUuids.has(m.uuid));
         skipped += existingUuids.size;
 
         if (toVectorize.length === 0) {
-            console.log(`  -> All episodes are up-to-date in Qdrant.`);
             try {
                 await executeSQL("UPDATE podcasts SET qdrant_vectorized = 1 WHERE id = ?", [pod.id]);
-                console.log(`  -> Marked "${pod.title}" as vectorized (up-to-date).`);
             } catch (err) {
-                console.error(`  -> Failed to update qdrant_vectorized for "${pod.title}": ${err.message}`);
+                console.error(`  ✗ pod ${pod.id} (${pod.title?.substring(0, 30)}): Failed to mark vectorized: ${err.message}`);
             }
+            
+            // Print milestone progress every 50 shows
+            const done = idx + 1;
+            if (done % 50 === 0 || done === podcasts.length) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                const rate = (done / ((Date.now() - startTime) / 1000)).toFixed(1);
+                const eta = done < podcasts.length ? Math.round(((podcasts.length - done) / parseFloat(rate))).toString() + 's' : '—';
+                console.log(`[${done}/${podcasts.length} ${Math.round((done / podcasts.length) * 100)}%] Elapsed: ${elapsed}s | Rate: ${rate} pods/s | ETA: ${eta} | ✓${vectorizedPodcastsCount} vectorized, ↩${skipped} skipped`);
+            }
+            
             await new Promise(r => setTimeout(r, 400));
             continue;
         }
@@ -391,7 +424,6 @@ async function main() {
             break;
         }
 
-        console.log(`  -> ${toVectorize.length} new episodes qualify for vectorization.`);
         vectorizedPodcastsCount++;
         const points = [];
 
@@ -419,9 +451,9 @@ async function main() {
 
                 // Build point metadata payload
                 const payload = {
-                    id: parseInt(ep.id) || 0, // Store original numeric episode ID for mobile app compatibility
+                    id: parseInt(ep.id) || 0,
                     title: epTitle,
-                    description: ep.description || "", // Store original description for the UI
+                    description: ep.description || "",
                     podcast_id: parseInt(pod.id) || 0,
                     podcast_title: pod.title,
                     podcast_author: pod.author || "",
@@ -439,9 +471,8 @@ async function main() {
                     vector,
                     payload
                 });
-                console.log(`  [VEC] Vectorized: "${epTitle}"`);
             } catch (err) {
-                console.error(`  [ERR] Failed to vectorize "${epTitle}": ${err.message}`);
+                console.error(`  ✗ [ERR] Failed to vectorize "${epTitle}" in pod ${pod.id}: ${err.message}`);
                 errors++;
             }
         }
@@ -450,20 +481,17 @@ async function main() {
         if (points.length > 0) {
             pointsQueue.push(...points);
             dbUpdateQueue.push(pod.id);
-            console.log(`  -> Staged ${points.length} vectors. Queue size: ${pointsQueue.length}/100.`);
+            console.log(`[VECTORIZED] ✓ "${pod.title}" (ID: ${pod.id}) - Generated ${points.length} episode embeddings.`);
             
             if (pointsQueue.length >= 100) {
                 await flushQueue();
             }
-        } else if (toVectorize.length > 0) {
-            console.warn(`  -> ${toVectorize.length} episodes were qualified but none were successfully vectorized.`);
         }
 
         // Rolling Window Delete: Keep only the latest 30 episodes in Qdrant for this podcast
-        // (Any point belonging to this podcast whose UUID is NOT in the current active top 30 list)
         if (uuids.length > 0) {
             try {
-                const deleteResponse = await fetch(`${QDRANT_URL}/collections/${COLLECTION_NAME}/points/delete`, {
+                await fetch(`${QDRANT_URL}/collections/${COLLECTION_NAME}/points/delete`, {
                     method: "POST",
                     headers: {
                         "api-key": QDRANT_API_KEY,
@@ -480,12 +508,18 @@ async function main() {
                         }
                     })
                 });
-                if (deleteResponse.ok) {
-                    console.log(`  -> Pruned older episodes for "${pod.title}" successfully.`);
-                }
             } catch (pruneErr) {
                 console.warn(`  -> Pruning failed for "${pod.title}":`, pruneErr.message);
             }
+        }
+        
+        // Print milestone progress every 50 shows
+        const done = idx + 1;
+        if (done % 50 === 0 || done === podcasts.length) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            const rate = (done / ((Date.now() - startTime) / 1000)).toFixed(1);
+            const eta = done < podcasts.length ? Math.round(((podcasts.length - done) / parseFloat(rate))).toString() + 's' : '—';
+            console.log(`[${done}/${podcasts.length} ${Math.round((done / podcasts.length) * 100)}%] Elapsed: ${elapsed}s | Rate: ${rate} pods/s | ETA: ${eta} | ✓${vectorizedPodcastsCount} vectorized, ↩${skipped} skipped`);
         }
         
         // Polite API rate limiting delay
@@ -495,14 +529,15 @@ async function main() {
     // Flush any remaining vectors in queue
     await flushQueue();
 
-
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log('─'.repeat(120));
     console.log(`\n=== Qdrant Vector Sync Pipeline Complete ===`);
     console.log(`New Vectors Uploaded: ${success}`);
     console.log(`Existing Skipped:     ${skipped}`);
     console.log(`Errors:               ${errors}`);
     console.log(`Total Duration:       ${elapsed}s`);
     console.log(`============================================\n`);
+    saveRunStats('vectorize');
 }
 
 main().catch(console.error);

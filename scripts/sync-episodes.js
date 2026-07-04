@@ -4,6 +4,7 @@
  * Run this AFTER importing podcasts from the dump.
  */
 
+const fs = require('fs');
 const crypto = require('crypto');
 
 const TURSO_URL = process.env.TURSO_URL?.replace('libsql://', 'https://');
@@ -123,6 +124,27 @@ function cleanDescription(raw) {
     return text.substring(0, 1000);
 }
 
+let globalReads = 0;
+let globalWrites = 0;
+
+function saveRunStats(stepName) {
+    try {
+        const statsFile = '/tmp/db_run_stats.json';
+        let currentStats = {};
+        if (fs.existsSync(statsFile)) {
+            currentStats = JSON.parse(fs.readFileSync(statsFile, 'utf8') || '{}');
+        }
+        currentStats[stepName] = {
+            reads: (currentStats[stepName]?.reads || 0) + globalReads,
+            writes: (currentStats[stepName]?.writes || 0) + globalWrites
+        };
+        fs.writeFileSync(statsFile, JSON.stringify(currentStats, null, 2));
+        console.log(`[STATS] Step "${stepName}" recorded: ${globalReads} reads, ${globalWrites} writes.`);
+    } catch (e) {
+        console.warn(`[STATS] Failed to record step stats: ${e.message}`);
+    }
+}
+
 async function executeSQL(sql, args = []) {
     const startTime = Date.now();
     const MAX_RETRIES = 5;
@@ -151,7 +173,18 @@ async function executeSQL(sql, args = []) {
             if (res.results && res.results[0] && res.results[0].type === "error") {
                 throw new Error(`SQL execution error: ${res.results[0].error.message}`);
             }
-            return { ...res, _durationMs: duration };
+            let rowsRead = 0, rowsWritten = 0;
+            if (res.results) {
+                for (const result of res.results) {
+                    if (result.response?.result) {
+                        rowsRead += result.response.result.rows_read || 0;
+                        rowsWritten += result.response.result.rows_written || 0;
+                    }
+                }
+            }
+            globalReads += rowsRead;
+            globalWrites += rowsWritten;
+            return { ...res, _durationMs: duration, _rowsRead: rowsRead, _rowsWritten: rowsWritten };
         } catch (e) {
             const isTransient = e.message.includes('fetch failed') || 
                               e.message.includes('socket') || 
@@ -211,6 +244,8 @@ async function executeBatch(statements) {
                     }
                 }
             }
+            globalReads += totalRowsRead;
+            globalWrites += totalRowsWritten;
             return { _durationMs: duration, _rowsRead: totalRowsRead, _rowsWritten: totalRowsWritten };
         } catch (e) {
             const isTransient = e.message.includes('fetch failed') || 
@@ -374,90 +409,98 @@ async function main() {
         }
     }
 
-    // 3. Get podcasts needing sync (Priority: New > News(4h) > Others(24h))
+    // 3. Load sync_cache.json
     const countryIndex = process.argv.indexOf('--country');
     const country = countryIndex !== -1 ? process.argv[countryIndex + 1] : null;
 
-    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-    const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-
-    const CUTOFF_STANDARD = Date.now() - ONE_DAY_MS;
-    const CUTOFF_NEWS = Date.now() - FOUR_HOURS_MS;
-
-    let sql = `
-        SELECT DISTINCT p.id, p.itunes_id, p.title, p.last_ep_sync, p.medium, c.category, p.latest_ep_id
-        FROM charts c
-        JOIN podcasts p ON c.itunes_id = p.itunes_id
-        WHERE 
-            (
-                p.last_ep_sync IS NULL 
-                OR p.medium IS NULL
-                OR (c.category = 'News' AND p.last_ep_sync < ?)
-                OR (p.last_ep_sync < ?)
-            )
-    `;
-    let args = [CUTOFF_NEWS, CUTOFF_STANDARD];
-
-    if (country) {
-        sql += ` AND c.country = ?`;
-        args.push(country);
-        console.log(`Filtering sync candidates for country: ${country}`);
+    let syncCache = {};
+    const cachePath = 'data/sync_cache.json';
+    try {
+        if (fs.existsSync(cachePath)) {
+            syncCache = JSON.parse(fs.readFileSync(cachePath, 'utf8') || '{}');
+        }
+    } catch (e) {
+        console.warn("[WARNING] Failed to load sync_cache.json:", e.message);
     }
 
-    const limitIndex = process.argv.indexOf('--limit');
-    const limit = limitIndex !== -1 ? parseInt(process.argv[limitIndex + 1]) : 500;
-    sql += `
-        ORDER BY p.last_ep_sync ASC
-        LIMIT ?
+    let sql = `
+        SELECT p.id, p.itunes_id, p.title, p.medium, p.latest_ep_id, p.categories
+        FROM podcasts p
+        WHERE p.itunes_id IN (SELECT DISTINCT itunes_id FROM charts)
     `;
-    args.push(limit);
+    let args = [];
+    if (country) {
+        sql = `
+            SELECT p.id, p.itunes_id, p.title, p.medium, p.latest_ep_id, p.categories
+            FROM podcasts p
+            WHERE p.itunes_id IN (SELECT DISTINCT itunes_id FROM charts WHERE country = ?)
+        `;
+        args.push(country);
+    }
 
-    console.log("Fetching sync candidates...");
-    const res = await executeSQL(sql, args);
-    const podcasts = res?.results?.[0]?.response?.result?.rows?.map(r => {
-        const id = r[0].value;
-        const itunesId = r[1].value;
-        const title = r[2].value || "Unknown Title";
-        const lastSync = r[3].value ? parseInt(r[3].value) : null;
-        const medium = r[4].value;
-        const category = r[5].value;
-        const latestEpId = r[6]?.value;
-        return { id, itunesId, title, lastSync, medium, category, latestEpId };
-    }) || [];
+    console.log("Fetching sync candidates from Turso...");
+    const candRes = await executeSQL(sql, args);
+    const allPodcasts = candRes?.results?.[0]?.response?.result?.rows?.map(r => ({
+        id: String(r[0].value),
+        itunesId: r[1].value,
+        title: r[2].value || "Unknown Title",
+        medium: r[3].value,
+        latestEpId: r[4]?.value,
+        categories: r[5]?.value || ""
+    })) || [];
+
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
 
     let neverSyncedCount = 0;
     let missingMediumCount = 0;
     let staleNewsCount = 0;
     let staleRegularCount = 0;
 
-    const podcastReasons = {};
-
-    for (const p of podcasts) {
-        const reasonsList = [];
-        if (p.lastSync === null) {
-            reasonsList.push("Never Synced");
-            neverSyncedCount++;
-        } else {
-            if (p.medium === null) {
-                reasonsList.push("Missing Medium Field");
-                missingMediumCount++;
-            }
-            if (p.category === 'News' && p.lastSync < CUTOFF_NEWS) {
-                reasonsList.push(`Stale News Feed (last synced ${Math.round((Date.now() - p.lastSync) / 3600000)}h ago)`);
-                staleNewsCount++;
-            } else if (p.lastSync < CUTOFF_STANDARD) {
-                reasonsList.push(`Stale Regular Feed (last synced ${Math.round((Date.now() - p.lastSync) / 3600000)}h ago)`);
-                staleRegularCount++;
-            }
+    const filteredPodcasts = allPodcasts.filter(p => {
+        if (!p.medium) {
+            missingMediumCount++;
+            return true;
         }
-        podcastReasons[p.id] = reasonsList.join(", ") || "Forced update / other reasons";
-    }
+
+        const lastSync = syncCache[p.id] || null;
+        if (lastSync === null) {
+            neverSyncedCount++;
+            return true;
+        }
+
+        const isNews = p.categories && p.categories.includes("News");
+        const threshold = isNews ? EIGHT_HOURS_MS : ONE_DAY_MS;
+        const timeDiff = Date.now() - lastSync;
+
+        if (isNews && timeDiff >= threshold) {
+            staleNewsCount++;
+            return true;
+        } else if (!isNews && timeDiff >= threshold) {
+            staleRegularCount++;
+            return true;
+        }
+        return false;
+    });
+
+    // Sort candidates by last check timestamp ascending so the oldest checks run first
+    filteredPodcasts.sort((a, b) => {
+        const lastA = syncCache[a.id] || 0;
+        const lastB = syncCache[b.id] || 0;
+        return lastA - lastB;
+    });
+
+    const limitIndex = process.argv.indexOf('--limit');
+    const limit = limitIndex !== -1 ? parseInt(process.argv[limitIndex + 1]) : 500;
+    const podcasts = filteredPodcasts.slice(0, limit);
 
     console.log(`\n=== Detailed Sync Plan ===`);
-    console.log(`Total Candidates: ${podcasts.length}`);
-    console.log(`- Never Synced:                ${neverSyncedCount}`);
+    console.log(`Total Chart Shows:             ${allPodcasts.length}`);
+    console.log(`Stale Shows Detected:          ${filteredPodcasts.length}`);
+    console.log(`Syncing Candidates (Limit):    ${podcasts.length}`);
+    console.log(`- Never Checked:               ${neverSyncedCount}`);
     console.log(`- Missing Medium Column:       ${missingMediumCount}`);
-    console.log(`- Stale News Feeds (>4h old):  ${staleNewsCount}`);
+    console.log(`- Stale News Feeds (>8h old):  ${staleNewsCount}`);
     console.log(`- Stale Regular Feeds (>24h):  ${staleRegularCount}`);
     console.log(`==========================\n`);
 
@@ -490,7 +533,6 @@ async function main() {
         let batchRowsRead = 0;
         let batchRowsWritten = 0;
         let batchApiFails = 0;
-        const skipPodIds = []; // Collect skip-path IDs for batched timestamp update
 
         await Promise.all(batch.map(async (pod, idx) => {
             try {
@@ -501,14 +543,15 @@ async function main() {
 
                 if (episodes.length === 0) {
                     batchEmpty++;
+                    syncCache[pod.id] = Date.now();
                     return;
                 }
 
                 const latestEp = episodes[0];
 
-                // OPTIMIZATION: If latest episode unchanged, collect for batched timestamp update
-                if (pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
-                    skipPodIds.push(String(pod.id));
+                // OPTIMIZATION: If latest episode unchanged and medium is present, record check to cache and return (0 Turso writes!)
+                if (pod.medium && pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
+                    syncCache[pod.id] = Date.now();
                     batchSkipped++;
                     batchUpdated++;
                     return;
@@ -579,29 +622,15 @@ async function main() {
                 batchRowsWritten += dbRes._rowsWritten;
                 batchEpisodes += 1;
                 batchUpdated++;
+                
+                // Save check to cache
+                syncCache[pod.id] = Date.now();
 
             } catch (err) {
                 batchErrors++;
                 console.error(`  ✗ pod ${pod.id} (${pod.title?.substring(0, 30)}): ${err.message}`);
             }
         }));
-
-        // Batch all skip-path timestamp updates into ONE DB call
-        if (skipPodIds.length > 0) {
-            try {
-                const placeholders = skipPodIds.map(() => '?').join(',');
-                const dbRes = await executeBatch([{
-                    sql: `UPDATE podcasts SET last_ep_sync = ? WHERE id IN (${placeholders})`,
-                    args: [Date.now(), ...skipPodIds]
-                }]);
-                batchDbMs += dbRes._durationMs;
-                batchRowsRead += dbRes._rowsRead;
-                batchRowsWritten += dbRes._rowsWritten;
-            } catch (err) {
-                batchErrors += skipPodIds.length;
-                console.error(`  ✗ Batch timestamp update failed for ${skipPodIds.length} pods: ${err.message}`);
-            }
-        }
 
         // Update global counters
         totalPodcastsUpdated += batchUpdated;
@@ -640,7 +669,19 @@ async function main() {
     const finalRate = (podcasts.length / parseFloat(totalDuration)).toFixed(1);
     console.log('─'.repeat(120));
     console.log(`✅ SYNC COMPLETE | ${totalPodcastsUpdated} updated (${totalSkipped} unchanged, ${totalEmpty} empty) | ${totalEpisodesWritten} episodes written | ${errors} errors | ${totalDuration}s @ ${finalRate} pods/s`);
-    console.log(`📊 DB COST: ${totalRowsRead.toLocaleString()} rows read | ${totalRowsWritten.toLocaleString()} rows written`);
+    
+    // Use global counters for final reporting to ensure all queries (including candidates query) are counted
+    console.log(`📊 DB COST: ${globalReads.toLocaleString()} rows read | ${globalWrites.toLocaleString()} rows written`);
+    
+    // Save updated cache file back to Git workspace
+    try {
+        fs.writeFileSync(cachePath, JSON.stringify(syncCache, null, 2));
+        console.log(`[CACHE] Successfully wrote updated sync cache to ${cachePath}`);
+    } catch (e) {
+        console.error(`[CACHE] Failed to write sync cache to disk: ${e.message}`);
+    }
+    
+    saveRunStats('sync-episodes');
 }
 
 main().catch(console.error);
