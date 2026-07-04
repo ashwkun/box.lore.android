@@ -5,6 +5,28 @@
         "reads": 15135,
         "writes": 0
       }
+    },
+    "us": {
+      "populate-charts": {
+        "reads": 4019,
+        "writes": 0
+      },
+      "import-pi-data": {
+        "reads": 14948,
+        "writes": 0
+      },
+      "sync-episodes": {
+        "reads": 15342,
+        "writes": 0
+      },
+      "vectorize": {
+        "reads": 12049,
+        "writes": 27
+      },
+      "vectorize-podcasts": {
+        "reads": 11988,
+        "writes": 11
+      }
     }
   }
 }
