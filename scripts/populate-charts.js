@@ -76,6 +76,32 @@ async function fetchItunesCharts(country, category) {
     }
 }
 
+let totalRowsRead = 0;
+let totalRowsWritten = 0;
+
+function saveRunStats(stepName) {
+    const fs = require('fs');
+    const statsFile = '/tmp/db_run_stats.json';
+    let currentStats = {};
+    try {
+        if (fs.existsSync(statsFile)) {
+            currentStats = JSON.parse(fs.readFileSync(statsFile, 'utf8') || '{}');
+        }
+    } catch (e) {
+        // ignore
+    }
+    currentStats[stepName] = {
+        reads: totalRowsRead,
+        writes: totalRowsWritten
+    };
+    try {
+        fs.writeFileSync(statsFile, JSON.stringify(currentStats, null, 2));
+        console.log(`[STATS] Step "${stepName}" recorded: ${totalRowsRead} reads, ${totalRowsWritten} writes.`);
+    } catch (e) {
+        console.error(`[STATS] Failed to write stats file: ${e.message}`);
+    }
+}
+
 async function executeSQL(sql, args = []) {
     const response = await fetch(`${TURSO_URL}/v2/pipeline`, {
         method: "POST",
@@ -97,8 +123,15 @@ async function executeSQL(sql, args = []) {
         throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
     const res = await response.json();
-    if (res.results && res.results[0] && res.results[0].type === "error") {
-        throw new Error(`SQL execution error: ${res.results[0].error.message}`);
+    if (res.results && res.results[0]) {
+        if (res.results[0].type === "error") {
+            throw new Error(`SQL execution error: ${res.results[0].error.message}`);
+        }
+        const result = res.results[0].response?.result;
+        if (result) {
+            if (result.rows_read) totalRowsRead += result.rows_read;
+            if (result.rows_written) totalRowsWritten += result.rows_written;
+        }
     }
     return res;
 }
@@ -257,8 +290,13 @@ async function main() {
                             if (result.type === "error") {
                                 throw new Error(`Turso SQL batch error: ${result.error.message}`);
                             }
-                            if (result.response?.result?.rows_written) {
-                                rowsWritten += result.response.result.rows_written;
+                            if (result.response?.result) {
+                                const resObj = result.response.result;
+                                if (resObj.rows_read) totalRowsRead += resObj.rows_read;
+                                if (resObj.rows_written) {
+                                    rowsWritten += resObj.rows_written;
+                                    totalRowsWritten += resObj.rows_written;
+                                }
                             }
                         }
                     }
@@ -275,6 +313,7 @@ async function main() {
     }
 
     console.log(`\n✅ CHARTS POPULATION COMPLETE | Country: ${countriesToProcess.join(', ').toUpperCase()} | Categories Synced: ${totalCategories} | Total DB Writes: ${totalWrites} | Errors: ${totalErrors}`);
+    saveRunStats('populate-charts');
 }
 
 main().catch(console.error);
