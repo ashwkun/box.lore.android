@@ -171,6 +171,9 @@ async function main() {
                         }
                     }
                 }
+                if (!isDifferent) {
+                    continue;
+                }
 
                 const statements = [];
                 
