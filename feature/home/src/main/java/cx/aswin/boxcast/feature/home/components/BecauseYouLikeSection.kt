@@ -113,20 +113,7 @@ fun BecauseYouLikeSection(
         if (suggestedPodcasts.list.isNotEmpty()) {
             Spacer(modifier = Modifier.height(28.dp))
             Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                ) {
-                    Text(
-                        text = "Similar Shows",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.1).sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                BecauseYouLikeSectionHeader(title = "Similar Shows")
                 
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -148,20 +135,7 @@ fun BecauseYouLikeSection(
         if (recommendations.list.isNotEmpty()) {
             Spacer(modifier = Modifier.height(28.dp))
             Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                ) {
-                    Text(
-                        text = "Recommended Episodes",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.1).sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                BecauseYouLikeSectionHeader(title = "Recommended Episodes")
 
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -187,5 +161,26 @@ fun BecauseYouLikeSection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BecauseYouLikeSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(bottom = 12.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.1).sp
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
