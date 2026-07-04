@@ -42,7 +42,7 @@ fun CrossPromotionCard(
         ),
         border = BorderStroke(
             width = 1.dp,
-            color = primaryColor.copy(alpha = 0.15f)
+            color = MaterialTheme.colorScheme.outlineVariant
         ),
         modifier = modifier
             .fillMaxWidth()

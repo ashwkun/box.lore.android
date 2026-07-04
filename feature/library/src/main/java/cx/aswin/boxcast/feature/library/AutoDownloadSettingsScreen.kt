@@ -74,7 +74,7 @@ fun AutoDownloadSettingsScreen(
             // How It Works Guide Card
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
                 ),
                 shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)

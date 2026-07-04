@@ -244,7 +244,7 @@ private fun resolveHeroImageUrl(item: SmartHeroItem): String? {
 @Composable
 private fun HeroBadge(label: String) {
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+        color = MaterialTheme.colorScheme.primaryContainer,
         shape = MaterialTheme.shapes.small
     ) {
         Text(

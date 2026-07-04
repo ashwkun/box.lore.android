@@ -362,11 +362,11 @@ private fun AiChatOnboardingScreen(
                         // Error Card layout
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                             ),
                             border = BorderStroke(
                                 width = 1.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                color = MaterialTheme.colorScheme.outlineVariant
                             ),
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
@@ -440,14 +440,14 @@ private fun AiChatOnboardingScreen(
                         // Reveal Suggestions Card Panel (Synthesis Complete)
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                             ),
                             border = BorderStroke(
                                 width = 1.5.dp,
                                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
                                     colors = listOf(
-                                        primaryColor.copy(alpha = 0.4f),
-                                        tertiaryColor.copy(alpha = 0.2f)
+                                        primaryColor,
+                                        tertiaryColor
                                     )
                                 )
                             ),
@@ -737,9 +737,9 @@ private fun AiChatOnboardingScreen(
                                 .height(56.dp)
                                 .background(
                                     color = if (isTextFieldFocused) 
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                        MaterialTheme.colorScheme.surfaceContainerHigh
                                     else 
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f),
+                                        MaterialTheme.colorScheme.surfaceContainer,
                                     shape = RoundedCornerShape(28.dp)
                                 )
                                 .border(
@@ -747,7 +747,7 @@ private fun AiChatOnboardingScreen(
                                     color = if (isTextFieldFocused) 
                                         MaterialTheme.colorScheme.primary 
                                     else 
-                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                        MaterialTheme.colorScheme.outlineVariant,
                                     shape = RoundedCornerShape(28.dp)
                                 )
                                 .padding(horizontal = 16.dp),
@@ -878,9 +878,9 @@ private fun ChoiceRow(
     onClick: () -> Unit = {}
 ) {
     val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+        MaterialTheme.colorScheme.primaryContainer
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        MaterialTheme.colorScheme.surfaceVariant
     }
     
     val contentColor = if (isSelected) {
@@ -892,7 +892,7 @@ private fun ChoiceRow(
     val borderStroke = if (isSelected) {
         BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
     } else {
-        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     }
 
     Card(
@@ -1097,11 +1097,11 @@ private fun DelayBypassBanner(
 ) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            color = MaterialTheme.colorScheme.outlineVariant
         ),
         shape = RoundedCornerShape(16.dp),
         modifier = modifier.fillMaxWidth()
@@ -1319,11 +1319,11 @@ private fun FinalSynthesisLoadingBubble(stage: AiLoadingStage, elapsedSeconds: I
 private fun FinalSynthesisLoadingPanel(stage: AiLoadingStage, elapsedSeconds: Int, onSwitchToManual: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         border = BorderStroke(
             width = 1.5.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            color = MaterialTheme.colorScheme.primary
         ),
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth()
@@ -1526,9 +1526,9 @@ private fun SuggestionBubble(
     )
 
     val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+        MaterialTheme.colorScheme.primaryContainer
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        MaterialTheme.colorScheme.surfaceVariant
     }
 
     val contentColor = if (isSelected) {
@@ -1550,7 +1550,7 @@ private fun SuggestionBubble(
         ),
         border = BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -1649,7 +1649,7 @@ private fun BuildFeedNowChip(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             width = 1.5.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            color = MaterialTheme.colorScheme.primary
         ),
         modifier = Modifier
             .fillMaxWidth()

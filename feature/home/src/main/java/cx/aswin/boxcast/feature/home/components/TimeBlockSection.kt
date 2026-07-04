@@ -37,38 +37,6 @@ import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 
-import androidx.compose.material.icons.outlined.Newspaper
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.EmojiEmotions
-import androidx.compose.material.icons.outlined.Movie
-import androidx.compose.material.icons.outlined.SportsBaseball
-import androidx.compose.material.icons.outlined.Fingerprint
-import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.automirrored.outlined.TrendingUp
-
-@Composable
-private fun getGenreStyle(categoryId: String): ImageVector {
-    return when (categoryId) {
-        "morning_news" -> Icons.Outlined.Newspaper
-        "morning_motivation" -> Icons.Outlined.Bolt
-        "business_insider" -> Icons.AutoMirrored.Outlined.TrendingUp
-        "science_explainer" -> Icons.Outlined.Science
-        "tech_culture" -> Icons.Outlined.Memory
-        "creative_focus" -> Icons.Outlined.Palette
-        "comedy_gold" -> Icons.Outlined.EmojiEmotions
-        "tv_film_buff" -> Icons.Outlined.Movie
-        "sports_fan" -> Icons.Outlined.SportsBaseball
-        "true_crime_sleep" -> Icons.Outlined.Fingerprint
-        "history_buff" -> Icons.Outlined.AccountBalance
-        "mystery_thriller" -> Icons.Outlined.Visibility
-        else -> Icons.Outlined.AutoAwesome
-    }
-}
 
 @Composable
 fun TimeBlockSection(
@@ -106,7 +74,7 @@ fun TimeBlockSection(
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = data.title,
-                    style = MaterialTheme.typography.titleLarge.copy(
+                    style = MaterialTheme.typography.headlineSmall.copy(
                         fontFamily = SectionHeaderFontFamily,
                         fontWeight = FontWeight.Bold
                     ),
@@ -130,32 +98,21 @@ fun TimeBlockSection(
         // --- Genre Rails ---
         data.sections.forEachIndexed { index, section ->
             Column {
-                val icon = getGenreStyle(section.category)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(
-                        top = if (index == 0) 8.dp else 16.dp,
-                        bottom = 8.dp
+                        top = if (index == 0) 12.dp else 28.dp,
+                        bottom = 12.dp
                     )
                 ) {
-                    // Clean, standard floating icon matching Discover & OnTheRise section headers exactly
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary, // Unified M3 primary theme color
-                        modifier = Modifier.size(22.dp) // 22dp is perfect for junior curated rails subheaders
-                    )
-                    
-                    Spacer(modifier = Modifier.width(10.dp))
-                    
                     Text(
                         text = section.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
                             letterSpacing = (-0.1).sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -184,7 +141,8 @@ fun TimeBlockSection(
                                         positionIndex = i
                                     )
                                     onCuratedEpisodeClick(episode, podcast, section.category, i)
-                                }
+                                },
+                                modifier = Modifier.width(140.dp)
                             )
                         }
                     }

@@ -715,7 +715,7 @@ fun ContentLibrarySection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -961,7 +961,7 @@ fun DataManagementSection(
         // DANGER ZONE INTEGRATED
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+            color = MaterialTheme.colorScheme.errorContainer,
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -1244,7 +1244,7 @@ private fun SurfaceStyleItem(
             .fillMaxWidth()
             .clickable { onSelect() },
         colors = ListItemDefaults.colors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
                              else Color.Transparent
         ),
         headlineContent = {

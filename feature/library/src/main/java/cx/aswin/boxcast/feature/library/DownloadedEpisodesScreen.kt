@@ -1160,7 +1160,7 @@ private fun PodcastListShowCard(
                 },
                 shape = RoundedCornerShape(16.dp)
             )
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f), shape = RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(16.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -118,25 +119,71 @@ fun RisingSkeleton() {
     }
 }
 
+
 fun androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope.GridSkeletonItems() {
-    items(6) { index ->
-        val isTall = index % 3 == 0
-        GridSkeletonItem(isTall = isTall)
+    items(6) {
+        GridSkeletonItem()
     }
 }
 
 @Composable
-fun GridSkeletonItem(isTall: Boolean) {
+fun GridSkeletonItem(
+    modifier: Modifier = Modifier
+) {
     val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (isTall) 364.dp else 304.dp)
-            .clip(MaterialTheme.shapes.large)
-            .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large)
-    )
+    OutlinedCard(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column {
+            // Image area skeleton matching aspect ratio 1f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+            )
+            
+            // Text area skeleton matching padding and layout of FeedMediaCard
+            Column(
+                modifier = Modifier
+                    .padding(10.dp)
+                    .heightIn(min = 58.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Title line 1
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
+                )
+                // Title line 2
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                // Artist line
+                Box(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
+                )
+            }
+        }
+    }
 }
 
 @Composable

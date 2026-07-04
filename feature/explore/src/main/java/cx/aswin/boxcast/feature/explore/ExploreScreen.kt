@@ -1770,9 +1770,9 @@ fun ExploreTabSelectorFab(
 
     Surface(
         shape = androidx.compose.foundation.shape.CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 6.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier.width(totalWidth)
     ) {
         Box(
@@ -1900,8 +1900,8 @@ fun SearchTabSelector(
     ) {
         Surface(
             shape = androidx.compose.foundation.shape.CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.width(totalWidth)
         ) {
             Box(

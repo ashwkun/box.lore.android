@@ -1190,10 +1190,10 @@ fun PodcastInfoScreen(
                                 androidx.compose.material3.Card(
                                     shape = RoundedCornerShape(16.dp),
                                     colors = androidx.compose.material3.CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
                                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                                     ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -2878,7 +2878,7 @@ fun TrailerStackCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
                     group.trailers.forEachIndexed { index, (episode, globalIndex) ->
                         EpisodePlayStateWrapper(episodeId = episode.id, playbackStateFlow = playbackStateFlow) { playState ->

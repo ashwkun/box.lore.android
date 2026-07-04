@@ -147,7 +147,7 @@ fun DailyBriefingCard(
             .background(MaterialTheme.colorScheme.surface)
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(24.dp)
             )
     ) {
@@ -230,7 +230,7 @@ fun DailyBriefingCard(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            primaryColor.copy(alpha = 0.4f)
+                            primaryColor
                         ),
                         modifier = Modifier.padding(start = 4.dp)
                     ) {
@@ -686,8 +686,8 @@ private fun DailyBriefingForeverContent(
 
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White.copy(alpha = 0.15f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                color = Color.Transparent,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
                 contentColor = Color.White,
                 modifier = Modifier
                     .height(48.dp)

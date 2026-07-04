@@ -791,7 +791,7 @@ private fun PodcastFeed(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 0.dp, bottom = 8.dp),
+                        .padding(top = 0.dp, bottom = 0.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -807,9 +807,10 @@ private fun PodcastFeed(
                         )
                         Text(
                             text = "Curated For You",
-                            fontSize = 20.sp,
-                            fontFamily = SectionHeaderFontFamily,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = SectionHeaderFontFamily,
+                                fontWeight = FontWeight.Bold
+                            ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -827,6 +828,8 @@ private fun PodcastFeed(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // "Because You Like" Section
                 if (hasBecauseYouLike) {
@@ -849,7 +852,7 @@ private fun PodcastFeed(
                 }
 
                 if (hasBecauseYouLike && hasRecommendations) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
                 }
 
                 // "For You" normal recommendations section
@@ -898,98 +901,101 @@ private fun PodcastFeed(
             }
         }
 
-        // 4. Discover Section (Header + Chips + Loading State)
-        cx.aswin.boxcast.feature.home.components.DiscoverSection(
-            selectedCategory = selectedCategory,
-            onCategorySelected = onSelectCategory,
-            onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header", null) }
-        )
+        // 4. Discover Section (Header + Chips + Grid / Skeletons)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            cx.aswin.boxcast.feature.home.components.DiscoverSection(
+                selectedCategory = selectedCategory,
+                onCategorySelected = onSelectCategory,
+                onHeaderClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_header", null) }
+            )
 
-        // 5. Bento Masonry Grid Content (Discover Podcasts) - LIMITED TO 6
-        if (!isLoading && !isFilterLoading && gridItems.list.isNotEmpty()) {
-            val limitedItems = gridItems.list.distinctBy { it.id }.take(6)
-            val showGenreChip = selectedCategory == null
-
-            // Side-by-side Columns to build a perfect bento staggered masonry grid!
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Left column for items (0, 2, 4)
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val leftItems = limitedItems.filterIndexed { idx, _ -> idx % 2 == 0 }
-                    leftItems.forEachIndexed { leftIdx, podcast ->
-                        val isTall = podcast.id.hashCode() % 3 == 0
-                        PodcastCard(
-                            podcast = podcast,
-                            isTall = isTall,
-                            showGenreChip = showGenreChip,
-                            onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, leftIdx * 2) }
-                        )
-                    }
-                }
-
-                // Right column for items (1, 3, 5)
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val rightItems = limitedItems.filterIndexed { idx, _ -> idx % 2 != 0 }
-                    rightItems.forEachIndexed { rightIdx, podcast ->
-                        val isTall = podcast.id.hashCode() % 3 == 0
-                        PodcastCard(
-                            podcast = podcast,
-                            isTall = isTall,
-                            showGenreChip = showGenreChip,
-                            onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, rightIdx * 2 + 1) }
-                        )
-                    }
+            val gridState = remember(isLoading, isFilterLoading, gridItems.list.isEmpty()) {
+                when {
+                    isLoading || isFilterLoading || gridItems.list.isEmpty() -> "loading"
+                    else -> "content"
                 }
             }
-            
-            // "View More" Button (Full Line)
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                androidx.compose.material3.FilledTonalButton(
-                    onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button", null) }
-                ) {
-                        Text("View more in ${selectedCategory ?: "Explore"}")
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                }
-            }
-        } else {
-            // Skeletons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    GridSkeletonItem(isTall = true)
-                    GridSkeletonItem(isTall = false)
-                    GridSkeletonItem(isTall = true)
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    GridSkeletonItem(isTall = false)
-                    GridSkeletonItem(isTall = true)
-                    GridSkeletonItem(isTall = false)
+
+            AnimatedContent(
+                targetState = gridState,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(400)) + slideInVertically(
+                        animationSpec = tween(400),
+                        initialOffsetY = { it / 6 }
+                    )) togetherWith fadeOut(animationSpec = tween(250))
+                },
+                label = "discover_grid_state"
+            ) { targetState ->
+                if (targetState == "content") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val limitedItems = gridItems.list.distinctBy { it.id }.take(10)
+                        val showGenreChip = selectedCategory == null
+
+                        // Side-by-side Columns to build a perfect bento staggered masonry grid!
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            for (columnIndex in 0..1) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    val colItems = limitedItems.filterIndexed { idx, _ -> idx % 2 == columnIndex }
+                                    colItems.forEachIndexed { itemIdx, podcast ->
+                                        PodcastCard(
+                                            podcast = podcast,
+                                            showGenreChip = showGenreChip,
+                                            onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, itemIdx * 2 + columnIndex) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // "View More" Button (Full Line)
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.FilledTonalButton(
+                                onClick = { onNavigateToExplore?.invoke(selectedCategory ?: "All", "home_discover_view_all_button", null) }
+                            ) {
+                                Text("View more in ${selectedCategory ?: "Explore"}")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Skeletons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        for (columnIndex in 0..1) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                GridSkeletonItem()
+                                GridSkeletonItem()
+                                GridSkeletonItem()
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1106,7 +1112,7 @@ fun HomeImportBanner(
                         Surface(
                             shape = CircleShape,
                             color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .weight(1f)
@@ -1136,7 +1142,7 @@ fun HomeImportBanner(
                         Surface(
                             shape = CircleShape,
                             color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .weight(1f)

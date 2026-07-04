@@ -253,10 +253,10 @@ private fun TranscriptSyncButton(
             modifier = Modifier
                 .shadow(4.dp, CircleShape)
                 .clip(CircleShape)
-                .background(colorScheme.secondaryContainer.copy(alpha = 0.85f))
+                .background(colorScheme.secondaryContainer)
                 .border(
                     width = 1.dp,
-                    color = colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
+                    color = colorScheme.outlineVariant,
                     shape = CircleShape
                 )
                 .clickable { onClick() }
@@ -357,7 +357,7 @@ fun FullscreenTranscriptScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                .background(colorScheme.surfaceContainerHigh)
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             // Seek bar

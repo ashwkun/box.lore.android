@@ -204,7 +204,7 @@ fun SwipeableMiniPlayer(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier
                             .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                MaterialTheme.colorScheme.surfaceContainer,
                                 RoundedCornerShape(12.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 4.dp)

@@ -797,8 +797,8 @@ fun LinearBufferedSlider(
                         .padding(bottom = 8.dp)
                         .wrapContentSize(),
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     shadowElevation = 6.dp
                 ) {
                     Text(

@@ -68,7 +68,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -239,12 +239,12 @@ fun YourShowsSection(
                 }
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Bookmarks,
+                    imageVector = Icons.Rounded.Bookmark,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Your Shows",
                     style = MaterialTheme.typography.headlineSmall.copy(
@@ -258,8 +258,8 @@ fun YourShowsSection(
                     Row(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f))
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.primary, CircleShape)
                             .clickable { onPodcastSelected(null) }
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -463,7 +463,7 @@ fun YourShowsSection(
             colors = CardDefaults.outlinedCardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize() // Animates height changes smoothly with a spring curve!
@@ -729,7 +729,7 @@ fun YourShowsSection(
                                 
                                 Surface(
                                     shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(30.dp)
                                 ) {
@@ -805,7 +805,7 @@ fun YourShowsSection(
                                     
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Surface(
-                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier
@@ -1181,7 +1181,7 @@ private fun MixtapeEpisodeCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier
             .width(280.dp)
             .height(96.dp)

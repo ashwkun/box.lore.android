@@ -173,9 +173,9 @@ fun ChapterRow(
     onClick: () -> Unit
 ) {
     val backgroundColor = if (isActive) {
-        colorScheme.primaryContainer.copy(alpha = 0.6f)
+        colorScheme.primaryContainer
     } else {
-        colorScheme.surfaceVariant.copy(alpha = 0.2f)
+        colorScheme.surfaceContainerLow
     }
     
     val contentColor = if (isActive) {

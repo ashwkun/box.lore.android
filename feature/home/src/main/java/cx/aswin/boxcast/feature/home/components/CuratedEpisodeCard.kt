@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -41,91 +42,51 @@ fun CuratedEpisodeCard(
     val isNew = episode.publishedDate > 0L &&
             (System.currentTimeMillis() / 1000L - episode.publishedDate) < 2 * 24 * 60 * 60L
 
-    OutlinedCard(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier
-            .width(140.dp)
-            .expressiveClickable(onClick = onClick)
-    ) {
-        Column {
-            // Square podcast artwork
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-            ) {
-                OptimizedImage(
-                    url = (episode.imageUrl ?: "").ifEmpty { podcast.imageUrl },
-                    proxyWidth = 400,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+    FeedMediaCard(
+        imageUrl = (episode.imageUrl ?: "").ifEmpty { podcast.imageUrl },
+        title = episode.title,
+        subtitle = podcast.title,
+        onClick = onClick,
+        modifier = modifier,
+        imageBadge = {
+            if (isNew) {
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                )
-
-                // New badge (top left)
-                if (isNew) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(6.dp)
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .background(MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text(
-                            text = "NEW",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, lineHeight = 8.sp),
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                // Duration pill (bottom right)
-                if (episode.duration > 0) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(6.dp)
-                            .clip(MaterialTheme.shapes.small)
-                            .background(Color.Black.copy(alpha = 0.6f))
-                    ) {
-                        Text(
-                            text = formatDuration(episode.duration),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                        .padding(6.dp)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .align(Alignment.TopStart)
+                ) {
+                    Text(
+                        text = "NEW",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, lineHeight = 8.sp),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
                 }
             }
-
-            // Text content below image
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text(
-                    text = episode.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp),
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = podcast.title,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    minLines = 1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+        },
+        imageOverlay = {
+            if (episode.duration > 0) {
+                Box(
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .align(Alignment.BottomEnd)
+                ) {
+                    Text(
+                        text = formatDuration(episode.duration),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
-    }
+    )
 }
 
 private fun formatDuration(seconds: Int): String {

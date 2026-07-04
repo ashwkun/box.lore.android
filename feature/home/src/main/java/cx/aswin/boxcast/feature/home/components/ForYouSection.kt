@@ -64,7 +64,7 @@ fun ForYouSection(
         if (showTasteHeader) {
             ForYouHeader(
                 isFallback = isFallback,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 12.dp)
             )
         }
 
@@ -91,8 +91,8 @@ fun ForYouSection(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            ForYouBentoSkeleton(baseColor = baseColor, highlightColor = highlightColor, modifier = Modifier.weight(1f))
-                            ForYouBentoSkeleton(baseColor = baseColor, highlightColor = highlightColor, modifier = Modifier.weight(1f))
+                            GridSkeletonItem(modifier = Modifier.weight(1f))
+                            GridSkeletonItem(modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -142,64 +142,39 @@ fun ForYouSection(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Left column
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            leftColumn.forEach { (ep, originalIndex) ->
-                                val parentPodcast = Podcast(
-                                    id = ep.podcastId ?: "",
-                                    title = ep.podcastTitle ?: "Podcast",
-                                    artist = "",
-                                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                                    description = "",
-                                    genre = ep.podcastGenre ?: "Podcast"
-                                )
-                                ForYouBentoCard(
-                                    episode = ep,
-                                    onClick = {
-                                        AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                            episodeId = ep.id,
-                                            episodeTitle = ep.title,
-                                            podcastId = parentPodcast.id,
-                                            podcastName = parentPodcast.title,
-                                            positionIndex = originalIndex,
-                                            timeBlockTitle = timeBlock?.title
-                                        )
-                                        onEpisodeClick(ep, parentPodcast)
-                                    }
-                                )
-                            }
-                        }
-                        // Right column
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            rightColumn.forEach { (ep, originalIndex) ->
-                                val parentPodcast = Podcast(
-                                    id = ep.podcastId ?: "",
-                                    title = ep.podcastTitle ?: "Podcast",
-                                    artist = "",
-                                    imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                                    description = "",
-                                    genre = ep.podcastGenre ?: "Podcast"
-                                )
-                                ForYouBentoCard(
-                                    episode = ep,
-                                    onClick = {
-                                        AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                            episodeId = ep.id,
-                                            episodeTitle = ep.title,
-                                            podcastId = parentPodcast.id,
-                                            podcastName = parentPodcast.title,
-                                            positionIndex = originalIndex,
-                                            timeBlockTitle = timeBlock?.title
-                                        )
-                                        onEpisodeClick(ep, parentPodcast)
-                                    }
-                                )
+                        // Render left and right columns using a loop to avoid code duplication
+                        val columns = listOf(leftColumn, rightColumn)
+                        columns.forEach { columnItems ->
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                columnItems.forEach { (ep, originalIndex) ->
+                                    val parentPodcast = Podcast(
+                                        id = ep.podcastId ?: "",
+                                        title = ep.podcastTitle ?: "Podcast",
+                                        artist = "",
+                                        imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                                        description = "",
+                                        genre = ep.podcastGenre ?: "Podcast"
+                                    )
+                                    CuratedEpisodeCard(
+                                        podcast = parentPodcast,
+                                        episode = ep,
+                                        onClick = {
+                                            AnalyticsHelper.trackHomeRecommendationCardTapped(
+                                                episodeId = ep.id,
+                                                episodeTitle = ep.title,
+                                                podcastId = parentPodcast.id,
+                                                podcastName = parentPodcast.title,
+                                                positionIndex = originalIndex,
+                                                timeBlockTitle = timeBlock?.title
+                                            )
+                                            onEpisodeClick(ep, parentPodcast)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                     }
@@ -357,84 +332,6 @@ private fun ForYouHeroCard(
 }
 
 @Composable
-private fun ForYouBentoCard(
-    episode: Episode,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedCard(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier.expressiveClickable(onClick = onClick)
-    ) {
-        Column {
-            // Image container
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1.25f)
-            ) {
-                OptimizedImage(
-                    url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
-                    proxyWidth = 400,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .matchParentSize()
-                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                )
-
-                // Duration pill (bottom right)
-                if (episode.duration > 0) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = Color.Black.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(6.dp)
-                    ) {
-                        Text(
-                            text = "${episode.duration / 60}m",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-            }
-
-            // Text content below image
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = episode.title,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontSize = 14.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = episode.podcastTitle ?: "",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        lineHeight = 15.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ForYouHeader(
     isFallback: Boolean,
     modifier: Modifier = Modifier
@@ -444,21 +341,14 @@ private fun ForYouHeader(
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.interests_24),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = if (isFallback) "Popular in your Region" else "Based on Your Taste",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-0.1).sp
             ),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -477,62 +367,6 @@ private fun ForYouHeroSkeleton(
     )
 }
 
-@Composable
-private fun ForYouBentoSkeleton(
-    baseColor: Color,
-    highlightColor: Color,
-    modifier: Modifier = Modifier
-) {
-    OutlinedCard(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column {
-            // Image area skeleton matching aspect ratio 1.25f
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1.25f)
-                    .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                    .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-            )
-            
-            // Text area skeleton matching padding and layout
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Title line 1
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
-                )
-                // Title line 2
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                // Podcast title line
-                Box(
-                    modifier = Modifier
-                        .width(80.dp)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .m3Shimmer(baseColor, highlightColor, shape = RoundedCornerShape(4.dp))
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun ForYouHorizontalBentoCard(

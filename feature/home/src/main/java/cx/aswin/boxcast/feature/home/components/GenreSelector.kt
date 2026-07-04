@@ -50,8 +50,6 @@ fun GenreSelector(
             .horizontalScroll(scrollState),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Spacer(modifier = Modifier.width(16.dp)) // Offset for the starting content padding (24.dp - 8.dp spacing)
-
         // 1. "Top" (Always first)
         GenreChip(
             label = "Top",
@@ -74,16 +72,15 @@ fun GenreSelector(
             onClick = { showSheet = true },
             label = { Text("More...") },
             colors = FilterChipDefaults.filterChipColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                containerColor = Color.Transparent,
+                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
             ),
             border = FilterChipDefaults.filterChipBorder(
                 enabled = true,
                 selected = false,
-                borderColor = Color.Transparent
+                borderColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
-
-        Spacer(modifier = Modifier.width(16.dp)) // Offset for the ending content padding
     }
 
     // Full Genre Sheet
@@ -148,14 +145,15 @@ private fun GenreChip(
         onClick = onClick,
         label = { Text(label) },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = Color.Transparent,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
         ),
         border = FilterChipDefaults.filterChipBorder(
              enabled = true,
              selected = isSelected,
-             borderColor = Color.Transparent,
+             borderColor = MaterialTheme.colorScheme.outlineVariant,
              selectedBorderColor = MaterialTheme.colorScheme.primary
         )
     )

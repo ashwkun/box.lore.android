@@ -793,8 +793,8 @@ fun BriefingContent(
                        ),
                        border = BorderStroke(
                            1.dp,
-                           if (isThisCardActive) accentColor.copy(alpha = 0.4f)
-                           else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
+                           if (isThisCardActive) accentColor
+                           else MaterialTheme.colorScheme.outlineVariant
                        ),
                        modifier = Modifier
                            .fillMaxWidth()
@@ -1056,7 +1056,7 @@ fun BriefingContent(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .padding(horizontal = 24.dp)
                         .expressiveClickable(
@@ -1132,7 +1132,7 @@ fun BriefingContent(
                 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier
                         .fillMaxWidth()
                         .expressiveClickable(
@@ -1348,12 +1348,12 @@ private fun CompactEpisodeChip(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (isActiveCard) Color.White.copy(alpha = 0.12f)
+        color = if (isActiveCard) MaterialTheme.colorScheme.surfaceContainerHighest
                 else MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(
             0.5.dp,
-            if (isActiveCard) Color.White.copy(alpha = 0.15f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+            if (isActiveCard) MaterialTheme.colorScheme.outline
+            else MaterialTheme.colorScheme.outlineVariant
         ),
         modifier = modifier
             .width(260.dp)
