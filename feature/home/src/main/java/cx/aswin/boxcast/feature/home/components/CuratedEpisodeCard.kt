@@ -46,9 +46,7 @@ fun CuratedEpisodeCard(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier
-            .width(140.dp)
-            .expressiveClickable(onClick = onClick)
+        modifier = modifier.expressiveClickable(onClick = onClick)
     ) {
         Column {
             // Square podcast artwork

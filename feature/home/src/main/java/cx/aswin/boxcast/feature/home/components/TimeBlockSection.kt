@@ -141,7 +141,8 @@ fun TimeBlockSection(
                                         positionIndex = i
                                     )
                                     onCuratedEpisodeClick(episode, podcast, section.category, i)
-                                }
+                                },
+                                modifier = Modifier.width(140.dp)
                             )
                         }
                     }

@@ -37,7 +37,6 @@ import androidx.compose.material.icons.rounded.Videocam
 @Composable
 fun PodcastCard(
     podcast: Podcast,
-    isTall: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showGenreChip: Boolean = false

@@ -156,7 +156,8 @@ fun ForYouSection(
                                     description = "",
                                     genre = ep.podcastGenre ?: "Podcast"
                                 )
-                                ForYouBentoCard(
+                                CuratedEpisodeCard(
+                                    podcast = parentPodcast,
                                     episode = ep,
                                     onClick = {
                                         AnalyticsHelper.trackHomeRecommendationCardTapped(
@@ -168,7 +169,8 @@ fun ForYouSection(
                                             timeBlockTitle = timeBlock?.title
                                         )
                                         onEpisodeClick(ep, parentPodcast)
-                                    }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
@@ -186,7 +188,8 @@ fun ForYouSection(
                                     description = "",
                                     genre = ep.podcastGenre ?: "Podcast"
                                 )
-                                ForYouBentoCard(
+                                CuratedEpisodeCard(
+                                    podcast = parentPodcast,
                                     episode = ep,
                                     onClick = {
                                         AnalyticsHelper.trackHomeRecommendationCardTapped(
@@ -198,7 +201,8 @@ fun ForYouSection(
                                             timeBlockTitle = timeBlock?.title
                                         )
                                         onEpisodeClick(ep, parentPodcast)
-                                    }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
@@ -351,80 +355,6 @@ private fun ForYouHeroCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ForYouBentoCard(
-    episode: Episode,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedCard(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier.expressiveClickable(onClick = onClick)
-    ) {
-        Column {
-            // Image container
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            ) {
-                OptimizedImage(
-                    url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },
-                    proxyWidth = 400,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .matchParentSize()
-                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                )
-
-                // Duration pill (bottom right)
-                if (episode.duration > 0) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = Color.Black.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(6.dp)
-                    ) {
-                        Text(
-                            text = "${episode.duration / 60}m",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-            }
-
-            // Text content below image
-            Column(
-                modifier = Modifier
-                    .padding(10.dp)
-                    .height(58.dp)
-            ) {
-                Text(
-                    text = episode.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = episode.podcastTitle ?: "",
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }

@@ -136,7 +136,6 @@ fun BecauseYouLikeSection(
                     items(suggestedPodcasts.list, key = { it.id }) { suggestedPodcast ->
                         PodcastCard(
                             podcast = suggestedPodcast,
-                            isTall = false,
                             onClick = { onPodcastClick(suggestedPodcast) },
                             modifier = Modifier.width(140.dp)
                         )
@@ -181,7 +180,8 @@ fun BecauseYouLikeSection(
                         CuratedEpisodeCard(
                             podcast = parentPodcast,
                             episode = episode,
-                            onClick = { onEpisodeClick(episode, parentPodcast) }
+                            onClick = { onEpisodeClick(episode, parentPodcast) },
+                            modifier = Modifier.width(140.dp)
                         )
                     }
                 }

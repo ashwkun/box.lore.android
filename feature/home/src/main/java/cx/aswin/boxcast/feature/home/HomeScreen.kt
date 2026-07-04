@@ -949,10 +949,8 @@ private fun PodcastFeed(
                             ) {
                                 val leftItems = limitedItems.filterIndexed { idx, _ -> idx % 2 == 0 }
                                 leftItems.forEachIndexed { leftIdx, podcast ->
-                                    val isTall = podcast.id.hashCode() % 3 == 0
                                     PodcastCard(
                                         podcast = podcast,
-                                        isTall = isTall,
                                         showGenreChip = showGenreChip,
                                         onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, leftIdx * 2) }
                                     )
@@ -966,10 +964,8 @@ private fun PodcastFeed(
                             ) {
                                 val rightItems = limitedItems.filterIndexed { idx, _ -> idx % 2 != 0 }
                                 rightItems.forEachIndexed { rightIdx, podcast ->
-                                    val isTall = podcast.id.hashCode() % 3 == 0
                                     PodcastCard(
                                         podcast = podcast,
-                                        isTall = isTall,
                                         showGenreChip = showGenreChip,
                                         onClick = { onPodcastClick(podcast, "home_discover_grid", selectedCategory, rightIdx * 2 + 1) }
                                     )
