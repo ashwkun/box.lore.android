@@ -1656,6 +1656,7 @@ class MainActivity : ComponentActivity() {
                                     userPrefs = userPrefs,
                                     isOffline = !isOnline,
                                     onBack = { navController.popBackStack() },
+                                    isPlayerActive = currentEpisode != null,
                                     onPodcastShowClick = { podcastId, podcastTitle ->
                                         android.util.Log.d("MainActivityNav", "onPodcastShowClick invoked with id: $podcastId, title: $podcastTitle")
                                         val encodedTitle = android.net.Uri.encode(podcastTitle.ifEmpty { "_" })
@@ -1732,6 +1733,7 @@ class MainActivity : ComponentActivity() {
                                     podcastId = podcastId,
                                     podcastTitle = podcastTitle,
                                     onBack = { navController.popBackStack() },
+                                     isPlayerActive = currentEpisode != null,
                                     onEpisodeClick = { episode, podcast ->
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         navController.navigate(

@@ -167,7 +167,8 @@ fun DownloadedEpisodesScreen(
     onPodcastShowClick: (String, String) -> Unit, // Navigation callback
     onSettingsClick: () -> Unit = {},
     onSyncNow: () -> Unit = {},
-    isSyncing: Boolean = false
+    isSyncing: Boolean = false,
+    isPlayerActive: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -225,6 +226,23 @@ fun DownloadedEpisodesScreen(
     var deleteConfirmSelectedDialog by rememberSaveable { mutableStateOf(false) }
 
     val totalSizeBytes = remember(downloads) { downloads.sumOf { it.sizeBytes } }
+
+    val bottomBarPadding by animateDpAsState(
+        targetValue = if (isPlayerActive) 154.dp else 88.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "bottomBarClearance"
+    )
+
+    val listBottomPadding = remember(downloads, isSelectionMode, isPlayerActive) {
+        if (downloads.isNotEmpty() && !isSelectionMode) {
+            if (isPlayerActive) 240.dp else 160.dp
+        } else {
+            if (isPlayerActive) 150.dp else 80.dp
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -337,60 +355,9 @@ fun DownloadedEpisodesScreen(
                 }
             }
         },
-        bottomBar = {
-            if (downloads.isNotEmpty() && !isSelectionMode) {
-                Surface(
-                    tonalElevation = 8.dp,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = {
-                                val episodes = downloads.map { it.toEpisode() }
-                                val dummyPodcast = Podcast(
-                                    id = "downloads_all",
-                                    title = "All Downloads",
-                                    artist = "",
-                                    imageUrl = "",
-                                    description = "",
-                                    genre = ""
-                                )
-                                viewModel.playQueue(episodes, dummyPodcast)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Play All Downloads (${downloads.size})",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        },
         containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             when (uiState) {
                 is LibraryUiState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -404,7 +371,7 @@ fun DownloadedEpisodesScreen(
                 }
                 is LibraryUiState.Success -> {
                     LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp, top = 8.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = listBottomPadding, top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
@@ -465,6 +432,55 @@ fun DownloadedEpisodesScreen(
                 }
             }
 
+            // Play All FAB aligned to bottom right
+            if (downloads.isNotEmpty() && !isSelectionMode) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = bottomBarPadding, end = 16.dp)
+                        .expressiveClickable(
+                            shape = CircleShape,
+                            onClick = {
+                                val episodes = downloads.map { it.toEpisode() }
+                                val dummyPodcast = Podcast(
+                                    id = "downloads_all",
+                                    title = "All Downloads",
+                                    artist = "",
+                                    imageUrl = "",
+                                    description = "",
+                                    genre = ""
+                                )
+                                viewModel.playQueue(episodes, dummyPodcast)
+                            }
+                        ),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 6.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .height(56.dp)
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Play All",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             if (deleteConfirmSelectedDialog) {
                 AlertDialog(
                     onDismissRequest = { deleteConfirmSelectedDialog = false },
@@ -511,7 +527,8 @@ fun DownloadedShowEpisodesScreen(
     podcastId: String,
     podcastTitle: String,
     onBack: () -> Unit,
-    onEpisodeClick: (Episode, Podcast) -> Unit
+    onEpisodeClick: (Episode, Podcast) -> Unit,
+    isPlayerActive: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val downloads = (uiState as? LibraryUiState.Success)?.downloadedEpisodes ?: emptyList()
@@ -677,7 +694,7 @@ fun DownloadedShowEpisodesScreen(
 
                     LazyColumn(
                         state = listState,
-                        contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp),
+                        contentPadding = PaddingValues(bottom = if (isPlayerActive) 150.dp else 80.dp, top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         // Compact, Space-Efficient Left-Aligned Header Row
