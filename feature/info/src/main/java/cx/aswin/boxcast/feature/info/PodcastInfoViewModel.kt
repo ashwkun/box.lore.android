@@ -284,7 +284,7 @@ class PodcastInfoViewModel(
                     isLoadingMore = true
                 )
                 if (isSubscribed) {
-                    currentPodcast?.let { podcast ->
+                    currentPodcast.let { podcast ->
                         podcast.latestEpisode?.id?.let { episodeId ->
                             launch {
                                 userPrefs.setLastSeenEpisodeId(podcast.id, episodeId)
