@@ -317,7 +317,7 @@ private fun CuriosityCardContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(280.dp)
+                        .height(300.dp)
                         .align(Alignment.BottomCenter)
                         .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                         .drawWithContent {
@@ -348,24 +348,26 @@ private fun CuriosityCardContent(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    
-                    // Solid surface container tint overlay for M3 color tone consistency
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-                                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
-                                        MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                    )
-                                )
-                            )
-                    )
                 }
+
+                // 3. Full-card Gradient Shading to make the text fully legible and clear
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+                                    MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                ),
+                                startY = 0f,
+                                endY = 900f // Reaches full solid color higher up
+                            )
+                        )
+                )
 
                 // 4. Question & Interaction text overlayed on the scrim
                 Column(
