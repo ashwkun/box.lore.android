@@ -96,16 +96,16 @@
         "writes": 11144
       },
       "import-pi-data": {
-        "reads": 10835,
-        "writes": 153
+        "reads": 15425,
+        "writes": 0
       },
       "sync-episodes": {
-        "reads": 15487,
-        "writes": 146
+        "reads": 15395,
+        "writes": 48
       },
       "vectorize": {
-        "reads": 12540,
-        "writes": 150
+        "reads": 12138,
+        "writes": 48
       },
       "vectorize-podcasts": {
         "reads": 12147,
