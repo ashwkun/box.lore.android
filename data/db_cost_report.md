@@ -26,11 +26,11 @@ This report tracks the Turso SQLite read and write metrics for the background sy
 | | *Subtotal (IN)* | *71,543* | *12,927* |
 | **`US`** | `import-pi-data` | 15,425 | 0 |
 |  | `populate-charts` | 20,123 | 11,144 |
-|  | `sync-episodes` | 15,395 | 48 |
-|  | `vectorize` | 12,138 | 48 |
+|  | `sync-episodes` | 15,432 | 85 |
+|  | `vectorize` | 12,280 | 85 |
 |  | `vectorize-podcasts` | 12,147 | 51 |
-| | *Subtotal (US)* | *75,228* | *11,291* |
-| | **Total (All)** | **290,990** | **48,717** |
+| | *Subtotal (US)* | *75,407* | *11,365* |
+| | **Total (All)** | **291,169** | **48,791** |
 
 ---
 
