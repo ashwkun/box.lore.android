@@ -41,6 +41,7 @@ fun DebugDbInspectorDialog(
     onResetFeatureFlag: () -> Unit,
     onResetSleepNudge: () -> Unit,
     onClearSleepTimer: () -> Unit,
+    onClearDismissedCuriosities: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
@@ -87,6 +88,9 @@ fun DebugDbInspectorDialog(
                         }
                         androidx.compose.material3.OutlinedButton(onClick = onResetFeatureFlag) {
                             Text("Reset Dialog Flag")
+                        }
+                        androidx.compose.material3.OutlinedButton(onClick = onClearDismissedCuriosities) {
+                            Text("Clear Dismissed Cards")
                         }
                     }
                 }

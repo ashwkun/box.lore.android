@@ -258,6 +258,7 @@ fun HomeRoute(
             },
             onSubmitFeedback = onSubmitFeedback,
             onResetFeatureFlag = viewModel::resetFeatureFlag,
+            onClearDismissedCuriosities = viewModel::clearDismissedCuriosities,
             onResetSleepNudge = onResetSleepNudge,
             onClearSleepTimer = onClearSleepTimer,
             onSwitchRegion = viewModel::setRegion,
@@ -312,6 +313,7 @@ fun HomeScreen(
     onResetFeatureFlag: () -> Unit = {},
     onResetSleepNudge: () -> Unit = {},
     onClearSleepTimer: () -> Unit = {},
+    onClearDismissedCuriosities: () -> Unit = {},
     onSwitchRegion: (String) -> Unit = {},
     onDismissNudge: () -> Unit = {},
     onPodcastSelected: (String?) -> Unit = {},
@@ -355,6 +357,7 @@ fun HomeScreen(
             onResetFeatureFlag = onResetFeatureFlag,
             onResetSleepNudge = onResetSleepNudge,
             onClearSleepTimer = onClearSleepTimer,
+            onClearDismissedCuriosities = onClearDismissedCuriosities,
             onDismissRequest = { showDebugDialog = false }
         )
     }

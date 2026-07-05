@@ -1873,6 +1873,11 @@ mixtapePodcasts = cachedMix
             userPrefs.dismissFeatureAnnouncement("")
         }
     }
+
+    fun clearDismissedCuriosities() {
+        val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.edit().remove("dismissed_curiosities").apply()
+    }
     
     private suspend fun resolveFavoritePodcast(
         overriddenId: String?,
