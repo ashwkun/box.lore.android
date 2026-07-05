@@ -8,10 +8,10 @@ This report tracks the Turso SQLite read and write metrics for the background sy
 | :--- | :--- | :---: | :---: |
 | **`FR`** | `import-pi-data` | 11,407 | 0 |
 |  | `populate-charts` | 20,305 | 12,434 |
-|  | `sync-episodes` | 14,576 | 18 |
-|  | `vectorize` | 11,164 | 18 |
+|  | `sync-episodes` | 14,592 | 34 |
+|  | `vectorize` | 11,228 | 34 |
 |  | `vectorize-podcasts` | 11,785 | 183 |
-| | *Subtotal (FR)* | *69,237* | *12,653* |
+| | *Subtotal (FR)* | *69,317* | *12,685* |
 | **`GB`** | `import-pi-data` | 15,444 | 0 |
 |  | `populate-charts` | 20,231 | 11,750 |
 |  | `sync-episodes` | 15,326 | 39 |
@@ -30,7 +30,7 @@ This report tracks the Turso SQLite read and write metrics for the background sy
 |  | `vectorize` | 12,280 | 85 |
 |  | `vectorize-podcasts` | 12,147 | 51 |
 | | *Subtotal (US)* | *75,407* | *11,365* |
-| | **Total (All)** | **291,059** | **48,747** |
+| | **Total (All)** | **291,139** | **48,779** |
 
 ---
 
