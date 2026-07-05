@@ -45,6 +45,7 @@ interface BoxLoreApi {
     @GET("curated/curiosity-v2")
     fun getCuratedCuriosity(
         @Header("X-App-Key") publicKey: String,
+        @Query("page") page: Int? = 1,
         @Query("cb") cacheBuster: String? = null
     ): retrofit2.Call<CuratedCuriosityResponseDto>
     
