@@ -39,11 +39,17 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.network.model.DailyCuriosityDto
 import kotlin.math.roundToInt
 
+sealed interface CardAction {
+    data object Play : CardAction
+    data object Click : CardAction
+    data object PodcastClick : CardAction
+}
+
 @Composable
 fun CuriosityCardStack(
     questions: List<DailyCuriosityDto>,
     isCurrentlyPlaying: (String) -> Boolean,
-    isCurrentlyLoading: (String) -> Boolean, // Dynamic loading state detector
+    isCurrentlyLoading: (String) -> Boolean,
     onSwipeLeft: (DailyCuriosityDto) -> Unit,
     onSwipeRight: (DailyCuriosityDto) -> Unit,
     onPlayClick: (DailyCuriosityDto) -> Unit,
@@ -74,7 +80,6 @@ fun CuriosityCardStack(
             .height(490.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Render up to 4 cards in stack representation (reversed order so top is drawn last)
         val cardsToShow = questions.take(4).reversed()
 
         cardsToShow.forEach { daily ->
@@ -89,7 +94,6 @@ fun CuriosityCardStack(
                 }
             }
 
-            // Dynamic spring animations for stack position changes
             val scaleTarget = when (stackIndex) {
                 0 -> 1f
                 1 -> 0.96f
@@ -102,7 +106,6 @@ fun CuriosityCardStack(
                 label = "CardScale"
             )
 
-            // Offset background cards upwards to reveal top edges cleanly without clipping
             val offsetTarget = when (stackIndex) {
                 0 -> 0.dp
                 1 -> (-14).dp
@@ -197,9 +200,15 @@ fun CuriosityCardStack(
                     isCurrentlyPlaying = isCurrentlyPlaying(daily.episode.id.toString()),
                     isCurrentlyLoading = isCurrentlyLoading(daily.episode.id.toString()),
                     accentColor = accentColor,
-                    onPlayClick = { if (isTopCard) onPlayClick(daily) },
-                    onEpisodeClick = { if (isTopCard) onEpisodeClick(daily) },
-                    onPodcastClick = { if (isTopCard) onPodcastClick(daily) }
+                    onAction = { action ->
+                        if (isTopCard) {
+                            when (action) {
+                                CardAction.Play -> onPlayClick(daily)
+                                CardAction.Click -> onEpisodeClick(daily)
+                                CardAction.PodcastClick -> onPodcastClick(daily)
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -212,9 +221,7 @@ private fun CuriosityCardContent(
     isCurrentlyPlaying: Boolean,
     isCurrentlyLoading: Boolean,
     accentColor: Color,
-    onPlayClick: () -> Unit,
-    onEpisodeClick: () -> Unit,
-    onPodcastClick: () -> Unit,
+    onAction: (CardAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val coverArt = daily.episode.image ?: daily.episode.feedImage ?: ""
@@ -228,10 +235,9 @@ private fun CuriosityCardContent(
         modifier = modifier
             .fillMaxWidth()
             .height(480.dp)
-            .expressiveClickable(onClick = onEpisodeClick)
+            .expressiveClickable(onClick = { onAction(CardAction.Click) })
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 1. Full-bleed blurred background
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -246,14 +252,12 @@ private fun CuriosityCardContent(
                 )
             }
 
-            // 2. Dark scrim over blurred BG (High opacity for text readability)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.75f))
             )
 
-            // 3. Content Column
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -262,7 +266,6 @@ private fun CuriosityCardContent(
             ) {
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // 3a. Crisp square artwork
                 OptimizedImage(
                     url = coverArt,
                     proxyWidth = 200,
@@ -275,12 +278,11 @@ private fun CuriosityCardContent(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 3b. Podcast title row indicating it is clickable
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .expressiveClickable(onClick = onPodcastClick)
+                        .expressiveClickable(onClick = { onAction(CardAction.PodcastClick) })
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -299,10 +301,8 @@ private fun CuriosityCardContent(
                     )
                 }
 
-                // First weight spacer to push the text block slightly down from the artwork
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 3c. Question Text (Hook - Sized at 24.sp for gorgeous large titles)
                 Text(
                     text = daily.question,
                     fontSize = 24.sp,
@@ -313,10 +313,8 @@ private fun CuriosityCardContent(
                     textAlign = TextAlign.Center
                 )
 
-                // 16dp spacing between the hook question and explanation description
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 3d. Explanation Text
                 Text(
                     text = daily.explanation ?: "",
                     fontSize = 14.sp,
@@ -326,15 +324,13 @@ private fun CuriosityCardContent(
                     textAlign = TextAlign.Center
                 )
 
-                // Second slightly larger weight spacer to push the play button to the bottom while maintaining vertical symmetry
                 Spacer(modifier = Modifier.weight(1.2f))
 
-                // 3e. Custom circular play button
                 CircularPlayButton(
                     isPlaying = isCurrentlyPlaying,
                     isLoading = isCurrentlyLoading,
                     accentColor = accentColor,
-                    onClick = onPlayClick
+                    onClick = { onAction(CardAction.Play) }
                 )
             }
         }
@@ -349,51 +345,54 @@ private fun CircularPlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val buttonBackground = if (isPlaying) {
+        Modifier.background(
+            Brush.radialGradient(
+                colors = listOf(
+                    accentColor,
+                    accentColor.copy(alpha = 0.8f)
+                )
+            )
+        )
+    } else {
+        Modifier.background(
+            Brush.radialGradient(
+                colors = listOf(
+                    Color.White,
+                    Color.White.copy(alpha = 0.9f)
+                )
+            )
+        )
+    }
+
+    val iconColor = if (isPlaying) Color.White else Color.Black
+    val iconVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
+    val iconDescription = if (isPlaying) "Pause" else "Play"
+    val iconOffset = if (isPlaying) Modifier else Modifier.offset(x = 1.dp)
+
     Box(
         modifier = modifier
             .size(56.dp)
             .border(1.5.dp, Color.White.copy(alpha = 0.25f), CircleShape)
             .padding(4.dp)
             .clip(CircleShape)
-            .then(
-                if (isPlaying) {
-                    Modifier.background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                accentColor,
-                                accentColor.copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-                } else {
-                    Modifier.background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color.White,
-                                Color.White.copy(alpha = 0.9f)
-                            )
-                        )
-                    )
-                }
-            )
+            .then(buttonBackground)
             .expressiveClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (isLoading) {
             BoxLoreLoader.CircularWavy(
                 size = 28.dp,
-                color = if (isPlaying) Color.White else Color.Black
+                color = iconColor
             )
         } else {
             Icon(
-                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                tint = if (isPlaying) Color.White else Color.Black,
+                imageVector = iconVector,
+                contentDescription = iconDescription,
+                tint = iconColor,
                 modifier = Modifier
                     .size(24.dp)
-                    .then(
-                        if (!isPlaying) Modifier.offset(x = 1.dp) else Modifier
-                    )
+                    .then(iconOffset)
             )
         }
     }
