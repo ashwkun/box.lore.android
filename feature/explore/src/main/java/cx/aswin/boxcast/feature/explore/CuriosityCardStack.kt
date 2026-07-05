@@ -317,7 +317,7 @@ private fun CuriosityCardContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .height(280.dp)
                         .align(Alignment.BottomCenter)
                         .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                         .drawWithContent {
@@ -338,7 +338,7 @@ private fun CuriosityCardContent(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .blur(48.dp)
+                            .blur(80.dp)
                     ) {
                         OptimizedImage(
                             url = coverArt,
@@ -356,7 +356,10 @@ private fun CuriosityCardContent(
                             .background(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+                                        MaterialTheme.colorScheme.surfaceContainerHigh,
                                         MaterialTheme.colorScheme.surfaceContainerHigh
                                     )
                                 )
