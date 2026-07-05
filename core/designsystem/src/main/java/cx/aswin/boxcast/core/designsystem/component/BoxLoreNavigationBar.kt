@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Search
+import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.ripple
@@ -52,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -69,7 +71,9 @@ data class NavDestination(
     val route: String,
     val label: String,
     val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector
+    val unselectedIcon: ImageVector,
+    @DrawableRes val selectedIconRes: Int? = null,
+    @DrawableRes val unselectedIconRes: Int? = null
 )
 
 val bottomNavDestinations = listOf(
@@ -83,7 +87,9 @@ val bottomNavDestinations = listOf(
         route = "learn",
         label = "Lore",
         selectedIcon = Icons.Filled.Psychology,
-        unselectedIcon = Icons.Outlined.Psychology
+        unselectedIcon = Icons.Outlined.Psychology,
+        selectedIconRes = cx.aswin.boxcast.core.designsystem.R.drawable.ic_neurology_filled,
+        unselectedIconRes = cx.aswin.boxcast.core.designsystem.R.drawable.ic_neurology
     ),
     NavDestination(
         route = "explore",
@@ -192,7 +198,11 @@ fun BoxLoreNavigationBar(
                                 }
                         ) {
                             Icon(
-                                imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                                imageVector = if (destination.selectedIconRes != null && destination.unselectedIconRes != null) {
+                                    ImageVector.vectorResource(id = if (isSelected) destination.selectedIconRes else destination.unselectedIconRes)
+                                } else {
+                                    if (isSelected) destination.selectedIcon else destination.unselectedIcon
+                                },
                                 contentDescription = destination.label,
                                 tint = animColor,
                                 modifier = Modifier.size(24.dp)

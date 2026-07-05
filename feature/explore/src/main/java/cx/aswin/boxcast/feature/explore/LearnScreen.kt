@@ -20,7 +20,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.remember
+import android.graphics.drawable.BitmapDrawable
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Color
+import androidx.palette.graphics.Palette
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -93,93 +112,143 @@ fun LearnScreen(
                 }
                 
                 is LearnUiState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            bottom = bottomContentPadding + 24.dp
+                    val context = LocalContext.current
+                    var extractedColor by remember { mutableStateOf<Color?>(null) }
+                    val accentColor = extractedColor ?: MaterialTheme.colorScheme.primary
+
+                    // Dynamic color extraction from daily curiosity cover art
+                    val dailyImage = state.data.questionOfTheDay?.episode?.let { it.image ?: it.feedImage }
+                    if (dailyImage != null) {
+                        val painter = rememberAsyncImagePainter(
+                            model = remember(dailyImage) {
+                                ImageRequest.Builder(context)
+                                    .data(dailyImage)
+                                    .allowHardware(false)
+                                    .build()
+                            }
                         )
-                    ) {
-                        // 1. Header Section
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Psychology,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Lore",
-                                        style = MaterialTheme.typography.headlineLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
+                        LaunchedEffect(painter.state) {
+                            val painterState = painter.state
+                            if (painterState is AsyncImagePainter.State.Success) {
+                                val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
+                                if (bitmap != null) {
+                                    extractedColor = extractDominantColor(bitmap)
                                 }
-                                Text(
-                                    text = "Feed your curiosity with daily micro-stories",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
                             }
                         }
+                    }
 
-                        // 2. Curiosity of the Day Section
-                        state.data.questionOfTheDay?.let { daily ->
+                    val listState = rememberLazyListState()
+                    val firstVisibleItemIndex = listState.firstVisibleItemIndex
+                    val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
+                    val scrollFraction = remember(listState, firstVisibleItemIndex, firstVisibleItemScrollOffset) {
+                        if (firstVisibleItemIndex > 0) 1f
+                        else (firstVisibleItemScrollOffset.toFloat() / 300f).coerceIn(0f, 1f)
+                    }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Premium background glow inspired by the briefing screen
+                        val backgroundColor = MaterialTheme.colorScheme.background
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(280.dp)
+                                .graphicsLayer {
+                                    alpha = (1f - scrollFraction) * 0.15f
+                                }
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            accentColor,
+                                            backgroundColor
+                                        )
+                                    )
+                                )
+                        )
+
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                bottom = bottomContentPadding + 24.dp
+                            )
+                        ) {
+                            // 1. Header Section
                             item {
-                                val mappedEpisode = mapToEpisode(daily.episode)
-                                val isCurrentlyPlaying = playerState.currentEpisode?.id == mappedEpisode.id && playerState.isPlaying
-                                
-                                CuriosityOfTheDayCard(
-                                    daily = daily,
-                                    isCurrentlyPlaying = isCurrentlyPlaying,
-                                    onClick = { onEpisodeClick(mappedEpisode) },
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                                )
-                            }
-                        }
-
-                        // 3. Curated Categories Sections
-                        items(state.data.categories) { category ->
-                            if (category.shows.isNotEmpty()) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 12.dp)
+                                        .padding(horizontal = 20.dp, vertical = 20.dp)
                                 ) {
-                                    Text(
-                                        text = category.title,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
+                                    Image(
+                                        painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
+                                        contentDescription = "Lore",
+                                        colorFilter = ColorFilter.tint(accentColor),
+                                        modifier = Modifier
+                                            .height(36.dp)
+                                            .fillMaxWidth(),
+                                        contentScale = ContentScale.Fit,
+                                        alignment = Alignment.CenterStart
                                     )
+                                    Text(
+                                        text = "Feed your curiosity with daily micro-stories",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
+                            }
+
+                            // 2. Curiosity of the Day Section
+                            state.data.questionOfTheDay?.let { daily ->
+                                item {
+                                    val mappedEpisode = mapToEpisode(daily.episode)
+                                    val isCurrentlyPlaying = playerState.currentEpisode?.id == mappedEpisode.id && playerState.isPlaying
                                     
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = 20.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                    CuriosityOfTheDayCard(
+                                        daily = daily,
+                                        isCurrentlyPlaying = isCurrentlyPlaying,
+                                        accentColor = accentColor,
+                                        onClick = { onEpisodeClick(mappedEpisode) },
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+
+                            // 3. Curated Categories Sections
+                            items(state.data.categories) { category ->
+                                if (category.shows.isNotEmpty()) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp)
                                     ) {
-                                        items(category.shows) { show ->
-                                            CuratedShowItem(
-                                                show = show,
-                                                onClick = {
-                                                    onPodcastClick(
-                                                        show.id,
-                                                        show.itunesId,
-                                                        show.feedUrl ?: "",
-                                                        show.title
-                                                    )
-                                                }
-                                            )
+                                        Text(
+                                            text = category.title,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
+                                        )
+                                        
+                                        LazyRow(
+                                            contentPadding = PaddingValues(horizontal = 20.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            items(category.shows) { show ->
+                                                CuratedShowItem(
+                                                    show = show,
+                                                    onClick = {
+                                                        onPodcastClick(
+                                                            show.id,
+                                                            show.itunesId,
+                                                            show.feedUrl ?: "",
+                                                            show.title
+                                                        )
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -223,6 +292,7 @@ fun LearnScreen(
 private fun CuriosityOfTheDayCard(
     daily: DailyCuriosityDto,
     isCurrentlyPlaying: Boolean,
+    accentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -246,7 +316,7 @@ private fun CuriosityOfTheDayCard(
                 text = "CURIOSITY OF THE DAY",
                 style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp),
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = accentColor
             )
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -420,4 +490,13 @@ private fun mapToEpisode(item: cx.aswin.boxcast.core.network.model.EpisodeItem):
         transcriptUrl = item.transcriptUrl,
         enclosureType = item.enclosureType
     )
+}
+
+private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
+    val palette = androidx.palette.graphics.Palette.from(bitmap).generate()
+    val vibrant = palette.vibrantSwatch?.rgb
+    val muted = palette.mutedSwatch?.rgb
+    val dominant = palette.dominantSwatch?.rgb
+    val colorInt = vibrant ?: muted ?: dominant ?: 0xFF6200EE.toInt()
+    return Color(colorInt)
 }
