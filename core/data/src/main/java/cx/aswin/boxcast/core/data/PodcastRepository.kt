@@ -786,9 +786,10 @@ class PodcastRepository(
         result
     }
 
-    suspend fun getCuratedCuriosity(): CuratedCuriosityResponseDto? = withContext(Dispatchers.IO) {
+    suspend fun getCuratedCuriosity(bypassCache: Boolean = false): CuratedCuriosityResponseDto? = withContext(Dispatchers.IO) {
         try {
-            val resp = api.getCuratedCuriosity(publicKey).execute()
+            val cbVal = if (bypassCache) System.currentTimeMillis().toString() else null
+            val resp = api.getCuratedCuriosity(publicKey, cbVal).execute()
             if (resp.isSuccessful) {
                 resp.body()
             } else {

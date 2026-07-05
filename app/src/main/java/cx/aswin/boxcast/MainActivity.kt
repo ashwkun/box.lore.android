@@ -1314,10 +1314,18 @@ class MainActivity : ComponentActivity() {
                                             "${encode(episode.podcastTitle ?: "Podcast")}?entryPoint=learn"
                                         navController.navigate(route)
                                     },
+                                    onQueueEpisode = { episode ->
+                                        val podcast = cx.aswin.boxcast.core.model.Podcast(
+                                            id = episode.podcastId ?: "unknown",
+                                            title = episode.podcastTitle ?: "Unknown Podcast",
+                                            artist = episode.podcastTitle ?: "Unknown",
+                                            imageUrl = episode.podcastImageUrl ?: episode.imageUrl ?: ""
+                                        )
+                                        queueManager.addToQueue(episode, podcast)
+                                    },
                                     onPodcastClick = { feedId, itunesId, feedUrl, title ->
-                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
-                                        val route = "podcast?feedId=${feedId ?: ""}&itunesId=${itunesId ?: ""}&feedUrl=${encode(feedUrl)}&title=${encode(title)}"
-                                        navController.navigate(route)
+                                        val pId = feedId?.toString() ?: ""
+                                        navController.navigate("podcast/$pId?entryPoint=learn")
                                     }
                                 )
                             }

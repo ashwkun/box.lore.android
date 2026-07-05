@@ -8,6 +8,9 @@ data class CuratedCuriosityResponseDto(
     @SerialName("questionOfTheDay")
     val questionOfTheDay: DailyCuriosityDto? = null,
     
+    @SerialName("questionsStack")
+    val questionsStack: List<DailyCuriosityDto> = emptyList(),
+    
     @SerialName("categories")
     val categories: List<CuratedCuriosityCategoryDto> = emptyList()
 )
@@ -22,6 +25,9 @@ data class DailyCuriosityDto(
     
     @SerialName("explanation")
     val explanation: String? = null,
+    
+    @SerialName("curiosityScore")
+    val curiosityScore: Int? = 0,
     
     @SerialName("episode")
     val episode: EpisodeItem

@@ -120,6 +120,11 @@ class QueueManager @Inject constructor(
         }
     }
     
+    fun addToQueue(episode: cx.aswin.boxcast.core.model.Episode, podcast: cx.aswin.boxcast.core.model.Podcast?) {
+        val item = episode.toEpisodeItem(podcast)
+        addToQueue(item, podcast)
+    }
+
     // Overload for Domain Objects (UI)
     fun playEpisode(
         episode: cx.aswin.boxcast.core.model.Episode,
