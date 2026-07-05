@@ -148,7 +148,7 @@ fun LearnScreen(
                     val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
                     
                     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-                    val collapsedHeaderHeight = 64.dp + statusBarHeight
+                    val collapsedHeaderHeight = 56.dp + statusBarHeight
                     val morphThreshold = with(LocalDensity.current) { 180.dp.toPx() }
 
                     val scrollFraction = remember(listState, firstVisibleItemIndex, firstVisibleItemScrollOffset) {
@@ -189,14 +189,14 @@ fun LearnScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                                        .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 12.dp)
                                 ) {
                                     Image(
                                         painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
                                         contentDescription = "Lore",
                                         colorFilter = ColorFilter.tint(accentColor),
                                         modifier = Modifier
-                                            .height(54.dp)
+                                            .height(36.dp)
                                             .fillMaxWidth(),
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart
