@@ -2,10 +2,18 @@ package cx.aswin.boxcast.feature.explore
 
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,16 +34,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
@@ -55,6 +68,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
@@ -92,160 +108,254 @@ fun LearnScreen(
     val uiState by viewModel.uiState.collectAsState()
     val playerState by playbackRepository.playerState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Extract dominant color state at screen level
+    var extractedColor by remember { mutableStateOf<Color?>(null) }
+    val baseAccentColor = extractedColor ?: MaterialTheme.colorScheme.primary
+
+    // Animate color transition smoothly for ambient background gradient and tinting
+    val animatedAccentColor by animateColorAsState(
+        targetValue = baseAccentColor,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "AccentColorTransition"
+    )
+
+    // Infinite transition for fluid background glow animations (pulsing and drifting)
+    val infiniteTransition = rememberInfiniteTransition(label = "BackgroundGlowPulse")
+    
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.88f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 7000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "GlowPulseScale"
+    )
+    
+    val driftX by infiniteTransition.animateFloat(
+        initialValue = -25f,
+        targetValue = 25f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 11000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "GlowDriftX"
+    )
+
+    // Trigger color extraction based on active card cover artwork changes
+    val activeCardImage = (uiState as? LearnUiState.Success)?.questionsStack?.firstOrNull()?.episode?.let {
+        it.image ?: it.feedImage
+    }
+
+    LaunchedEffect(activeCardImage) {
+        if (activeCardImage.isNullOrEmpty()) {
+            extractedColor = null
+            return@LaunchedEffect
+        }
+        try {
+            val loader = coil.Coil.imageLoader(context)
+            val request = ImageRequest.Builder(context)
+                .data(activeCardImage)
+                .allowHardware(false) // Must be a software bitmap for Palette pixel extraction
+                .build()
+            val result = loader.execute(request)
+            if (result is coil.request.SuccessResult) {
+                val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
+                if (bitmap != null) {
+                    // Generate palette on Default dispatcher to keep UI thread smooth
+                    val color = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        extractDominantColor(bitmap)
+                    }
+                    extractedColor = color
+                }
+            } else {
+                extractedColor = null
+            }
+        } catch (e: Exception) {
+            extractedColor = null
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { _ ->
-        
-        val isRefreshing = (uiState as? LearnUiState.Success)?.isRefreshing == true
-        val pullToRefreshState = rememberPullToRefreshState()
+        // Ambient background gradient glow wrapping the pull to refresh box
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val density = this
+                    val driftXPx = with(density) { driftX.dp.toPx() }
 
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh() },
-            state = pullToRefreshState,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Use the passed in bottomContentPadding from MainActivity instead of the local empty Scaffold padding
-            val bottomContentPaddingCalculated = bottomContentPadding
+                    // 1. Top-center ambient glow orb (Breathing and drifting gently)
+                    val topGlowBrush = Brush.radialGradient(
+                        colors = listOf(
+                            animatedAccentColor.copy(alpha = 0.25f),
+                            animatedAccentColor.copy(alpha = 0.06f),
+                            Color.Transparent
+                        ),
+                        center = Offset(
+                            x = size.width / 2f + driftXPx,
+                            y = -size.height * 0.1f
+                        ),
+                        radius = size.height * 0.85f * pulseScale
+                    )
+                    drawRect(brush = topGlowBrush)
 
-            when (val state = uiState) {
-                is LearnUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        BoxLoreLoader.Expressive(size = 64.dp)
-                    }
+                    // 2. Bottom-right ambient glow orb (Pulsing out-of-phase for a fluid lava-lamp atmosphere)
+                    val bottomGlowBrush = Brush.radialGradient(
+                        colors = listOf(
+                            animatedAccentColor.copy(alpha = 0.18f),
+                            animatedAccentColor.copy(alpha = 0.04f),
+                            Color.Transparent
+                        ),
+                        center = Offset(
+                            x = size.width * 0.8f - driftXPx,
+                            y = size.height * 0.95f
+                        ),
+                        radius = size.height * 0.65f * (2f - pulseScale)
+                    )
+                    drawRect(brush = bottomGlowBrush)
                 }
+        ) {
+            val isRefreshing = (uiState as? LearnUiState.Success)?.isRefreshing == true
+            val pullToRefreshState = rememberPullToRefreshState()
 
-                is LearnUiState.Success -> {
-                    val context = LocalContext.current
-                    var extractedColor by remember { mutableStateOf<Color?>(null) }
-                    val accentColor = extractedColor ?: MaterialTheme.colorScheme.primary
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                state = pullToRefreshState,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Apply a baseline 16.dp safety padding on top of the dynamic bottom content padding
+                val bottomContentPaddingCalculated = bottomContentPadding + 16.dp
 
-                    // Dynamic color extraction from active card cover art in the stack
-                    val dailyImage = state.data.questionsStack.firstOrNull()?.episode?.let { it.image ?: it.feedImage }
-                    if (dailyImage != null) {
-                        val painter = rememberAsyncImagePainter(
-                            model = remember(dailyImage) {
-                                ImageRequest.Builder(context)
-                                    .data(dailyImage)
-                                    .allowHardware(false)
-                                    .build()
-                            }
-                        )
-                        LaunchedEffect(painter.state) {
-                            val painterState = painter.state
-                            if (painterState is AsyncImagePainter.State.Success) {
-                                val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
-                                if (bitmap != null) {
-                                    extractedColor = extractDominantColor(bitmap)
-                                }
-                            }
+                when (val state = uiState) {
+                    is LearnUiState.Loading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BoxLoreLoader.Expressive(size = 64.dp)
                         }
                     }
+                    is LearnUiState.Success -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .statusBarsPadding()
+                                .padding(bottom = bottomContentPaddingCalculated),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // 1. Centered brand logo at the top of the page (Sized at 32.dp to save vertical space)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Image(
+                                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
+                                contentDescription = "Lore",
+                                colorFilter = ColorFilter.tint(animatedAccentColor),
+                                modifier = Modifier.height(32.dp)
+                            )
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .statusBarsPadding()
-                            .padding(bottom = bottomContentPaddingCalculated),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // 1. Centered brand logo at the top of the page (Expanded to 40.dp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Image(
-                            painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
-                            contentDescription = "Lore",
-                            colorFilter = ColorFilter.tint(accentColor),
-                            modifier = Modifier.height(40.dp)
-                        )
+                            // 2. Top flexible spacer (absorbs 50% of the dynamic vertical margin)
+                            Spacer(modifier = Modifier.weight(1f))
 
-                        // 2. Top flexible spacer
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        // 3. Curiosity Card Stack
-                        CuriosityCardStack(
-                            questions = state.questionsStack,
-                            isCurrentlyPlaying = { id -> playerState.currentEpisode?.id == id && playerState.isPlaying },
-                            onSwipeLeft = { daily ->
-                                viewModel.dismissCuriosity(daily.episode.id.toString())
-                            },
-                            onSwipeRight = { daily ->
-                                val mappedEpisode = mapToEpisode(daily.episode)
-                                onQueueEpisode(mappedEpisode)
-                                viewModel.dismissCuriosity(daily.episode.id.toString())
-                            },
-                            onPlayClick = { daily ->
-                                val isCurrent = playerState.currentEpisode?.id == daily.episode.id.toString()
-                                if (isCurrent) {
-                                    playbackRepository.togglePlayPause()
-                                } else {
+                            // 3. Curiosity Card Stack with 28.dp horizontal padding to avoid being too wide
+                            CuriosityCardStack(
+                                questions = state.questionsStack,
+                                isCurrentlyPlaying = { id -> playerState.currentEpisode?.id == id && playerState.isPlaying },
+                                isCurrentlyLoading = { id -> playerState.currentEpisode?.id == id && playerState.isLoading },
+                                onSwipeLeft = { daily ->
+                                    viewModel.dismissCuriosity(daily.episode.id.toString())
+                                },
+                                onSwipeRight = { daily ->
                                     val mappedEpisode = mapToEpisode(daily.episode)
-                                    val podcast = cx.aswin.boxcast.core.model.Podcast(
-                                        id = daily.episode.feedId?.toString() ?: "learn_fallback",
-                                        title = daily.episode.feedTitle ?: "Podcast",
-                                        artist = daily.episode.feedTitle ?: "Unknown",
-                                        imageUrl = daily.episode.feedImage ?: daily.episode.image ?: ""
-                                    )
-                                    coroutineScope.launch {
-                                        playbackRepository.playQueue(
-                                            episodes = listOf(mappedEpisode),
-                                            podcast = podcast,
-                                            startIndex = 0,
-                                            entryPoint = cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC
+                                    onQueueEpisode(mappedEpisode)
+                                    viewModel.dismissCuriosity(daily.episode.id.toString())
+                                },
+                                onPlayClick = { daily ->
+                                    val isCurrent = playerState.currentEpisode?.id == daily.episode.id.toString()
+                                    if (isCurrent) {
+                                        playbackRepository.togglePlayPause()
+                                    } else {
+                                        val mappedEpisode = mapToEpisode(daily.episode)
+                                        val podcast = cx.aswin.boxcast.core.model.Podcast(
+                                            id = daily.episode.feedId?.toString() ?: "learn_fallback",
+                                            title = daily.episode.feedTitle ?: "Podcast",
+                                            artist = daily.episode.feedTitle ?: "Unknown",
+                                            imageUrl = daily.episode.feedImage ?: daily.episode.image ?: ""
                                         )
+                                        coroutineScope.launch {
+                                            playbackRepository.playQueue(
+                                                episodes = listOf(mappedEpisode),
+                                                podcast = podcast,
+                                                startIndex = 0,
+                                                entryPoint = cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC
+                                            )
+                                        }
+                                    }
+                                },
+                                onEpisodeClick = { daily ->
+                                    val mappedEpisode = mapToEpisode(daily.episode)
+                                    onEpisodeClick(mappedEpisode)
+                                },
+                                onPodcastClick = { daily ->
+                                    onPodcastClick(
+                                        daily.episode.feedId,
+                                        null,
+                                        "",
+                                        daily.episode.feedTitle ?: "Podcast"
+                                    )
+                                },
+                                accentColor = animatedAccentColor,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 28.dp)
+                            )
+
+                            // 4. Middle spacer between card stack and controls (Tightly bounded to 10.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // 5. Deck controls row (Dismiss, Info, Queue compact pill buttons on the screen bg below the card)
+                            val activeCard = state.questionsStack.firstOrNull()
+                            DeckControlsRow(
+                                activeCard = activeCard,
+                                onDismissClick = {
+                                    activeCard?.let { daily ->
+                                        viewModel.dismissCuriosity(daily.episode.id.toString())
+                                    }
+                                },
+                                onInfoClick = {
+                                    activeCard?.let { daily ->
+                                        val mappedEpisode = mapToEpisode(daily.episode)
+                                        onEpisodeClick(mappedEpisode)
+                                    }
+                                },
+                                onQueueClick = {
+                                    activeCard?.let { daily ->
+                                        val mappedEpisode = mapToEpisode(daily.episode)
+                                        onQueueEpisode(mappedEpisode)
+                                        viewModel.dismissCuriosity(daily.episode.id.toString())
                                     }
                                 }
-                            },
-                            onEpisodeClick = { daily ->
-                                val mappedEpisode = mapToEpisode(daily.episode)
-                                onEpisodeClick(mappedEpisode)
-                            },
-                            onPodcastClick = { daily ->
-                                onPodcastClick(
-                                    daily.episode.feedId,
-                                    null,
-                                    "",
-                                    daily.episode.feedTitle ?: "Podcast"
-                                )
-                            },
-                            accentColor = accentColor,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
-                        )
+                            )
 
-                        // 4. Bottom flexible spacer (exactly matches top spacer weight to center cards vertically)
-                        Spacer(modifier = Modifier.weight(1f))
+                            // 6. Bottom flexible spacer (absorbs the other 50% of the dynamic vertical margin)
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
-                }
-
-                is LearnUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Something went wrong",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = state.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                        )
-                        FilledTonalButton(
-                            onClick = { viewModel.loadData() }
+                    is LearnUiState.Error -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Retry")
+                            Text(
+                                text = state.message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
                 }
@@ -254,7 +364,122 @@ fun LearnScreen(
     }
 }
 
-// Convert DTO EpisodeItem to Domain model Episode
+@Composable
+private fun DeckControlsRow(
+    activeCard: DailyCuriosityDto?,
+    onDismissClick: () -> Unit,
+    onInfoClick: () -> Unit,
+    onQueueClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (activeCard == null) return
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Dismiss Pill Button (Left)
+        Box(
+            modifier = Modifier
+                .height(36.dp)
+                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(18.dp))
+                .expressiveClickable(onClick = onDismissClick)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = Color(0xFFFF6B6B),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "DISMISS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp,
+                    color = Color(0xFFFF6B6B)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // Info Pill Button (Center)
+        Box(
+            modifier = Modifier
+                .height(36.dp)
+                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(18.dp))
+                .expressiveClickable(onClick = onInfoClick)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.TouchApp,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "INFO",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // Queue Pill Button (Right)
+        Box(
+            modifier = Modifier
+                .height(36.dp)
+                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(18.dp))
+                .expressiveClickable(onClick = onQueueClick)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = Color(0xFF69DB7C),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "QUEUE",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp,
+                    color = Color(0xFF69DB7C)
+                )
+            }
+        }
+    }
+}
+
 private fun mapToEpisode(item: cx.aswin.boxcast.core.network.model.EpisodeItem): Episode {
     return Episode(
         id = item.id.toString(),
@@ -275,10 +500,28 @@ private fun mapToEpisode(item: cx.aswin.boxcast.core.network.model.EpisodeItem):
 
 private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
     val palette = androidx.palette.graphics.Palette.from(bitmap).generate()
-    val vibrant = palette.vibrantSwatch?.rgb
-    val muted = palette.mutedSwatch?.rgb
-    val dominant = palette.dominantSwatch?.rgb
-    val colorInt = vibrant ?: muted ?: dominant ?: 0xFF6200EE.toInt()
+    
+    // 1. Get the absolute dominant swatch from the image palette
+    val dominantSwatch = palette.dominantSwatch
+        ?: palette.vibrantSwatch
+        ?: palette.mutedSwatch
+        ?: palette.lightMutedSwatch
+        ?: palette.darkMutedSwatch
+        
+    val rgb = dominantSwatch?.rgb ?: 0xFF6200EE.toInt()
+    
+    // 2. Convert RGB to HSL to tweak vibrancy and lightness
+    val hsl = FloatArray(3)
+    androidx.core.graphics.ColorUtils.colorToHSL(rgb, hsl)
+    
+    // 3. Boost saturation to make the glow rich and colorful (minimum 40% saturation)
+    hsl[1] = hsl[1].coerceIn(0.40f, 0.85f)
+    
+    // 4. Clamp lightness to keep the glow visually pleasant (between 25% and 55%)
+    hsl[2] = hsl[2].coerceIn(0.25f, 0.55f)
+    
+    // 5. Convert back to RGB and then Compose Color
+    val colorInt = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
     return Color(colorInt)
 }
 

@@ -13,11 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,10 +28,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.network.model.DailyCuriosityDto
@@ -44,6 +43,7 @@ import kotlin.math.roundToInt
 fun CuriosityCardStack(
     questions: List<DailyCuriosityDto>,
     isCurrentlyPlaying: (String) -> Boolean,
+    isCurrentlyLoading: (String) -> Boolean, // Dynamic loading state detector
     onSwipeLeft: (DailyCuriosityDto) -> Unit,
     onSwipeRight: (DailyCuriosityDto) -> Unit,
     onPlayClick: (DailyCuriosityDto) -> Unit,
@@ -71,8 +71,8 @@ fun CuriosityCardStack(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(530.dp),
-        contentAlignment = Alignment.Center
+            .height(490.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
         // Render up to 4 cards in stack representation (reversed order so top is drawn last)
         val cardsToShow = questions.take(4).reversed()
@@ -92,9 +92,9 @@ fun CuriosityCardStack(
             // Dynamic spring animations for stack position changes
             val scaleTarget = when (stackIndex) {
                 0 -> 1f
-                1 -> 0.95f
-                2 -> 0.90f
-                else -> 0.85f
+                1 -> 0.96f
+                2 -> 0.92f
+                else -> 0.88f
             }
             val scale by animateFloatAsState(
                 targetValue = scaleTarget,
@@ -102,11 +102,12 @@ fun CuriosityCardStack(
                 label = "CardScale"
             )
 
+            // Offset background cards upwards to reveal top edges cleanly without clipping
             val offsetTarget = when (stackIndex) {
                 0 -> 0.dp
-                1 -> 10.dp
-                2 -> 18.dp
-                else -> 26.dp
+                1 -> (-14).dp
+                2 -> (-26).dp
+                else -> (-36).dp
             }
             val verticalOffset by animateDpAsState(
                 targetValue = offsetTarget,
@@ -116,9 +117,9 @@ fun CuriosityCardStack(
 
             val rotationTarget = when (stackIndex) {
                 0 -> 0f
-                1 -> -7f
-                2 -> 7f
-                else -> -3.5f
+                1 -> -3.5f
+                2 -> 3.5f
+                else -> -1.5f
             }
             val rotationAngle by animateFloatAsState(
                 targetValue = rotationTarget,
@@ -140,7 +141,8 @@ fun CuriosityCardStack(
 
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .wrapContentHeight()
                     .offset {
                         if (isTopCard) {
                             IntOffset(
@@ -193,6 +195,7 @@ fun CuriosityCardStack(
                 CuriosityCardContent(
                     daily = daily,
                     isCurrentlyPlaying = isCurrentlyPlaying(daily.episode.id.toString()),
+                    isCurrentlyLoading = isCurrentlyLoading(daily.episode.id.toString()),
                     accentColor = accentColor,
                     onPlayClick = { if (isTopCard) onPlayClick(daily) },
                     onEpisodeClick = { if (isTopCard) onEpisodeClick(daily) },
@@ -207,6 +210,7 @@ fun CuriosityCardStack(
 private fun CuriosityCardContent(
     daily: DailyCuriosityDto,
     isCurrentlyPlaying: Boolean,
+    isCurrentlyLoading: Boolean,
     accentColor: Color,
     onPlayClick: () -> Unit,
     onEpisodeClick: () -> Unit,
@@ -222,7 +226,8 @@ private fun CuriosityCardContent(
         ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .height(480.dp)
             .expressiveClickable(onClick = onEpisodeClick)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -252,42 +257,38 @@ private fun CuriosityCardContent(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 3a. Badges Row (Dismiss, Info, and Queue)
-                CardBadgesRow()
+                Spacer(modifier = Modifier.height(6.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 3b. Crisp square artwork (120dp)
+                // 3a. Crisp square artwork
                 OptimizedImage(
                     url = coverArt,
-                    proxyWidth = 240,
+                    proxyWidth = 200,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(120.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 3c. Podcast title row indicating it is clickable (using keyboard arrow right >)
+                // 3b. Podcast title row indicating it is clickable
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .expressiveClickable(onClick = onPodcastClick)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = daily.episode.feedTitle ?: "Podcast",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White.copy(alpha = 0.8f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        text = (daily.episode.feedTitle ?: "Podcast").uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.5.sp,
+                        color = Color.White.copy(alpha = 0.8f)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
@@ -298,38 +299,40 @@ private fun CuriosityCardContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // First weight spacer to push the text block slightly down from the artwork
+                Spacer(modifier = Modifier.weight(1f))
 
-                // 3d. Question Text (Hook)
+                // 3c. Question Text (Hook - Sized at 24.sp for gorgeous large titles)
                 Text(
                     text = daily.question,
-                    fontSize = 28.sp,
-                    style = MaterialTheme.typography.headlineMedium,
+                    fontSize = 24.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
                     color = Color.White,
-                    lineHeight = 36.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    lineHeight = 30.sp,
+                    textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                // 16dp spacing between the hook question and explanation description
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // 3e. Explanation Text
+                // 3d. Explanation Text
                 Text(
                     text = daily.explanation ?: "",
+                    fontSize = 14.sp,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.75f),
                     lineHeight = 20.sp,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis
+                    textAlign = TextAlign.Center
                 )
 
-                // Flexible Spacer 3: Distributes space between Content and Play controls
-                Spacer(modifier = Modifier.weight(1f))
+                // Second slightly larger weight spacer to push the play button to the bottom while maintaining vertical symmetry
+                Spacer(modifier = Modifier.weight(1.2f))
 
-                // 3f. Custom pill-style play button - Premium Circular Glassmorphic Play/Pause
+                // 3e. Custom circular play button
                 CircularPlayButton(
                     isPlaying = isCurrentlyPlaying,
+                    isLoading = isCurrentlyLoading,
                     accentColor = accentColor,
                     onClick = onPlayClick
                 )
@@ -339,106 +342,18 @@ private fun CuriosityCardContent(
 }
 
 @Composable
-private fun CardBadgesRow(
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Dismiss (Left)
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.Black.copy(alpha = 0.45f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = Color(0xFFFF6B6B),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Dismiss",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-            }
-        }
-
-        // Info (Center)
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.Black.copy(alpha = 0.45f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.TouchApp,
-                    contentDescription = null,
-                    tint = Color(0xFF4DABF7),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Info",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-            }
-        }
-
-        // Queue (Right)
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.Black.copy(alpha = 0.45f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = Color(0xFF69DB7C),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Queue",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun CircularPlayButton(
     isPlaying: Boolean,
+    isLoading: Boolean,
     accentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .size(72.dp)
+            .size(56.dp)
             .border(1.5.dp, Color.White.copy(alpha = 0.25f), CircleShape)
-            .padding(6.dp)
+            .padding(4.dp)
             .clip(CircleShape)
             .then(
                 if (isPlaying) {
@@ -464,15 +379,22 @@ private fun CircularPlayButton(
             .expressiveClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            contentDescription = if (isPlaying) "Pause" else "Play",
-            tint = if (isPlaying) Color.White else Color.Black,
-            modifier = Modifier
-                .size(32.dp)
-                .then(
-                    if (!isPlaying) Modifier.offset(x = 2.dp) else Modifier
-                )
-        )
+        if (isLoading) {
+            BoxLoreLoader.CircularWavy(
+                size = 28.dp,
+                color = if (isPlaying) Color.White else Color.Black
+            )
+        } else {
+            Icon(
+                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = if (isPlaying) Color.White else Color.Black,
+                modifier = Modifier
+                    .size(24.dp)
+                    .then(
+                        if (!isPlaying) Modifier.offset(x = 1.dp) else Modifier
+                    )
+            )
+        }
     }
 }
