@@ -5,9 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.network.model.CuratedCuriosityResponseDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 import cx.aswin.boxcast.core.network.model.DailyCuriosityDto
@@ -36,6 +38,7 @@ class LearnViewModel(
     private var currentPage = 1
     private var isLoadingMore = false
     private var isEndOfContent = false
+    private var fetchJob: Job? = null
 
     init {
         loadData()
@@ -63,34 +66,65 @@ class LearnViewModel(
         }
     }
 
+    private fun filterAndShuffleNewItems(
+        rawItems: List<DailyCuriosityDto>,
+        currentStack: List<DailyCuriosityDto>
+    ): List<DailyCuriosityDto> {
+        val dismissed = getDismissedIds()
+        val newItems = rawItems.filterNot { it.episode.id.toString() in dismissed }
+        if (newItems.isEmpty()) return emptyList()
+
+        val shuffledNew = weightedShuffle(newItems)
+        val existingIds = currentStack.map { it.episode.id }.toSet()
+        return shuffledNew.filterNot { it.episode.id in existingIds }
+    }
+
+    private suspend fun fetchPageAndFilter(
+        page: Int,
+        currentStack: List<DailyCuriosityDto>
+    ): List<DailyCuriosityDto> {
+        val res = podcastRepository.getCuratedCuriosity(page = page, bypassCache = false) ?: return emptyList()
+        if (res.questionsStack.isEmpty()) {
+            isEndOfContent = true
+            return emptyList()
+        }
+        currentPage = page
+        return filterAndShuffleNewItems(res.questionsStack, currentStack)
+    }
+
+    private fun appendCuriositiesToSuccessState(newItems: List<DailyCuriosityDto>) {
+        _uiState.update { state ->
+            if (state is LearnUiState.Success) {
+                state.copy(questionsStack = state.questionsStack + newItems)
+            } else {
+                state
+            }
+        }
+    }
+
     private fun fetchNextPage() {
         if (isLoadingMore || isEndOfContent) return
-        val currentState = _uiState.value as? LearnUiState.Success ?: return
+        if (_uiState.value !is LearnUiState.Success) return
 
         isLoadingMore = true
-        viewModelScope.launch {
+        fetchJob = viewModelScope.launch {
             try {
-                val nextPage = currentPage + 1
-                val res = podcastRepository.getCuratedCuriosity(page = nextPage, bypassCache = false)
-                if (res != null) {
-                    if (res.questionsStack.isEmpty()) {
-                        isEndOfContent = true
-                    } else {
-                        currentPage = nextPage
-                        val dismissed = getDismissedIds()
-                        val newItems = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
-                        
-                        if (newItems.isNotEmpty()) {
-                            val shuffledNew = weightedShuffle(newItems)
-                            val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
-                            val existingIds = currentStack.map { it.episode.id }.toSet()
-                            val uniqueNew = shuffledNew.filterNot { it.episode.id in existingIds }
-                            
-                            _uiState.value = currentState.copy(
-                                questionsStack = currentStack + uniqueNew
-                            )
-                        }
+                var pageToFetch = currentPage + 1
+                var accumulatedNew = emptyList<DailyCuriosityDto>()
+                var pageAttempts = 0
+                val maxAttempts = 5
+
+                while (accumulatedNew.isEmpty() && !isEndOfContent && pageAttempts < maxAttempts) {
+                    pageAttempts++
+                    val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
+                    accumulatedNew = fetchPageAndFilter(pageToFetch, currentStack)
+                    if (!isEndOfContent) {
+                        pageToFetch++
                     }
+                }
+
+                if (accumulatedNew.isNotEmpty()) {
+                    appendCuriositiesToSuccessState(accumulatedNew)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("LearnViewModel", "Failed to load page ${currentPage + 1}", e)
@@ -112,7 +146,8 @@ class LearnViewModel(
     }
 
     fun loadData() {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             _uiState.value = LearnUiState.Loading
             currentPage = 1
             isEndOfContent = false
@@ -134,7 +169,8 @@ class LearnViewModel(
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             val current = _uiState.value
             if (current is LearnUiState.Success) {
                 _uiState.value = current.copy(isRefreshing = true)
