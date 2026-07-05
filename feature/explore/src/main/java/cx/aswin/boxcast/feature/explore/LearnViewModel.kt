@@ -92,6 +92,16 @@ class LearnViewModel(
         return filterAndShuffleNewItems(res.questionsStack, currentStack)
     }
 
+    private fun appendCuriositiesToSuccessState(newItems: List<DailyCuriosityDto>) {
+        _uiState.update { state ->
+            if (state is LearnUiState.Success) {
+                state.copy(questionsStack = state.questionsStack + newItems)
+            } else {
+                state
+            }
+        }
+    }
+
     private fun fetchNextPage() {
         if (isLoadingMore || isEndOfContent) return
         if (_uiState.value !is LearnUiState.Success) return
@@ -114,13 +124,7 @@ class LearnViewModel(
                 }
 
                 if (accumulatedNew.isNotEmpty()) {
-                    _uiState.update { state ->
-                        if (state is LearnUiState.Success) {
-                            state.copy(questionsStack = state.questionsStack + accumulatedNew)
-                        } else {
-                            state
-                        }
-                    }
+                    appendCuriositiesToSuccessState(accumulatedNew)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("LearnViewModel", "Failed to load page ${currentPage + 1}", e)
