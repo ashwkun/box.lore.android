@@ -1,6 +1,9 @@
 package cx.aswin.boxcast.feature.explore
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -73,112 +76,135 @@ fun CuriosityCardStack(
         val cardsToShow = questions.take(4).reversed()
 
         cardsToShow.forEach { daily ->
-            val isTopCard = daily.episode.id.toString() == questions.first().episode.id.toString()
+            val stackIndex = questions.indexOf(daily)
+            val isTopCard = stackIndex == 0
 
-            if (isTopCard) {
-                val swipeState = rememberSwipeableCardState(key = daily.episode.id) { direction ->
-                    if (direction == SwipeDirection.Left) {
-                        onSwipeLeft(daily)
-                    } else {
-                        onSwipeRight(daily)
-                    }
+            val swipeState = rememberSwipeableCardState(key = daily.episode.id) { direction ->
+                if (direction == SwipeDirection.Left) {
+                    onSwipeLeft(daily)
+                } else {
+                    onSwipeRight(daily)
                 }
+            }
 
-                var isFlipped by remember(daily.episode.id) { mutableStateOf(false) }
+            var isFlipped by remember(daily.episode.id) { mutableStateOf(false) }
 
-                val cardRotationY by animateFloatAsState(
-                    targetValue = if (isFlipped) 180f else 0f,
-                    animationSpec = tween(durationMillis = 400),
-                    label = "CardFlip"
-                )
+            val cardRotationY by animateFloatAsState(
+                targetValue = if (isFlipped) 180f else 0f,
+                animationSpec = tween(durationMillis = 400),
+                label = "CardFlip"
+            )
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .offset {
+            // Dynamic spring animations for stack position changes
+            val scaleTarget = when (stackIndex) {
+                0 -> 1f
+                1 -> 0.95f
+                2 -> 0.90f
+                else -> 0.85f
+            }
+            val scale by animateFloatAsState(
+                targetValue = scaleTarget,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+                label = "CardScale"
+            )
+
+            val offsetTarget = when (stackIndex) {
+                0 -> 0.dp
+                1 -> 10.dp
+                2 -> 18.dp
+                else -> 26.dp
+            }
+            val verticalOffset by animateDpAsState(
+                targetValue = offsetTarget,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+                label = "CardOffset"
+            )
+
+            val rotationTarget = when (stackIndex) {
+                0 -> 0f
+                1 -> -7f
+                2 -> 7f
+                else -> -3.5f
+            }
+            val rotationAngle by animateFloatAsState(
+                targetValue = rotationTarget,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+                label = "CardRotation"
+            )
+
+            val alphaTarget = when (stackIndex) {
+                0 -> 1f
+                1 -> 0.85f
+                2 -> 0.65f
+                else -> 0.45f
+            }
+            val alphaVal by animateFloatAsState(
+                targetValue = alphaTarget,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                label = "CardAlpha"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset {
+                        if (isTopCard) {
                             IntOffset(
                                 swipeState.offset.value.x.roundToInt(),
                                 swipeState.offset.value.y.roundToInt()
                             )
+                        } else {
+                            IntOffset(0, 0)
                         }
-                        .graphicsLayer {
-                            rotationZ = (swipeState.offset.value.x / 40f)
-                            this.rotationY = cardRotationY
-                            cameraDistance = 12f * density
+                    }
+                    .offset(y = verticalOffset)
+                    .scale(scale)
+                    .graphicsLayer {
+                        rotationZ = if (isTopCard) {
+                            rotationAngle + (swipeState.offset.value.x / 40f)
+                        } else {
+                            rotationAngle
                         }
-                        .pointerInput(daily.episode.id) {
-                            detectDragGestures(
-                                onDragEnd = {
-                                    val offsetX = swipeState.offset.value.x
-                                    if (offsetX > 400f) {
-                                        swipeState.swipe(SwipeDirection.Right)
-                                    } else if (offsetX < -400f) {
-                                        swipeState.swipe(SwipeDirection.Left)
-                                    } else {
+                        this.rotationY = if (isTopCard) cardRotationY else 0f
+                        alpha = alphaVal
+                        cameraDistance = 12f * density
+                    }
+                    .then(
+                        if (isTopCard) {
+                            Modifier.pointerInput(daily.episode.id) {
+                                detectDragGestures(
+                                    onDragEnd = {
+                                        val offsetX = swipeState.offset.value.x
+                                        if (offsetX > 400f) {
+                                            swipeState.swipe(SwipeDirection.Right)
+                                        } else if (offsetX < -400f) {
+                                            swipeState.swipe(SwipeDirection.Left)
+                                        } else {
+                                            swipeState.reset()
+                                        }
+                                    },
+                                    onDragCancel = {
                                         swipeState.reset()
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        swipeState.drag(dragAmount)
                                     }
-                                },
-                                onDragCancel = {
-                                    swipeState.reset()
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    swipeState.drag(dragAmount)
-                                }
-                            )
-                        }
-                ) {
-                    CuriosityCardContent(
-                        daily = daily,
-                        isCurrentlyPlaying = isCurrentlyPlaying(daily.episode.id.toString()),
-                        isFlipped = isFlipped,
-                        rotationY = cardRotationY,
-                        onFlipToggle = { isFlipped = !isFlipped },
-                        onPlayClick = { onPlayClick(daily) }
-                    )
-                }
-            } else {
-                // Lower cards in stack (up to 3 background levels)
-                val stackLevel = questions.indexOf(daily) // 1, 2, or 3
-                val scale = when (stackLevel) {
-                    1 -> 0.95f
-                    2 -> 0.90f
-                    else -> 0.85f
-                }
-                val verticalOffset = when (stackLevel) {
-                    1 -> 10.dp
-                    2 -> 18.dp
-                    else -> 26.dp
-                }
-                val rotationAngle = when (stackLevel) {
-                    1 -> -7f
-                    2 -> 7f
-                    else -> -3.5f
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .offset(y = verticalOffset)
-                        .scale(scale)
-                        .graphicsLayer {
-                            rotationZ = rotationAngle
-                            alpha = when (stackLevel) {
-                                1 -> 0.85f
-                                2 -> 0.65f
-                                else -> 0.45f
+                                )
                             }
+                        } else {
+                            Modifier
                         }
-                ) {
-                    CuriosityCardContent(
-                        daily = daily,
-                        isCurrentlyPlaying = false,
-                        isFlipped = false,
-                        rotationY = 0f,
-                        onFlipToggle = {},
-                        onPlayClick = {}
                     )
-                }
+            ) {
+                CuriosityCardContent(
+                    daily = daily,
+                    isCurrentlyPlaying = isCurrentlyPlaying(daily.episode.id.toString()),
+                    isFlipped = isFlipped && isTopCard,
+                    rotationY = if (isTopCard) cardRotationY else 0f,
+                    onFlipToggle = { if (isTopCard) isFlipped = !isFlipped },
+                    onPlayClick = { if (isTopCard) onPlayClick(daily) }
+                )
             }
         }
     }
