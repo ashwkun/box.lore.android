@@ -66,6 +66,32 @@ class LearnViewModel(
         }
     }
 
+    private fun filterAndShuffleNewItems(
+        rawItems: List<DailyCuriosityDto>,
+        currentStack: List<DailyCuriosityDto>
+    ): List<DailyCuriosityDto> {
+        val dismissed = getDismissedIds()
+        val newItems = rawItems.filterNot { it.episode.id.toString() in dismissed }
+        if (newItems.isEmpty()) return emptyList()
+
+        val shuffledNew = weightedShuffle(newItems)
+        val existingIds = currentStack.map { it.episode.id }.toSet()
+        return shuffledNew.filterNot { it.episode.id in existingIds }
+    }
+
+    private suspend fun fetchPageAndFilter(
+        page: Int,
+        currentStack: List<DailyCuriosityDto>
+    ): List<DailyCuriosityDto> {
+        val res = podcastRepository.getCuratedCuriosity(page = page, bypassCache = false) ?: return emptyList()
+        if (res.questionsStack.isEmpty()) {
+            isEndOfContent = true
+            return emptyList()
+        }
+        currentPage = page
+        return filterAndShuffleNewItems(res.questionsStack, currentStack)
+    }
+
     private fun fetchNextPage() {
         if (isLoadingMore || isEndOfContent) return
         if (_uiState.value !is LearnUiState.Success) return
@@ -76,35 +102,14 @@ class LearnViewModel(
                 var pageToFetch = currentPage + 1
                 var accumulatedNew = emptyList<DailyCuriosityDto>()
                 var pageAttempts = 0
-                val maxAttempts = 5 // prevent infinite loop
+                val maxAttempts = 5
 
                 while (accumulatedNew.isEmpty() && !isEndOfContent && pageAttempts < maxAttempts) {
                     pageAttempts++
-                    val res = podcastRepository.getCuratedCuriosity(page = pageToFetch, bypassCache = false)
-                    if (res != null) {
-                        if (res.questionsStack.isEmpty()) {
-                            isEndOfContent = true
-                        } else {
-                            currentPage = pageToFetch
-                            val dismissed = getDismissedIds()
-                            val newItems = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
-                            
-                            if (newItems.isNotEmpty()) {
-                                val shuffledNew = weightedShuffle(newItems)
-                                val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
-                                val existingIds = currentStack.map { it.episode.id }.toSet()
-                                val uniqueNew = shuffledNew.filterNot { it.episode.id in existingIds }
-                                
-                                if (uniqueNew.isNotEmpty()) {
-                                    accumulatedNew = uniqueNew
-                                }
-                            }
-                            // Advance for the next iteration of the loop if still empty
-                            pageToFetch++
-                        }
-                    } else {
-                        // API failure, break to avoid infinite loop
-                        break
+                    val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
+                    accumulatedNew = fetchPageAndFilter(pageToFetch, currentStack)
+                    if (!isEndOfContent) {
+                        pageToFetch++
                     }
                 }
 
