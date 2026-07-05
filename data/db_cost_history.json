@@ -122,12 +122,12 @@
         "writes": 0
       },
       "sync-episodes": {
-        "reads": 15187,
-        "writes": 59
+        "reads": 15172,
+        "writes": 44
       },
       "vectorize": {
-        "reads": 11961,
-        "writes": 59
+        "reads": 11901,
+        "writes": 44
       },
       "vectorize-podcasts": {
         "reads": 12614,
