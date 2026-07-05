@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-07-05T10:15:44.630Z",
+  "lastRun": "2026-07-05T11:54:14.019Z",
   "podcasts": {
     "2123": {
       "lastEpisodeId": "567722198",
@@ -82,9 +82,9 @@
       "lastCheckedAt": 1783080824950
     },
     "7492905": {
-      "lastEpisodeId": "56814794641",
-      "lastEpisodeTitle": "Nest: The iPod of thermostats",
-      "lastCheckedAt": 1782757508533
+      "lastEpisodeId": "57130320172",
+      "lastEpisodeTitle": "Keurig: The K-Cup invasion",
+      "lastCheckedAt": 1783252455711
     }
   }
 }
