@@ -155,6 +155,28 @@
         "reads": 12304,
         "writes": 110
       }
+    },
+    "fr": {
+      "populate-charts": {
+        "reads": 20305,
+        "writes": 12434
+      },
+      "import-pi-data": {
+        "reads": 11363,
+        "writes": 549
+      },
+      "sync-episodes": {
+        "reads": 14781,
+        "writes": 223
+      },
+      "vectorize": {
+        "reads": 11966,
+        "writes": 226
+      },
+      "vectorize-podcasts": {
+        "reads": 11785,
+        "writes": 183
+      }
     }
   }
 }
