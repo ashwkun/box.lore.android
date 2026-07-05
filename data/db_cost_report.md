@@ -2,6 +2,19 @@
 
 This report tracks the Turso SQLite read and write metrics for the background synchronization pipeline, bifurcated by country and step.
 
+## 📅 Date: 2026-07-05
+
+| Country | Sync Step | DB Reads | DB Writes |
+| :--- | :--- | :---: | :---: |
+| **`US`** | `import-pi-data` | 10,835 | 153 |
+|  | `populate-charts` | 20,123 | 11,144 |
+|  | `sync-episodes` | 15,487 | 146 |
+|  | `vectorize` | 12,540 | 150 |
+|  | `vectorize-podcasts` | 12,147 | 51 |
+| | *Subtotal (US)* | *71,132* | *11,644* |
+
+---
+
 ## 📅 Date: 2026-07-04
 
 | Country | Sync Step | DB Reads | DB Writes |

@@ -88,5 +88,29 @@
         "writes": 108
       }
     }
+  },
+  "2026-07-05": {
+    "us": {
+      "populate-charts": {
+        "reads": 20123,
+        "writes": 11144
+      },
+      "import-pi-data": {
+        "reads": 10835,
+        "writes": 153
+      },
+      "sync-episodes": {
+        "reads": 15487,
+        "writes": 146
+      },
+      "vectorize": {
+        "reads": 12540,
+        "writes": 150
+      },
+      "vectorize-podcasts": {
+        "reads": 12147,
+        "writes": 51
+      }
+    }
   }
 }
