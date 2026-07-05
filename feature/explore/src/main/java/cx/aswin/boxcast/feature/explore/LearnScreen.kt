@@ -68,6 +68,14 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.network.model.CuratedCuriosityPodcastDto
 import cx.aswin.boxcast.core.network.model.DailyCuriosityDto
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.platform.LocalDensity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,9 +148,14 @@ fun LearnScreen(
                     val listState = rememberLazyListState()
                     val firstVisibleItemIndex = listState.firstVisibleItemIndex
                     val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
+                    
+                    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                    val collapsedHeaderHeight = 64.dp + statusBarHeight
+                    val morphThreshold = with(LocalDensity.current) { 180.dp.toPx() }
+
                     val scrollFraction = remember(listState, firstVisibleItemIndex, firstVisibleItemScrollOffset) {
                         if (firstVisibleItemIndex > 0) 1f
-                        else (firstVisibleItemScrollOffset.toFloat() / 300f).coerceIn(0f, 1f)
+                        else (firstVisibleItemScrollOffset.toFloat() / morphThreshold).coerceIn(0f, 1f)
                     }
 
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -169,6 +182,7 @@ fun LearnScreen(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
+                                top = collapsedHeaderHeight,
                                 bottom = bottomContentPadding + 24.dp
                             )
                         ) {
@@ -177,14 +191,14 @@ fun LearnScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 20.dp, vertical = 20.dp)
+                                        .padding(horizontal = 24.dp, vertical = 20.dp)
                                 ) {
                                     Image(
                                         painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
                                         contentDescription = "Lore",
                                         colorFilter = ColorFilter.tint(accentColor),
                                         modifier = Modifier
-                                            .height(36.dp)
+                                            .height(54.dp)
                                             .fillMaxWidth(),
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart
@@ -257,6 +271,33 @@ fun LearnScreen(
                                     }
                                 }
                             }
+                        }
+
+                        // Floating Header Overlay
+                        val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
+                        val headerColor by animateColorAsState(
+                            targetValue = surfaceColor.copy(alpha = scrollFraction),
+                            animationSpec = spring(stiffness = Spring.StiffnessLow),
+                            label = "headerColor"
+                        )
+                        val titleAlpha = if (scrollFraction > 0.6f) (scrollFraction - 0.6f) / 0.4f else 0f
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(collapsedHeaderHeight)
+                                .background(headerColor)
+                                .statusBarsPadding(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
+                                contentDescription = "Lore",
+                                colorFilter = ColorFilter.tint(accentColor),
+                                modifier = Modifier
+                                    .height(28.dp)
+                                    .graphicsLayer { alpha = titleAlpha }
+                            )
                         }
                     }
                 }
