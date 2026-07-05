@@ -72,6 +72,44 @@ class DownloadRepository(
         })
     }
 
+    private fun downloadArtworkLocally(context: Context, imageUrl: String?, subDir: String, fileName: String): String? {
+        if (imageUrl.isNullOrBlank()) return null
+        try {
+            val cleanUrlStr = if (imageUrl.startsWith("//")) "https:$imageUrl" else imageUrl
+            val url = java.net.URI.create(cleanUrlStr).toURL()
+            val dir = File(context.filesDir, subDir)
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+            val file = File(dir, fileName)
+            url.openStream().use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            return file.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e("DownloadRepo", "Failed to download artwork: $imageUrl", e)
+            return null
+        }
+    }
+
+    private fun deleteLocalFileIfValid(path: String?) {
+        if (path.isNullOrBlank()) return
+        val prefix = "file://"
+        if (path.startsWith("/") || path.startsWith(prefix)) {
+            val cleanPath = path.removePrefix(prefix)
+            try {
+                val file = File(cleanPath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("DownloadRepo", "Failed to delete file: $cleanPath", e)
+            }
+        }
+    }
+
     fun addDownload(episode: Episode, podcast: Podcast, isSmartDownloaded: Boolean = false) {
         val downloadRequest = DownloadRequest.Builder(episode.id, android.net.Uri.parse(episode.audioUrl))
             .setCustomCacheKey(episode.id)
@@ -103,14 +141,18 @@ class DownloadRepository(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 android.util.Log.d("DownloadRepo", "Inserting optimistic download entity for ${episode.id}")
+                
+                val localEpisodeImg = downloadArtworkLocally(context, episode.imageUrl, "downloaded_artworks", "episode_${episode.id}.png") ?: episode.imageUrl
+                val localPodcastImg = downloadArtworkLocally(context, podcast.imageUrl, "downloaded_artworks", "podcast_${podcast.id}.png") ?: podcast.imageUrl
+                
                 val entity = DownloadedEpisodeEntity(
                     episodeId = episode.id,
                     podcastId = podcast.id,
                     episodeTitle = episode.title,
                     episodeDescription = episode.description,
-                    episodeImageUrl = episode.imageUrl,
+                    episodeImageUrl = localEpisodeImg,
                     podcastName = podcast.title,
-                    podcastImageUrl = podcast.imageUrl,
+                    podcastImageUrl = localPodcastImg,
                     durationMs = episode.duration * 1000L,
                     publishedDate = episode.publishedDate,
                     localFilePath = "", // Filled when done
@@ -136,6 +178,15 @@ class DownloadRepository(
             false
         )
         CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val existing = database.downloadedEpisodeDao().getDownload(episodeId)
+                if (existing != null) {
+                    deleteLocalFileIfValid(existing.episodeImageUrl)
+                    deleteLocalFileIfValid(existing.podcastImageUrl)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DownloadRepo", "Failed to clean up artwork files for $episodeId", e)
+            }
             database.downloadedEpisodeDao().delete(episodeId)
         }
     }
