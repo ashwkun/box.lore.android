@@ -154,6 +154,11 @@ fun String.cleanImageUrl(): String {
     if (this.isBlank()) return ""
     var cleaned = this.trim()
 
+    // Hardcoded override for The Vergecast low-res feed artwork
+    if (cleaned.contains("dc65bd8c06aac32075dc6102fa4b7057")) {
+        return "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/3b/f7/db/3bf7dbc4-b8cc-3b1f-aab3-d5efdc64b1f1/mza_12861866806353468883.jpeg/600x600bb.jpg"
+    }
+
     // Strip WordPress/Jetpack Photon CDN prefix
     val wpRegex = Regex("^https?://(i\\d+)\\.wp\\.com/", RegexOption.IGNORE_CASE)
     if (wpRegex.containsMatchIn(cleaned)) {
