@@ -33,6 +33,10 @@ class LearnViewModel(
     private val _uiState = MutableStateFlow<LearnUiState>(LearnUiState.Loading)
     val uiState: StateFlow<LearnUiState> = _uiState.asStateFlow()
 
+    private var currentPage = 1
+    private var isLoadingMore = false
+    private var isEndOfContent = false
+
     init {
         loadData()
     }
@@ -51,6 +55,48 @@ class LearnViewModel(
         if (currentState is LearnUiState.Success) {
             val updatedStack = currentState.questionsStack.filterNot { it.episode.id.toString() == episodeId }
             _uiState.value = currentState.copy(questionsStack = updatedStack)
+
+            // Trigger pre-fetching if the card pool runs low (less than 3 cards)
+            if (updatedStack.size < 3) {
+                fetchNextPage()
+            }
+        }
+    }
+
+    private fun fetchNextPage() {
+        if (isLoadingMore || isEndOfContent) return
+        val currentState = _uiState.value as? LearnUiState.Success ?: return
+
+        isLoadingMore = true
+        viewModelScope.launch {
+            try {
+                val nextPage = currentPage + 1
+                val res = podcastRepository.getCuratedCuriosity(page = nextPage, bypassCache = false)
+                if (res != null) {
+                    if (res.questionsStack.isEmpty()) {
+                        isEndOfContent = true
+                    } else {
+                        currentPage = nextPage
+                        val dismissed = getDismissedIds()
+                        val newItems = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
+                        
+                        if (newItems.isNotEmpty()) {
+                            val shuffledNew = weightedShuffle(newItems)
+                            val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
+                            val existingIds = currentStack.map { it.episode.id }.toSet()
+                            val uniqueNew = shuffledNew.filterNot { it.episode.id in existingIds }
+                            
+                            _uiState.value = currentState.copy(
+                                questionsStack = currentStack + uniqueNew
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("LearnViewModel", "Failed to load page ${currentPage + 1}", e)
+            } finally {
+                isLoadingMore = false
+            }
         }
     }
 
@@ -68,8 +114,11 @@ class LearnViewModel(
     fun loadData() {
         viewModelScope.launch {
             _uiState.value = LearnUiState.Loading
+            currentPage = 1
+            isEndOfContent = false
+            isLoadingMore = false
             try {
-                val res = podcastRepository.getCuratedCuriosity(bypassCache = false)
+                val res = podcastRepository.getCuratedCuriosity(page = 1, bypassCache = false)
                 if (res != null) {
                     val dismissed = getDismissedIds()
                     val remaining = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
@@ -91,7 +140,10 @@ class LearnViewModel(
                 _uiState.value = current.copy(isRefreshing = true)
             }
             try {
-                val res = podcastRepository.getCuratedCuriosity(bypassCache = true)
+                currentPage = 1
+                isEndOfContent = false
+                isLoadingMore = false
+                val res = podcastRepository.getCuratedCuriosity(page = 1, bypassCache = true)
                 if (res != null) {
                     val dismissed = getDismissedIds()
                     val remaining = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
