@@ -66,6 +66,8 @@ fun OptimizedImage(
     }
 
     val context = LocalContext.current
+    val density = context.resources.displayMetrics.density
+    val pxWidth = remember(proxyWidth, density) { (proxyWidth * density).toInt() }
     val proxyUrl = remember(url, proxyWidth) { url.optimizedImageUrl(proxyWidth) }
 
     // Check if this url has already failed on the proxy in this app session
@@ -76,11 +78,11 @@ fun OptimizedImage(
     var hasTriedFallback by remember(url) { mutableStateOf(isProxyKnownFailed) }
 
     val painter = rememberAsyncImagePainter(
-        model = remember(currentUrl, proxyWidth) {
+        model = remember(currentUrl, pxWidth) {
             ImageRequest.Builder(context)
                 .data(currentUrl)
-                .size(coil.size.Size(proxyWidth, proxyWidth))
-                .memoryCacheKey("$currentUrl-w$proxyWidth")
+                .size(coil.size.Size(pxWidth, pxWidth))
+                .memoryCacheKey("$currentUrl-w$pxWidth")
                 .allowHardware(true)
                 .crossfade(150)
                 .build()
