@@ -5,9 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.network.model.CuratedCuriosityResponseDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 import cx.aswin.boxcast.core.network.model.DailyCuriosityDto
@@ -36,6 +38,7 @@ class LearnViewModel(
     private var currentPage = 1
     private var isLoadingMore = false
     private var isEndOfContent = false
+    private var fetchJob: Job? = null
 
     init {
         loadData()
@@ -65,30 +68,52 @@ class LearnViewModel(
 
     private fun fetchNextPage() {
         if (isLoadingMore || isEndOfContent) return
-        val currentState = _uiState.value as? LearnUiState.Success ?: return
+        if (_uiState.value !is LearnUiState.Success) return
 
         isLoadingMore = true
-        viewModelScope.launch {
+        fetchJob = viewModelScope.launch {
             try {
-                val nextPage = currentPage + 1
-                val res = podcastRepository.getCuratedCuriosity(page = nextPage, bypassCache = false)
-                if (res != null) {
-                    if (res.questionsStack.isEmpty()) {
-                        isEndOfContent = true
-                    } else {
-                        currentPage = nextPage
-                        val dismissed = getDismissedIds()
-                        val newItems = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
-                        
-                        if (newItems.isNotEmpty()) {
-                            val shuffledNew = weightedShuffle(newItems)
-                            val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
-                            val existingIds = currentStack.map { it.episode.id }.toSet()
-                            val uniqueNew = shuffledNew.filterNot { it.episode.id in existingIds }
+                var pageToFetch = currentPage + 1
+                var accumulatedNew = emptyList<DailyCuriosityDto>()
+                var pageAttempts = 0
+                val maxAttempts = 5 // prevent infinite loop
+
+                while (accumulatedNew.isEmpty() && !isEndOfContent && pageAttempts < maxAttempts) {
+                    pageAttempts++
+                    val res = podcastRepository.getCuratedCuriosity(page = pageToFetch, bypassCache = false)
+                    if (res != null) {
+                        if (res.questionsStack.isEmpty()) {
+                            isEndOfContent = true
+                        } else {
+                            currentPage = pageToFetch
+                            val dismissed = getDismissedIds()
+                            val newItems = res.questionsStack.filterNot { it.episode.id.toString() in dismissed }
                             
-                            _uiState.value = currentState.copy(
-                                questionsStack = currentStack + uniqueNew
-                            )
+                            if (newItems.isNotEmpty()) {
+                                val shuffledNew = weightedShuffle(newItems)
+                                val currentStack = (_uiState.value as? LearnUiState.Success)?.questionsStack ?: emptyList()
+                                val existingIds = currentStack.map { it.episode.id }.toSet()
+                                val uniqueNew = shuffledNew.filterNot { it.episode.id in existingIds }
+                                
+                                if (uniqueNew.isNotEmpty()) {
+                                    accumulatedNew = uniqueNew
+                                }
+                            }
+                            // Advance for the next iteration of the loop if still empty
+                            pageToFetch++
+                        }
+                    } else {
+                        // API failure, break to avoid infinite loop
+                        break
+                    }
+                }
+
+                if (accumulatedNew.isNotEmpty()) {
+                    _uiState.update { state ->
+                        if (state is LearnUiState.Success) {
+                            state.copy(questionsStack = state.questionsStack + accumulatedNew)
+                        } else {
+                            state
                         }
                     }
                 }
@@ -112,7 +137,8 @@ class LearnViewModel(
     }
 
     fun loadData() {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             _uiState.value = LearnUiState.Loading
             currentPage = 1
             isEndOfContent = false
@@ -134,7 +160,8 @@ class LearnViewModel(
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             val current = _uiState.value
             if (current is LearnUiState.Success) {
                 _uiState.value = current.copy(isRefreshing = true)
