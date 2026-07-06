@@ -1,31 +1,37 @@
 <div align="center">
 
-<img src="images/boxlorelogo2.png?v=2" width="250" alt="BoxLore Logo"/>
+<!-- Actual project logo -->
+<img src="images/boxlorelogo2.png?v=2" width="220" alt="BoxLore Logo"/>
 
 ### *The Ultimate Podcast App For Android*
-
 *Built completely with Jetpack Compose featuring a beautiful Material 3 Design.*
-*Download the APK below and start listening!*
 
-[![Download APK](https://img.shields.io/badge/⬇_DOWNLOAD_APK-Latest_Release-00C853?style=for-the-badge&logo=android&logoColor=white&labelColor=1a1a2e)](https://github.com/ashwkun/box.lore.android/releases/latest/download/boxlore-release.apk)
+<br/>
 
-[![GPL v3 License](https://img.shields.io/badge/License-GPLv3-ff0080.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Android](https://img.shields.io/badge/Platform-Android-3DDC84.svg)](https://www.android.com/)
-[![Kotlin](https://img.shields.io/badge/Language-Kotlin-7F52FF.svg)](https://kotlinlang.org/)
-[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Reddit](https://img.shields.io/badge/Connect%20on-Reddit-FF4500.svg?logo=reddit&logoColor=white)](https://www.reddit.com/user/Altruistic_Plenty696)
+<!-- Real, functional download release APK badge -->
+<a href="https://github.com/ashwkun/box.lore.android/releases/latest/download/boxlore-release.apk">
+  <img src="https://img.shields.io/badge/⬇_DOWNLOAD_APK-Latest_Release-2ebbca?style=for-the-badge&logo=android&logoColor=white&labelColor=0f172a" alt="Download APK"/>
+</a>
 
-*Because antigravity is free and I love podcasts* 🎙️
+<br/><br/>
 
----
+<!-- Unified clean tech-stack badges with Simple Icons -->
+<img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android"/>
+<img src="https://img.shields.io/badge/Kotlin-1.9.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin"/>
+<img src="https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose"/>
+<img src="https://img.shields.io/badge/Database-Turso%20%26%20SQLite-00C853?style=flat-square&logo=sqlite&logoColor=white" alt="Turso & SQLite"/>
+<img src="https://img.shields.io/badge/Vector%20Search-Qdrant-FF4500?style=flat-square&logo=qdrant&logoColor=white" alt="Qdrant"/>
+<img src="https://img.shields.io/badge/Telemetry-PostHog-F5C518?style=flat-square&logo=posthog&logoColor=white" alt="PostHog"/>
+<img src="https://img.shields.io/badge/License-GPLv3-ff0080?style=flat-square&logo=github&logoColor=white" alt="License"/>
 
-### 100% built by
+<br/><br/>
 
+<!-- Collaboration credits -->
 <table>
   <tr>
-    <td align="center"><img src="https://raw.githubusercontent.com/ashwkun/BOXBOXBOX-F1/master/screenshots/antigravity_logo.png" width="50" alt="Antigravity"/><br/><sub><b></b></sub></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/ashwkun/BOXBOXBOX-F1/master/screenshots/gemini_logo.png" width="50" alt="Gemini"/><br/><sub><b></b></sub></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/ashwkun/BOXBOXBOX-F1/master/screenshots/claude_logo.png" width="50" alt="Claude"/><br/><sub><b></b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/ashwkun/BOXBOXBOX-F1/master/screenshots/antigravity_logo.png" width="40" alt="Antigravity"/><br/><sub><b>Antigravity</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/ashwkun/BOXBOXBOX-F1/master/screenshots/gemini_logo.png" width="40" alt="Gemini"/><br/><sub><b>Gemini 1.5</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/ashwkun/BOXBOXBOX-F1/master/screenshots/claude_logo.png" width="40" alt="Claude"/><br/><sub><b>Claude 3.5</b></sub></td>
   </tr>
 </table>
 
@@ -33,69 +39,79 @@
 
 ---
 
-## 📱 About
+## 📱 About & Architecture
 
-BoxLore is an open-source podcast companion app designed to bring all your listening needs into a single, beautiful interface.
+BoxLore is a modern, open-source podcast client built from the ground up to showcase Jetpack Compose's full styling and interactive potential.
 
-Tired of clunky audio players, rigid grids, and missing out on trending shows? **BoxLore simplifies it all.**
-
-- **Material 3 Expressive Design System** with custom podcast theming
-- **M3 Dynamic Theming** that extracts colors from album art in real-time
-- **Spring-based motion physics** for natural UI interactions
-- **Variable typography** integration for clean, adaptable reading
-- **Expressive Shapes** for beautiful avatars and backgrounds
-- Buttery smooth gestures and edge-to-edge scaling animations
-- Responsive staggered and mosaic grids that adapt dynamically
+*   **Dynamic Accent Extraction**: Intercepts album cover artwork, resolves visually dominant colors via the Android Palette API, boosts saturation (min 40%), and bounds lightness (25%–55%) for clean, rich ambient gradients.
+*   **Performance Optimizations**: Utilizes deferred rendering of heavy below-the-fold list components during tab slides to preserve a locked 60fps refresh rate on navigation.
+*   **Vector Search & Recommendations**: Combines a local SQLite FTS5 index for fast offline queries with a Qdrant Cloud vector embedding space to serve semantic recommendations.
 
 ---
 
-## ✨ Features
+## ✨ Features and Interface
 
-### 🏠 **Home — Your Podcast Hub**
-- **Hero Carousel**: Spotlight trending podcasts with full-bleed artwork
-- **Curated Time Blocks**: Picks that adapt to your time of day
-- **Your Shows**: New episodes from subscriptions
-- **Resume Playback**: Resume listening instantly
-
-### 🎵 **Player — Beautiful Playback**
-- **Dynamic Theming**: Album art colors are extracted in real-time
-- **Variable Speed**: 0.5× to 3× with pitch correction
-- **Queue & Up Next**: Drag-to-reorder queue
-- **Sleep Timer**: Preset durations with a fade-out
-
-### 🔍 **Explore & Search**
-- **Genre Browsing**: Filter trending charts by category
-- **Hybrid Search**: Local edge database matching + full Podcast Index catalog
-- **Region Support**: Browse charts by localized countries
-
-### 📚 **Library & Offline**
-- **Offline Downloads**: Save episodes with background downloading
-- **Listening History**: Full playback history with resume positions natively synced
-- **Liked Episodes**: Quick-access list of hearted content
-
----
-
-## 📸 Screenshots
-
+<!-- Grid showing real screenshots of the app UI -->
 <div align="center">
-
 <table>
   <tr>
-    <td><img src="images/playart_01.png" width="200" alt="Your Library"/></td>
-    <td><img src="images/playart_02.png" width="200" alt="Minimal Material UI"/></td>
-    <td><img src="images/playart_03.png" width="200" alt="Explore & Discover"/></td>
+    <td align="center"><b>Library & Player</b></td>
+    <td align="center"><b>Curiosity Cards</b></td>
+    <td align="center"><b>Explore Charts</b></td>
   </tr>
-</table>
-
-
-<table>
   <tr>
-    <td><img src="images/playart_04.png" width="200" alt="Home Hub"/></td>
-    <td><img src="images/playart_05.png" width="200" alt="Beautiful Player"/></td>
+    <td><img src="images/playart_01.png" width="220" alt="Your Library"/></td>
+    <td><img src="images/playart_02.png" width="220" alt="Curiosity Deck"/></td>
+    <td><img src="images/playart_03.png" width="220" alt="Explore & Discover"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Home Hub</b></td>
+    <td align="center"><b>Now Playing</b></td>
+    <td align="center"><b>Settings</b></td>
+  </tr>
+  <tr>
+    <td><img src="images/playart_04.png" width="220" alt="Home Hub"/></td>
+    <td><img src="images/playart_05.png" width="220" alt="Beautiful Player"/></td>
+    <td><img src="images/playart_03.png" width="220" alt="Settings & Filters"/></td>
   </tr>
 </table>
-
 </div>
+
+---
+
+## ✨ Feature Grid
+
+| Section | Highlights & Capabilities |
+| :--- | :--- |
+| 🏠 **Home Feed** | **Mixtape Curation**: Dynamic, personalized listening queues.<br>**Deferred Composition**: Ultra-smooth 60fps transitions.<br>**Curated Time Blocks**: Adaptive choices matching the time of day. |
+| 🎵 **Player** | **Dynamic Ambient Glow**: Real-time HSL color extraction from cover art.<br>**Variable Speed**: 0.5x to 3x with pitch correction.<br>**Buffered Wavy Loader**: Circular wavy loader for loading states. |
+| 🔍 **Search & Explore** | **Personalized "For You"**: Interest-based recommendations.<br>**Edge Spelling Checker**: Real-time correction on Cloudflare Edge.<br>**Hybrid Querying**: Fast SQLite + Podcast Index API. |
+| 🎬 **Podcasting 2.0** | **Live Transcripts**: Synced reading with jump-to-time audio seeking.<br>**Seekbar Chapters**: Clickable chapter notches.<br>**16:9 Video Podcasts**: Orientation-locked video layouts. |
+| ⬇️ **Library & Offline** | **Collapsible Downloads**: Organized list, multi-select operations.<br>**Smart Downloads**: Automated background download purging. |
+
+---
+
+## 🛠️ Codebase Structure
+
+<details>
+<summary><b>📦 Core Infrastructure Modules</b></summary>
+<br/>
+
+*   **`:core:data`**: Contains repository layer implementations (`PodcastRepository`, `PlaybackRepository`, `DownloadRepository`) and unified mappers.
+*   **`:core:designsystem`**: The central foundation for themes, typography, custom expressive shapes, and shared UI composables.
+*   **`:core:model`**: Pure Kotlin data classes representing the domain layers (`Episode`, `Podcast`, `Transcript`).
+*   **`:core:network`**: Interacts with the remote Podcast Index API and manages requests to edge proxies.
+</details>
+
+<details>
+<summary><b>🎨 Feature Modules</b></summary>
+<br/>
+
+*   **`:feature:explore`**: Powers the curiosity cards stack and recommendation feeds.
+*   **`:feature:home`**: Builds the mixtape queue page, time-block updates, and dynamic charts.
+*   **`:feature:player`**: Implements the variable-speed audio player, synced text scrolling sheets, and seekbar notch overlays.
+*   **`:feature:info`**: Houses detail pages for episodes and podcast shows.
+</details>
 
 ---
 
@@ -192,12 +208,57 @@ This project is licensed under the **GNU General Public License v3.0** — see t
 
 ---
 
+## 📊 Repository Dashboard
+
+<div align="center">
+
+<!-- Trophies at the top -->
+<img src="https://github-profile-trophy.vercel.app/?username=ashwkun&theme=tokyonight&no-bg=true&no-frame=true&column=7" alt="GitHub Trophies"/>
+
+<br/><br/>
+
+<!-- Stats and Languages side-by-side -->
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://github-readme-stats.vercel.app/api?username=ashwkun&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0f172a&title_color=2ebbca&icon_color=7F52FF&text_color=94a3b8" alt="GitHub Stats" width="95%"/>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=ashwkun&layout=compact&theme=tokyonight&hide_border=true&bg_color=0f172a&title_color=2ebbca&text_color=94a3b8" alt="Top Languages" width="95%"/>
+    </td>
+  </tr>
+</table>
+
+<br/>
+
+<!-- Streak stats under stats -->
+<img src="https://github-readme-streak-stats.herokuapp.com/?user=ashwkun&theme=tokyonight&hide_border=true&background=0f172a&ring=2ebbca&fire=7F52FF&sideNums=94a3b8&sideLabels=94a3b8" alt="GitHub Streak Stats" width="100%"/>
+
+<br/><br/>
+
+<!-- Contribution Activity graph -->
+<img src="https://activity-graph.herokuapp.com/graph?username=ashwkun&bg_color=0f172a&color=94a3b8&line=2ebbca&point=7F52FF&area=true&hide_border=true" alt="Commit Activity Graph" width="100%"/>
+
+</div>
+
+---
+
+## 👥 Contributors
+
+<div align="center">
+  <a href="https://github.com/ashwkun/box.lore.android/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=ashwkun/box.lore.android" alt="Contributors Grid"/>
+  </a>
+</div>
+
+---
+
 <div align="center">
 
 ### Made with ❤️ and ☕ by a Podcast fan
 
 **If you love podcasts and this app, give it a ⭐ on GitHub!**
 
-[⬆ Back to Top](#%EF%B8%8F-boxlore)
+[⬆ Back to Top](#changelog)
 
 </div>
