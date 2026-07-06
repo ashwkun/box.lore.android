@@ -37,6 +37,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavController
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
@@ -275,6 +280,42 @@ fun HomeRoute(
     }
 }
 
+@Composable
+private fun rememberDeferredRenderingState(
+    delayMs: Long = 200L,
+    lifecycleOwner: androidx.lifecycle.LifecycleOwner = LocalLifecycleOwner.current
+): Boolean {
+    var isReady by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        var activeJob: kotlinx.coroutines.Job? = null
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    isReady = false
+                    activeJob?.cancel()
+                    activeJob = MainScope().launch {
+                        kotlinx.coroutines.delay(delayMs)
+                        isReady = true
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    activeJob?.cancel()
+                    isReady = false
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            activeJob?.cancel()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    return isReady
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -339,6 +380,9 @@ fun HomeScreen(
     val scrollState = rememberScrollState()
     var showDebugDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
     var showChangePodcastSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    // Deferred rendering state for heavy below-the-fold content
+    val showHeavyContent = rememberDeferredRenderingState(delayMs = 200L)
     
     // Calculate scroll fraction: 0 = at top (expanded), 1 = scrolled (collapsed)
     val scrollFraction by remember {
@@ -449,7 +493,8 @@ fun HomeScreen(
                             onDismissBriefing = onDismissBriefing,
                             onDismissBriefingForever = onDismissBriefingForever,
                             onFeedbackClick = onFeedbackClick,
-                            scrollState = scrollState
+                            scrollState = scrollState,
+                            showHeavyContent = showHeavyContent
                         )
                     }
         }
@@ -572,6 +617,7 @@ private fun PodcastFeed(
     onChangePodcastClick: () -> Unit = {},
     onFeedbackClick: () -> Unit = {},
     scrollState: ScrollState,
+    showHeavyContent: Boolean,
     modifier: Modifier = Modifier
 ) {
     LogRecomposition(name = "PodcastFeed")
@@ -783,8 +829,17 @@ private fun PodcastFeed(
             )
         }
 
-        // Curated For You Main Header + Sections
-        val hasBecauseYouLike = seemsToLikePodcast != null && (becauseYouLikeRecommendations.list.isNotEmpty() || becauseYouLikePodcasts.list.isNotEmpty())
+        AnimatedVisibility(
+            visible = showHeavyContent,
+            enter = fadeIn(animationSpec = tween(400)),
+            exit = fadeOut(animationSpec = tween(200))
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Curated For You Main Header + Sections
+                val hasBecauseYouLike = seemsToLikePodcast != null && (becauseYouLikeRecommendations.list.isNotEmpty() || becauseYouLikePodcasts.list.isNotEmpty())
         val hasRecommendations = isRecommendationsLoading || recommendations.list.isNotEmpty()
         if (hasBecauseYouLike || hasRecommendations) {
             Column(
@@ -1000,6 +1055,8 @@ private fun PodcastFeed(
                         }
                     }
                 }
+            }
+        }
             }
         }
     }
