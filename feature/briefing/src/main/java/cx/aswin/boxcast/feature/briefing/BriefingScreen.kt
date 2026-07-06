@@ -616,7 +616,7 @@ fun BriefingContent(
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(20.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                    .blur(8.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
                     .alpha(0.55f),
                 contentScale = ContentScale.Crop
             )
