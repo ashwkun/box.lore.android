@@ -2227,6 +2227,7 @@ class MainActivity : ComponentActivity() {
                         BoxLoreNavigationBar(
                             currentRoute = activeTab,
                             onNavigate = { route ->
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackNavTabClicked(route)
                                 // Navigation logic for bottom tabs
                                 // podcast/ and episode/ routes are "detail" screens that can be reached from multiple tabs
                                 

@@ -165,6 +165,7 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxcast.core.designsystem.theme.TrackScreenSession
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Person
 import kotlinx.coroutines.delay
@@ -303,21 +304,10 @@ fun PodcastInfoScreen(
         viewModel.searchEpisodes("") // Optional: Clear search on close? Or keep it? Let's clear for now.
     }
 
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
-                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.trackScreenExit()
-        }
-    }
+    TrackScreenSession(
+        onSessionResume = viewModel::onScreenResume,
+        onSessionExit = viewModel::trackScreenExit
+    )
 
     LaunchedEffect(podcastId) {
         viewModel.loadPodcast(podcastId)
