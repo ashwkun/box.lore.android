@@ -509,21 +509,21 @@ private fun DeckControlsRow(
     }
 }
 
-private fun mapToEpisode(item: cx.aswin.boxcast.core.network.model.EpisodeItem): Episode {
-    return Episode(
-        id = item.id.toString(),
-        title = item.title,
-        description = item.description ?: "",
-        audioUrl = item.enclosureUrl ?: "",
-        imageUrl = item.image ?: item.feedImage,
-        podcastImageUrl = item.feedImage,
-        podcastTitle = item.feedTitle,
-        podcastId = item.feedId?.toString(),
-        duration = item.duration ?: 0,
-        publishedDate = item.datePublished ?: 0L,
-        chaptersUrl = item.chaptersUrl,
-        transcriptUrl = item.transcriptUrl,
-        enclosureType = item.enclosureType
+private fun mapToEpisode(item: cx.aswin.boxcast.core.network.model.EpisodeItem): Episode = item.run {
+    Episode(
+        id = id.toString(),
+        title = title,
+        description = description.orEmpty(),
+        audioUrl = enclosureUrl.orEmpty(),
+        imageUrl = image ?: feedImage ?: "",
+        podcastImageUrl = feedImage,
+        podcastTitle = feedTitle,
+        podcastId = feedId?.toString(),
+        duration = duration ?: 0,
+        publishedDate = datePublished ?: 0L,
+        chaptersUrl = chaptersUrl,
+        transcriptUrl = transcriptUrl,
+        enclosureType = enclosureType
     )
 }
 
