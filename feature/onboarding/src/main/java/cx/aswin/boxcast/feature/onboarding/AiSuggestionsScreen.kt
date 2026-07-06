@@ -482,8 +482,12 @@ internal fun AiSuggestionsScreen(
                                             "fr" to "France"
                                         )
                                         regions.forEach { (code, label) ->
-                                            val isSelected = uiState.currentRegion == code
-                                            Box(
+                                             val isSelected = when (code) {
+                                                 "gb" -> uiState.currentRegion == "gb" || uiState.currentRegion == "uk"
+                                                 "in" -> uiState.currentRegion == "in" || uiState.currentRegion == "ind"
+                                                 else -> uiState.currentRegion == code
+                                             }
+                                             Box(
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .clip(RoundedCornerShape(8.dp))

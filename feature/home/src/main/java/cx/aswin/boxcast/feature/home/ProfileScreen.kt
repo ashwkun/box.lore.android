@@ -726,7 +726,11 @@ fun ContentLibrarySection(
                 "fr" to "France"
             )
             regions.forEach { (code, label) ->
-                val isSelected = currentRegion == code
+                val isSelected = when (code) {
+                    "gb" -> currentRegion == "gb" || currentRegion == "uk"
+                    "in" -> currentRegion == "in" || currentRegion == "ind"
+                    else -> currentRegion == code
+                }
                 Box(
                     modifier = Modifier
                         .weight(1f)
