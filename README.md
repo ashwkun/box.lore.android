@@ -228,7 +228,7 @@ This project is licensed under the **GNU General Public License v3.0** — see t
 <br/><br/>
 
 <!-- Contribution Activity graph -->
-<img src="https://activity-graph.herokuapp.com/graph?username=ashwkun&bg_color=0f172a&color=94a3b8&line=2ebbca&point=7F52FF&area=true&hide_border=true" alt="Commit Activity Graph" width="100%"/>
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=ashwkun&theme=tokyonight&bg_color=0f172a&color=94a3b8&line=2ebbca&point=7F52FF&area=true&hide_border=true" alt="Commit Activity Graph" width="100%"/>
 
 </div>
 
