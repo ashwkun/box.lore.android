@@ -460,7 +460,6 @@ async function main() {
     const filteredPodcasts = allPodcasts.filter(p => {
         if (!p.medium) {
             missingMediumCount++;
-            return true;
         }
 
         const lastSync = syncCache[p.id] || null;
@@ -549,8 +548,8 @@ async function main() {
 
                 const latestEp = episodes[0];
 
-                // OPTIMIZATION: If latest episode unchanged and medium is present, record check to cache and return (0 Turso writes!)
-                if (pod.medium && pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
+                // OPTIMIZATION: If latest episode unchanged, record check to cache and return (0 Turso writes!)
+                if (pod.latestEpId && String(latestEp.id) === String(pod.latestEpId)) {
                     syncCache[pod.id] = Date.now();
                     batchSkipped++;
                     batchUpdated++;
