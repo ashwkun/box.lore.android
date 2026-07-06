@@ -2578,32 +2578,34 @@ class MainActivity : ComponentActivity() {
                     onDismissRequest = {
                         val currentState = opmlImportState
                         if (currentState is OpmlImportState.Success) {
-                            if (currentRoute == "onboarding") {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
-                                    importType = if (currentState.isJson) "json" else "opml",
-                                    importedPodcastCount = currentState.importedCount,
-                                    importedPodcastsList = currentState.importedPodcasts.map { it.title },
-                                    totalOnboardingTimeSeconds = onboardingViewModel.getTotalOnboardingTime(),
-                                    entryPoint = opmlImportSource
-                                )
-                                if (currentState.isJson) {
+                            if (currentState.isJson) {
+                                // For JSON backup restore, mark onboarding completed if we are in onboarding, then recreate the activity to load everything fresh
+                                if (currentRoute == "onboarding") {
                                     onboardingViewModel.markOnboardingCompletedSilent {
-                                        onboardingCompleted = true
-                                        navController.navigate("home") {
-                                            popUpTo("onboarding") { inclusive = true }
-                                        }
+                                        this@MainActivity.recreate()
                                     }
                                 } else {
-                                    onboardingViewModel.generateRecommendationsFromOpml(currentState.importedPodcasts)
+                                    this@MainActivity.recreate()
                                 }
-                            } else if (opmlImportSource == "home_import_banner") {
-                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
-                                    importType = if (currentState.isJson) "json" else "opml",
-                                    importedPodcastCount = currentState.importedCount,
-                                    importedPodcastsList = currentState.importedPodcasts.map { it.title },
-                                    totalOnboardingTimeSeconds = 0f,
-                                    entryPoint = "home_import_banner"
-                                )
+                            } else {
+                                if (currentRoute == "onboarding") {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                        importType = "opml",
+                                        importedPodcastCount = currentState.importedCount,
+                                        importedPodcastsList = currentState.importedPodcasts.map { it.title },
+                                        totalOnboardingTimeSeconds = onboardingViewModel.getTotalOnboardingTime(),
+                                        entryPoint = opmlImportSource
+                                    )
+                                    onboardingViewModel.generateRecommendationsFromOpml(currentState.importedPodcasts)
+                                } else if (opmlImportSource == "home_import_banner") {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackOnboardingImportCompleted(
+                                        importType = "opml",
+                                        importedPodcastCount = currentState.importedCount,
+                                        importedPodcastsList = currentState.importedPodcasts.map { it.title },
+                                        totalOnboardingTimeSeconds = 0f,
+                                        entryPoint = "home_import_banner"
+                                    )
+                                }
                             }
                         }
                         opmlImportState = OpmlImportState.Idle
