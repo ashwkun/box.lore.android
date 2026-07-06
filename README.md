@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- Actual project logo -->
-<img src="images/boxlorelogo2.png?v=2" width="220" alt="BoxLore Logo"/>
+<img src="images/boxlorelogo2.png?v=2" width="220" alt="boxlore Logo"/>
 
 ### *The Ultimate Podcast App For Android*
 *Built completely with Jetpack Compose featuring a beautiful Material 3 Design.*
@@ -38,7 +38,7 @@
 
 ## 📱 About & Architecture
 
-BoxLore is a modern, open-source podcast client built from the ground up to showcase Jetpack Compose's full styling and interactive potential.
+boxlore is a modern, open-source podcast client built from the ground up to showcase Jetpack Compose's full styling and interactive potential.
 
 *   **Dynamic Accent Extraction**: Intercepts album cover artwork, resolves visually dominant colors via the Android Palette API, boosts saturation (min 40%), and bounds lightness (25%–55%) for clean, rich ambient gradients.
 *   **Performance Optimizations**: Utilizes deferred rendering of heavy below-the-fold list components during tab slides to preserve a locked 60fps refresh rate on navigation.

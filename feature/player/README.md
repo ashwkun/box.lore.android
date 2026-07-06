@@ -1,6 +1,6 @@
 # Player Architecture
 
-This document outlines the structure of the Player feature in BoxLore, highlighting how code is shared between the "Bottom Sheet" player and the "Full Screen" player.
+This document outlines the structure of the Player feature in boxlore, highlighting how code is shared between the "Bottom Sheet" player and the "Full Screen" player.
 
 ## Component Hierarchy
 
@@ -8,7 +8,7 @@ The player is built around a **Single Source of Truth** for the UI: `SharedPlaye
 
 ```mermaid
 graph TD
-    App[BoxLoreApp] -->|Includes| UPS[UnifiedPlayerSheet]
+    App[boxloreApp] -->|Includes| UPS[UnifiedPlayerSheet]
     Nav[NavGraph] -->|Navigates to| PS[PlayerScreen]
 
     subgraph "Bottom Sheet Mode"

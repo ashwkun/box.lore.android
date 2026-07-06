@@ -1,4 +1,4 @@
-# Custom Agent Rules for Boxlore Android App
+# Custom Agent Rules for boxlore Android App
 
 - **Global Ruleset Reference**:
   - You must always read, refer to, and strictly follow the global rules defined in `/Users/aswinc/.gemini/config/AGENTS.md` (the "Autonomous Agent Git & QA Ruleset") for all Git, credentials, and development workflows.

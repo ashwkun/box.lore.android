@@ -1,6 +1,6 @@
-# Contributing to BoxLore
+# Contributing to boxlore
 
-Thank you for your interest in contributing to BoxLore! We welcome contributions from everyone.
+Thank you for your interest in contributing to boxlore! We welcome contributions from everyone.
 
 ## Getting Started
 
@@ -27,6 +27,6 @@ The API and proxy backend repository is tracked separately and is private due to
 
 ## Development Setup
 
-See the main [README.md](README.md) for instructions on setting up the BoxLore development environment. 
+See the main [README.md](README.md) for instructions on setting up the boxlore development environment. 
 
-We appreciate your effort in helping improve BoxLore!
+We appreciate your effort in helping improve boxlore!
