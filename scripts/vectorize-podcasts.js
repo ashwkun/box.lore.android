@@ -23,7 +23,7 @@ if (!TURSO_URL || !TURSO_TOKEN || !QDRANT_URL || !QDRANT_API_KEY) {
 // Configuration
 const MODEL_NAME = 'Xenova/bge-large-en-v1.5';
 const COLLECTION_NAME = 'podcasts';
-const MAX_NEW_PODCASTS_PER_RUN = 1000; // Cap to prevent GHA timeouts
+const MAX_NEW_PODCASTS_PER_RUN = Infinity; // Unlimited podcasts per run
 
 // DB Cost Tracking
 let totalRowsRead = 0;
@@ -285,7 +285,7 @@ async function main() {
         console.log(`[SYNC] Filtering candidates for country: ${country}`);
     }
 
-    sql += ` LIMIT 1000`;
+
 
     console.log("[SYNC] Querying Turso for non-vectorized chart podcasts...");
     const res = await executeSQL(sql, args);

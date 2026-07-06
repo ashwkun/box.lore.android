@@ -490,8 +490,8 @@ async function main() {
     });
 
     const limitIndex = process.argv.indexOf('--limit');
-    const limit = limitIndex !== -1 ? parseInt(process.argv[limitIndex + 1]) : 500;
-    const podcasts = filteredPodcasts.slice(0, limit);
+    const limit = limitIndex !== -1 ? parseInt(process.argv[limitIndex + 1]) : Infinity;
+    const podcasts = limit === Infinity ? filteredPodcasts : filteredPodcasts.slice(0, limit);
 
     console.log(`\n=== Detailed Sync Plan ===`);
     console.log(`Total Chart Shows:             ${allPodcasts.length}`);
