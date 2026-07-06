@@ -437,6 +437,7 @@ fun ExploreContent(
                                 ExploreEpisodeHeroCard(
                                     episode = heroEp,
                                     isFallback = isRecommendationsFallback,
+                                    labelText = "FEATURED RESULT",
                                     onClick = {
                                         cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                             episodeId = heroEp.id,
@@ -1479,6 +1480,7 @@ fun ExploreVibeChip(
 fun ExploreEpisodeHeroCard(
     episode: Episode,
     isFallback: Boolean = true,
+    labelText: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1533,7 +1535,7 @@ fun ExploreEpisodeHeroCard(
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
-                    text = if (isFallback) "POPULAR IN YOUR REGION" else "FEATURED RECOMMENDATION",
+                    text = labelText ?: (if (isFallback) "POPULAR IN YOUR REGION" else "FEATURED RECOMMENDATION"),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 9.sp,
