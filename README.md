@@ -32,6 +32,17 @@
 <img src="https://img.shields.io/github/commit-activity/m/ashwkun/box.lore.android?style=flat-square&logo=github&logoColor=white&color=2ebbca" alt="Monthly Activity"/>
 <img src="https://img.shields.io/github/languages/code-size/ashwkun/box.lore.android?style=flat-square&color=7F52FF" alt="Code Size"/>
 
+<br/>
+
+<!-- Pipeline status badges -->
+<a href="https://github.com/ashwkun/box.lore.android/actions/workflows/sync-pi-data.yml">
+  <img src="https://github.com/ashwkun/box.lore.android/actions/workflows/sync-pi-data.yml/badge.svg" alt="Sync Podcast Index Data"/>
+</a>
+&nbsp;
+<a href="https://github.com/ashwkun/box.lore.android/actions/workflows/new-episode-check.yml">
+  <img src="https://github.com/ashwkun/box.lore.android/actions/workflows/new-episode-check.yml/badge.svg" alt="Check New Episodes"/>
+</a>
+
 </div>
 
 ---
