@@ -49,7 +49,9 @@ module.exports = {
     CATEGORIES,
 
     // --- Vectorization ---
-    EMBED_MODEL: 'Xenova/bge-large-en-v1.5',
+    // bge-m3: multilingual, 1024-dim, no query instruction prefix needed.
+    // Runtime queries use @cf/baai/bge-m3 on Workers AI (must stay in sync).
+    EMBED_MODEL: 'Xenova/bge-m3',
     EPISODES_COLLECTION: 'episodes',
     PODCASTS_COLLECTION: 'podcasts',
     VECTOR_DIM: 1024,

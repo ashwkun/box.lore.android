@@ -3,8 +3,20 @@
 
 /**
  * One-time (idempotent) Qdrant remediation for the overfill caused by the
- * uncapped vectorization window:
+ * uncapped vectorization window.
  *
+ * Two modes:
+ *
+ * --drop-rebuild (nuclear, also enables an embedding model switch):
+ *   1. DROP both collections (episodes + podcasts).
+ *   2. Recreate them fresh with int8 quantization + on-disk originals.
+ *   3. Reset all qdrant_vectorized / qdrant_podcast_vectorized flags in Turso.
+ *   The regular pipeline then refills gradually under its per-run embedding
+ *   budget (oldest-synced shows first) - no separate backfill job needed.
+ *   Required when the cluster is out of disk: point deletes need WAL space,
+ *   but a collection DROP frees the segment files directly.
+ *
+ * default (surgical trim):
  *   1. Measure current collection state.
  *   2. Delete episode points belonging to non-chart shows.
  *   3. Trim every chart show to its latest EPISODES_PER_SHOW episode points.
@@ -14,7 +26,7 @@
  *   6. Enable int8 scalar quantization + on-disk originals (skippable).
  *
  * Usage:
- *   node scripts/sync/remediate-qdrant.js [--dry-run] [--skip-quantization]
+ *   node scripts/sync/remediate-qdrant.js [--drop-rebuild] [--dry-run] [--skip-quantization]
  */
 
 const log = require('./lib/log');
@@ -24,13 +36,89 @@ const cfg = require('./lib/config');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const SKIP_QUANTIZATION = process.argv.includes('--skip-quantization');
+const DROP_REBUILD = process.argv.includes('--drop-rebuild');
 
 const DELETE_CHUNK = 500;
+
+async function dropRebuild() {
+    log.banner('Qdrant Drop & Rebuild', {
+        'Mode': DRY_RUN ? 'DRY RUN (no writes)' : 'LIVE',
+        'Collections': `${cfg.EPISODES_COLLECTION}, ${cfg.PODCASTS_COLLECTION}`,
+        'New model': cfg.EMBED_MODEL,
+        'Vector dim': String(cfg.VECTOR_DIM),
+        'Quantization': 'int8 scalar + on-disk originals (at creation)',
+    });
+
+    log.group('Step 1: Current state');
+    for (const coll of [cfg.EPISODES_COLLECTION, cfg.PODCASTS_COLLECTION]) {
+        const info = await qdrant.collectionInfo(coll);
+        log.info(info
+            ? `${coll}: ${log.fmt(info.pointsCount)} points, status=${info.status}`
+            : `${coll}: does not exist`);
+    }
+    log.endGroup();
+
+    log.group('Step 2: Drop collections');
+    if (DRY_RUN) {
+        log.info('Dry run - would DROP both collections');
+    } else {
+        await qdrant.dropCollection(cfg.EPISODES_COLLECTION);
+        log.info(`Dropped '${cfg.EPISODES_COLLECTION}'`);
+        await qdrant.dropCollection(cfg.PODCASTS_COLLECTION);
+        log.info(`Dropped '${cfg.PODCASTS_COLLECTION}'`);
+    }
+    log.endGroup();
+
+    log.group('Step 3: Recreate with quantization');
+    if (DRY_RUN) {
+        log.info('Dry run - would recreate both collections (int8 quantized, on-disk originals)');
+    } else {
+        await qdrant.ensureCollection(cfg.EPISODES_COLLECTION, cfg.VECTOR_DIM);
+        await qdrant.ensureCollection(cfg.PODCASTS_COLLECTION, cfg.VECTOR_DIM);
+        log.info('Both collections recreated empty');
+    }
+    log.endGroup();
+
+    log.group('Step 4: Reset vectorization flags in Turso');
+    await turso.healthCheck();
+    if (DRY_RUN) {
+        const res = await turso.execute(
+            'SELECT COUNT(*) FROM podcasts WHERE qdrant_vectorized = 1 OR qdrant_podcast_vectorized = 1'
+        );
+        log.info(`Dry run - would reset flags on ${log.fmt(parseInt(turso.scalar(res), 10) || 0)} shows`);
+    } else {
+        await turso.execute('UPDATE podcasts SET qdrant_vectorized = 0 WHERE qdrant_vectorized = 1');
+        await turso.execute('UPDATE podcasts SET qdrant_podcast_vectorized = 0 WHERE qdrant_podcast_vectorized = 1');
+        log.info('All shows queued for re-vectorization');
+    }
+    log.endGroup();
+
+    const stats = turso.getStats();
+    log.costFooter('Drop & Rebuild', {
+        reads: stats.reads,
+        writes: stats.writes,
+        detail: DRY_RUN
+            ? 'dry run - nothing changed'
+            : `Pipeline refills at ${log.fmt(cfg.MAX_EMBEDDINGS_PER_RUN)} embeddings/run across the 5 daily runs`,
+    });
+    log.summaryTable('Qdrant Drop & Rebuild', [{
+        stage: 'drop-rebuild',
+        reads: stats.reads,
+        writes: stats.writes,
+        detail: DRY_RUN ? 'dry run' : `collections recreated (${cfg.EMBED_MODEL}); gradual refill from next sync run`,
+    }]);
+}
 
 async function main() {
     turso.assertEnv();
     qdrant.assertEnv();
     turso.beginStep('remediate-qdrant');
+
+    if (DROP_REBUILD) {
+        await dropRebuild();
+        return;
+    }
+
     log.banner('Qdrant Remediation', {
         'Mode': DRY_RUN ? 'DRY RUN (no writes)' : 'LIVE',
         'Episodes per show': String(cfg.EPISODES_PER_SHOW),

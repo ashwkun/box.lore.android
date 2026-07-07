@@ -84,12 +84,22 @@ async function collectionInfo(collection) {
 async function ensureCollection(collection, dim) {
     const info = await collectionInfo(collection);
     if (info) return info;
-    log.info(`[QDRANT] Creating collection '${collection}' (dim=${dim})`);
+    log.info(`[QDRANT] Creating collection '${collection}' (dim=${dim}, int8 quantized, on-disk originals)`);
     await request(`/collections/${collection}`, {
         method: 'PUT',
-        body: JSON.stringify({ vectors: { size: dim, distance: 'Cosine' } }),
+        body: JSON.stringify({
+            vectors: { size: dim, distance: 'Cosine', on_disk: true },
+            quantization_config: {
+                scalar: { type: 'int8', quantile: 0.99, always_ram: true },
+            },
+        }),
     });
     return collectionInfo(collection);
+}
+
+/** Drop a collection entirely (no-op if it doesn't exist). */
+async function dropCollection(collection) {
+    await request(`/collections/${collection}`, { method: 'DELETE' });
 }
 
 /** Which of these point ids exist? Returns Set of string ids. */
@@ -168,6 +178,6 @@ async function enableQuantization(collection) {
 }
 
 module.exports = {
-    assertEnv, stableUUID, request, collectionInfo, ensureCollection,
+    assertEnv, stableUUID, request, collectionInfo, ensureCollection, dropCollection,
     existingIds, upsert, deleteByIds, deleteByFilter, scrollAll, enableQuantization,
 };

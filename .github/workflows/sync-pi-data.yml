@@ -14,7 +14,7 @@ on:
         description: 'What to run'
         type: choice
         default: sync
-        options: [sync, remediate-qdrant, remediate-qdrant-dry-run]
+        options: [sync, remediate-qdrant, remediate-qdrant-dry-run, drop-rebuild-qdrant]
       embedding_budget:
         description: 'Override MAX_EMBEDDINGS_PER_RUN (sync only)'
         required: false
@@ -198,7 +198,7 @@ jobs:
           exit 1
 
   remediate-qdrant:
-    if: github.event_name == 'workflow_dispatch' && startsWith(inputs.job, 'remediate-qdrant')
+    if: github.event_name == 'workflow_dispatch' && (startsWith(inputs.job, 'remediate-qdrant') || inputs.job == 'drop-rebuild-qdrant')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -220,6 +220,8 @@ jobs:
         run: |
           if [ "${{ inputs.job }}" = "remediate-qdrant-dry-run" ]; then
             node scripts/sync/remediate-qdrant.js --dry-run
+          elif [ "${{ inputs.job }}" = "drop-rebuild-qdrant" ]; then
+            node scripts/sync/remediate-qdrant.js --drop-rebuild
           else
             node scripts/sync/remediate-qdrant.js
           fi
