@@ -33,7 +33,7 @@ Every podcast app I've used feels the same. They call an open API, do word-for-w
 
 Spotify and Pocket Casts do personalize, but you're paying with ads or a subscription — and Spotify's podcast UI is rough.
 
-**boxlore** is my attempt at a smarter podcast app. It learns as you listen: natural-language search, personalized picks, and discovery that goes beyond typing a show title. Switching apps? **OPML import** brings your subscriptions over in minutes. No ads, no paywall for the stuff that matters.
+**boxlore** is my attempt at a smarter podcast app. It learns as you listen: natural-language search, personalized picks, and discovery that goes beyond typing a show title. No ads, no paywall for the stuff that matters.
 
 The smart layer runs on a search index that is rebuilt daily and covers popular chart podcasts — not every podcast on earth yet. It evolves every day and gets bigger. Recommendations and semantic search work best within that catalog; everything else still works as a normal podcast client.
 
@@ -55,9 +55,7 @@ On the Learn tab, swipe through question cards that point you at episodes you mi
 
 ### OPML import & export
 
-Leave Pocket Casts, Apple Podcasts, AntennaPod, or any app that exports OPML without rebuilding your library from scratch. On first launch, tap **Import library** and pick your `.opml` file — boxlore resolves each feed, subscribes your shows, and optionally marks back catalog as completed so your feed stays focused on new episodes. After import you get **similar-show recommendations** based on what you brought over.
 
-OPML export is in **Profile → Backup & Restore** when you want to move on or keep a portable copy of your subscriptions. JSON backup is there too if you need full restore (history, likes, and settings).
 
 ### No ads, forever
 
@@ -69,15 +67,17 @@ No banner ads, no sponsored inserts, no premium tier to unlock search or recomme
 
 First launch gives you a few ways in — pick what fits how you already listen.
 
-### New to podcast apps, or want a fresh start
+### New to podcasts? Let us help you find your taste.
 
-**AI onboarding** is the default path. A short chat about how you listen (story-driven, deep dives, casual interviews, background comfort, or your own words). boxlore turns that into semantic search queries, pulls matching shows from the index, and builds a personalized feed of podcasts to follow. You pick what to subscribe to before entering the app.
+**AI onboarding** is the default path. A short chat with our AI about your preferences in natural language or via suggested options is all it takes, boxlore turns that into semantic search queries, pulls matching shows from the index, and builds a personalized feed of podcasts to follow. You pick what to subscribe to before entering the app. 
 
-### Switching from another podcast app
+### Switching from another podcast app?
 
-Export OPML from your current app → **Import library** on the welcome screen (or **Profile → Backup & Restore** anytime) → **Other App Backup (.opml)**. See [OPML import & export](#opml-import--export) above for what happens next.
+Switch to boxlore from Pocket Casts, Apple Podcasts, AntennaPod, or any app that exports OPML without rebuilding your library from scratch. On first launch, tap **Import library** and pick your `.opml` file — we will resolve each feed, subscribes your shows, and optionally marks back catalog as completed so your feed stays focused on new episodes. After import you get **similar-show recommendations** based on what you brought over.
 
-### Already know what you follow
+OPML export is in **Profile → Backup & Restore** when you want to move on or keep a portable copy of your subscriptions. JSON backup is there too if you need full restore (history, likes, and settings).
+
+### Already know what you follow?
 
 **I know my shows** opens search during setup — subscribe manually, get similar-show suggestions if you want them, or **Skip Setup** and explore on your own.
 
