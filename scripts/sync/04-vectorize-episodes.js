@@ -35,7 +35,7 @@ async function main() {
     turso.beginStep('vectorize-episodes');
     await turso.healthCheck();
     await ensureIndexes();
-    await qdrant.ensureCollection(cfg.EPISODES_COLLECTION, cfg.VECTOR_DIM);
+    await qdrant.ensureEpisodesCollection(cfg.VECTOR_DIM, cfg.EPISODES_COLLECTION);
 
     if (cfg.FULL_TIER_COUNTRIES.length === 0) {
         log.info('No full-tier countries configured - nothing to vectorize');

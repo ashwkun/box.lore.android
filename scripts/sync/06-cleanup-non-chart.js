@@ -29,6 +29,7 @@ async function main() {
     qdrant.assertEnv();
     turso.beginStep('cleanup-non-chart');
     await turso.healthCheck();
+    await qdrant.ensurePayloadIndex(cfg.EPISODES_COLLECTION, 'podcast_id', 'integer');
 
     log.banner('Stage 6 · Cleanup Non-chart Shows', {
         'Grace period': `${cfg.CLEANUP_GRACE_DAYS} days`,

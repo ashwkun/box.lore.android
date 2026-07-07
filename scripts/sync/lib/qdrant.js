@@ -97,6 +97,38 @@ async function ensureCollection(collection, dim) {
     return collectionInfo(collection);
 }
 
+/** Payload schema map from collection info, or null if the collection is missing. */
+async function payloadSchema(collection) {
+    try {
+        const res = await request(`/collections/${collection}`);
+        return res.result?.payload_schema ?? {};
+    } catch (e) {
+        if (e.message.includes('404')) return null;
+        throw e;
+    }
+}
+
+/**
+ * Create a payload index when missing. Required before filter deletes on
+ * payload fields (e.g. podcast_id match).
+ */
+async function ensurePayloadIndex(collection, fieldName, fieldSchema) {
+    const schema = await payloadSchema(collection);
+    if (!schema) return;
+    if (schema[fieldName]) return;
+    log.info(`[QDRANT] Creating payload index '${fieldName}' on '${collection}'`);
+    await request(`/collections/${collection}/index?wait=true`, {
+        method: 'PUT',
+        body: JSON.stringify({ field_name: fieldName, field_schema: fieldSchema }),
+    });
+}
+
+/** Episodes collection plus indexes needed for prune/delete-by-show filters. */
+async function ensureEpisodesCollection(dim, collection = 'episodes') {
+    await ensureCollection(collection, dim);
+    await ensurePayloadIndex(collection, 'podcast_id', 'integer');
+}
+
 /** Drop a collection entirely (no-op if it doesn't exist). */
 async function dropCollection(collection) {
     await request(`/collections/${collection}`, { method: 'DELETE' });
@@ -179,5 +211,6 @@ async function enableQuantization(collection) {
 
 module.exports = {
     assertEnv, stableUUID, request, collectionInfo, ensureCollection, dropCollection,
+    payloadSchema, ensurePayloadIndex, ensureEpisodesCollection,
     existingIds, upsert, deleteByIds, deleteByFilter, scrollAll, enableQuantization,
 };

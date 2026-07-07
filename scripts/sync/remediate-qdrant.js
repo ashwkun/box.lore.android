@@ -73,7 +73,7 @@ async function dropRebuild() {
     if (DRY_RUN) {
         log.info('Dry run - would recreate both collections (int8 quantized, on-disk originals)');
     } else {
-        await qdrant.ensureCollection(cfg.EPISODES_COLLECTION, cfg.VECTOR_DIM);
+        await qdrant.ensureEpisodesCollection(cfg.VECTOR_DIM, cfg.EPISODES_COLLECTION);
         await qdrant.ensureCollection(cfg.PODCASTS_COLLECTION, cfg.VECTOR_DIM);
         log.info('Both collections recreated empty');
     }
@@ -138,6 +138,8 @@ async function main() {
         log.info(`podcasts collection: ${log.fmt(beforePodcasts.pointsCount)} points, status=${beforePodcasts.status}`);
     }
     log.endGroup();
+
+    await qdrant.ensurePayloadIndex(cfg.EPISODES_COLLECTION, 'podcast_id', 'integer');
 
     // ---------------------------------------------------------------
     log.group('Step 2: Load chart shows from Turso');
