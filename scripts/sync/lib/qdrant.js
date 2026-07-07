@@ -123,10 +123,18 @@ async function ensurePayloadIndex(collection, fieldName, fieldSchema) {
     });
 }
 
-/** Episodes collection plus indexes needed for prune/delete-by-show filters. */
+/** Episodes collection plus indexes required by proxy query filters (strict mode). */
 async function ensureEpisodesCollection(dim, collection = 'episodes') {
     await ensureCollection(collection, dim);
     await ensurePayloadIndex(collection, 'podcast_id', 'integer');
+    await ensurePayloadIndex(collection, 'language', 'keyword');
+}
+
+/** Podcasts collection plus indexes required by because-you-like / onboarding filters. */
+async function ensurePodcastsCollection(dim, collection = 'podcasts') {
+    await ensureCollection(collection, dim);
+    await ensurePayloadIndex(collection, 'id', 'integer');
+    await ensurePayloadIndex(collection, 'language', 'keyword');
 }
 
 /** Drop a collection entirely (no-op if it doesn't exist). */
@@ -211,6 +219,6 @@ async function enableQuantization(collection) {
 
 module.exports = {
     assertEnv, stableUUID, request, collectionInfo, ensureCollection, dropCollection,
-    payloadSchema, ensurePayloadIndex, ensureEpisodesCollection,
+    payloadSchema, ensurePayloadIndex, ensureEpisodesCollection, ensurePodcastsCollection,
     existingIds, upsert, deleteByIds, deleteByFilter, scrollAll, enableQuantization,
 };

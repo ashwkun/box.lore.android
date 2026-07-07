@@ -74,7 +74,7 @@ async function dropRebuild() {
         log.info('Dry run - would recreate both collections (int8 quantized, on-disk originals)');
     } else {
         await qdrant.ensureEpisodesCollection(cfg.VECTOR_DIM, cfg.EPISODES_COLLECTION);
-        await qdrant.ensureCollection(cfg.PODCASTS_COLLECTION, cfg.VECTOR_DIM);
+        await qdrant.ensurePodcastsCollection(cfg.VECTOR_DIM, cfg.PODCASTS_COLLECTION);
         log.info('Both collections recreated empty');
     }
     log.endGroup();
