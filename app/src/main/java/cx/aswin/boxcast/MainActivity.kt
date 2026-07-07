@@ -1289,13 +1289,17 @@ class MainActivity : ComponentActivity() {
                             }
 
                             composable("learn") {
+                                val learnHistoryStore = remember {
+                                    cx.aswin.boxcast.feature.explore.LearnCuriosityHistoryStore(application)
+                                }
                                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.explore.LearnViewModel>(
                                     factory = object : androidx.lifecycle.ViewModelProvider.Factory {
                                         @Suppress("UNCHECKED_CAST")
                                         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                                             return cx.aswin.boxcast.feature.explore.LearnViewModel(
                                                 podcastRepository = podcastRepository,
-                                                application = application
+                                                application = application,
+                                                historyStore = learnHistoryStore
                                             ) as T
                                         }
                                     }
@@ -1304,6 +1308,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel = viewModel,
                                     playbackRepository = playbackRepository,
                                     bottomContentPadding = miniPlayerPadding,
+                                    onNavigateToHistory = {
+                                        navController.navigate("learn/history")
+                                    },
                                     onEpisodeClick = { episode ->
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         val route = "episode/${episode.id}/${encode(episode.title)}/" +
@@ -1326,6 +1333,38 @@ class MainActivity : ComponentActivity() {
                                     onPodcastClick = { feedId, itunesId, feedUrl, title ->
                                         val pId = feedId?.toString() ?: ""
                                         navController.navigate("podcast/$pId?entryPoint=learn")
+                                    }
+                                )
+                            }
+
+                            composable("learn/history") {
+                                val learnHistoryStore = remember {
+                                    cx.aswin.boxcast.feature.explore.LearnCuriosityHistoryStore(application)
+                                }
+                                val historyViewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxcast.feature.explore.LearnHistoryViewModel>(
+                                    factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                                        @Suppress("UNCHECKED_CAST")
+                                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                                            return cx.aswin.boxcast.feature.explore.LearnHistoryViewModel(
+                                                application = application,
+                                                historyStore = learnHistoryStore
+                                            ) as T
+                                        }
+                                    }
+                                )
+                                cx.aswin.boxcast.feature.explore.LearnHistoryScreen(
+                                    viewModel = historyViewModel,
+                                    bottomContentPadding = miniPlayerPadding,
+                                    onBack = { navController.popBackStack() },
+                                    onEpisodeClick = { episode ->
+                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        val route = "episode/${episode.id}/${encode(episode.title)}/" +
+                                            "${encode(episode.description.take(500))}/" +
+                                            "${encode(episode.imageUrl)}/" +
+                                            "${encode(episode.audioUrl)}/" +
+                                            "${episode.duration}/${encode(episode.podcastId ?: "learn")}/" +
+                                            "${encode(episode.podcastTitle ?: "Podcast")}?entryPoint=learn_history"
+                                        navController.navigate(route)
                                     }
                                 )
                             }

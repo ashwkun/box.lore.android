@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -105,6 +106,7 @@ fun LearnScreen(
     onEpisodeClick: (Episode) -> Unit,
     onQueueEpisode: (Episode) -> Unit,
     onPodcastClick: (feedId: Long?, itunesId: Long?, feedUrl: String, title: String) -> Unit,
+    onNavigateToHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -260,13 +262,13 @@ fun LearnScreen(
                                 "dismiss" -> {
                                     viewModel.trackCardDismissed()
                                     trackLearnCardAction("dismiss", mappedEpisode)
-                                    viewModel.dismissCuriosity(mappedEpisode.id)
+                                    viewModel.dismissCuriosity(daily, LearnHistoryAction.DISMISS)
                                 }
                                 "queue" -> {
                                     viewModel.trackCardQueued()
                                     trackLearnCardAction("queue", mappedEpisode)
                                     onQueueEpisode(mappedEpisode)
-                                    viewModel.dismissCuriosity(mappedEpisode.id)
+                                    viewModel.dismissCuriosity(daily, LearnHistoryAction.QUEUE)
                                 }
                                 "info" -> {
                                     viewModel.trackInfoClicked()
@@ -316,14 +318,32 @@ fun LearnScreen(
                                 .padding(bottom = bottomContentPaddingCalculated),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // 1. Centered brand logo at the top of the page (Sized at 32.dp to save vertical space)
+                            // 1. Brand logo with history action
                             Spacer(modifier = Modifier.height(8.dp))
-                            Image(
-                                painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
-                                contentDescription = "Lore",
-                                colorFilter = ColorFilter.tint(animatedAccentColor),
-                                modifier = Modifier.height(32.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
+                                    contentDescription = "Lore",
+                                    colorFilter = ColorFilter.tint(animatedAccentColor),
+                                    modifier = Modifier
+                                        .height(32.dp)
+                                        .align(Alignment.Center)
+                                )
+                                IconButton(
+                                    onClick = onNavigateToHistory,
+                                    modifier = Modifier.align(Alignment.CenterEnd)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.History,
+                                        contentDescription = "Card history",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
 
                             // 2. Top flexible spacer (absorbs 50% of the dynamic vertical margin)
                             Spacer(modifier = Modifier.weight(1f))

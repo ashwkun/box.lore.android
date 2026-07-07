@@ -1876,7 +1876,10 @@ mixtapePodcasts = cachedMix
 
     fun clearDismissedCuriosities() {
         val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
-        prefs.edit().remove("dismissed_curiosities").apply()
+        prefs.edit()
+            .remove("dismissed_curiosities")
+            .remove("learn_curiosity_history")
+            .apply()
     }
     
     private suspend fun resolveFavoritePodcast(

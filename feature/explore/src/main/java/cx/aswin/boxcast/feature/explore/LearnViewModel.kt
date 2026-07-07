@@ -28,10 +28,10 @@ sealed interface LearnUiState {
 
 class LearnViewModel(
     private val podcastRepository: PodcastRepository,
-    application: Application
+    application: Application,
+    private val historyStore: LearnCuriosityHistoryStore = LearnCuriosityHistoryStore(application)
 ) : AndroidViewModel(application) {
 
-    private val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
     private val _uiState = MutableStateFlow<LearnUiState>(LearnUiState.Loading)
     val uiState: StateFlow<LearnUiState> = _uiState.asStateFlow()
 
@@ -45,6 +45,7 @@ class LearnViewModel(
     private var infosClickedCount = 0
 
     fun onScreenResume() {
+        applyPendingRestores()
         if (hasTrackedExit) {
             sessionStartTime = System.currentTimeMillis()
             hasTrackedExit = false
@@ -54,6 +55,19 @@ class LearnViewModel(
             podcastsClickedCount = 0
             infosClickedCount = 0
         }
+    }
+
+    private fun applyPendingRestores() {
+        val restored = historyStore.consumePendingRestores()
+        if (restored.isEmpty()) return
+
+        val currentState = _uiState.value
+        if (currentState !is LearnUiState.Success) return
+
+        val restoredCards = restored.map { it.toDailyCuriosityDto() }
+        val restoredIds = restoredCards.map { it.episode.id }.toSet()
+        val merged = restoredCards + currentState.questionsStack.filterNot { it.episode.id in restoredIds }
+        _uiState.value = currentState.copy(questionsStack = merged)
     }
 
     fun trackScreenExit() {
@@ -99,22 +113,17 @@ class LearnViewModel(
         loadData()
     }
 
-    private fun getDismissedIds(): Set<String> {
-        return prefs.getStringSet("dismissed_curiosities", emptySet()) ?: emptySet()
-    }
+    private fun getDismissedIds(): Set<String> = historyStore.getDismissedIds()
 
-    fun dismissCuriosity(episodeId: String) {
-        val currentSet = getDismissedIds().toMutableSet()
-        currentSet.add(episodeId)
-        prefs.edit().putStringSet("dismissed_curiosities", currentSet).apply()
+    fun dismissCuriosity(daily: DailyCuriosityDto, action: LearnHistoryAction) {
+        val episodeId = daily.episode.id.toString()
+        historyStore.recordDismissal(daily, action)
 
-        // Update the state with the pruned stack
         val currentState = _uiState.value
         if (currentState is LearnUiState.Success) {
             val updatedStack = currentState.questionsStack.filterNot { it.episode.id.toString() == episodeId }
             _uiState.value = currentState.copy(questionsStack = updatedStack)
 
-            // Trigger pre-fetching if the card pool runs low (less than 3 cards)
             if (updatedStack.size < 3) {
                 fetchNextPage()
             }
