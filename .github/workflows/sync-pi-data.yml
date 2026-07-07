@@ -2,47 +2,58 @@ name: Sync Podcast Index Data
 
 on:
   schedule:
-    # Optimized triggers for fresh morning news across key timezones (5x/day)
-    - cron: '0 0 * * *'   # 00:00 UTC → India morning (5:30 AM IST)
-    - cron: '0 5 * * *'   # 05:00 UTC → UK/Europe morning (6:00 AM BST)
-    - cron: '0 11 * * *'  # 11:00 UTC → US East morning (7:00 AM EDT)
-    - cron: '0 14 * * *'  # 14:00 UTC → US West morning (7:00 AM PDT)
-    - cron: '0 20 * * *'  # 20:00 UTC → Overnight refresh for next-day Asia/India
-  workflow_dispatch: # Allow manual trigger
+    # Fresh morning content across key timezones (5x/day)
+    - cron: '0 0 * * *'   # 00:00 UTC - India morning + daily charts refresh
+    - cron: '0 5 * * *'   # 05:00 UTC - UK/Europe morning
+    - cron: '0 11 * * *'  # 11:00 UTC - US East morning
+    - cron: '0 14 * * *'  # 14:00 UTC - US West morning
+    - cron: '0 20 * * *'  # 20:00 UTC - overnight refresh + cleanup job
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'What to run'
+        type: choice
+        default: sync
+        options: [sync, remediate-qdrant, remediate-qdrant-dry-run]
+      embedding_budget:
+        description: 'Override MAX_EMBEDDINGS_PER_RUN (sync only)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
+# Queue runs instead of cancelling half-done vector batches.
+concurrency:
+  group: sync-pi-data
+  cancel-in-progress: false
+
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  TURSO_URL: ${{ secrets.TURSO_URL }}
+  TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+  QDRANT_URL: ${{ secrets.QDRANT_URL }}
+  QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+  PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
+  PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
 
 jobs:
-  sync-pi-data:
+  sync:
+    if: github.event_name == 'schedule' || inputs.job == 'sync'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    concurrency:
-      group: sync-pi-data-${{ matrix.country }}-${{ github.ref }}
-      cancel-in-progress: true
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        country: [us, in, gb, fr]
-    
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: master
-          token: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
 
-      - name: Cache Transformers Models
+      - name: Cache embedding model
         uses: actions/cache@v4
         with:
           path: ./.cache
@@ -51,170 +62,106 @@ jobs:
             transformers-cache-
 
       - name: Install dependencies
-        run: |
-          echo "[WORKFLOW] Pre-installing standard dependencies..."
-          npm install
+        run: npm install
 
-      - name: Populate Charts Table
+      - name: 'Stage 1: Refresh charts (daily at 00:00 + manual)'
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: |
-          echo "[WORKFLOW] Populating Apple charts for country ${{ matrix.country }}..."
-          node scripts/populate-charts.js --country ${{ matrix.country }}
+        run: node scripts/sync/01-refresh-charts.js
 
-      - name: Run Pre-check Sync
+      - name: 'Stage 2a: Pre-check missing shows'
         id: precheck
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: node scripts/pre-check-sync.js --country ${{ matrix.country }}
+        run: node scripts/sync/02-import-podcasts.js --precheck
 
-      - name: Download Podcast Index Database
-        if: steps.precheck.outputs.skip_download != 'true'
+      - name: 'Stage 2b: Download PI dump (only when many shows are missing)'
+        if: steps.precheck.outputs.need_dump == 'true'
         run: |
-          echo "Downloading PI database dump..."
-          curl -L -f -A "BoxLore/1.0 (github.com/ashwkun/box.lore.android)" -o podcastindex_feeds.db.tgz https://public.podcastindex.org/podcastindex_feeds.db.tgz
-          echo "Extracting..."
+          echo "Missing ${{ steps.precheck.outputs.missing_count }} shows - downloading PI dump"
+          curl -L -f -A "BoxLore/1.0 (github.com/ashwkun/box.lore.android)" \
+            -o podcastindex_feeds.db.tgz https://public.podcastindex.org/podcastindex_feeds.db.tgz
           tar -xzf podcastindex_feeds.db.tgz
-          ls -la *.db
-          
-      - name: Inspect PI dump schema
-        if: steps.precheck.outputs.skip_download != 'true'
+
+      - name: 'Stage 2c: Export missing shows from dump'
+        if: steps.precheck.outputs.need_dump == 'true'
         run: |
-          echo "=== Tables in PI dump ==="
-          sqlite3 podcastindex_feeds.db ".tables"
-          echo ""
-          echo "=== Podcasts/Feeds table schema ==="
-          sqlite3 podcastindex_feeds.db ".schema podcasts" || sqlite3 podcastindex_feeds.db ".schema newsfeeds" || true
-          echo ""
-          echo "=== Sample row ==="
-          sqlite3 podcastindex_feeds.db "SELECT * FROM podcasts LIMIT 1;" 2>/dev/null || sqlite3 podcastindex_feeds.db "SELECT * FROM newsfeeds LIMIT 1;" || true
-          echo ""
-          echo "=== Sample row ==="
-          sqlite3 podcastindex_feeds.db "SELECT * FROM podcasts LIMIT 1;" 2>/dev/null || sqlite3 podcastindex_feeds.db "SELECT * FROM newsfeeds LIMIT 1;" || true
-          echo ""
-          echo "=== Episodes table schema ==="
-          sqlite3 podcastindex_feeds.db ".schema episodes" || true
-          
-      - name: Get chart iTunes IDs
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: |
-          echo "[WORKFLOW] Fetching active iTunes IDs from Turso DB charts table for country: ${{ matrix.country }}..."
-          node scripts/get-chart-itunes-ids.js --country ${{ matrix.country }} > chart_itunes_ids.txt
-          echo "[WORKFLOW] Successfully retrieved $(wc -l < chart_itunes_ids.txt) iTunes IDs from Turso charts."
-          echo "[WORKFLOW] First few iTunes IDs retrieved:"
-          head -5 chart_itunes_ids.txt
-          
-      - name: Export podcasts from PI dump
-        if: steps.precheck.outputs.skip_download != 'true'
-        run: |
-          echo "[WORKFLOW] Creating temporary SQLite table 'chart_ids' inside podcastindex_feeds.db..."
           sqlite3 podcastindex_feeds.db "CREATE TABLE chart_ids (itunes_id INTEGER);"
-          
-          echo "[WORKFLOW] Importing retrieved chart iTunes IDs from 'chart_itunes_ids.txt' into SQLite..."
-          sqlite3 -csv podcastindex_feeds.db ".import chart_itunes_ids.txt chart_ids"
-          echo "[WORKFLOW] SQLite Database status: $(sqlite3 podcastindex_feeds.db 'SELECT COUNT(*) FROM chart_ids;') iTunes IDs successfully imported into temporary table."
-          
-          # Export podcasts - using correct column names from PI dump
-          echo "[WORKFLOW] Querying and exporting podcast feeds matching chart IDs from sqlite dump to CSV format..."
+          sqlite3 -csv podcastindex_feeds.db ".import missing_itunes_ids.txt chart_ids"
+          echo "Imported $(sqlite3 podcastindex_feeds.db 'SELECT COUNT(*) FROM chart_ids;') missing iTunes IDs"
+          # Column list must match PODCAST_IMPORT_COLUMNS in scripts/sync/lib/config.js
           sqlite3 -header -csv podcastindex_feeds.db "
-            SELECT 
+            SELECT
               p.id,
-              p.itunesId as itunes_id,
+              p.itunesId AS itunes_id,
               p.title,
-              p.itunesAuthor as author,
+              p.itunesAuthor AS author,
               p.description,
-              p.imageUrl as image_url,
-              p.url as feed_url,
-              p.link as website_url,
-              p.category1 || ',' || p.category2 as categories,
+              p.imageUrl AS image_url,
+              p.url AS feed_url,
+              p.link AS website_url,
+              p.category1 || ',' || p.category2 AS categories,
               p.language,
               p.explicit,
-              p.itunesType as type,
-              p.episodeCount,
-              p.newestItemPubdate,
-              p.lastUpdate
+              p.itunesType AS type
             FROM podcasts p
             WHERE p.itunesId IN (SELECT itunes_id FROM chart_ids);
           " > podcasts_export.csv
-          echo "[WORKFLOW] Successfully generated 'podcasts_export.csv' with $(wc -l < podcasts_export.csv) lines including headers."
+          echo "Exported $(wc -l < podcasts_export.csv) lines (incl. header)"
 
-      - name: Import to Turso
+      - name: 'Stage 2d: Import podcasts'
+        run: node scripts/sync/02-import-podcasts.js --import
+
+      - name: 'Stage 3: Sync episodes'
+        run: node scripts/sync/03-sync-episodes.js
+
+      - name: 'Stage 4: Vectorize episodes'
         env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-          PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
-          PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
-        run: |
-          echo "[WORKFLOW] Starting import-pi-data.js to load podcasts into Turso DB..."
-          node scripts/import-pi-data.js --country ${{ matrix.country }}
+          MAX_EMBEDDINGS_PER_RUN: ${{ inputs.embedding_budget || '3000' }}
+        run: node scripts/sync/04-vectorize-episodes.js
 
-      - name: Sync Episodes via API
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-          PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
-          PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
-        run: |
-          echo "[WORKFLOW] Starting sync-episodes.js to fetch latest episode details and medium flags from API..."
-          node scripts/sync-episodes.js --country ${{ matrix.country }}
+      - name: 'Stage 5: Vectorize shows'
+        run: node scripts/sync/05-vectorize-shows.js
 
-      - name: Generate Vector Embeddings
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-          QDRANT_URL: ${{ secrets.QDRANT_URL }}
-          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
-          PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
-          PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
-        run: |
-          echo "[WORKFLOW] Running vectorize.js to calculate and sync embedding vectors to Qdrant Cloud for country ${{ matrix.country }}..."
-          node scripts/vectorize.js --country ${{ matrix.country }}
+      - name: 'Stage 7: Record DB cost stats'
+        if: always()
+        run: node scripts/sync/07-record-stats.js
 
-      - name: Generate Podcast Vector Embeddings
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-          QDRANT_URL: ${{ secrets.QDRANT_URL }}
-          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+      - name: Commit pipeline state
+        if: always()
         run: |
-          echo "[WORKFLOW] Running vectorize-podcasts.js to calculate and sync show embedding vectors to Qdrant Cloud for country ${{ matrix.country }}..."
-          node scripts/vectorize-podcasts.js --country ${{ matrix.country }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/sync_cache.json data/db_cost_history.json data/db_cost_report.md
+          if git diff --cached --quiet; then
+            echo "No state changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(sync): update pipeline state and db stats [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            if git push origin master; then
+              echo "Pushed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}) - rebasing and retrying"
+            git pull --rebase origin master
+            sleep 5
+          done
+          echo "::error::Failed to push pipeline state after 5 attempts"
+          exit 1
 
-      - name: Record and Log Database Costs
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-          COUNTRY: ${{ matrix.country }}
-        run: |
-          echo "[WORKFLOW] Recording database read/write counts..."
-          node scripts/record-db-stats.js --country ${{ matrix.country }}
-
-      - name: Commit and push sync cache & stats
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/sync_cache.json data/db_cost_history.json data/db_cost_report.md || true
-          git commit -m "chore: update sync cache and db stats [skip ci]" || true
-          git reset --hard || true
-          git pull --rebase origin master || true
-          git push || true
-
-      - name: Cleanup
-        run: rm -f *.db *.tgz *.csv *.txt
+      - name: Cleanup workspace temp files
+        if: always()
+        run: rm -f *.db *.tgz *.csv missing_itunes_ids.txt
 
   cleanup-non-chart:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 20 * * *'
+    if: github.event.schedule == '0 20 * * *'
+    needs: sync
     runs-on: ubuntu-latest
-    needs: sync-pi-data
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+        with:
+          ref: master
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -224,12 +171,55 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Cleanup Non-Chart Podcasts and Episodes
-        env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-          QDRANT_URL: ${{ secrets.QDRANT_URL }}
-          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+      - name: 'Stage 6: Cleanup non-chart shows (7-day grace)'
+        run: node scripts/sync/06-cleanup-non-chart.js
+
+      - name: Commit pipeline state
         run: |
-          echo "[WORKFLOW] Cleaning up podcasts and episodes not present in charts..."
-          node scripts/cleanup-non-chart-shows.js
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin master
+          git add data/sync_cache.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(sync): update cleanup grace state [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            if git push origin master; then
+              echo "Pushed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}) - rebasing and retrying"
+            git pull --rebase origin master
+            sleep 5
+          done
+          echo "::error::Failed to push cleanup state after 5 attempts"
+          exit 1
+
+  remediate-qdrant:
+    if: github.event_name == 'workflow_dispatch' && startsWith(inputs.job, 'remediate-qdrant')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Qdrant remediation
+        run: |
+          if [ "${{ inputs.job }}" = "remediate-qdrant-dry-run" ]; then
+            node scripts/sync/remediate-qdrant.js --dry-run
+          else
+            node scripts/sync/remediate-qdrant.js
+          fi
