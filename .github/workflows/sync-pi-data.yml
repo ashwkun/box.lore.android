@@ -130,6 +130,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://github.com/${{ github.repository }}.git"
           git add scripts/data/sync_cache.json scripts/data/db_cost_history.json scripts/data/db_cost_report.md
           if git diff --cached --quiet; then
             echo "No state changes to commit"
@@ -180,6 +181,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://github.com/${{ github.repository }}.git"
           git pull --rebase origin master
           git add scripts/data/sync_cache.json
           if git diff --cached --quiet; then
