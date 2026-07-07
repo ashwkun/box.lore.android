@@ -224,29 +224,29 @@
  "2026-07-07": {
   "global": {
    "refresh-charts": {
-    "reads": 48813,
-    "writes": 643,
-    "runs": 3
+    "reads": 125223,
+    "writes": 45401,
+    "runs": 4
    },
    "import-podcasts": {
-    "reads": 94440,
-    "writes": 12,
-    "runs": 3
+    "reads": 126160,
+    "writes": 1207,
+    "runs": 4
    },
    "sync-episodes": {
-    "reads": 97519,
-    "writes": 818,
-    "runs": 2
+    "reads": 146641,
+    "writes": 1976,
+    "runs": 3
    },
    "vectorize-episodes": {
-    "reads": 119561,
-    "writes": 356,
-    "runs": 2
+    "reads": 179255,
+    "writes": 584,
+    "runs": 3
    },
    "vectorize-shows": {
-    "reads": 163753,
-    "writes": 24382,
-    "runs": 2
+    "reads": 220539,
+    "writes": 26441,
+    "runs": 3
    }
   }
  }
