@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-07-07T12:26:37.675Z",
+  "lastRun": "2026-07-07T15:26:31.593Z",
   "podcasts": {
     "2123": {
       "lastEpisodeId": "567722198",
@@ -52,9 +52,9 @@
       "lastCheckedAt": 1782757505666
     },
     "743229": {
-      "lastEpisodeId": "57181502678",
-      "lastEpisodeTitle": "The Landmark Housing Bill That Trump Refuses to Sign",
-      "lastCheckedAt": 1783361855107
+      "lastEpisodeId": "57220884277",
+      "lastEpisodeTitle": "The Onion’s Latest Joke: Taking Over Infowars",
+      "lastCheckedAt": 1783437993450
     },
     "947138": {
       "lastEpisodeId": "57111715825",
@@ -92,14 +92,19 @@
       "lastCheckedAt": 1783417201838
     },
     "5930143": {
-      "lastEpisodeId": "57165536872",
-      "lastEpisodeTitle": "Géopolitique du lundi 06 juillet 2026",
-      "lastCheckedAt": 1783325093304
+      "lastEpisodeId": "57224100349",
+      "lastEpisodeTitle": "OTAN : et si Trump avait aidé les Européens ?",
+      "lastCheckedAt": 1783437994498
     },
     "7492905": {
       "lastEpisodeId": "57130320172",
       "lastEpisodeTitle": "Keurig: The K-Cup invasion",
       "lastCheckedAt": 1783252455711
+    },
+    "7837137": {
+      "lastEpisodeId": "57211534656",
+      "lastEpisodeTitle": "ADN do Homem Errado: Como a Ciência Incriminou o Inocente",
+      "lastCheckedAt": 1783437994644
     }
   }
 }
