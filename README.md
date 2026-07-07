@@ -1,7 +1,7 @@
 <div align="center">
 
-<!-- Actual project logo -->
-<img src="images/boxlorelogo2.png?v=2" width="220" alt="boxlore Logo"/>
+<!-- Featured project banner -->
+<img src="images/featured_image.png" width="800" alt="boxlore Feature Banner"/>
 
 ### *The Ultimate Podcast App For Android*
 *Built completely with Jetpack Compose featuring a beautiful Material 3 Design.*
@@ -48,18 +48,43 @@ boxlore is a modern, open-source podcast client built from the ground up to show
 
 ## ✨ Features and Interface
 
-<!-- Grid showing real screenshots of the app UI -->
+<!-- Grid showing real screenshots of the app UI as feature cards -->
 <div align="center">
 <table>
   <tr>
-    <td><img src="images/playart_01.png" width="220" alt="Screen 1"/></td>
-    <td><img src="images/playart_02.png" width="220" alt="Screen 2"/></td>
-    <td><img src="images/playart_03.png" width="220" alt="Screen 3"/></td>
+    <td align="center" width="25%">
+      <b>Onboarding</b><br/><br/>
+      <img src="images/onboarding.png" width="180" alt="Onboarding Screen"/>
+    </td>
+    <td align="center" width="25%">
+      <b>Homescreen</b><br/><br/>
+      <img src="images/homescreen.png" width="180" alt="Homescreen Screen"/>
+    </td>
+    <td align="center" width="25%">
+      <b>Daily Briefing</b><br/><br/>
+      <img src="images/daily_brief.png" width="180" alt="Daily Briefing Screen"/>
+    </td>
+    <td align="center" width="25%">
+      <b>Curiosity Cards</b><br/><br/>
+      <img src="images/curiosity_cards.png" width="180" alt="Curiosity Cards Screen"/>
+    </td>
   </tr>
   <tr>
-    <td colspan="3" align="center">
-      <img src="images/playart_04.png" width="220" alt="Screen 4"/>&nbsp;&nbsp;&nbsp;&nbsp;
-      <img src="images/playart_05.png" width="220" alt="Screen 5"/>
+    <td align="center">
+      <b>Semantic Search</b><br/><br/>
+      <img src="images/semantic_search.png" width="180" alt="Semantic Search Screen"/>
+    </td>
+    <td align="center">
+      <b>Recommendation</b><br/><br/>
+      <img src="images/recommendation_engine.png" width="180" alt="Recommendation Engine Screen"/>
+    </td>
+    <td align="center">
+      <b>Library</b><br/><br/>
+      <img src="images/library.png" width="180" alt="Library Screen"/>
+    </td>
+    <td align="center">
+      <b>Player</b><br/><br/>
+      <img src="images/player.png" width="180" alt="Player Screen"/>
     </td>
   </tr>
 </table>
