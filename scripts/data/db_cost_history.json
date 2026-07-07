@@ -224,13 +224,28 @@
  "2026-07-07": {
   "global": {
    "refresh-charts": {
-    "reads": 16799,
-    "writes": 622,
-    "runs": 1
+    "reads": 32805,
+    "writes": 631,
+    "runs": 2
    },
    "import-podcasts": {
-    "reads": 31478,
-    "writes": 0,
+    "reads": 62959,
+    "writes": 12,
+    "runs": 2
+   },
+   "sync-episodes": {
+    "reads": 48591,
+    "writes": 72,
+    "runs": 1
+   },
+   "vectorize-episodes": {
+    "reads": 59680,
+    "writes": 137,
+    "runs": 1
+   },
+   "vectorize-shows": {
+    "reads": 91591,
+    "writes": 18482,
     "runs": 1
    }
   }
