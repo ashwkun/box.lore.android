@@ -6,9 +6,9 @@
  * countries. Runs on the 00:00 UTC schedule (or manual dispatch) only.
  *
  * - One full charts-table read, diffed in memory (no per-category SELECTs).
- * - iTunes requests are spaced and retried; a failed fetch for a
- *   country/category skips BOTH upserts and deletes for that pair (a 403
- *   throttle must never masquerade as an empty chart and wipe rows).
+ * - iTunes requests are spaced (600ms) with a polite User-Agent, retried up
+ *   to 5× with exponential backoff on 403/429, network errors, and empty feeds
+ *   (Apple often returns HTTP 200 + 0 entries when throttling GHA IPs).
  * - Only changed rows are written, in batched transactions.
  */
 
@@ -17,8 +17,9 @@ const turso = require('./lib/turso');
 const state = require('./lib/state');
 const cfg = require('./lib/config');
 
-const ITUNES_SPACING_MS = 350;
-const ITUNES_RETRIES = 3;
+const ITUNES_SPACING_MS = 600;
+const ITUNES_RETRIES = 5;
+const ITUNES_USER_AGENT = 'BoxLore/1.0 (github.com/ashwkun/box.lore.android; podcast-chart-sync)';
 
 async function fetchItunesChart(country, category) {
     const genreParam = category === 'all' ? '' : `/genre=${cfg.GENRE_MAP[category]}`;
@@ -26,16 +27,30 @@ async function fetchItunesChart(country, category) {
 
     for (let attempt = 1; attempt <= ITUNES_RETRIES; attempt++) {
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, {
+                headers: { 'User-Agent': ITUNES_USER_AGENT },
+            });
             if (res.status === 403 || res.status === 429) {
                 const backoff = 2000 * Math.pow(2, attempt - 1);
-                log.warn(`iTunes ${res.status} for ${country}/${category}; retrying in ${backoff}ms (attempt ${attempt}/${ITUNES_RETRIES})`);
+                log.warn(`iTunes ${res.status} for ${country}/${category}; backing off ${backoff}ms (attempt ${attempt}/${ITUNES_RETRIES})`);
                 await new Promise(r => setTimeout(r, backoff));
                 continue;
             }
             if (!res.ok) throw new Error(`iTunes HTTP ${res.status}`);
             const data = await res.json();
-            const entries = data.feed?.entry || [];
+            const raw = data.feed?.entry;
+            const entries = raw == null ? [] : (Array.isArray(raw) ? raw : [raw]);
+            if (entries.length === 0) {
+                // Apple sometimes returns HTTP 200 with an empty feed when throttling
+                // GitHub Actions IPs — retry with backoff instead of skipping immediately.
+                const backoff = 2000 * Math.pow(2, attempt - 1);
+                log.warn(`iTunes empty feed for ${country}/${category}; backing off ${backoff}ms (attempt ${attempt}/${ITUNES_RETRIES})`);
+                if (attempt < ITUNES_RETRIES) {
+                    await new Promise(r => setTimeout(r, backoff));
+                    continue;
+                }
+                return [];
+            }
             return entries.map(e => ({
                 itunesId: e.id?.attributes?.['im:id'] || '',
                 name: e['im:name']?.label || '',
@@ -45,7 +60,7 @@ async function fetchItunesChart(country, category) {
         } catch (e) {
             if (attempt === ITUNES_RETRIES) throw e;
             const backoff = 2000 * Math.pow(2, attempt - 1);
-            log.warn(`iTunes fetch failed for ${country}/${category}: ${e.message}; retrying in ${backoff}ms`);
+            log.warn(`iTunes fetch failed for ${country}/${category}: ${e.message}; backing off ${backoff}ms (attempt ${attempt}/${ITUNES_RETRIES})`);
             await new Promise(r => setTimeout(r, backoff));
         }
     }
