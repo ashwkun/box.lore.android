@@ -1701,12 +1701,6 @@ mixtapePodcasts = cachedMix
         playbackRepository.togglePlayPause(entryPointContext)
     }
 
-    fun deleteHistoryItem(episodeId: String) {
-        viewModelScope.launch {
-            playbackRepository.deleteSession(episodeId)
-        }
-    }
-    
     fun dismissReviewPrompt() {
         _showReviewPrompt.value = false
     }
@@ -1752,9 +1746,6 @@ mixtapePodcasts = cachedMix
         }
     }
     
-    // Debug Accessors
-    val debugHistory = playbackRepository.getAllHistory()
-    val debugPodcasts = subscriptionRepository.getAllSubscribedPodcasts()
     // --- Helper Logic ---
     data class TimeBlockConfig(val title: String, val subtitle: String, val icon: ImageVector, val genres: List<GenreConfig>)
     data class GenreConfig(val id: String, val title: String)
@@ -1868,19 +1859,6 @@ mixtapePodcasts = cachedMix
         }
     }
 
-    fun resetFeatureFlag() {
-        viewModelScope.launch {
-            userPrefs.dismissFeatureAnnouncement("")
-        }
-    }
-
-    fun clearDismissedCuriosities() {
-        val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
-        prefs.edit()
-            .remove("dismissed_curiosities")
-            .remove("learn_curiosity_history")
-            .apply()
-    }
     
     private suspend fun resolveFavoritePodcast(
         overriddenId: String?,

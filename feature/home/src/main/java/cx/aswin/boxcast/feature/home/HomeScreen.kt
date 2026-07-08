@@ -117,10 +117,6 @@ import cx.aswin.boxcast.feature.home.components.ForYouSection
 import cx.aswin.boxcast.feature.home.components.BecauseYouLikeSection
 import cx.aswin.boxcast.feature.home.components.ChangeRecommendationPodcastSheet
 
-import cx.aswin.boxcast.feature.home.components.DebugDbInspectorDialog
-import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
-import cx.aswin.boxcast.core.data.database.PodcastEntity
-
 @androidx.compose.runtime.Stable
 data class StableHeroList(val list: List<SmartHeroItem>)
 
@@ -149,8 +145,7 @@ fun HomeRoute(
     onNavigateToSettings: (() -> Unit)? = null,
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
-    onResetSleepNudge: () -> Unit = {},
-    onClearSleepTimer: () -> Unit = {},
+    onNavigateToDebug: () -> Unit = {},
     onImportClick: () -> Unit = {},
     onAiOnboardingClick: () -> Unit = {},
     onBriefingClick: (String) -> Unit = {},
@@ -195,9 +190,6 @@ fun HomeRoute(
     val isPlayerLoading by remember(viewModel) {
         viewModel.playerState.map { it.isLoading }.distinctUntilChanged()
     }.collectAsState(initial = false)
-    val debugHistory by viewModel.debugHistory.collectAsState(initial = emptyList())
-    val debugPodcasts by viewModel.debugPodcasts.collectAsState(initial = emptyList())
-
     val showReviewPrompt by viewModel.showReviewPrompt.collectAsState()
     val showPostReview by viewModel.showPostReview.collectAsState()
     val showFeedback by viewModel.showFeedback.collectAsState()
@@ -219,8 +211,6 @@ fun HomeRoute(
             currentPlayingEpisodeId = currentPlayingEpisodeId,
             isPlaying = isPlaying,
             isPlayerLoading = isPlayerLoading,
-            debugHistory = debugHistory,
-            debugPodcasts = debugPodcasts,
             candidatePodcasts = candidatePodcasts,
             onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
             onPodcastClick = { podcast, entryPoint, category, index ->
@@ -243,7 +233,6 @@ fun HomeRoute(
             onPodcastSelected = viewModel::selectPodcast,
             onPlayMix = viewModel::playUnplayedMix,
             onPlayEpisode = viewModel::playEpisode,
-            onDeleteHistoryItem = viewModel::deleteHistoryItem,
             onNavigateToSettings = onNavigateToSettings,
             onFeedbackClick = viewModel::triggerFeedback,
             onForceReviewPrompt = viewModel::forceReviewPrompt,
@@ -262,10 +251,7 @@ fun HomeRoute(
                 onNavigateToPlayStoreReview()
             },
             onSubmitFeedback = onSubmitFeedback,
-            onResetFeatureFlag = viewModel::resetFeatureFlag,
-            onClearDismissedCuriosities = viewModel::clearDismissedCuriosities,
-            onResetSleepNudge = onResetSleepNudge,
-            onClearSleepTimer = onClearSleepTimer,
+            onNavigateToDebug = onNavigateToDebug,
             onSwitchRegion = viewModel::setRegion,
             onDismissNudge = viewModel::dismissRegionNudge,
             onImportClick = onImportClick,
@@ -324,8 +310,6 @@ fun HomeScreen(
     currentPlayingEpisodeId: String?,
     isPlaying: Boolean,
     isPlayerLoading: Boolean = false,
-    debugHistory: List<ListeningHistoryEntity>,
-    debugPodcasts: List<PodcastEntity>,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
@@ -339,7 +323,6 @@ fun HomeScreen(
     onTogglePlayback: (android.os.Bundle?) -> Unit,
     onSelectCategory: (String?) -> Unit,
 
-    onDeleteHistoryItem: (String) -> Unit,
     onNavigateToSettings: (() -> Unit)? = null,
     onFeedbackClick: () -> Unit,
     onForceReviewPrompt: () -> Unit = {},
@@ -351,10 +334,7 @@ fun HomeScreen(
     onDismissFeedback: () -> Unit = {},
     onNavigateToPlayStoreReview: () -> Unit = {},
     onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
-    onResetFeatureFlag: () -> Unit = {},
-    onResetSleepNudge: () -> Unit = {},
-    onClearSleepTimer: () -> Unit = {},
-    onClearDismissedCuriosities: () -> Unit = {},
+    onNavigateToDebug: () -> Unit = {},
     onSwitchRegion: (String) -> Unit = {},
     onDismissNudge: () -> Unit = {},
     onPodcastSelected: (String?) -> Unit = {},
@@ -378,7 +358,6 @@ fun HomeScreen(
     }
     // Track scroll state for collapsing top bar
     val scrollState = rememberScrollState()
-    var showDebugDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
     var showChangePodcastSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     // Deferred rendering state for heavy below-the-fold content
@@ -393,20 +372,6 @@ fun HomeScreen(
         }
     }
     
-    if (showDebugDialog) {
-        DebugDbInspectorDialog(
-            history = debugHistory,
-            podcasts = debugPodcasts,
-            onDeleteHistoryItem = onDeleteHistoryItem,
-            onResetFeatureFlag = onResetFeatureFlag,
-            onResetSleepNudge = onResetSleepNudge,
-            onClearSleepTimer = onClearSleepTimer,
-            onClearDismissedCuriosities = onClearDismissedCuriosities,
-            onDismissRequest = { showDebugDialog = false }
-        )
-    }
-
-
     Box(modifier = modifier.fillMaxSize()) {
         // Main content underneath
         Column(modifier = Modifier.fillMaxSize()) {
@@ -427,7 +392,7 @@ fun HomeScreen(
                 },
                 onAvatarLongClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("avatar_long_clicked", "home")
-                    showDebugDialog = true
+                    onNavigateToDebug()
                 }
             )
             

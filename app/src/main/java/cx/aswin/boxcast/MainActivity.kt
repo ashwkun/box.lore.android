@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1272,8 +1273,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onSubmitFeedback = onSubmitFeedback,
-                                    onResetSleepNudge = { playbackRepository.resetSleepNudgeForTesting() },
-                                    onClearSleepTimer = { playbackRepository.setSleepTimer(0) },
+                                    onNavigateToDebug = { navController.navigate("debug") },
                                     onImportClick = {
                                         opmlImportSource = "home_import_banner"
                                         opmlImportState = OpmlImportState.ShowSelector
@@ -1471,6 +1471,13 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToAutoDownloads = {
                                         navController.navigate("library/auto_downloads/settings")
                                     }
+                                )
+                            }
+
+                            composable("debug") {
+                                cx.aswin.boxcast.feature.home.DebugScreen(
+                                    playbackRepository = playbackRepository,
+                                    onBack = { navController.popBackStack() }
                                 )
                             }
                             
@@ -2331,234 +2338,28 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Late Night Sleep Timer Nudge
+                    // Late Night Sleep Timer Nudge — dynamic-island style popup, top-center
                     val isPlayerActive = currentEpisode != null
-                    
-                    var isTimerSetConfirmation by remember { mutableStateOf(false) }
-                    
-                    LaunchedEffect(showLateNightNudge) {
-                        android.util.Log.d("LateNightNudge", "LaunchedEffect(showLateNightNudge) triggered: $showLateNightNudge")
-                        if (!showLateNightNudge) {
-                            isTimerSetConfirmation = false
-                        }
-                    }
-                    
-                    // Confirmation auto-dismiss: when timer is set, delay 2.5 seconds and dismiss nudge cleanly
-                    LaunchedEffect(isTimerSetConfirmation) {
-                        android.util.Log.d("LateNightNudge", "LaunchedEffect(isTimerSetConfirmation) triggered: $isTimerSetConfirmation")
-                        if (isTimerSetConfirmation) {
-                            android.util.Log.d("LateNightNudge", "Starting 2500ms delay for confirmation auto-dismiss")
-                            kotlinx.coroutines.delay(2500)
-                            android.util.Log.d("LateNightNudge", "Delay finished. Calling dismissLateNightNudge()")
-                            playbackRepository.dismissLateNightNudge()
-                            isTimerSetConfirmation = false
-                        }
-                    }
-                    
-                    // Reactive Auto-hide: dismiss nudge after 8 seconds of inactivity (extended from 5s)
-                    LaunchedEffect(showLateNightNudge, currentEpisode?.id, isTimerSetConfirmation) {
-                        android.util.Log.d("LateNightNudge", "LaunchedEffect(auto-hide) triggered: showLateNightNudge=$showLateNightNudge, episodeId=${currentEpisode?.id}, isTimerSetConfirmation=$isTimerSetConfirmation")
-                        if (showLateNightNudge && !isTimerSetConfirmation) {
-                            android.util.Log.d("LateNightNudge", "Starting 8000ms inactivity delay")
-                            kotlinx.coroutines.delay(8000)
-                            android.util.Log.d("LateNightNudge", "Inactivity delay finished. Calling dismissLateNightNudge()")
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("ignore")
-                            playbackRepository.dismissLateNightNudge()
-                        }
-                    }
+                    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-                    androidx.compose.animation.AnimatedVisibility(
+                    cx.aswin.boxcast.core.designsystem.components.SleepTimerPopup(
                         visible = showLateNightNudge && isPlayerActive && !isModeSwitching,
-                        enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(400)) + 
-                                androidx.compose.animation.slideInVertically(
-                                    initialOffsetY = { it }, 
-                                    animationSpec = androidx.compose.animation.core.spring(
-                                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
-                                        stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
-                                    )
-                                ),
-                        exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300)) + 
-                               androidx.compose.animation.slideOutVertically(targetOffsetY = { it }),
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(
-                                bottom = appNavBarHeight + systemNavBarHeight + cx.aswin.boxcast.feature.player.MiniPlayerHeight + miniPlayerBottomMargin + 16.dp,
-                                start = 16.dp,
-                                end = 16.dp
+                            .align(Alignment.TopCenter)
+                            .padding(top = statusBarHeight + 8.dp, start = 16.dp, end = 16.dp)
+                            .zIndex(10f),
+                        onSelectDuration = { minutes ->
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision(
+                                "timer_set",
+                                minutes
                             )
-                            .zIndex(10f)
-                    ) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = 1.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                            ),
-                            shadowElevation = 8.dp
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp)
-                            ) {
-                                if (isTimerSetConfirmation) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Timer set. Good night!",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                                letterSpacing = 0.15.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                } else {
-                                    // Row 1: Text on Left, Dismiss Cross on Right
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "Late Night Listening?",
-                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = "Set a timer to prevent episodes from playing all night.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        
-                                        Box(
-                                            modifier = Modifier
-                                                .size(32.dp)
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                                .clickable {
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("dismiss")
-                                                    playbackRepository.dismissLateNightNudge() // Manually dismiss
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "✕",
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                                fontSize = 12.sp,
-                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    
-                                    // Row 2: "Start timer:" label + [30m] [1hr] [2hr] option pills
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Start timer:",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                            modifier = Modifier.padding(end = 4.dp)
-                                        )
-                                        
-                                        // 30m Button
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                                .border(
-                                                    1.dp, 
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), 
-                                                    RoundedCornerShape(12.dp)
-                                                )
-                                                .clickable {
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("timer_set", 30)
-                                                    playbackRepository.setSleepTimer(30, dismissNudge = false)
-                                                    isTimerSetConfirmation = true
-                                                }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "30m",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                            )
-                                        }
-                                        
-                                        // 1hr Button
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                                .border(
-                                                    1.dp, 
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), 
-                                                    RoundedCornerShape(12.dp)
-                                                )
-                                                .clickable {
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("timer_set", 60)
-                                                    playbackRepository.setSleepTimer(60, dismissNudge = false)
-                                                    isTimerSetConfirmation = true
-                                                }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "1hr",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                            )
-                                        }
-                                        
-                                        // 2hr Button
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                                .border(
-                                                    1.dp, 
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), 
-                                                    RoundedCornerShape(12.dp)
-                                                )
-                                                .clickable {
-                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("timer_set", 120)
-                                                    playbackRepository.setSleepTimer(120, dismissNudge = false)
-                                                    isTimerSetConfirmation = true
-                                                }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "2hr",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            playbackRepository.setSleepTimer(minutes, dismissNudge = false)
+                        },
+                        onDismiss = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("dismiss")
+                            playbackRepository.dismissLateNightNudge()
                         }
-                    }
+                    )
 
                     // Unified Player Sheet - PixelPlayer architecture (Last so it draws ON TOP)
                     // Hidden during mode switch animation
