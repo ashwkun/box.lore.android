@@ -89,6 +89,17 @@ class BoxLoreApplication : Application() {
             } else {
                 appCheck.installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance())
             }
+            // Keep a valid token in the SDK's persistent cache at all times and
+            // refresh it in the background before expiry, so the interceptor gets
+            // an instant cache read instead of a live (and sometimes failing)
+            // fetch. With the 24h token TTL this is ~1 mint/user/day.
+            appCheck.setTokenAutoRefreshEnabled(true)
+            // Pre-warm: start the token exchange at launch so it's cached before
+            // the first API request, closing the cold-start gap.
+            appCheck.getAppCheckToken(false)
+                .addOnFailureListener { e ->
+                    android.util.Log.w("BoxCastApp", "App Check pre-warm failed: ${e.message}")
+                }
             NetworkModule.appCheckTokenProvider = {
                 try {
                     // Called from OkHttp's background threads; returns the cached
