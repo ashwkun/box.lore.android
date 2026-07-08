@@ -180,10 +180,16 @@ private fun AiChatOnboardingScreen(
     val suggestionsVisible = !isCurriculumReady && uiState.onboardingError == null && !uiState.isSynthesizing && !uiState.isAiLoading
     val suggestionsEnabled = !isTextFieldFocused && !isKeyboardVisible && uiState.aiCustomInputText.isEmpty() && !uiState.isAiLoading
 
-    LaunchedEffect(chatMessages.size, uiState.isAiLoading, isKeyboardVisible, isTextFieldFocused, suggestionsVisible) {
+    LaunchedEffect(chatMessages.size, uiState.isAiLoading, isKeyboardVisible, isTextFieldFocused, suggestionsVisible, uiState.aiSearchSuggestion) {
         if (chatMessages.size > 1) {
-            val targetIndex = chatMessages.size + 1
-            delay(100)
+            // Target the last *message* (item 0 is the header), not the trailing
+            // spacer — scrolling the spacer to the viewport top pushes the
+            // message off screen when the bottom options block is tall.
+            val targetIndex = chatMessages.size
+            // Wait for the bottom options/search-chip block to finish expanding
+            // (300ms animation) before scrolling, or the last message ends up
+            // pushed above the shrunken viewport.
+            delay(350)
             listState.animateScrollToItem(targetIndex)
         } else if (chatMessages.isNotEmpty()) {
             delay(100)
@@ -252,6 +258,23 @@ private fun AiChatOnboardingScreen(
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
                         }
                     },
+                    actions = {
+                        TextButton(onClick = { onSearchInstead(null) }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Search",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent
                     )
@@ -285,37 +308,9 @@ private fun AiChatOnboardingScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "A few quick questions so our AI can learn your taste and build your feed — this isn't a show search.",
+                                text = "A few quick questions to learn your taste and build your feed.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(percent = 50))
-                                    .clickable { onSearchInstead(null) }
-                                    .padding(vertical = 2.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Looking for a specific show? Search instead",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Chats here are anonymous and only used to improve recommendations.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -939,12 +934,24 @@ private fun AiChatOnboardingScreen(
                                     script != Character.UnicodeScript.INHERITED
                             }
                         }
+
+                        AnimatedVisibility(visible = !hasNonLatinInput) {
+                            Text(
+                                text = "Chats here are anonymous and only used to improve recommendations.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                            )
+                        }
+
                         AnimatedVisibility(visible = hasNonLatinInput) {
                             Text(
                                 text = "Tip: podcast coverage is strongest in English, but I'll do my best in your language.",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                modifier = Modifier.padding(top = 6.dp, start = 8.dp, end = 8.dp)
+                                color = MaterialTheme.colorScheme.tertiary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                             )
                         }
                     }

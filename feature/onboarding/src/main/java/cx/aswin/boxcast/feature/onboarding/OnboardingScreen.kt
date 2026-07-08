@@ -212,6 +212,7 @@ fun OnboardingScreen(
                 )
             }
             OnboardingStep.SEARCH -> {
+                val isAiSideTrip = viewModel.isSearchFromAiChat()
                 OnboardingSearchScreen(
                     query = uiState.searchQuery,
                     results = uiState.searchResults,
@@ -221,11 +222,18 @@ fun OnboardingScreen(
                     onQueryChange = viewModel::updateSearchQuery,
                     onSubscribe = viewModel::toggleSubscriptionFromSearch,
                     onBack = viewModel::navigateBackFromSearch,
-                    onDone = handleComplete,
+                    onDone = {
+                        if (isAiSideTrip) {
+                            viewModel.returnToAiChatFromSearch()
+                        } else {
+                            handleComplete()
+                        }
+                    },
                     popularPodcasts = uiState.popularPodcasts,
                     isPopularLoading = uiState.isPopularLoading,
                     selectedSearchGenre = uiState.selectedSearchGenre,
-                    onGenreSelect = viewModel::selectSearchGenre
+                    onGenreSelect = viewModel::selectSearchGenre,
+                    isAiSideTrip = isAiSideTrip
                 )
             }
             OnboardingStep.AI_ONBOARDING -> {

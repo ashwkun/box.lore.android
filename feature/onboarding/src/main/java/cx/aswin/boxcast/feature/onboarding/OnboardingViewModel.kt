@@ -727,11 +727,26 @@ class OnboardingViewModel(
         val backStep = when (searchEntryPoint) {
             "welcome_screen" -> OnboardingStep.WELCOME
             "genre_screen" -> if (state.selectedGenres.isNotEmpty()) OnboardingStep.SUB_GENRES else OnboardingStep.GENRES
+            "ai_onboarding" -> OnboardingStep.AI_ONBOARDING
             else -> OnboardingStep.WELCOME
         }
         _uiState.update { it.copy(currentStep = backStep, searchQuery = "", searchResults = emptyList()) }
     }
     
+    fun isSearchFromAiChat(): Boolean = searchEntryPoint == "ai_onboarding"
+
+    /**
+     * Ends a search side-trip started from the AI chat: keeps any subscriptions
+     * picked in search and returns to the chat so the taste profile can continue.
+     */
+    fun returnToAiChatFromSearch() {
+        _uiState.update { it.copy(
+            currentStep = OnboardingStep.AI_ONBOARDING,
+            searchQuery = "",
+            searchResults = emptyList()
+        ) }
+    }
+
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         
@@ -1389,7 +1404,9 @@ class OnboardingViewModel(
                             isSynthesizing = false,
                             aiLoadingStage = AiLoadingStage.IDLE,
                             selectedPodcasts = newSelected,
-                            subscribedPodcastIds = defaultSelectedIds,
+                            // Merge, don't replace — keeps shows picked during a
+                            // search side-trip from the AI chat.
+                            subscribedPodcastIds = state.subscribedPodcastIds + defaultSelectedIds,
                             onboardingError = null
                         )
                     }
@@ -1436,7 +1453,7 @@ class OnboardingViewModel(
                                 isSynthesizing = false,
                                 aiLoadingStage = AiLoadingStage.IDLE,
                                 selectedPodcasts = newSelected,
-                                subscribedPodcastIds = defaultSelectedIds,
+                                subscribedPodcastIds = state.subscribedPodcastIds + defaultSelectedIds,
                                 onboardingError = null
                             )
                         }
@@ -1532,7 +1549,11 @@ class OnboardingViewModel(
                 val selectedIds = state.subscribedPodcastIds
                 val rows = state.aiCurriculumRows
                 val allCurriculumPodcasts = rows.flatMap { it.podcasts }.map { it.toPodcast() }.distinctBy { it.id }
-                val podcastsToSubscribe = allCurriculumPodcasts.filter { it.id in selectedIds }
+                // Include shows picked during a search side-trip from the AI chat
+                // (they live in selectedPodcasts but not in the curriculum rows).
+                val podcastsToSubscribe = (allCurriculumPodcasts + state.selectedPodcasts.values)
+                    .distinctBy { it.id }
+                    .filter { it.id in selectedIds }
                 for (podcast in podcastsToSubscribe) {
                     subscriptionRepository.subscribe(podcast)
                 }

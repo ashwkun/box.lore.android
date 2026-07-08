@@ -1188,7 +1188,8 @@ class PlaybackRepository(
         podcast: Podcast,
         startIndex: Int = 0,
         entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC,
-        initialPositionMs: Long? = null
+        initialPositionMs: Long? = null,
+        sourceContext: android.os.Bundle? = null
     ) {
         Log.d("PlaybackRepo", "playQueue() called: count=${episodes.size}, start=$startIndex, podcastGenre='${podcast.genre}'")
         
@@ -1199,13 +1200,17 @@ class PlaybackRepository(
         }
         
         mediaController?.let { controller ->
-            val entryPointContext = if (entryPoint != PlaybackEntryPoint.GENERIC) {
-                android.os.Bundle().apply {
-                    putString("entrypoint", entryPoint.name.lowercase())
+            // A rich source bundle (e.g. "episode_info_screen", "home_hero_*") always wins.
+            // Otherwise fall back to a bundle derived from the coarse enum. Note the key must
+            // be "entry_point" — the playback service only reads that key.
+            val entryPointContext = sourceContext?.takeIf { it.getString("entry_point") != null }
+                ?: if (entryPoint != PlaybackEntryPoint.GENERIC) {
+                    android.os.Bundle().apply {
+                        putString("entry_point", entryPoint.name.lowercase())
+                    }
+                } else {
+                    null
                 }
-            } else {
-                null
-            }
             val mediaItems = buildMediaItems(episodes, podcast, entryPointContext)
             
             val startEpisodeId = episodes.getOrNull(startIndex)?.id
@@ -1539,6 +1544,20 @@ class PlaybackRepository(
         
         Log.d("PlaybackRepo", "resume() called: mediaItemCount=${controller.mediaItemCount}, statePos=${_playerState.value.position}")
         
+        // Attribute the resume so playback_started isn't logged as "not set". An explicit
+        // source (e.g. a screen that set PendingEntryPoint just before) always wins via
+        // setIfAbsent; otherwise we tag the surface this resume came from.
+        val hasExplicitSource = entryPointContext?.getString("entry_point") != null
+        fun applyResumeSource(default: String) {
+            if (hasExplicitSource) {
+                storePendingEntryPoint(entryPointContext)
+            } else {
+                cx.aswin.boxcast.core.data.analytics.PendingEntryPoint.setIfAbsent(
+                    mapOf("entry_point" to default)
+                )
+            }
+        }
+        
         // If controller has no media but we have state, reload the FULL queue
         if (controller.mediaItemCount == 0 && _playerState.value.currentEpisode != null) {
             val queue = _playerState.value.queue
@@ -1580,6 +1599,7 @@ class PlaybackRepository(
                     
                     controller.setMediaItems(mediaItems, startIndex, savedPosition.coerceAtLeast(0L))
                     controller.prepare()
+                    applyResumeSource("resume_restore")
                     controller.play()
                 } else {
                     // Fallback: single episode resume (no queue available)
@@ -1603,11 +1623,13 @@ class PlaybackRepository(
                     
                     controller.setMediaItem(mediaItem, savedPosition.coerceAtLeast(0L))
                     controller.prepare()
+                    applyResumeSource("resume_restore")
                     controller.play()
                 }
             }
         } else {
             Log.d("PlaybackRepo", "resume(): Media exists, just calling play()")
+            applyResumeSource("resume_player")
             controller.play()
         }
     }
@@ -1637,7 +1659,8 @@ class PlaybackRepository(
     private fun reinitializePlaybackIfEmpty(
         controller: androidx.media3.session.MediaController,
         index: Int,
-        entryPoint: PlaybackEntryPoint
+        entryPoint: PlaybackEntryPoint,
+        sourceContext: android.os.Bundle? = null
     ): Boolean {
         if (controller.mediaItemCount == 0 && _playerState.value.queue.isNotEmpty()) {
              android.util.Log.d("PlaybackRepo", "skipToEpisode: Controller empty but local queue exists. Re-initializing playback.")
@@ -1646,7 +1669,7 @@ class PlaybackRepository(
              
              if (index in queue.indices && podcast != null) {
                  repositoryScope.launch {
-                     playQueue(queue, podcast, index, entryPoint)
+                     playQueue(queue, podcast, index, entryPoint, sourceContext = sourceContext)
                  }
                  return true
              }
@@ -1674,7 +1697,11 @@ class PlaybackRepository(
         }
     }
 
-    fun skipToEpisode(index: Int, entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC) {
+    fun skipToEpisode(
+        index: Int,
+        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC,
+        sourceContext: android.os.Bundle? = null
+    ) {
         val controller = mediaController
         android.util.Log.d("PlaybackRepo", "skipToEpisode: index=$index, controller=${controller != null}, mediaItemCount=${controller?.mediaItemCount ?: -1}")
         
@@ -1683,15 +1710,16 @@ class PlaybackRepository(
             return
         }
         
-        val entryPointContext = if (entryPoint != PlaybackEntryPoint.GENERIC) {
-            android.os.Bundle().apply {
-                putString("entrypoint", entryPoint.name.lowercase())
+        val entryPointContext = sourceContext?.takeIf { it.getString("entry_point") != null }
+            ?: if (entryPoint != PlaybackEntryPoint.GENERIC) {
+                android.os.Bundle().apply {
+                    putString("entry_point", entryPoint.name.lowercase())
+                }
+            } else {
+                null
             }
-        } else {
-            null
-        }
 
-        if (reinitializePlaybackIfEmpty(controller, index, entryPoint)) {
+        if (reinitializePlaybackIfEmpty(controller, index, entryPoint, entryPointContext)) {
             return
         }
         

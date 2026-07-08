@@ -88,6 +88,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
     
     private var playbackSessionBufferingStartTimeMs: Long = 0L
     private var playbackSessionTotalBufferedTimeMs: Long = 0L
+    // Remembers the episode that was paused so a subsequent play() with no explicit source
+    // (e.g. from the notification / lock screen / Bluetooth) can be attributed as a resume.
+    private var lastPausedEpisodeId: String? = null
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun onCreate() {
@@ -213,7 +216,14 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 
                 if (player.isPlaying) {
                     val episodeId = mediaItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
-                    if (episodeId != null) startPlaybackSession(episodeId, mediaItem)
+                    // A transition into a playing state with no explicit source is either the
+                    // queue auto-advancing to the next episode, or a user skip (next/prev).
+                    val transitionSource = when (reason) {
+                        Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> "queue_auto_advance"
+                        Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> "queue_skip"
+                        else -> null
+                    }
+                    if (episodeId != null) startPlaybackSession(episodeId, mediaItem, transitionSource)
                     activePlaybackStartTimeMs = System.currentTimeMillis()
                 } else {
                     activePlaybackStartTimeMs = 0L
@@ -299,6 +309,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
                                            player.playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE
                     
                     if (shouldEndSession) {
+                        // Remember what was paused so a bare remote play() (notification /
+                        // lock screen) that restarts this same episode is tagged as a resume.
+                        lastPausedEpisodeId = episodeId
                         endPlaybackSession(forceCompleted = false)
                     }
 
@@ -395,7 +408,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         }
     }
 
-    private fun startPlaybackSession(episodeId: String, currentItem: MediaItem?) {
+    private fun startPlaybackSession(episodeId: String, currentItem: MediaItem?, fallbackEntryPoint: String? = null) {
         if (playbackSessionStartTimeMs > 0 && playbackSessionEpisodeId == episodeId) return
         
         endPlaybackSession(forceCompleted = false) // Flush any outgoing session
@@ -437,6 +450,20 @@ class BoxLorePlaybackService : MediaLibraryService() {
             playbackSessionEntryPoint = extras?.getString("entry_point")
             playbackSessionEntryPointContext = if (bundleMap.isNotEmpty()) bundleMap else null
         }
+
+        // No explicit source was carried into this session. Attribute it so playback_started
+        // isn't logged as "not set":
+        //   1. A resume of the just-paused episode with no in-app source is a remote resume
+        //      (notification / lock screen / Bluetooth / headset).
+        //   2. Otherwise use the fallback provided by the caller (auto-advance / queue skip).
+        if (playbackSessionEntryPoint == null) {
+            playbackSessionEntryPoint = if (episodeId == lastPausedEpisodeId) {
+                "resume_notification"
+            } else {
+                fallbackEntryPoint
+            }
+        }
+        lastPausedEpisodeId = null
         
         serviceScope.launch {
             try {

@@ -514,7 +514,9 @@ fun UnifiedPlayerSheet(
                                 onPlayPause = {
                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("play_pause", podcast?.id, episode.id, podcast?.title, episode.title)
                                     if (state.isPlaying) playbackRepository.pause()
-                                    else playbackRepository.resume()
+                                    else playbackRepository.resume(
+                                        android.os.Bundle().apply { putString("entry_point", "resume_mini_player") }
+                                    )
                                 },
                                 onPrevious = { 
                                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction("previous", podcast?.id, episode.id, podcast?.title, episode.title)

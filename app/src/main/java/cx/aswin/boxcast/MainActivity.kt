@@ -2390,12 +2390,14 @@ class MainActivity : ComponentActivity() {
                         val currentState = opmlImportState
                         if (currentState is OpmlImportState.Success) {
                             if (currentState.isJson) {
-                                // For JSON backup restore, mark onboarding completed if we are in onboarding, then recreate the activity to load everything fresh
-                                if (currentRoute == "onboarding") {
-                                    onboardingViewModel.markOnboardingCompletedSilent {
-                                        this@MainActivity.recreate()
-                                    }
-                                } else {
+                                // A JSON restore always yields a fully set-up library, so onboarding
+                                // is effectively complete. Mark it unconditionally — idempotent when
+                                // already completed (e.g. restoring from Settings) — so an import
+                                // during onboarding never bounces the user back to the welcome screen.
+                                // Relying on currentRoute here was fragile: it falls back to "home"
+                                // whenever the nav back-stack entry is momentarily null. Then recreate
+                                // to load the restored library fresh.
+                                onboardingViewModel.markOnboardingCompletedSilent {
                                     this@MainActivity.recreate()
                                 }
                             } else {

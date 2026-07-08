@@ -59,7 +59,8 @@ internal fun OnboardingSearchScreen(
     popularPodcasts: List<Podcast>,
     isPopularLoading: Boolean,
     selectedSearchGenre: String?,
-    onGenreSelect: (String?) -> Unit
+    onGenreSelect: (String?) -> Unit,
+    isAiSideTrip: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -350,6 +351,16 @@ internal fun OnboardingSearchScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
+                    if (isAiSideTrip) {
+                        Text(
+                            text = "These shows will be added to your library, and you'll hop back into the chat to keep building your feed.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                     Button(
                         onClick = onDone,
                         modifier = Modifier
@@ -358,7 +369,10 @@ internal fun OnboardingSearchScreen(
                         shape = MaterialTheme.shapes.extraLarge
                     ) {
                         Text(
-                            "Done (${subscribedIds.size} selected)",
+                            if (isAiSideTrip)
+                                "Subscribe & Continue Chat (${subscribedIds.size})"
+                            else
+                                "Done (${subscribedIds.size} selected)",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )

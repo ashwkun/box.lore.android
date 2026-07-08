@@ -79,6 +79,20 @@ class QueueManager @Inject constructor(
         }
     }
 
+    /**
+     * Maps the rich "entry_point" string carried in the source bundle back to the coarse
+     * [PlaybackEntryPoint] enum, which drives mixtape reset logic. The full string is still
+     * forwarded separately as sourceContext so analytics keeps the precise origin (e.g.
+     * "episode_info_screen", "home_hero_new_episodes_grid") instead of collapsing to GENERIC.
+     */
+    private fun resolveEntryPoint(entryPointContext: android.os.Bundle?): PlaybackEntryPoint {
+        return when (entryPointContext?.getString("entry_point")) {
+            "home_mixtape" -> PlaybackEntryPoint.HOME_MIXTAPE
+            "learn" -> PlaybackEntryPoint.LEARN
+            else -> PlaybackEntryPoint.GENERIC
+        }
+    }
+
     fun playEpisode(episode: EpisodeItem, podcast: cx.aswin.boxcast.core.model.Podcast?, preferredSort: String? = null, entryPointContext: android.os.Bundle? = null) {
         scope.launch {
             android.util.Log.d(TAG, "playEpisode called: ${episode.title}, sort=$preferredSort")
@@ -93,10 +107,8 @@ class QueueManager @Inject constructor(
                 // 3. Start playback IMMEDIATELY with just the current episode
                 // The queueRefillCallback will auto-fill more episodes when queue runs low
                 val domainEpisode = episode.toDomain(podcast)
-                val entryPoint = entryPointContext?.getString("entrypoint")?.let {
-                    if (it == "home_mixtape") PlaybackEntryPoint.HOME_MIXTAPE else PlaybackEntryPoint.GENERIC
-                } ?: PlaybackEntryPoint.GENERIC
-                playbackRepository.playQueue(listOf(domainEpisode), podcast, 0, entryPoint)
+                val entryPoint = resolveEntryPoint(entryPointContext)
+                playbackRepository.playQueue(listOf(domainEpisode), podcast, 0, entryPoint, sourceContext = entryPointContext)
             } else {
                  android.util.Log.e(TAG, "Podcast is null!")
             }
@@ -135,16 +147,14 @@ class QueueManager @Inject constructor(
     ) {
         val currentQueue = playbackRepository.playerState.value.queue
         val currentPodcast = playbackRepository.playerState.value.currentPodcast
-        val entryPoint = entryPointContext?.getString("entrypoint")?.let {
-            if (it == "home_mixtape") PlaybackEntryPoint.HOME_MIXTAPE else PlaybackEntryPoint.GENERIC
-        } ?: PlaybackEntryPoint.GENERIC
+        val entryPoint = resolveEntryPoint(entryPointContext)
 
         if (episode.id.startsWith("briefing_") && podcast != null) {
             scope.launch {
                 android.util.Log.d(TAG, "playEpisode briefing intercepted: ${episode.id}")
                 queueRepository.clearQueue()
                 queueRepository.replaceQueue(listOf(episode))
-                playbackRepository.playQueue(listOf(episode), podcast, 0, entryPoint, initialPositionMs)
+                playbackRepository.playQueue(listOf(episode), podcast, 0, entryPoint, initialPositionMs, sourceContext = entryPointContext)
             }
             return
         }
@@ -153,7 +163,7 @@ class QueueManager @Inject constructor(
         if (podcast != null && currentPodcast?.id == podcast.id) {
              val index = currentQueue.indexOfFirst { it.id == episode.id }
              if (index != -1) {
-                 playbackRepository.skipToEpisode(index, entryPoint)
+                 playbackRepository.skipToEpisode(index, entryPoint, sourceContext = entryPointContext)
                  return
              }
         }
