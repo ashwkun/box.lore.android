@@ -117,7 +117,7 @@ fun DebugScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 48.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 220.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {

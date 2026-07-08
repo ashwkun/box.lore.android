@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,7 +46,6 @@ import kotlinx.coroutines.delay
 data class SleepTimerOption(val label: String, val minutes: Int)
 
 val DefaultSleepTimerOptions = listOf(
-    SleepTimerOption("15m", 15),
     SleepTimerOption("30m", 30),
     SleepTimerOption("45m", 45),
     SleepTimerOption("1h", 60),
@@ -73,7 +70,7 @@ fun SleepTimerPopup(
     var isConfirming by remember { mutableStateOf(false) }
 
     LaunchedEffect(visible) {
-        if (!visible) {
+        if (visible) {
             isConfirming = false
         }
     }
@@ -108,23 +105,27 @@ fun SleepTimerPopup(
         modifier = modifier
     ) {
         val islandColor = Color(0xFF161618)
-        val islandBorder = Color.White.copy(alpha = 0.10f)
+        val islandBorder = Color.White.copy(alpha = 0.14f)
         val onIsland = Color.White
         val onIslandMuted = Color.White.copy(alpha = 0.62f)
+        val durationOptions = options.filter { it.minutes != 999 }
+        val endOfEpisodeOption = options.firstOrNull { it.minutes == 999 }
 
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(30.dp),
             color = islandColor,
             contentColor = onIsland,
-            shadowElevation = 16.dp,
+            shadowElevation = 20.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, islandBorder),
-            modifier = Modifier.widthIn(max = 420.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 420.dp)
         ) {
             if (isConfirming) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                        .padding(horizontal = 22.dp, vertical = 22.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -146,39 +147,50 @@ fun SleepTimerPopup(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .padding(horizontal = 18.dp, vertical = 18.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.Top
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .size(28.dp)
-                                    .background(Color.White.copy(alpha = 0.08f), CircleShape),
+                                    .size(36.dp)
+                                    .background(Color.White.copy(alpha = 0.10f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Bedtime,
                                     contentDescription = null,
                                     tint = onIsland,
-                                    modifier = Modifier.size(15.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Late night? Set a sleep timer",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = onIsland
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Late night listening?",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = onIsland
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = "Set a sleep timer so episodes don't keep playing overnight.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = onIslandMuted
+                                )
+                            }
                         }
 
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(30.dp)
                                 .expressiveClickable(shape = CircleShape, onClick = onDismiss),
                             contentAlignment = Alignment.Center
                         ) {
@@ -186,29 +198,27 @@ fun SleepTimerPopup(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = "Dismiss",
                                 tint = onIslandMuted,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    val scrollState = rememberScrollState()
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(scrollState),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        options.forEach { option ->
+                        durationOptions.forEach { option ->
                             Box(
                                 modifier = Modifier
+                                    .weight(1f)
                                     .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
                                     .expressiveClickable(shape = RoundedCornerShape(14.dp)) {
                                         onSelectDuration(option.minutes)
                                         isConfirming = true
                                     }
-                                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                                    .padding(horizontal = 16.dp, vertical = 11.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -219,6 +229,29 @@ fun SleepTimerPopup(
                                     maxLines = 1
                                 )
                             }
+                        }
+                    }
+
+                    if (endOfEpisodeOption != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+                                .expressiveClickable(shape = RoundedCornerShape(16.dp)) {
+                                    onSelectDuration(endOfEpisodeOption.minutes)
+                                    isConfirming = true
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = endOfEpisodeOption.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = onIsland,
+                                maxLines = 1
+                            )
                         }
                     }
                 }
