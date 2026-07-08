@@ -45,6 +45,12 @@ import kotlinx.coroutines.delay
 /** A single selectable duration option in the sleep timer popup. 999 means "End of episode". */
 data class SleepTimerOption(val label: String, val minutes: Int)
 
+enum class SleepTimerPopupDismissReason {
+    Manual,
+    Timeout,
+    Confirmation
+}
+
 private const val END_OF_EPISODE_MINUTES = 999
 
 val DefaultSleepTimerOptions = listOf(
@@ -67,7 +73,7 @@ fun SleepTimerPopup(
     options: List<SleepTimerOption> = DefaultSleepTimerOptions,
     autoHideMillis: Long = 8_000L,
     onSelectDuration: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: (SleepTimerPopupDismissReason) -> Unit
 ) {
     var isConfirming by remember { mutableStateOf(false) }
 
@@ -80,14 +86,14 @@ fun SleepTimerPopup(
     LaunchedEffect(visible, isConfirming) {
         if (visible && !isConfirming) {
             delay(autoHideMillis)
-            onDismiss()
+            onDismiss(SleepTimerPopupDismissReason.Timeout)
         }
     }
 
     LaunchedEffect(isConfirming) {
         if (isConfirming) {
             delay(1_800L)
-            onDismiss()
+            onDismiss(SleepTimerPopupDismissReason.Confirmation)
         }
     }
 
@@ -137,7 +143,7 @@ private fun SleepTimerSurface(
     durationOptions: List<SleepTimerOption>,
     endOfEpisodeOption: SleepTimerOption?,
     onSelectDuration: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: (SleepTimerPopupDismissReason) -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(30.dp),
@@ -194,7 +200,7 @@ private fun SleepTimerOptionsContent(
     durationOptions: List<SleepTimerOption>,
     endOfEpisodeOption: SleepTimerOption?,
     onSelectDuration: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: (SleepTimerPopupDismissReason) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -217,7 +223,10 @@ private fun SleepTimerOptionsContent(
 }
 
 @Composable
-private fun SleepTimerPopupHeader(palette: SleepTimerPopupPalette, onDismiss: () -> Unit) {
+private fun SleepTimerPopupHeader(
+    palette: SleepTimerPopupPalette,
+    onDismiss: (SleepTimerPopupDismissReason) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -260,7 +269,9 @@ private fun SleepTimerPopupHeader(palette: SleepTimerPopupPalette, onDismiss: ()
         Box(
             modifier = Modifier
                 .size(30.dp)
-                .expressiveClickable(shape = CircleShape, onClick = onDismiss),
+                .expressiveClickable(shape = CircleShape) {
+                    onDismiss(SleepTimerPopupDismissReason.Manual)
+                },
             contentAlignment = Alignment.Center
         ) {
             Icon(

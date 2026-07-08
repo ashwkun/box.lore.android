@@ -2355,8 +2355,14 @@ class MainActivity : ComponentActivity() {
                             )
                             playbackRepository.setSleepTimer(minutes, dismissNudge = false)
                         },
-                        onDismiss = {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("dismiss")
+                        onDismiss = { reason ->
+                            when (reason) {
+                                cx.aswin.boxcast.core.designsystem.components.SleepTimerPopupDismissReason.Manual ->
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("dismiss")
+                                cx.aswin.boxcast.core.designsystem.components.SleepTimerPopupDismissReason.Timeout ->
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLateNightSafeguardDecision("ignore")
+                                cx.aswin.boxcast.core.designsystem.components.SleepTimerPopupDismissReason.Confirmation -> Unit
+                            }
                             playbackRepository.dismissLateNightNudge()
                         }
                     )

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -301,11 +302,20 @@ private fun DbInspectorSection(
             }
         }
         Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             if (selectedTabIndex == 0) {
-                history.forEach { item -> HistoryDebugCard(item, onDelete = onDeleteHistoryItem) }
+                items(history, key = { it.episodeId }) { item ->
+                    HistoryDebugCard(item, onDelete = onDeleteHistoryItem)
+                }
             } else {
-                podcasts.forEach { item -> PodcastDebugCard(item) }
+                items(podcasts, key = { it.podcastId }) { item ->
+                    PodcastDebugCard(item)
+                }
             }
         }
     }
