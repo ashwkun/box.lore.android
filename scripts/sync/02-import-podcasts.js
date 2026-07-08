@@ -17,6 +17,7 @@ const fs = require('fs');
 const log = require('./lib/log');
 const turso = require('./lib/turso');
 const pi = require('./lib/podcast-index');
+const state = require('./lib/state');
 const cfg = require('./lib/config');
 
 const MISSING_IDS_FILE = 'missing_itunes_ids.txt';
@@ -100,7 +101,7 @@ async function importFromCSV() {
     const lines = content.split('\n').filter(l => l.trim());
     if (lines.length < 2) {
         log.info('CSV contains no data rows - nothing to import');
-        return 0;
+        return { count: 0, ids: [] };
     }
 
     const headers = parseCSVLine(lines[0]);
@@ -110,17 +111,21 @@ async function importFromCSV() {
         throw new Error(`CSV contains non-whitelisted columns: ${unknown.join(', ')} - refusing to import (no auto-ALTER)`);
     }
 
+    const idIdx = headers.indexOf('id');
     const catIdx = headers.indexOf('categories');
     const dataLines = lines.slice(1);
     log.info(`Importing ${log.fmt(dataLines.length)} rows from ${CSV_FILE}`);
 
     const BATCH = 50;
     let imported = 0;
+    const ids = [];
     const prog = log.progress(dataLines.length, 'csv-import');
 
     for (let i = 0; i < dataLines.length; i += BATCH) {
-        const statements = dataLines.slice(i, i + BATCH).map(line => {
+        const batchLines = dataLines.slice(i, i + BATCH);
+        const statements = batchLines.map(line => {
             const values = parseCSVLine(line);
+            if (idIdx !== -1 && values[idIdx]) ids.push(String(values[idIdx]));
             if (catIdx !== -1 && values[catIdx]) {
                 values[catIdx] = sortCategories(values[catIdx]);
             }
@@ -135,7 +140,7 @@ async function importFromCSV() {
         imported += statements.length;
         for (let k = 0; k < statements.length; k++) prog.tick();
     }
-    return imported;
+    return { count: imported, ids };
 }
 
 async function importFromAPI() {
@@ -143,7 +148,7 @@ async function importFromAPI() {
     const { missing } = await computeMissing();
     if (missing.length === 0) {
         log.info('All chart shows already present - nothing to import');
-        return 0;
+        return { count: 0, ids: [] };
     }
 
     const toImport = missing.slice(0, cfg.API_IMPORT_CAP);
@@ -156,6 +161,7 @@ async function importFromAPI() {
     const placeholders = cols.map(() => '?').join(',');
     let imported = 0;
     let notFound = 0;
+    const ids = [];
     const statements = [];
     const prog = log.progress(toImport.length, 'api-import');
 
@@ -169,6 +175,7 @@ async function importFromAPI() {
         prog.tick();
         if (!feed) { notFound++; continue; }
 
+        ids.push(String(feed.id));
         const categoriesStr = feed.categories
             ? sortCategories(Object.values(feed.categories).join(', '))
             : '';
@@ -201,7 +208,39 @@ async function importFromAPI() {
     if (statements.length > 0) await turso.batch(statements);
 
     log.info(`API import done: ${imported} imported, ${notFound} not found on PI`);
-    return imported;
+    return { count: imported, ids };
+}
+
+/**
+ * Append newly imported podcast IDs to stage 3's candidate list.
+ * Per-show sync history (last check time, latest ep id, etc.) is untouched.
+ */
+function registerImportedCandidates(importedIds) {
+    if (importedIds.length === 0) return;
+
+    const st = state.load();
+    if (!st.candidateIds) {
+        // First run or legacy state — let stage 3 build the full list from Turso.
+        st.candidatesRefreshedAt = 0;
+        state.save(st);
+        log.info('[CANDIDATES] No candidate list yet — stage 3 will refresh from Turso');
+        return;
+    }
+
+    const known = new Set(st.candidateIds);
+    let added = 0;
+    for (const podId of importedIds) {
+        const id = String(podId);
+        if (known.has(id)) continue;
+        st.candidateIds.push(id);
+        known.add(id);
+        if (!st.shows[id]) st.shows[id] = {};
+        added++;
+    }
+    if (added === 0) return;
+
+    state.save(st);
+    log.info(`[CANDIDATES] Registered ${added} newly imported shows for episode sync (existing check history unchanged)`);
 }
 
 async function main() {
@@ -218,12 +257,15 @@ async function main() {
     }
 
     let imported = 0;
+    let importedIds = [];
     let mode;
     if (fs.existsSync(CSV_FILE)) {
         mode = 'dump';
         log.banner('Stage 2 · Import Podcasts', { 'Mode': 'bulk (PI dump CSV)' });
         log.group('Bulk import from PI dump CSV');
-        imported = await importFromCSV();
+        const result = await importFromCSV();
+        imported = result.count;
+        importedIds = result.ids;
         log.endGroup();
     } else {
         mode = 'api';
@@ -232,9 +274,13 @@ async function main() {
             'Per-run cap': String(cfg.API_IMPORT_CAP),
         });
         log.group('Incremental import via PI API');
-        imported = await importFromAPI();
+        const result = await importFromAPI();
+        imported = result.count;
+        importedIds = result.ids;
         log.endGroup();
     }
+
+    registerImportedCandidates(importedIds);
 
     const stats = turso.getStats();
     log.costFooter('Stage 2 · Import Podcasts', {
