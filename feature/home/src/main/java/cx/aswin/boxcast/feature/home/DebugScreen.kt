@@ -123,15 +123,19 @@ fun DebugScreen(
             item {
                 SectionCard("Sleep Prompt Testing", Icons.Rounded.Bedtime, isCollapsible = false) {
                     SleepTestingSection(
-                        skipSleepWindow = skipSleepWindow,
-                        onToggleSkipSleepWindow = viewModel::setSkipSleepWindow,
-                        isInNightWindow = isInNightWindow,
-                        showLateNightNudge = playerState.showLateNightNudge,
-                        sleepTimerEnd = playerState.sleepTimerEnd,
-                        sleepAtEndOfEpisode = playerState.sleepAtEndOfEpisode,
-                        onForcePromptNow = viewModel::forceSleepPromptNow,
-                        onClearSleepTimer = viewModel::clearSleepTimer,
-                        onResetSleepWindowGuard = viewModel::resetSleepWindowGuard
+                        state = SleepTestingState(
+                            skipSleepWindow = skipSleepWindow,
+                            isInNightWindow = isInNightWindow,
+                            showLateNightNudge = playerState.showLateNightNudge,
+                            sleepTimerEnd = playerState.sleepTimerEnd,
+                            sleepAtEndOfEpisode = playerState.sleepAtEndOfEpisode
+                        ),
+                        actions = SleepTestingActions(
+                            onToggleSkipSleepWindow = viewModel::setSkipSleepWindow,
+                            onForcePromptNow = viewModel::forceSleepPromptNow,
+                            onClearSleepTimer = viewModel::clearSleepTimer,
+                            onResetSleepWindowGuard = viewModel::resetSleepWindowGuard
+                        )
                     )
                 }
             }
@@ -171,6 +175,21 @@ fun DebugScreen(
     }
 }
 
+private data class SleepTestingState(
+    val skipSleepWindow: Boolean,
+    val isInNightWindow: Boolean,
+    val showLateNightNudge: Boolean,
+    val sleepTimerEnd: Long?,
+    val sleepAtEndOfEpisode: Boolean
+)
+
+private data class SleepTestingActions(
+    val onToggleSkipSleepWindow: (Boolean) -> Unit,
+    val onForcePromptNow: () -> Unit,
+    val onClearSleepTimer: () -> Unit,
+    val onResetSleepWindowGuard: () -> Unit
+)
+
 @Composable
 private fun StatusRow(label: String, value: String, valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
     Row(
@@ -185,15 +204,8 @@ private fun StatusRow(label: String, value: String, valueColor: androidx.compose
 
 @Composable
 private fun SleepTestingSection(
-    skipSleepWindow: Boolean,
-    onToggleSkipSleepWindow: (Boolean) -> Unit,
-    isInNightWindow: Boolean,
-    showLateNightNudge: Boolean,
-    sleepTimerEnd: Long?,
-    sleepAtEndOfEpisode: Boolean,
-    onForcePromptNow: () -> Unit,
-    onClearSleepTimer: () -> Unit,
-    onResetSleepWindowGuard: () -> Unit
+    state: SleepTestingState,
+    actions: SleepTestingActions
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
@@ -209,18 +221,18 @@ private fun SleepTestingSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Switch(checked = skipSleepWindow, onCheckedChange = onToggleSkipSleepWindow)
+            Switch(checked = state.skipSleepWindow, onCheckedChange = actions.onToggleSkipSleepWindow)
         }
 
         Spacer(Modifier.height(2.dp))
 
-        StatusRow("Night window (10:30 PM – 4 AM)", if (isInNightWindow) "Active" else "Inactive")
-        StatusRow("Prompt currently shown", if (showLateNightNudge) "Yes" else "No")
+        StatusRow("Night window (10:30 PM – 4 AM)", if (state.isInNightWindow) "Active" else "Inactive")
+        StatusRow("Prompt currently shown", if (state.showLateNightNudge) "Yes" else "No")
         StatusRow(
             "Sleep timer",
             when {
-                sleepAtEndOfEpisode -> "End of episode"
-                sleepTimerEnd != null -> "${((sleepTimerEnd - System.currentTimeMillis()) / 60000).coerceAtLeast(0)}m left"
+                state.sleepAtEndOfEpisode -> "End of episode"
+                state.sleepTimerEnd != null -> "${((state.sleepTimerEnd - System.currentTimeMillis()) / 60000).coerceAtLeast(0)}m left"
                 else -> "Off"
             }
         )
@@ -231,14 +243,14 @@ private fun SleepTestingSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedButton(onClick = onForcePromptNow, modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = actions.onForcePromptNow, modifier = Modifier.weight(1f)) {
                 Text("Trigger now", maxLines = 1)
             }
-            OutlinedButton(onClick = onClearSleepTimer, modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = actions.onClearSleepTimer, modifier = Modifier.weight(1f)) {
                 Text("Clear timer", maxLines = 1)
             }
         }
-        OutlinedButton(onClick = onResetSleepWindowGuard, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = actions.onResetSleepWindowGuard, modifier = Modifier.fillMaxWidth()) {
             Text("Reset once-per-night guard")
         }
     }

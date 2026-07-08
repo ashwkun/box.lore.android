@@ -878,9 +878,9 @@ class PlaybackRepository(
 
                         // 6. Auto-refill when queue is running low
                         val currentQueueSize = _playerState.value.queue.size
-                        if (currentQueueSize < QUEUE_REFILL_THRESHOLD && newPodcast != null) {
+                        newPodcast?.takeIf { currentQueueSize < QUEUE_REFILL_THRESHOLD }?.let { podcast ->
                             android.util.Log.d("PlaybackRepo", "Queue running low ($currentQueueSize items). Triggering auto-refill.")
-                            queueRefillCallback?.invoke(newEpisode, newPodcast)
+                            queueRefillCallback?.invoke(newEpisode, podcast)
                         }
                     }
                 }

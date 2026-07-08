@@ -988,9 +988,10 @@ class HomeViewModel(
                                  } else 0f
                                  val finalPodId = session.podcastId.takeIf { it.isNotBlank() && it != "0" } ?: ""
                                  val parentPod = subs.find { it.id == finalPodId }
-                                 val finalPodTitle = session.podcastTitle.takeIf { it.isNotBlank() && it != "Unknown Podcast" }
-                                     ?: parentPod?.title
-                                     ?: "Podcast"
+                                 val parentTitle = parentPod?.title.orEmpty()
+                                 val finalPodTitle = session.podcastTitle
+                                     .takeIf { it.isNotBlank() && it != "Unknown Podcast" }
+                                     ?: parentTitle.ifBlank { "Podcast" }
                                  return Podcast(
                                      id = finalPodId,
                                      title = finalPodTitle,
