@@ -212,7 +212,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 endPlaybackSession(forceCompleted = wasAutoCompleted, isTransition = true)
                 
                 if (player.isPlaying) {
-                    val episodeId = mediaItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
+                    val episodeId = mediaItem?.mediaId?.removePrefix("learn:")?.removePrefix("episode:")?.removePrefix("queue:")
                     if (episodeId != null) startPlaybackSession(episodeId, mediaItem)
                     activePlaybackStartTimeMs = System.currentTimeMillis()
                 } else {
@@ -223,7 +223,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 android.util.Log.d("AutoQueue", "onMediaItemTransition: remaining=$remaining, reason=$reason")
 
                 val currentItem = player.currentMediaItem
-                val isLearn = currentItem?.mediaMetadata?.extras?.getString("entry_point") == "learn"
+                val isLearn = currentItem?.mediaId?.startsWith("learn:") == true
 
                 if (remaining <= 2 && !isRefilling && player.mediaItemCount > 0 && !isLearn) {
                     isRefilling = true
@@ -265,7 +265,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 val currentItem = player.currentMediaItem
-                val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
+                val episodeId = currentItem?.mediaId?.removePrefix("learn:")?.removePrefix("episode:")?.removePrefix("queue:")
                 
                 if (isPlaying) {
                     // Telemetry: Started playing
@@ -698,9 +698,8 @@ class BoxLorePlaybackService : MediaLibraryService() {
      */
     private suspend fun refillQueue(player: ExoPlayer) {
         val currentItem = player.currentMediaItem ?: return
-        
-        // Extract episode info — strip any prefix for consistent ID format
-        val episodeId = currentItem.mediaId.removePrefix("episode:").removePrefix("queue:")
+             // Extract episode info — strip any prefix for consistent ID format
+        val episodeId = currentItem.mediaId.removePrefix("learn:").removePrefix("episode:").removePrefix("queue:")
         val metadata = currentItem.mediaMetadata
         
         android.util.Log.d("AutoQueue", "Refilling from: ${metadata.title}, episodeId=$episodeId")
@@ -745,11 +744,11 @@ class BoxLorePlaybackService : MediaLibraryService() {
         if (nextEntries.isNotEmpty()) {
             val refilledEpisodeIds = mutableListOf<String>()
             val recommendationSources = mutableListOf<String>()
-
+ 
             // Collect existing mediaIds to avoid duplicates
             val existingIds = kotlinx.coroutines.withContext(mainDispatcher) {
                 (0 until player.mediaItemCount).map { 
-                    player.getMediaItemAt(it).mediaId.removePrefix("episode:").removePrefix("queue:")
+                    player.getMediaItemAt(it).mediaId.removePrefix("learn:").removePrefix("episode:").removePrefix("queue:")
                 }.toSet()
             }
             
@@ -941,7 +940,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
             val currentItem = kotlinx.coroutines.withContext(mainDispatcher) { player.currentMediaItem }
             val positionMs = kotlinx.coroutines.withContext(mainDispatcher) { player.currentPosition }
             val durationMs = kotlinx.coroutines.withContext(mainDispatcher) { player.duration }
-            val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:") ?: return
+            val episodeId = currentItem?.mediaId?.removePrefix("learn:")?.removePrefix("episode:")?.removePrefix("queue:") ?: return
             
             val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
             if (existing != null && positionMs > 0) {
@@ -1007,7 +1006,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         val player = exoPlayer ?: return
         val currentItem = player.currentMediaItem
         val durationMs = player.duration
-        val episodeId = currentItem?.mediaId?.removePrefix("episode:")?.removePrefix("queue:")
+        val episodeId = currentItem?.mediaId?.removePrefix("learn:")?.removePrefix("episode:")?.removePrefix("queue:")
         if (episodeId != null) {
             serviceScope.launch {
                 try {
@@ -1633,7 +1632,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 }
                 
                 val resolvedItem = resolveMediaItem(selectedItem)
-                val episodeId = selectedItem.mediaId.removePrefix("episode:").removePrefix("queue:")
+                val episodeId = selectedItem.mediaId.removePrefix("learn:").removePrefix("episode:").removePrefix("queue:")
                 android.util.Log.d("AutoBrowse", "Returning episode instantly: $episodeId")
                 
                 val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
@@ -1646,7 +1645,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     pendingSeekEpisodeId = null
                 }
                 
-                val isLearn = selectedItem.mediaMetadata.extras?.getString("entry_point") == "learn"
+                val isLearn = selectedItem.mediaId.startsWith("learn:")
                 if (!isLearn) {
                     buildAndAppendQueueAsync(episodeId, mediaSession)
                 } else {
