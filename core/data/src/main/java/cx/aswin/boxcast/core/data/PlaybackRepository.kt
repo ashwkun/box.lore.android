@@ -87,6 +87,8 @@ class PlaybackRepository(
     // Preferences for session state
     private val prefs = context.getSharedPreferences("boxcast_player", Context.MODE_PRIVATE)
     private val KEY_PLAYER_DISMISSED = "player_dismissed"
+    private val KEY_LAST_SLEEP_PROMPT_WINDOW_ID = "last_sleep_prompt_window_id"
+    private val KEY_DEBUG_SKIP_SLEEP_WINDOW = "debug_skip_sleep_window"
     
     private val userPreferencesRepository = UserPreferencesRepository(context)
     private var currentSkipBehavior: String = "just_skip"
@@ -583,6 +585,7 @@ class PlaybackRepository(
                         pendingSaveJob?.cancel() // Cancel pending save if we resume
                         if (!oldIsPlaying) {
                             activePlaybackStartTimeMs = System.currentTimeMillis()
+                            onPlaybackStarted()
                         }
                         startProgressTicker()
                     } else {
@@ -800,7 +803,7 @@ class PlaybackRepository(
                         }
                         
                         // 2. Derive podcast context from episode metadata & local DB
-                        val newPodcast = if (newEpisode.podcastId != null) {
+                        val newPodcast: Podcast? = if (newEpisode.podcastId != null) {
                             val existingPod = oldState.currentPodcast
                             val database = cx.aswin.boxcast.core.data.database.BoxLoreDatabase.getDatabase(context)
                             val dbPodEntity = database.podcastDao().getPodcast(newEpisode.podcastId!!)
@@ -1114,16 +1117,52 @@ class PlaybackRepository(
         return Pair(startPosMs, initialLikeState)
     }
 
-    private fun checkShowLateNightNudge(): Boolean {
-        if (isLateNight()) {
-            val lastShown = prefs.getLong("last_late_night_nudge_timestamp", 0L)
-            val now = System.currentTimeMillis()
-            if (now - lastShown > 43_200_000L) {
-                prefs.edit().putLong("last_late_night_nudge_timestamp", now).apply()
-                return true
-            }
+    /**
+     * Returns a stable id for the current "night window" (10:30 PM - 4:00 AM), or null if
+     * the current time is outside that window. Nights that cross midnight share the id of the
+     * calendar day the window started on, so a single window is never split in two.
+     */
+    private fun currentNightWindowId(): String? {
+        val calendar = java.util.Calendar.getInstance()
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(java.util.Calendar.MINUTE)
+        val timeInMinutes = hour * 60 + minute
+
+        val startLateNight = 22 * 60 + 30 // 10:30 PM
+        val endLateNight = 4 * 60 // 4:00 AM
+
+        val inWindow = timeInMinutes >= startLateNight || timeInMinutes < endLateNight
+        if (!inWindow) return null
+
+        if (timeInMinutes < endLateNight) {
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, -1)
         }
-        return false
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        return fmt.format(calendar.time)
+    }
+
+    fun isDebugSkipSleepWindowEnabled(): Boolean = prefs.getBoolean(KEY_DEBUG_SKIP_SLEEP_WINDOW, false)
+
+    fun setDebugSkipSleepWindow(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEBUG_SKIP_SLEEP_WINDOW, enabled).apply()
+    }
+
+    /**
+     * Single chokepoint for the late-night sleep prompt. Called whenever playback transitions
+     * from paused/stopped to playing, from any entry point (new episode, resume, skip,
+     * notification, Bluetooth, auto-advance). Shows the prompt once per night window.
+     */
+    private fun onPlaybackStarted() {
+        if (isDebugSkipSleepWindowEnabled()) {
+            _playerState.value = _playerState.value.copy(showLateNightNudge = true)
+            return
+        }
+        val windowId = currentNightWindowId() ?: return
+        val stored = prefs.getString(KEY_LAST_SLEEP_PROMPT_WINDOW_ID, null)
+        if (windowId != stored) {
+            prefs.edit().putString(KEY_LAST_SLEEP_PROMPT_WINDOW_ID, windowId).apply()
+            _playerState.value = _playerState.value.copy(showLateNightNudge = true)
+        }
     }
 
     private fun storePendingEntryPoint(entryPointContext: android.os.Bundle?) {
@@ -1172,7 +1211,10 @@ class PlaybackRepository(
             
             val currentEp = episodes.getOrNull(startIndex)
             if (currentEp != null) {
-                val showNudge = checkShowLateNightNudge()
+                // playQueue optimistically flips isPlaying=true here, ahead of the real
+                // MediaController callback, so the onIsPlayingChanged edge-trigger below
+                // won't see a false->true transition for this path. Trigger explicitly.
+                val wasPlaying = _playerState.value.isPlaying
                 _playerState.value = _playerState.value.copy(
                     currentEpisode = currentEp,
                     currentPodcast = podcast,
@@ -1180,9 +1222,11 @@ class PlaybackRepository(
                     position = startPosMs,
                     duration = currentEp.duration.toLong() * 1000,
                     queue = episodes,
-                    isLiked = initialLikeState,
-                    showLateNightNudge = showNudge
+                    isLiked = initialLikeState
                 )
+                if (!wasPlaying) {
+                    onPlaybackStarted()
+                }
             }
             
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.setSeekSource("resume")
@@ -1764,26 +1808,28 @@ class PlaybackRepository(
         }
     }
 
-    private fun isLateNight(): Boolean {
-        val calendar = java.util.Calendar.getInstance()
-        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-        val minute = calendar.get(java.util.Calendar.MINUTE)
-        val timeInMinutes = hour * 60 + minute
-        
-        val startLateNight = 22 * 60 + 30 // 10:30 PM (1350 minutes)
-        val endLateNight = 4 * 60 // 4:00 AM (240 minutes)
-        
-        return timeInMinutes >= startLateNight || timeInMinutes < endLateNight
-    }
+    /** True when the current time falls inside the 10:30 PM - 4:00 AM night window. */
+    fun isInNightWindow(): Boolean = currentNightWindowId() != null
 
     fun dismissLateNightNudge() {
         Log.d("PlaybackRepo", "dismissLateNightNudge() called, current showLateNightNudge=${_playerState.value.showLateNightNudge}")
         _playerState.value = _playerState.value.copy(showLateNightNudge = false)
+        // Snooze for the rest of this window even if it wasn't stamped on show
+        // (e.g. a debug-forced prompt outside the normal trigger).
+        currentNightWindowId()?.let { windowId ->
+            prefs.edit().putString(KEY_LAST_SLEEP_PROMPT_WINDOW_ID, windowId).apply()
+        }
     }
 
+    /** Clears the once-per-night guard so the prompt can be re-triggered for testing. */
     fun resetSleepNudgeForTesting() {
-        prefs.edit().putLong("last_late_night_nudge_timestamp", 0L).apply()
+        prefs.edit().remove(KEY_LAST_SLEEP_PROMPT_WINDOW_ID).apply()
         setSleepTimer(0)
+    }
+
+    /** Debug-only: force the prompt to show immediately, bypassing all cadence checks. */
+    fun forceShowSleepPromptForTesting() {
+        _playerState.value = _playerState.value.copy(showLateNightNudge = true)
     }
 
     val lastPlayedSession: Flow<PlaybackSession?> = listeningHistoryDao.getResumeItems()

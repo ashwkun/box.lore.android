@@ -988,9 +988,10 @@ class HomeViewModel(
                                  } else 0f
                                  val finalPodId = session.podcastId.takeIf { it.isNotBlank() && it != "0" } ?: ""
                                  val parentPod = subs.find { it.id == finalPodId }
-                                 val finalPodTitle = session.podcastTitle.takeIf { it.isNotBlank() && it != "Unknown Podcast" }
-                                     ?: parentPod?.title
-                                     ?: "Podcast"
+                                 val parentTitle = parentPod?.title.orEmpty()
+                                 val finalPodTitle = session.podcastTitle
+                                     .takeIf { it.isNotBlank() && it != "Unknown Podcast" }
+                                     ?: parentTitle.ifBlank { "Podcast" }
                                  return Podcast(
                                      id = finalPodId,
                                      title = finalPodTitle,
@@ -1701,12 +1702,6 @@ mixtapePodcasts = cachedMix
         playbackRepository.togglePlayPause(entryPointContext)
     }
 
-    fun deleteHistoryItem(episodeId: String) {
-        viewModelScope.launch {
-            playbackRepository.deleteSession(episodeId)
-        }
-    }
-    
     fun dismissReviewPrompt() {
         _showReviewPrompt.value = false
     }
@@ -1752,9 +1747,6 @@ mixtapePodcasts = cachedMix
         }
     }
     
-    // Debug Accessors
-    val debugHistory = playbackRepository.getAllHistory()
-    val debugPodcasts = subscriptionRepository.getAllSubscribedPodcasts()
     // --- Helper Logic ---
     data class TimeBlockConfig(val title: String, val subtitle: String, val icon: ImageVector, val genres: List<GenreConfig>)
     data class GenreConfig(val id: String, val title: String)
@@ -1868,19 +1860,6 @@ mixtapePodcasts = cachedMix
         }
     }
 
-    fun resetFeatureFlag() {
-        viewModelScope.launch {
-            userPrefs.dismissFeatureAnnouncement("")
-        }
-    }
-
-    fun clearDismissedCuriosities() {
-        val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", android.content.Context.MODE_PRIVATE)
-        prefs.edit()
-            .remove("dismissed_curiosities")
-            .remove("learn_curiosity_history")
-            .apply()
-    }
     
     private suspend fun resolveFavoritePodcast(
         overriddenId: String?,
