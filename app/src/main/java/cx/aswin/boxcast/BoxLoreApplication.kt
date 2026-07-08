@@ -83,6 +83,10 @@ class BoxLoreApplication : Application() {
      */
     private fun setupAppCheck() {
         try {
+            // Expose the build to the network layer so requests carry
+            // X-App-Version and the proxy can slice App Check adoption by build.
+            NetworkModule.appVersion = BuildConfig.VERSION_NAME
+            val provider = if (BuildConfig.DEBUG) "debug" else "play_integrity"
             val appCheck = FirebaseAppCheck.getInstance()
             if (BuildConfig.DEBUG) {
                 appCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
@@ -95,10 +99,15 @@ class BoxLoreApplication : Application() {
             // fetch. With the 24h token TTL this is ~1 mint/user/day.
             appCheck.setTokenAutoRefreshEnabled(true)
             // Pre-warm: start the token exchange at launch so it's cached before
-            // the first API request, closing the cold-start gap.
+            // the first API request, closing the cold-start gap. The result is
+            // reported once per launch to PostHog for adoption/health tracking.
             appCheck.getAppCheckToken(false)
+                .addOnSuccessListener {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAppCheckStatus(true, provider)
+                }
                 .addOnFailureListener { e ->
                     android.util.Log.w("BoxCastApp", "App Check pre-warm failed: ${e.message}")
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackAppCheckStatus(false, provider)
                 }
             NetworkModule.appCheckTokenProvider = {
                 try {

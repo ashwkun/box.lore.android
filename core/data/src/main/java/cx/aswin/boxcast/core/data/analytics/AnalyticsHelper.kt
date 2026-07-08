@@ -115,6 +115,22 @@ object AnalyticsHelper {
         }
     }
 
+    /**
+     * App Check health/adoption. Captured once per launch on builds that ship
+     * App Check. `token_obtained` = whether the SDK produced an attestation
+     * token; `provider` distinguishes debug vs Play Integrity. App version is
+     * attached automatically by PostHog, so adoption can be sliced by build.
+     */
+    fun trackAppCheckStatus(tokenObtained: Boolean, provider: String) {
+        PostHog.capture(
+            "app_check_status",
+            properties = mapOf(
+                "token_obtained" to tokenObtained,
+                "provider" to provider
+            )
+        )
+    }
+
     fun trackFirstEpisodePlayed() {
         PostHog.capture(
             "first_episode_played",

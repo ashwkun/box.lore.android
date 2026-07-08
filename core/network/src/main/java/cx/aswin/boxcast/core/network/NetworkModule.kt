@@ -21,6 +21,13 @@ object NetworkModule {
     @Volatile
     var appCheckTokenProvider: (() -> String?)? = null
 
+    /**
+     * App version (BuildConfig.VERSION_NAME), set by the app module at startup.
+     * Sent as X-App-Version so the proxy can slice App Check adoption by build.
+     */
+    @Volatile
+    var appVersion: String? = null
+
     private val appCheckInterceptor = okhttp3.Interceptor { chain ->
         val token = try {
             appCheckTokenProvider?.invoke()
@@ -28,12 +35,12 @@ object NetworkModule {
             Log.w("BoxCastAPI", "App Check token fetch failed; proceeding without", e)
             null
         }
-        val request = if (token.isNullOrEmpty()) {
-            chain.request()
-        } else {
-            chain.request().newBuilder().header("X-Firebase-AppCheck", token).build()
+        val builder = chain.request().newBuilder()
+        if (!token.isNullOrEmpty()) {
+            builder.header("X-Firebase-AppCheck", token)
         }
-        chain.proceed(request)
+        appVersion?.let { builder.header("X-App-Version", it) }
+        chain.proceed(builder.build())
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor { message ->
