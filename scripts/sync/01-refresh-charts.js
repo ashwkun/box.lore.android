@@ -71,15 +71,37 @@ function rowKey(country, category, itunesId) {
     return `${country}|${category}|${itunesId}`;
 }
 
+// Charts are expensive to refresh (~36k writes). Skip if already refreshed
+// within this window to protect the daily write budget when multiple runs
+// or manual dispatches fire close together.
+const CHARTS_REFRESH_MIN_GAP_MS = 20 * 60 * 60 * 1000; // 20 hours
+const FORCE = process.argv.includes('--force');
+
 async function main() {
     turso.assertEnv();
     turso.beginStep('refresh-charts');
     await turso.healthCheck();
 
+    // --- Skip-if-fresh gate ---
+    // Load state once here so we can reuse it when saving chartsRefreshedAt below.
+    const st = state.load();
+    const ageMs = Date.now() - (st.chartsRefreshedAt || 0);
+    const ageH = (ageMs / 3600000).toFixed(1);
+    if (!FORCE && ageMs < CHARTS_REFRESH_MIN_GAP_MS) {
+        log.banner('Stage 1 · Refresh Charts', {
+            'Countries': cfg.ALL_COUNTRIES.map(c => c.toUpperCase()).join(', '),
+            'Skipped': `Charts refreshed ${ageH}h ago (threshold 20h) — use --force to override`,
+        });
+        turso.flushStats();
+        return;
+    }
+    // (st is reused below when saving chartsRefreshedAt)
+
     log.banner('Stage 1 · Refresh Charts', {
         'Countries': cfg.ALL_COUNTRIES.map(c => c.toUpperCase()).join(', '),
         'Categories': String(cfg.CATEGORIES.length),
         'Chart fetches': String(cfg.ALL_COUNTRIES.length * cfg.CATEGORIES.length),
+        ...(FORCE ? { 'Mode': '--force (skip-if-fresh bypassed)' } : {}),
     });
 
     // --- Read the entire charts table once and index it ---
@@ -173,7 +195,6 @@ async function main() {
     }
 
     // Record charts refresh time in state so stage 3 refreshes its candidate cache
-    const st = state.load();
     st.chartsRefreshedAt = Date.now();
     state.save(st);
 
