@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Redesigned sleep timer nudge with dynamic-island style SleepTimerPopup component.
+- Implemented Firebase App Check token pre-warming and auto-refresh mechanisms.
+- Added AI-suggested search redirect chips, anonymous data disclosure, and non-Latin input tips to AI Onboarding.
+- Created `SleepTimerConstants` shared module to deduplicate numeric sentinel values.
+### Changed
+- Isolated the Learn screen playback queue to prevent auto-refill of normal episodes.
+### Fixed
+- Fixed sleep timer nudge dismissal race condition when hidden mid-confirmation.
+- Fixed transition stutters for the Home screen tab navigation.
+- Fixed AppCheck telemetry initialization race condition on app startup.
+- Redacted sensitive security tokens (App Check and API key) from OkHttp header logcat output.
 
 ## [v0.0.5] - 2026-07-08
 ### Added
