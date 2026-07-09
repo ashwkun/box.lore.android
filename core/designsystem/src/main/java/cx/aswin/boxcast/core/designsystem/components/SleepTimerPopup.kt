@@ -79,6 +79,10 @@ fun SleepTimerPopup(
     LaunchedEffect(visible) {
         if (visible) {
             isConfirming = false
+        } else {
+            if (isConfirming) {
+                onDismiss(SleepTimerPopupDismissReason.Confirmation)
+            }
         }
     }
 
