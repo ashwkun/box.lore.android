@@ -1,29 +1,85 @@
 [github_action_config]
-pr_actions = ["opened", "reopened", "synchronize"]
+pr_actions = ["opened", "reopened", "synchronize", "ready_for_review"]
 auto_review = true
 auto_describe = true
+auto_improve = true
+
+[config]
+# Enables AI-driven custom label generation
+enable_custom_labels = true
 
 [pr_reviewer]
+# Limits noise by forcing the AI to rank and surface only the top 4 issues
 num_code_suggestions = 4
-require_tests_report = true
-require_security_report = true
+# Forces the AI to verify its own suggestions against existing code before posting
+self_reflect_on_custom_suggestions = true
+
+# Advanced Review Checks
+require_security_review = true
+require_tests_review = true
+require_estimate_effort_to_review = true
+
+# Domain-specific constraints and strict issue formatting
+extra_instructions = """\
+Focus on Android application performance, Jetpack Compose stability, and data safety. \
+For every finding, you MUST format your response exactly as follows: \
+**Issue:** [Clear description of the flaw] \
+**Impact:** [What happens if this is not fixed (e.g., UI stutter, memory leak, main thread block)] \
+**Fix:** [Actionable code suggestion] \
+\
+Domain Rules: \
+1. Flag unnecessary Jetpack Compose recompositions and unstable parameters. \
+2. Ensure Turso/local database operations and network calls never execute on the Main Thread. \
+3. Verify comprehensive exception handling is present for Crashlytics.\
+"""
 
 [pr_description]
 publish_labels = true
+use_bullet_points = true
+generate_ai_title = true
+# Forces the AI to discard the messy developer description and apply a strict template
+extra_instructions = """\
+You MUST rewrite the entire PR description to strictly follow this Markdown format. \
+Do not output anything outside of this exact structure: \
+\
+## 🎯 Objective \
+[1-2 sentences explaining why this PR exists based on the code diff] \
+\
+## 🛠️ Changes \
+[Bullet points of the exact technical changes made] \
+\
+## ⚠️ Risks & Edge Cases \
+[Analyze the diff and list any potential breaking changes, performance impacts, or security risks. If none, state 'None identified.'] \
+"""
+
+[pr_update_changelog]
+push_changelog_changes = true
+changelog_file = "CHANGELOG.md"
+
+# Defines custom labels for the AI to apply based on code context
+[custom_labels."UI / Compose"]
+description = "Changes to Jetpack Compose screens, UI states, or themes"
+[custom_labels."Database / Turso"]
+description = "Changes to Turso local-first data sync, DAOs, or SQL entities"
+[custom_labels."Dependencies"]
+description = "Updates to Gradle files or version catalogs"
 
 [ignore]
-files = [
-  "package-lock.json",
-  "pnpm-lock.yaml",
-  "yarn.lock",
-  "gradlew",
-  "gradlew.bat",
-  "gradle/*",
-  "local.properties",
-  ".env",
-  "*.png",
-  "*.jpg",
-  "*.webp",
-  "*.svg",
-  "*.bin"
+glob = [
+    "gradlew",
+    "gradlew.bat",
+    "gradle/**",
+    "build/**",
+    "app/build/**",
+    "local.properties",
+    "*.jks",
+    "*.keystore",
+    "google-services.json",
+    "*.mp3",
+    "*.ogg",
+    "*.png",
+    "*.jpg",
+    "*.webp",
+    "*.svg",
+    "*.bin"
 ]
