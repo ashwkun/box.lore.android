@@ -1328,7 +1328,7 @@ class MainActivity : ComponentActivity() {
                                             artist = episode.podcastTitle ?: "Unknown",
                                             imageUrl = episode.podcastImageUrl ?: episode.imageUrl ?: ""
                                         )
-                                        queueManager.addToQueue(episode, podcast)
+                                         queueManager.addToQueue(episode, podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint.LEARN)
                                     },
                                     onPodcastClick = { feedId, itunesId, feedUrl, title ->
                                         val pId = feedId?.toString() ?: ""
