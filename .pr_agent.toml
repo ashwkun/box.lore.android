@@ -36,7 +36,7 @@ Domain Rules: \
 [pr_description]
 publish_labels = true
 use_bullet_points = true
-generate_ai_title = true
+generate_ai_title = false
 # Forces the AI to discard the messy developer description and apply a strict template
 extra_instructions = """\
 You MUST rewrite the entire PR description to strictly follow this Markdown format. \
