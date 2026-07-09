@@ -1,0 +1,23 @@
+name: Qodo PR-Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  pr_agent:
+    name: Interactive Qodo PR-Agent
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Run PR Agent
+        uses: the-pr-agent/pr-agent@d7e94bc27a8ad0456090a07e075cecd6e6459626
+        env:
+          CONFIG__LITELLM__MODEL: "groq/llama-3.3-70b-versatile"
+          GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,29 @@
+[github_action_config]
+pr_actions = ["opened", "reopened", "synchronize"]
+auto_review = true
+auto_describe = true
+
+[pr_reviewer]
+num_code_suggestions = 4
+require_tests_report = true
+require_security_report = true
+
+[pr_description]
+publish_labels = true
+
+[ignore]
+files = [
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "yarn.lock",
+  "gradlew",
+  "gradlew.bat",
+  "gradle/*",
+  "local.properties",
+  ".env",
+  "*.png",
+  "*.jpg",
+  "*.webp",
+  "*.svg",
+  "*.bin"
+]
