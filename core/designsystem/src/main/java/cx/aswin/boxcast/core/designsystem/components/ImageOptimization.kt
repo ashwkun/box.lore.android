@@ -12,13 +12,14 @@ private fun calculateScaledWidth(originalWidth: Int): Int {
         val screenWidthPx = metrics.widthPixels
         val isLargeScreen = (screenWidthPx / density) >= 600f
         
-        val basePixelWidth = originalWidth * density
+        // originalWidth is already in pixels (callers pass dp * ~2), so only apply
+        // a quality multiplier — do NOT multiply by density again.
         val qualityMultiplier = when {
             isLargeScreen -> 2.0f
             density >= 3.5f -> 1.5f
             else -> 1.3f
         }
-        (basePixelWidth * qualityMultiplier).toInt().coerceIn(10, 2048)
+        (originalWidth * qualityMultiplier).toInt().coerceIn(10, 2048)
     } catch (e: Exception) {
         originalWidth
     }

@@ -68,7 +68,7 @@ fun OptimizedImage(
     val context = LocalContext.current
     val density = context.resources.displayMetrics.density
     val pxWidth = remember(proxyWidth, density) { (proxyWidth * density).toInt() }
-    val proxyUrl = remember(url, proxyWidth) { url.optimizedImageUrl(proxyWidth) }
+    val proxyUrl = remember(url, proxyWidth, density) { url.optimizedImageUrl(proxyWidth) }
 
     // Check if this url has already failed on the proxy in this app session
     val isProxyKnownFailed = remember(url) { proxyFailedUrls.contains(url) }
