@@ -55,6 +55,10 @@ Do not output anything outside of this exact structure: \
 [pr_update_changelog]
 push_changelog_changes = true
 changelog_file = "CHANGELOG.md"
+extra_instructions = """\
+Only add entries under the [Unreleased] section. \
+Never modify, reorder, or remove any existing versioned sections (e.g. [1.0.0], [2.3.1]). \
+"""
 
 # Defines custom labels for the AI to apply based on code context
 [custom_labels."UI / Compose"]
