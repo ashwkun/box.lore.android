@@ -1792,7 +1792,7 @@ class PlaybackRepository(
         }
 
         // Special marker for "End of Episode" mode
-        if (durationMinutes == 999) {
+        if (durationMinutes == cx.aswin.boxcast.core.model.SleepTimerConstants.END_OF_EPISODE_MINUTES) {
             Log.d("PlaybackRepo", "Sleep timer: End of Episode mode ENABLED")
             SleepTimerHolder.activeSleepTimerEndMs = null
             SleepTimerHolder.sleepAtEndOfEpisode = true

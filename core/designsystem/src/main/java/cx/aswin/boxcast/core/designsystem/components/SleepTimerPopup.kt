@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import kotlinx.coroutines.delay
+import cx.aswin.boxcast.core.model.SleepTimerConstants
 
 /** A single selectable duration option in the sleep timer popup. 999 means "End of episode". */
 data class SleepTimerOption(val label: String, val minutes: Int)
@@ -51,14 +52,12 @@ enum class SleepTimerPopupDismissReason {
     Confirmation
 }
 
-private const val END_OF_EPISODE_MINUTES = 999
-
 val DefaultSleepTimerOptions = listOf(
     SleepTimerOption("30m", 30),
     SleepTimerOption("45m", 45),
     SleepTimerOption("1h", 60),
     SleepTimerOption("2h", 120),
-    SleepTimerOption("End of episode", END_OF_EPISODE_MINUTES)
+    SleepTimerOption("End of episode", SleepTimerConstants.END_OF_EPISODE_MINUTES)
 )
 
 /**
@@ -127,7 +126,7 @@ fun SleepTimerPopup(
 }
 
 private val SleepTimerOption.isEndOfEpisode: Boolean
-    get() = minutes == END_OF_EPISODE_MINUTES
+    get() = minutes == SleepTimerConstants.END_OF_EPISODE_MINUTES
 
 private data class SleepTimerPopupPalette(
     val islandColor: Color = Color(0xFF161618),
