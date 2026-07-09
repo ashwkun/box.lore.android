@@ -1031,19 +1031,12 @@ class MainActivity : ComponentActivity() {
                                 enterTransition = {
                                     val fromRoute = initialState.destination.route
                                     val toRoute = targetState.destination.route
-                                    if (toRoute == "home") {
-                                        // Home animates its own entrance internally (see HomeScreen)
-                                        // so its heavy first-frame composition stays off-screen and
-                                        // the two animations don't compound into a double-slide.
-                                        EnterTransition.None
-                                    } else {
                                     val fromIndex = getRouteIndex(fromRoute)
                                     val toIndex = getRouteIndex(toRoute)
                                     if (toIndex > fromIndex) {
                                         slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { it }) 
                                     } else {
                                         slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it })
-                                    }
                                     }
                                 },
                                 exitTransition = {
@@ -1070,10 +1063,6 @@ class MainActivity : ComponentActivity() {
                                 popEnterTransition = {
                                     val fromRoute = initialState.destination.route
                                     val toRoute = targetState.destination.route
-                                    if (toRoute == "home") {
-                                        // Home animates its own entrance internally (see HomeScreen).
-                                        EnterTransition.None
-                                    } else {
                                     val fromIndex = getRouteIndex(fromRoute)
                                     val toIndex = getRouteIndex(toRoute)
                                     if (isTabToTab(fromRoute, toRoute)) {
@@ -1090,7 +1079,6 @@ class MainActivity : ComponentActivity() {
                                             // Popping Back (e.g. Back from Detail) -> Slide In Left (or Center)
                                             slideInHorizontally(animationSpec = tween(TRANSITION_DURATION, easing = TRANSITION_EASING), initialOffsetX = { -it / 3 }) + fadeIn(animationSpec = tween(TRANSITION_DURATION / 2, easing = TRANSITION_EASING))
                                         }
-                                    }
                                     }
                                 },
                                 popExitTransition = {
@@ -1306,7 +1294,7 @@ class MainActivity : ComponentActivity() {
                                             artist = episode.podcastTitle ?: "Unknown",
                                             imageUrl = episode.podcastImageUrl ?: episode.imageUrl ?: ""
                                         )
-                                        queueManager.addToQueue(episode, podcast)
+                                         queueManager.addToQueue(episode, podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint.LEARN)
                                     },
                                     onPodcastClick = { feedId, itunesId, feedUrl, title ->
                                         val pId = feedId?.toString() ?: ""

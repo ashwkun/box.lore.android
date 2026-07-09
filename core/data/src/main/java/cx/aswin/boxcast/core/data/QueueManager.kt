@@ -115,8 +115,12 @@ class QueueManager @Inject constructor(
         }
     }
 
-    fun addToQueue(episode: EpisodeItem, podcast: cx.aswin.boxcast.core.model.Podcast?) {
-        android.util.Log.d(TAG, "addToQueue called: episodeId=${episode.id}, title=${episode.title}, podcast=${podcast?.title}")
+    fun addToQueue(
+        episode: EpisodeItem,
+        podcast: cx.aswin.boxcast.core.model.Podcast?,
+        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC
+    ) {
+        android.util.Log.d(TAG, "addToQueue called: episodeId=${episode.id}, title=${episode.title}, podcast=${podcast?.title}, entryPoint=$entryPoint")
         scope.launch {
             if (podcast != null) {
                 // Persist
@@ -124,7 +128,7 @@ class QueueManager @Inject constructor(
                 
                 // Add to Player
                 val domainEpisode = episode.toDomain(podcast)
-                playbackRepository.addToQueue(domainEpisode, podcast)
+                playbackRepository.addToQueue(domainEpisode, podcast, entryPoint)
                 android.util.Log.d(TAG, "addToQueue: Complete. Current queue size: ${playbackRepository.playerState.value.queue.size}")
             } else {
                 android.util.Log.e(TAG, "addToQueue: Podcast is null, ignoring!")
@@ -132,9 +136,13 @@ class QueueManager @Inject constructor(
         }
     }
     
-    fun addToQueue(episode: cx.aswin.boxcast.core.model.Episode, podcast: cx.aswin.boxcast.core.model.Podcast?) {
+    fun addToQueue(
+        episode: cx.aswin.boxcast.core.model.Episode,
+        podcast: cx.aswin.boxcast.core.model.Podcast?,
+        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC
+    ) {
         val item = episode.toEpisodeItem(podcast)
-        addToQueue(item, podcast)
+        addToQueue(item, podcast, entryPoint)
     }
 
     // Overload for Domain Objects (UI)

@@ -27,6 +27,8 @@ import cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
+private const val LEARN_PREFIX = "learn:"
+
 data class PlaybackSession(
     val podcastId: String,
     val episodeId: String,
@@ -692,12 +694,12 @@ class PlaybackRepository(
                         activePlaybackStartTimeMs = 0L
                     }
                     // Use mediaId to find episode — more reliable than index
-                    val episodeId = mediaItem?.mediaId ?: return
+                    val episodeId = mediaItem?.mediaId?.removePrefix(LEARN_PREFIX) ?: return
                     val queue = _playerState.value.queue
                     val oldState = _playerState.value
                     
                     val slotIndex = queue.indexOfFirst { it.id == episodeId }
-                    android.util.Log.d("PlaybackRepo", "onMediaItemTransition: mediaId=$episodeId, slotIndex=$slotIndex, queueSize=${queue.size}, reason=$reason")
+                    android.util.Log.d("PlaybackRepo", "onMediaItemTransition: mediaId=${mediaItem.mediaId}, stripped=$episodeId, slotIndex=$slotIndex, queueSize=${queue.size}, reason=$reason")
                     
                     // Sleep Timer: End of Episode — intercept auto-advance
                     if (oldState.sleepAtEndOfEpisode && reason == androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
@@ -880,7 +882,8 @@ class PlaybackRepository(
 
                         // 6. Auto-refill when queue is running low
                         val currentQueueSize = _playerState.value.queue.size
-                        if (currentQueueSize < QUEUE_REFILL_THRESHOLD && newPodcast != null) {
+                        val isLearn = mediaItem.mediaId.startsWith(LEARN_PREFIX)
+                        if (currentQueueSize < QUEUE_REFILL_THRESHOLD && newPodcast != null && !isLearn) {
                             android.util.Log.d("PlaybackRepo", "Queue running low ($currentQueueSize items). Triggering auto-refill.")
                             queueRefillCallback?.invoke(newEpisode, newPodcast)
                         }
@@ -1061,11 +1064,13 @@ class PlaybackRepository(
     }
 
     private fun buildMediaItems(episodes: List<Episode>, podcast: Podcast, entryPointContext: android.os.Bundle?): List<MediaItem> {
+        val entryPoint = entryPointContext?.getString("entrypoint") ?: entryPointContext?.getString("entry_point")
+        val isLearn = entryPoint == "learn"
         return episodes.map { episode ->
             val resolvedUrl = episode.imageUrl?.takeIf { it.isNotBlank() } 
                     ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() } 
                     ?: podcast.imageUrl
-            Log.d("PlaybackRepo", "playQueue: epId=${episode.id}, title='${episode.title}', resolvedImageUrl='$resolvedUrl'")
+            Log.d("PlaybackRepo", "playQueue: epId=${episode.id}, title='${episode.title}', resolvedImageUrl='$resolvedUrl', isLearn=$isLearn")
             val metadata = androidx.media3.common.MediaMetadata.Builder()
                .setTitle(episode.title)
                .setArtist(episode.podcastTitle ?: podcast.title)
@@ -1076,10 +1081,11 @@ class PlaybackRepository(
                .setExtras(entryPointContext)
                .build()
       
+            val mediaId = if (isLearn) "$LEARN_PREFIX${episode.id}" else episode.id
             MediaItem.Builder()
                .setUri(episode.audioUrl)
                .setMediaMetadata(metadata)
-               .setMediaId(episode.id)
+               .setMediaId(mediaId)
                .setCustomCacheKey(episode.id)
                .build()
         }
@@ -1248,8 +1254,12 @@ class PlaybackRepository(
         }
     }
 
-    suspend fun addToQueue(episode: Episode, podcast: Podcast) {
-        Log.d("PlaybackRepo", "addToQueue called: episodeId=${episode.id}, title=${episode.title}")
+    suspend fun addToQueue(
+        episode: Episode,
+        podcast: Podcast,
+        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC
+    ) {
+        Log.d("PlaybackRepo", "addToQueue called: episodeId=${episode.id}, title=${episode.title}, entryPoint=$entryPoint")
         
         // Prevent Duplicates in active queue (by ID)
         if (_playerState.value.queue.any { it.id == episode.id }) {
@@ -1283,11 +1293,13 @@ class PlaybackRepository(
                 .setSubtitle(podcast.title)
                 .setGenre(episode.podcastGenre ?: podcast.genre)
                 .build()
-       
+        
+             val isLearn = entryPoint == PlaybackEntryPoint.LEARN
+             val mediaId = if (isLearn) "$LEARN_PREFIX${episode.id}" else episode.id
              val mediaItem = MediaItem.Builder()
                 .setUri(episode.audioUrl)
                 .setMediaMetadata(metadata)
-                .setMediaId(episode.id)
+                .setMediaId(mediaId)
                 .setCustomCacheKey(episode.id) // Match DownloadRequest custom key
                 .build()
                 
@@ -1371,7 +1383,7 @@ class PlaybackRepository(
                 var positionInQueue = -1
                 mediaController?.let { controller ->
                     for (i in 0 until controller.mediaItemCount) {
-                        if (controller.getMediaItemAt(i).mediaId == episodeId) {
+                        if (controller.getMediaItemAt(i).mediaId.removePrefix(LEARN_PREFIX) == episodeId) {
                             positionInQueue = i
                             break
                         }
@@ -1391,7 +1403,7 @@ class PlaybackRepository(
         mediaController?.let { controller ->
             for (i in 0 until controller.mediaItemCount) {
                 val item = controller.getMediaItemAt(i)
-                if (item.mediaId == episodeId) {
+                if (item.mediaId.removePrefix(LEARN_PREFIX) == episodeId) {
                     controller.removeMediaItem(i)
                     removedFromController = true
                     break
@@ -1726,7 +1738,7 @@ class PlaybackRepository(
         val targetEpisode = _playerState.value.queue.getOrNull(index)
         if (targetEpisode != null) {
             for (i in 0 until controller.mediaItemCount) {
-                if (controller.getMediaItemAt(i).mediaId == targetEpisode.id) {
+                if (controller.getMediaItemAt(i).mediaId.removePrefix(LEARN_PREFIX) == targetEpisode.id) {
                     android.util.Log.d("PlaybackRepo", "skipToEpisode: Found mediaId=${targetEpisode.id} at Media3 index $i")
                     
                     storePendingEntryPoint(entryPointContext)

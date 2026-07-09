@@ -330,33 +330,7 @@ fun HomeScreen(
             (offset / collapseThreshold).coerceIn(0f, 1f)
         }
     }
-
-    // Self-managed entrance slide. The full feed is composed up-front (frame 1) while
-    // hidden off-screen, so the heavy first-frame composition never shows as jank; the
-    // slide-in only runs once composition has settled. The NavHost enter animation for
-    // "home" is disabled so the two don't compete. This keeps the screen fully loaded
-    // (scroll state is preserved) while the entrance stays smooth.
-    var entered by remember { androidx.compose.runtime.mutableStateOf(false) }
-    val enterProgress by animateFloatAsState(
-        targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "home_enter"
-    )
-    LaunchedEffect(Unit) { entered = true }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-      // Content slides over the static background above, so nothing blacks out behind it.
-      Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                translationX = (enterProgress - 1f) * size.width
-            }
-      ) {
+    Box(modifier = modifier.fillMaxSize()) {
         // Main content underneath
         Column(modifier = Modifier.fillMaxSize()) {
             TopControlBar(
@@ -446,7 +420,6 @@ fun HomeScreen(
                         )
                     }
         }
-    }
     }
     }
     // --- Bottom Sheets outside the scrollable area ---
