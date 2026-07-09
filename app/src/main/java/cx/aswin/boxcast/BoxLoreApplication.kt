@@ -20,8 +20,6 @@ class BoxLoreApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        setupAppCheck()
-
         val config = PostHogAndroidConfig(
             apiKey = BuildConfig.POSTHOG_API_KEY,
             host = BuildConfig.POSTHOG_HOST
@@ -41,6 +39,8 @@ class BoxLoreApplication : Application() {
             PostHog.register("is_internal", false)
             PostHog.register("app_environment", "production")
         }
+
+        setupAppCheck()
 
         // Setup active connectivity listener for offline tracking
         try {
