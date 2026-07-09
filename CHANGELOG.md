@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Qdrant orphan vectors, multiline CSV description split issues, missing cleanup run costs, and manual embedding budget overrides in the sync workflow.
 - Fixed onboarding backup-restore recreation loop and region code alias normalization issues.
 - Fixed Qdrant existence checks by chunking requests in batches of 1000 IDs to avoid oversized request payloads.
+- Fixed double density scaling in image proxy URLs and stale proxyUrl memoization on density changes.
+- Fixed download artwork cleanup race condition and premature deletion of shared podcast artwork.
 
 ## [v0.0.5] - 2026-07-08
 ### Added
