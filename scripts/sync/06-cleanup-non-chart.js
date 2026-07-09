@@ -103,6 +103,7 @@ async function main() {
 
     // --- Qdrant deletion first (needs the id list) ---
     log.group('Qdrant vector deletion');
+    let qdrantFailed = false;
     for (let i = 0; i < toDelete.length; i += QDRANT_CHUNK) {
         const chunk = toDelete.slice(i, i + QDRANT_CHUNK);
         const intIds = chunk.map(p => parseInt(p.id, 10)).filter(n => !isNaN(n));
@@ -115,9 +116,14 @@ async function main() {
             log.info(`Deleted vectors for shows ${i + 1}-${Math.min(i + QDRANT_CHUNK, toDelete.length)} of ${toDelete.length}`);
         } catch (e) {
             log.error(`Qdrant deletion failed for chunk at ${i}: ${e.message}`);
+            qdrantFailed = true;
         }
     }
     log.endGroup();
+
+    if (qdrantFailed) {
+        throw new Error('Aborting Turso cleanup because one or more Qdrant vector deletions failed');
+    }
 
     // --- Turso deletion with trigger workaround ---
     log.group('Turso deletion');
