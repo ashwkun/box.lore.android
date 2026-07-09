@@ -7,6 +7,7 @@ auto_improve = true
 [config]
 # Enables AI-driven custom label generation
 enable_custom_labels = true
+custom_model_max_tokens = 32000
 
 [pr_reviewer]
 # Limits noise by forcing the AI to rank and surface only the top 4 issues
@@ -37,10 +38,16 @@ Domain Rules: \
 publish_labels = true
 use_bullet_points = true
 generate_ai_title = true
+async_ai_calls = false
+enable_pr_diagram = false
 # Forces the AI to discard the messy developer description and apply a strict template
 extra_instructions = """\
-You MUST rewrite the entire PR description to strictly follow this Markdown format. \
-Do not output anything outside of this exact structure: \
+You MUST format the PR title (the 'title' field in the YAML response) strictly according to the Conventional Commits specification: 'type(scope): description'. \
+- Use lowercase types: 'feat', 'fix', 'ci', 'docs', 'style', 'refactor', 'perf', 'test', 'chore'. \
+- For the scope, use the main area affected (e.g., 'onboarding', 'ci', etc.). \
+- Example: 'feat(onboarding): increase conversation limit to 7 turns'. \
+\
+Format the 'description' field in the YAML response to strictly follow this Markdown format: \
 \
 ## 🎯 Objective \
 [1-2 sentences explaining why this PR exists based on the code diff] \
@@ -51,6 +58,9 @@ Do not output anything outside of this exact structure: \
 ## ⚠️ Risks & Edge Cases \
 [Analyze the diff and list any potential breaking changes, performance impacts, or security risks. If none, state 'None identified.'] \
 """
+
+[pr_code_suggestions]
+parallel_calls = false
 
 [pr_update_changelog]
 push_changelog_changes = true

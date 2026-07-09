@@ -740,7 +740,7 @@ private fun AiChatOnboardingScreen(
                                         )
                                     }
 
-                                    if (uiState.aiCurrentTurn >= 2) {
+                                    if (uiState.aiCurrentTurn >= 4) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -926,18 +926,53 @@ private fun AiChatOnboardingScreen(
                             }
                         }
 
-                        val hasNonLatinInput = remember(uiState.aiCustomInputText) {
-                            uiState.aiCustomInputText.any { ch ->
+                        val showLanguageTip = remember(uiState.aiCustomInputText) {
+                            val text = uiState.aiCustomInputText.lowercase().trim()
+                            if (text.isEmpty()) {
+                                return@remember java.util.Locale.getDefault().language != "en"
+                            }
+                            
+                            // 1. Check for non-Latin scripts (Hindi, Arabic, Japanese, Cyrillic, etc.)
+                            val hasNonLatin = text.any { ch ->
                                 val script = Character.UnicodeScript.of(ch.code)
                                 script != Character.UnicodeScript.LATIN &&
                                     script != Character.UnicodeScript.COMMON &&
                                     script != Character.UnicodeScript.INHERITED
                             }
+                            if (hasNonLatin) return@remember true
+
+                            // 2. Check for Latin characters with non-English accents (á, é, í, ó, ú, ñ, ü, ç, etc.)
+                            val hasAccents = text.any { it in "áéíóúñüçàèùâêîôûëïäößæœ" }
+                            if (hasAccents) return@remember true
+                            
+                            // 3. Check for common distinct non-English vocabulary and stopwords
+                            val nonEnglishWords = setOf(
+                                // Spanish
+                                "el", "la", "los", "las", "un", "una", "unas", "unos", "que", "por", "para", "como", "pero",
+                                "hola", "gracias", "bueno", "buenos", "dias", "tardes", "noches", "amigo", "amigos",
+                                "musica", "futbol", "ciencia", "tecnologia", "salud", "negocios", "deporte", "deportes",
+                                "historia", "comedia", "noticias", "mundo", "tiempo", "casa", "vida", "trabajo", "nuevo",
+                                // French
+                                "les", "des", "et", "est", "dans", "une", "pour", "qui", "avec", "mais",
+                                "bonjour", "merci", "oui", "histoire", "musique", "comedie", "sante", "nouvelles",
+                                // German
+                                "der", "die", "das", "und", "ist", "ein", "eine", "mit", "von", "zu", "nicht",
+                                "hallo", "danke", "ja", "bitte", "musik", "geschichte", "wissenschaft", "sport", "nachrichten",
+                                // Italian/Portuguese
+                                "che", "per", "gli", "em", "com", "uma", "mais", "bom", "dia", "obrigado", "ciao"
+                            )
+                            val words = text.split(Regex("\\s+")).map { it.replace(Regex("[^a-z]"), "") }
+                            if (words.any { it in nonEnglishWords }) return@remember true
+                            
+                            // 4. Fallback: system locale language
+                            java.util.Locale.getDefault().language != "en"
                         }
 
-                        AnimatedVisibility(visible = !hasNonLatinInput) {
+                        val showAnonymousInfo = !showLanguageTip && uiState.aiCurrentTurn == 1
+
+                        AnimatedVisibility(visible = showAnonymousInfo) {
                             Text(
-                                text = "Chats here are anonymous and only used to improve recommendations.",
+                                text = "Chats are anonymous and used solely to improve recommendations and the AI model.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 textAlign = TextAlign.Center,
@@ -945,7 +980,7 @@ private fun AiChatOnboardingScreen(
                             )
                         }
 
-                        AnimatedVisibility(visible = hasNonLatinInput) {
+                        AnimatedVisibility(visible = showLanguageTip) {
                             Text(
                                 text = "Tip: podcast coverage is strongest in English, but I'll do my best in your language.",
                                 style = MaterialTheme.typography.labelSmall,
@@ -1536,6 +1571,14 @@ private fun AnimatedMessageContainer(
 private fun getOptionIcons(option: String): Pair<ImageVector, ImageVector> {
     val lower = option.lowercase()
     return when {
+        // Custom Circuit Breaker Options
+        lower.contains("build my feed now") || lower.contains("build feed now") -> {
+            Pair(Icons.Outlined.AutoAwesome, Icons.Rounded.AutoAwesome)
+        }
+        lower.contains("more about my tastes") || lower.contains("describe my tastes") -> {
+            Pair(Icons.Outlined.Tune, Icons.Rounded.Tune)
+        }
+
         // Story / Narrative / True Crime
         lower.contains("story") || lower.contains("mystery") || lower.contains("fiction") || 
         lower.contains("crime") || lower.contains("detective") || lower.contains("thriller") || 

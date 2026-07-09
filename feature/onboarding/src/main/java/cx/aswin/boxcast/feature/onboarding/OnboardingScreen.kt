@@ -249,7 +249,7 @@ fun OnboardingScreen(
                     onOptionToggle = viewModel::toggleAiOption,
                     onCustomInputChange = viewModel::updateAiCustomInput,
                     onContinue = {
-                        if (uiState.aiOptions.isEmpty() || uiState.aiCurrentTurn >= 5) {
+                        if (uiState.aiOptions.isEmpty() || uiState.aiCurrentTurn >= 7) {
                             viewModel.synthesizeAndBuildCurriculum()
                         } else {
                             viewModel.sendAiTurnInput()
