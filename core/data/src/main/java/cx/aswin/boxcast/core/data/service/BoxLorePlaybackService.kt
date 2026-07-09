@@ -475,44 +475,62 @@ class BoxLorePlaybackService : MediaLibraryService() {
         }
     }
 
+    private suspend fun resolvePodcastFromDb(podcastId: String): Pair<String?, String?> {
+        return try {
+            val podcast = database.podcastDao().getPodcast(podcastId)
+            if (podcast != null) {
+                val genre = if (!podcast.genre.isNullOrBlank() && podcast.genre != "Podcast") {
+                    podcast.genre
+                } else {
+                    null
+                }
+                Pair(podcast.title, genre)
+            } else {
+                Pair(null, null)
+            }
+        } catch (e: Exception) {
+            Pair(null, null)
+        }
+    }
+
+    private suspend fun resolvePodcastFromHistory(episodeId: String): String? {
+        return try {
+            val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
+            if (historyItem != null && !historyItem.podcastName.isNullOrBlank()) {
+                historyItem.podcastName
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private suspend fun resolvePodcastFromNetwork(podcastId: String): String? {
+        return try {
+            val podcast = podcastRepository.getPodcastDetails(podcastId)
+            podcast?.title
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private suspend fun resolvePodcastMetadata(
         podcastId: String,
         episodeId: String,
         currentItem: MediaItem?,
         genre: String?
     ): Pair<String?, String?> {
-        var resolvedPodcastName: String? = null
-        var actualGenre = genre
+        val (dbName, dbGenre) = resolvePodcastFromDb(podcastId)
+        var resolvedPodcastName = dbName
+        var actualGenre = dbGenre ?: genre
 
-        // 1. Try local database (very fast)
-        try {
-            val podcast = database.podcastDao().getPodcast(podcastId)
-            if (podcast != null) {
-                resolvedPodcastName = podcast.title
-                if (!podcast.genre.isNullOrBlank() && podcast.genre != "Podcast") {
-                    actualGenre = podcast.genre
-                }
-            }
-        } catch (e: Exception) { /* ignore */ }
-
-        // 2. Try listening history
         if (resolvedPodcastName.isNullOrBlank()) {
-            try {
-                val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
-                if (historyItem != null && !historyItem.podcastName.isNullOrBlank()) {
-                    resolvedPodcastName = historyItem.podcastName
-                }
-            } catch (e: Exception) { /* ignore */ }
+            resolvedPodcastName = resolvePodcastFromHistory(episodeId)
         }
 
-        // 3. Try fetching details from repository
         if (resolvedPodcastName.isNullOrBlank()) {
-            try {
-                val podcast = podcastRepository.getPodcastDetails(podcastId)
-                if (podcast != null) {
-                    resolvedPodcastName = podcast.title
-                }
-            } catch (e: Exception) { /* ignore */ }
+            resolvedPodcastName = resolvePodcastFromNetwork(podcastId)
         }
 
         val finalPodcastName = resolvedPodcastName
