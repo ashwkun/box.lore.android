@@ -40,6 +40,10 @@ use_bullet_points = true
 generate_ai_title = true
 # Forces the AI to discard the messy developer description and apply a strict template
 extra_instructions = """\
+When generating the PR title, you MUST prefix it with a conventional commit type: \
+feat:, fix:, docs:, refactor:, perf:, test:, ci:, chore:, or build:. \
+Example: 'feat: add podcast recommendation caching'. \
+\
 You MUST rewrite the entire PR description to strictly follow this Markdown format. \
 Do not output anything outside of this exact structure: \
 \
