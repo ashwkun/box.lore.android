@@ -25,19 +25,6 @@
 
 </div>
 
-
-## Known Issues :
--Json import loops back to the Welcome screen during onboarding - Fix :0.0.6
-
--Better context awareness for AI onboarding for users treating it as a search box - Fix : 0.0.6
-
--Brief images not loading correctly in old B*xcast version users from google play - Fix :0.0.6
-
--Recommendation quality issues - The old vector db had to be dropped due to a bug which flooded the db with episodes of the same podcasts, the new db gers approx 30 episodes each of 1000 shows everyday, so expected to be back to optimal state in around 10 days 
-
--Queue issues for brain lore section. Fix : 0.0.6
-
-
 ## About
 
 Every podcast app I've used feels the same. They call an open API, do word-for-word search, let you subscribe, and show Apple charts. None of them really recommend things or get personal.
