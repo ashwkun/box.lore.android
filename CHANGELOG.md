@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed skip-gate clock skew sensitivity and failure tracking in iTunes charts sync script.
 - Fixed Qdrant orphan vectors, multiline CSV description split issues, missing cleanup run costs, and manual embedding budget overrides in the sync workflow.
 - Fixed onboarding backup-restore recreation loop and region code alias normalization issues.
+- Fixed Qdrant existence checks by chunking requests in batches of 1000 IDs to avoid oversized request payloads.
 
 ## [v0.0.5] - 2026-07-08
 ### Added
