@@ -85,7 +85,15 @@ async function main() {
     // --- Skip-if-fresh gate ---
     // Load state once here so we can reuse it when saving chartsRefreshedAt below.
     const st = state.load();
-    const ageMs = Date.now() - (st.chartsRefreshedAt || 0);
+    const last = Number(st.chartsRefreshedAt) || 0;
+    const now = Date.now();
+    let ageMs = now - last;
+    if (last > now) {
+        log.warn(`[CANDIDATES] Future chartsRefreshedAt detected (${new Date(last).toISOString()}) - resetting to stale`);
+        st.chartsRefreshedAt = 0;
+        state.save(st);
+        ageMs = CHARTS_REFRESH_MIN_GAP_MS + 1;
+    }
     const ageH = (ageMs / 3600000).toFixed(1);
     if (!FORCE && ageMs < CHARTS_REFRESH_MIN_GAP_MS) {
         log.banner('Stage 1 · Refresh Charts', {
@@ -194,9 +202,18 @@ async function main() {
         log.endGroup();
     }
 
-    // Record charts refresh time in state so stage 3 refreshes its candidate cache
-    st.chartsRefreshedAt = Date.now();
-    state.save(st);
+    if (failedPairs > totalPairs / 2) {
+        log.error(`More than half of chart fetches failed (${failedPairs}/${totalPairs}) - failing run`);
+        process.exit(1);
+    }
+
+    if (failedPairs === 0) {
+        // Record charts refresh time in state so stage 3 refreshes its candidate cache
+        st.chartsRefreshedAt = Date.now();
+        state.save(st);
+    } else {
+        log.warn(`[CANDIDATES] skipped recording chartsRefreshedAt due to ${failedPairs} failed chart pairs (allowing retry next run)`);
+    }
 
     const stats = turso.getStats();
     log.costFooter('Stage 1 · Refresh Charts', {
@@ -212,11 +229,6 @@ async function main() {
         apiCalls: totalPairs - failedPairs,
         detail: `${upserts} upserts, ${deletes} deletes, ${failedPairs} failed pairs`,
     }]);
-
-    if (failedPairs > totalPairs / 2) {
-        log.error(`More than half of chart fetches failed (${failedPairs}/${totalPairs}) - failing run`);
-        process.exit(1);
-    }
 }
 
 main()
