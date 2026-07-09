@@ -145,11 +145,21 @@ async function dropCollection(collection) {
 /** Which of these point ids exist? Returns Set of string ids. */
 async function existingIds(collection, ids) {
     if (ids.length === 0) return new Set();
-    const res = await request(`/collections/${collection}/points`, {
-        method: 'POST',
-        body: JSON.stringify({ ids, with_vector: false, with_payload: false }),
-    });
-    return new Set((res.result || []).map(p => String(p.id)));
+
+    const CHUNK_SIZE = 1000;
+    const existing = new Set();
+
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const res = await request(`/collections/${collection}/points`, {
+            method: 'POST',
+            body: JSON.stringify({ ids: chunk, with_vector: false, with_payload: false }),
+        });
+        for (const p of (res.result || [])) {
+            existing.add(String(p.id));
+        }
+    }
+    return existing;
 }
 
 /**
