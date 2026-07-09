@@ -2,7 +2,7 @@ name: Qodo PR-Agent
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
 
@@ -13,11 +13,15 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
-      contents: read
+      contents: write
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Run PR Agent
         uses: the-pr-agent/pr-agent@d7e94bc27a8ad0456090a07e075cecd6e6459626
         env:
-          CONFIG__LITELLM__MODEL: "groq/llama-3.3-70b-versatile"
+          config.model: "groq/llama-3.3-70b-versatile"
+          config.model_turbo: "groq/llama-3.3-70b-versatile"
           GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
