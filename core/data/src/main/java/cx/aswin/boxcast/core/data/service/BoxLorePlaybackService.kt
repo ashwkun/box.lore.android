@@ -471,100 +471,118 @@ class BoxLorePlaybackService : MediaLibraryService() {
         lastPausedEpisodeId = null
         
         serviceScope.launch {
-            try {
-                val queueItem = database.queueDao().getQueueItemByEpisodeId(episodeId)
-                if (queueItem != null) {
-                    playbackSessionContextType = queueItem.contextType
-                    playbackSessionContextSourceId = queueItem.contextSourceId
-                } else {
-                    playbackSessionContextType = null
-                    playbackSessionContextSourceId = null
+            enrichPlaybackSession(episodeId, currentItem, genre)
+        }
+    }
+
+    private suspend fun resolvePodcastMetadata(
+        podcastId: String,
+        episodeId: String,
+        currentItem: MediaItem?,
+        genre: String?
+    ): Pair<String?, String?> {
+        var resolvedPodcastName: String? = null
+        var actualGenre = genre
+
+        // 1. Try local database (very fast)
+        try {
+            val podcast = database.podcastDao().getPodcast(podcastId)
+            if (podcast != null) {
+                resolvedPodcastName = podcast.title
+                if (!podcast.genre.isNullOrBlank() && podcast.genre != "Podcast") {
+                    actualGenre = podcast.genre
                 }
-            } catch (e: Exception) {
+            }
+        } catch (e: Exception) { /* ignore */ }
+
+        // 2. Try listening history
+        if (resolvedPodcastName.isNullOrBlank()) {
+            try {
+                val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
+                if (historyItem != null && !historyItem.podcastName.isNullOrBlank()) {
+                    resolvedPodcastName = historyItem.podcastName
+                }
+            } catch (e: Exception) { /* ignore */ }
+        }
+
+        // 3. Try fetching details from repository
+        if (resolvedPodcastName.isNullOrBlank()) {
+            try {
+                val podcast = podcastRepository.getPodcastDetails(podcastId)
+                if (podcast != null) {
+                    resolvedPodcastName = podcast.title
+                }
+            } catch (e: Exception) { /* ignore */ }
+        }
+
+        val finalPodcastName = resolvedPodcastName
+            ?: currentItem?.mediaMetadata?.subtitle?.toString()
+            ?: currentItem?.mediaMetadata?.artist?.toString()
+
+        return Pair(finalPodcastName, actualGenre)
+    }
+
+    private suspend fun enrichPlaybackSession(episodeId: String, currentItem: MediaItem?, genre: String?) {
+        try {
+            val queueItem = database.queueDao().getQueueItemByEpisodeId(episodeId)
+            if (queueItem != null) {
+                playbackSessionContextType = queueItem.contextType
+                playbackSessionContextSourceId = queueItem.contextSourceId
+            } else {
                 playbackSessionContextType = null
                 playbackSessionContextSourceId = null
             }
-
-            val podcastId = findPodcastIdForEpisode(episodeId)
-            playbackSessionPodcastId = podcastId
-            
-            // Resolve actual podcast name and genre via Database, History, or API
-            var resolvedPodcastName: String? = null
-            var actualGenre = genre
-            
-            if (podcastId != null) {
-                // 1. Try local database (very fast)
-                try {
-                    val podcast = database.podcastDao().getPodcast(podcastId)
-                    if (podcast != null) {
-                        resolvedPodcastName = podcast.title
-                        if (!podcast.genre.isNullOrBlank() && podcast.genre != "Podcast") {
-                            actualGenre = podcast.genre
-                            playbackSessionPodcastGenre = actualGenre
-                        }
-                    }
-                } catch (e: Exception) { /* ignore */ }
-                
-                // 2. Try listening history
-                if (resolvedPodcastName.isNullOrBlank()) {
-                    try {
-                        val historyItem = database.listeningHistoryDao().getHistoryItem(episodeId)
-                        if (historyItem != null && !historyItem.podcastName.isNullOrBlank()) {
-                            resolvedPodcastName = historyItem.podcastName
-                        }
-                    } catch (e: Exception) { /* ignore */ }
-                }
-                
-                // 3. Try fetching details from repository
-                if (resolvedPodcastName.isNullOrBlank()) {
-                    try {
-                        val podcast = podcastRepository.getPodcastDetails(podcastId)
-                        if (podcast != null) {
-                            resolvedPodcastName = podcast.title
-                        }
-                    } catch (e: Exception) { /* ignore */ }
-                }
-            }
-            
-            val finalPodcastName = resolvedPodcastName
-                ?: currentItem?.mediaMetadata?.subtitle?.toString()
-                ?: currentItem?.mediaMetadata?.artist?.toString()
-            
-            playbackSessionPodcastName = finalPodcastName
-            
-            // Check if repeating
-            val history = database.listeningHistoryDao().getHistoryItem(episodeId)
-            playbackSessionIsRepeating = history?.isCompleted == true
-            
-            var durationMs = currentItem?.mediaMetadata?.extras?.getLong("durationMs", 0L) ?: 0L
-            val exoDuration = kotlinx.coroutines.withContext(mainDispatcher) { 
-                mediaSession?.player?.duration ?: 0L 
-            }
-            if (exoDuration > 0) durationMs = exoDuration
-            playbackSessionTotalDurationMs = durationMs
-            
-            val startPositionMs = kotlinx.coroutines.withContext(mainDispatcher) { 
-                mediaSession?.player?.currentPosition ?: 0L 
-            }
-            kotlinx.coroutines.withContext(mainDispatcher) {
-                updateHeartbeatsForPosition(startPositionMs, durationMs)
-            }
-            val isSubscribed = podcastId?.let { subscriptionRepository.isSubscribed(it) } ?: false
-            
-            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackStarted(
-                podcastId = podcastId,
-                podcastName = finalPodcastName,
-                podcastGenre = actualGenre,
-                episodeId = episodeId,
-                episodeTitle = title,
-                startPositionSeconds = startPositionMs / 1000f,
-                totalDurationSeconds = durationMs / 1000f,
-                isRepeating = playbackSessionIsRepeating,
-                isSubscribed = isSubscribed,
-                entryPoint = playbackSessionEntryPoint,
-                entryPointContext = playbackSessionEntryPointContext
-            )
+        } catch (e: Exception) {
+            playbackSessionContextType = null
+            playbackSessionContextSourceId = null
         }
+
+        val podcastId = findPodcastIdForEpisode(episodeId)
+        playbackSessionPodcastId = podcastId
+
+        val (resolvedName, resolvedGenre) = if (podcastId != null) {
+            resolvePodcastMetadata(podcastId, episodeId, currentItem, genre)
+        } else {
+            val finalName = currentItem?.mediaMetadata?.subtitle?.toString()
+                ?: currentItem?.mediaMetadata?.artist?.toString()
+            Pair(finalName, genre)
+        }
+        playbackSessionPodcastName = resolvedName
+        playbackSessionPodcastGenre = resolvedGenre
+
+        // Check if repeating
+        val history = database.listeningHistoryDao().getHistoryItem(episodeId)
+        playbackSessionIsRepeating = history?.isCompleted == true
+
+        var durationMs = currentItem?.mediaMetadata?.extras?.getLong("durationMs", 0L) ?: 0L
+        val exoDuration = kotlinx.coroutines.withContext(mainDispatcher) {
+            mediaSession?.player?.duration ?: 0L
+        }
+        if (exoDuration > 0) durationMs = exoDuration
+        playbackSessionTotalDurationMs = durationMs
+
+        val startPositionMs = kotlinx.coroutines.withContext(mainDispatcher) {
+            mediaSession?.player?.currentPosition ?: 0L
+        }
+        kotlinx.coroutines.withContext(mainDispatcher) {
+            updateHeartbeatsForPosition(startPositionMs, durationMs)
+        }
+
+        val isSubscribed = podcastId?.let { subscriptionRepository.isSubscribed(it) } ?: false
+
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPlaybackStarted(
+            podcastId = podcastId,
+            podcastName = resolvedName,
+            podcastGenre = resolvedGenre,
+            episodeId = episodeId,
+            episodeTitle = currentItem?.mediaMetadata?.title?.toString(),
+            startPositionSeconds = startPositionMs / 1000f,
+            totalDurationSeconds = durationMs / 1000f,
+            isRepeating = playbackSessionIsRepeating,
+            isSubscribed = isSubscribed,
+            entryPoint = playbackSessionEntryPoint,
+            entryPointContext = playbackSessionEntryPointContext
+        )
     }
 
     private fun endPlaybackSession(forceCompleted: Boolean = false, isTransition: Boolean = false) {
