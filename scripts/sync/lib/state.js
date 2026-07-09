@@ -38,6 +38,9 @@ function load() {
     }
 
     if (raw.version === 2 && raw.shows) {
+        if (raw.candidateIds) {
+            raw.candidateIds = raw.candidateIds.map(String);
+        }
         return raw;
     }
 

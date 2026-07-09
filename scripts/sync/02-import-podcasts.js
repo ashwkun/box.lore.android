@@ -227,6 +227,7 @@ function registerImportedCandidates(importedIds) {
         return;
     }
 
+    st.candidateIds = (st.candidateIds || []).map(String);
     const known = new Set(st.candidateIds);
     let added = 0;
     for (const podId of importedIds) {
@@ -239,6 +240,7 @@ function registerImportedCandidates(importedIds) {
     }
     if (added === 0) return;
 
+    st.candidatesRefreshedAt = 0; // Force Stage 3 to refresh from Turso and seed 'n' (News) flags
     state.save(st);
     log.info(`[CANDIDATES] Registered ${added} newly imported shows for episode sync (existing check history unchanged)`);
 }
