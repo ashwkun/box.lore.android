@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed transition stutters for the Home screen tab navigation.
 - Fixed AppCheck telemetry initialization race condition on app startup.
 - Redacted sensitive security tokens (App Check and API key) from OkHttp header logcat output.
+- Fixed candidate cache type-mixing and delayed news-flag sync issues on podcast import.
 
 ## [v0.0.5] - 2026-07-08
 ### Added
