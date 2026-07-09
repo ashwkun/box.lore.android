@@ -94,7 +94,7 @@ jobs:
               p.itunesId AS itunes_id,
               p.title,
               p.itunesAuthor AS author,
-              p.description,
+              REPLACE(REPLACE(p.description, char(10), ' '), char(13), ' ') AS description,
               p.imageUrl AS image_url,
               p.url AS feed_url,
               p.link AS website_url,
@@ -119,6 +119,8 @@ jobs:
         run: node scripts/sync/04-vectorize-episodes.js
 
       - name: 'Stage 5: Vectorize shows'
+        env:
+          MAX_EMBEDDINGS_PER_RUN: ${{ inputs.embedding_budget || '6000' }}
         run: node scripts/sync/05-vectorize-shows.js
 
       - name: 'Stage 7: Record DB cost stats'
@@ -177,6 +179,10 @@ jobs:
       - name: 'Stage 6: Cleanup non-chart shows (7-day grace)'
         run: node scripts/sync/06-cleanup-non-chart.js
 
+      - name: 'Stage 7: Record DB cost stats'
+        if: always()
+        run: node scripts/sync/07-record-stats.js
+
       - name: Commit pipeline state
         run: |
           git config user.name "github-actions[bot]"
@@ -185,7 +191,7 @@ jobs:
           # Stage and commit BEFORE any rebase: an up-front pull fails on the
           # unstaged sync_cache.json changes stage 6 just wrote. The push
           # retry loop below rebases only after committing, like the sync job.
-          git add scripts/data/sync_cache.json
+          git add scripts/data/sync_cache.json scripts/data/db_cost_history.json scripts/data/db_cost_report.md
           if git diff --cached --quiet; then
             echo "No state changes to commit"
             exit 0
