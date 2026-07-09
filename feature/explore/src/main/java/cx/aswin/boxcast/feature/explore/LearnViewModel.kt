@@ -167,7 +167,7 @@ class LearnViewModel(
     }
 
     private fun fetchNextPage() {
-        if (isLoadingMore || isEndOfContent) return
+        if (isLoadingMore || isEndOfContent || fetchJob?.isActive == true) return
         if (_uiState.value !is LearnUiState.Success) return
 
         isLoadingMore = true
