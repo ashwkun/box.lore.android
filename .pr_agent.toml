@@ -5,6 +5,7 @@ auto_describe = true
 auto_improve = true
 
 [config]
+model = "groq/llama-3.3-70b-versatile"
 # Enables AI-driven custom label generation
 enable_custom_labels = true
 
