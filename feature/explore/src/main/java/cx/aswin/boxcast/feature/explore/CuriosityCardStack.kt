@@ -381,7 +381,7 @@ private fun CircularPlayButton(
             .padding(4.dp)
             .clip(CircleShape)
             .then(buttonBackground)
-            .expressiveClickable(onClick = onClick),
+            .expressiveClickable(enabled = !isLoading, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (isLoading) {

@@ -89,6 +89,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.network.model.CuratedCuriosityPodcastDto
@@ -169,9 +170,11 @@ fun LearnScreen(
         }
         try {
             val loader = coil.Coil.imageLoader(context)
+            val optimizedUrl = activeCardImage.optimizedImageUrl(width = 200)
             val request = ImageRequest.Builder(context)
-                .data(activeCardImage)
+                .data(optimizedUrl)
                 .allowHardware(false) // Must be a software bitmap for Palette pixel extraction
+                .size(100, 100) // Constrain decode size in memory for palette extraction
                 .build()
             val result = loader.execute(request)
             if (result is coil.request.SuccessResult) {
@@ -182,6 +185,8 @@ fun LearnScreen(
                         extractDominantColor(bitmap)
                     }
                     extractedColor = color
+                } else {
+                    extractedColor = null
                 }
             } else {
                 extractedColor = null
