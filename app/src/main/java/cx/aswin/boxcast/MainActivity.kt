@@ -2459,52 +2459,57 @@ class MainActivity : ComponentActivity() {
                     // Unified Player Sheet - PixelPlayer architecture (Last so it draws ON TOP)
                     // Hidden during mode switch animation
                     if (!isModeSwitching) {
-                    cx.aswin.boxcast.feature.player.v2.PlayerSheetScaffold(
-                        playbackRepository = playbackRepository,
-                        downloadRepository = downloadRepository,
-                        userPrefs = userPrefs,
-                        sheetCollapsedTargetY = collapsedTargetY,
-                        containerHeight = containerHeight,
-                        collapsedStateHorizontalPadding = 12.dp,
-                        expandTrigger = expandPlayerTrigger, // Pass the trigger here
-                        onEpisodeInfoClick = { episode ->
-                            if (episode.id.startsWith("briefing_")) {
-                                val region = episode.id.removePrefix("briefing_").substringBefore("_")
-                                navController.navigate("briefing?region=$region") {
-                                    launchSingleTop = true
+                        cx.aswin.boxcast.feature.player.v2.PlayerSheetScaffold(
+                            playbackRepository = playbackRepository,
+                            downloadRepository = downloadRepository,
+                            userPrefs = userPrefs,
+                            layout = cx.aswin.boxcast.feature.player.v2.PlayerSheetLayout(
+                                collapsedTargetY = collapsedTargetY,
+                                containerHeight = containerHeight,
+                                collapsedHorizontalPadding = 12.dp,
+                                expandTrigger = expandPlayerTrigger
+                            ),
+                            actions = cx.aswin.boxcast.feature.player.v2.PlayerSheetActions(
+                                onEpisodeInfoClick = { episode ->
+                                    if (episode.id.startsWith("briefing_")) {
+                                        val region = episode.id.removePrefix("briefing_").substringBefore("_")
+                                        navController.navigate("briefing?region=$region") {
+                                            launchSingleTop = true
+                                        }
+                                    } else {
+                                        // Navigate to episode info
+                                        val podcast = playbackRepository.playerState.value.currentPodcast
+                                        fun encode(s: String?) =
+                                            android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
+                                        navController.navigate(
+                                            "episode/${encode(episode.id)}/${encode(episode.title)}/" +
+                                                "${encode(episode.description.take(500))}/" +
+                                                "${encode(episode.imageUrl)}/" +
+                                                "${encode(episode.audioUrl)}/" +
+                                                "${episode.duration}/${encode(podcast?.id ?: "unknown")}/" +
+                                                "${encode(podcast?.title ?: "Podcast")}" +
+                                                "?entryPoint=player_ui"
+                                        ) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                },
+                                onPodcastInfoClick = { podcast ->
+                                    if (podcast.id.startsWith("briefing_")) {
+                                        val region = podcast.id.removePrefix("briefing_")
+                                        navController.navigate("briefing?region=$region") {
+                                            launchSingleTop = true
+                                        }
+                                    } else {
+                                        // Navigate to podcast info
+                                        navController.navigate("podcast/${podcast.id}?entryPoint=player_ui") {
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 }
-                            } else {
-                                // Navigate to episode info
-                                val podcast = playbackRepository.playerState.value.currentPodcast
-                                fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
-                                navController.navigate(
-                                    "episode/${encode(episode.id)}/${encode(episode.title)}/" +
-                                    "${encode(episode.description.take(500))}/" +
-                                    "${encode(episode.imageUrl)}/" +
-                                    "${encode(episode.audioUrl)}/" +
-                                    "${episode.duration}/${encode(podcast?.id ?: "unknown")}/" +
-                                    "${encode(podcast?.title ?: "Podcast")}" +
-                                    "?entryPoint=player_ui"
-                                ) {
-                                    launchSingleTop = true
-                                }
-                            }
-                        },
-                        onPodcastInfoClick = { podcast ->
-                            if (podcast.id.startsWith("briefing_")) {
-                                val region = podcast.id.removePrefix("briefing_")
-                                navController.navigate("briefing?region=$region") {
-                                    launchSingleTop = true
-                                }
-                            } else {
-                                // Navigate to podcast info
-                                navController.navigate("podcast/${podcast.id}?entryPoint=player_ui") {
-                                    launchSingleTop = true
-                                }
-                            }
-                        },
-                        modifier = Modifier.align(Alignment.TopStart)
-                    )
+                            ),
+                            modifier = Modifier.align(Alignment.TopStart)
+                        )
                     }
                 }
 

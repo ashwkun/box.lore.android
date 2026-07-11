@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -1092,67 +1093,78 @@ class PlaybackRepository(
      * queue first, then the persisted queue rows (which carry contextType/source for
      * the queue-sheet labels), then the MediaItem itself as a last resort.
      */
-    @Suppress("kotlin:S3776")
     private fun reconcileQueueWithController() {
         val controller = mediaController ?: return
         if (controller.mediaItemCount == 0) return
 
-        // A restored/refilled Media3 playlist can occasionally contain the same episode
-        // more than once. Keep the first upcoming occurrence and remove later duplicates
-        // before they can leak into PlayerState or become duplicate Compose list keys.
-        val initialStart = controller.currentMediaItemIndex.coerceAtLeast(0)
-        val seenIds = mutableSetOf<String>()
-        val duplicateIndices = mutableListOf<Int>()
-        for (index in initialStart until controller.mediaItemCount) {
-            val id = QueueMath.stripMediaIdPrefixes(controller.getMediaItemAt(index).mediaId)
-            if (!seenIds.add(id)) duplicateIndices += index
-        }
-        if (duplicateIndices.isNotEmpty()) {
-            android.util.Log.w(
-                "PlaybackRepo",
-                "reconcileQueueWithController: Removing ${duplicateIndices.size} duplicate media items"
-            )
-            duplicateIndices.asReversed().forEach(controller::removeMediaItem)
-        }
-
-        val start = controller.currentMediaItemIndex.coerceAtLeast(0)
-        val orderedIds = (start until controller.mediaItemCount).map {
-            QueueMath.stripMediaIdPrefixes(controller.getMediaItemAt(it).mediaId)
-        }
+        removeDuplicateUpcomingItems(controller)
+        val orderedIds = controller.upcomingEpisodeIds()
         if (orderedIds == _playerState.value.queue.map { it.id }) return
 
         repositoryScope.launch {
-            var dbItems = try {
-                queueRepository.getQueueSnapshot().associateBy { it.id }
-            } catch (e: Exception) { emptyMap() }
+            reconcileQueueSnapshot(orderedIds)
+        }
+    }
 
-            // The service persists refill rows just before appending to the player; give
-            // a slow write one retry before falling back to bare MediaItem metadata.
-            val knownNow = _playerState.value.queue.associateBy { it.id }
-            if (orderedIds.any { it !in knownNow && it !in dbItems }) {
-                kotlinx.coroutines.delay(400)
-                dbItems = try {
-                    queueRepository.getQueueSnapshot().associateBy { it.id }
-                } catch (e: Exception) { dbItems }
-            }
+    private fun removeDuplicateUpcomingItems(controller: Player) {
+        val seenIds = mutableSetOf<String>()
+        val duplicateIndices = mutableListOf<Int>()
+        for (index in controller.currentMediaItemIndex.coerceAtLeast(0) until controller.mediaItemCount) {
+            val id = QueueMath.stripMediaIdPrefixes(controller.getMediaItemAt(index).mediaId)
+            if (!seenIds.add(id)) duplicateIndices += index
+        }
+        if (duplicateIndices.isEmpty()) return
 
-            // Re-read the controller: the playlist may have changed again meanwhile.
-            val controllerNow = mediaController ?: return@launch
-            if (controllerNow.mediaItemCount == 0) return@launch
-            val startNow = controllerNow.currentMediaItemIndex.coerceAtLeast(0)
-            val idsNow = (startNow until controllerNow.mediaItemCount).map {
-                QueueMath.stripMediaIdPrefixes(controllerNow.getMediaItemAt(it).mediaId)
-            }
-            val latestQueue = _playerState.value.queue
-            if (idsNow == latestQueue.map { it.id }) return@launch
+        android.util.Log.w(
+            "PlaybackRepo",
+            "reconcileQueueWithController: Removing ${duplicateIndices.size} duplicate media items"
+        )
+        duplicateIndices.asReversed().forEach(controller::removeMediaItem)
+    }
 
-            val known = latestQueue.associateBy { it.id }
-            val newQueue = idsNow.mapIndexed { offset, id ->
-                known[id] ?: dbItems[id]
-                    ?: buildEpisodeFromMediaItem(controllerNow.getMediaItemAt(startNow + offset), id)
-            }.distinctBy { it.id }
-            android.util.Log.d("PlaybackRepo", "reconcileQueueWithController: ${latestQueue.size} -> ${newQueue.size} items")
-            _playerState.value = _playerState.value.copy(queue = newQueue)
+    private fun Player.upcomingEpisodeIds(): List<String> {
+        val start = currentMediaItemIndex.coerceAtLeast(0)
+        return (start until mediaItemCount).map { index ->
+            QueueMath.stripMediaIdPrefixes(getMediaItemAt(index).mediaId)
+        }
+    }
+
+    private suspend fun reconcileQueueSnapshot(orderedIds: List<String>) {
+        var dbItems = loadPersistedQueueById()
+
+        // The service persists refill rows just before appending to the player; give
+        // a slow write one retry before falling back to bare MediaItem metadata.
+        val knownNow = _playerState.value.queue.associateBy { it.id }
+        if (orderedIds.any { it !in knownNow && it !in dbItems }) {
+            kotlinx.coroutines.delay(400)
+            dbItems = loadPersistedQueueById(dbItems)
+        }
+
+        // Re-read the controller: the playlist may have changed again meanwhile.
+        val controllerNow = mediaController ?: return
+        if (controllerNow.mediaItemCount == 0) return
+        val startNow = controllerNow.currentMediaItemIndex.coerceAtLeast(0)
+        val idsNow = controllerNow.upcomingEpisodeIds()
+        val latestQueue = _playerState.value.queue
+        if (idsNow == latestQueue.map { it.id }) return
+
+        val known = latestQueue.associateBy { it.id }
+        val newQueue = idsNow.mapIndexed { offset, id ->
+            known[id] ?: dbItems[id]
+                ?: buildEpisodeFromMediaItem(controllerNow.getMediaItemAt(startNow + offset), id)
+        }.distinctBy { it.id }
+        android.util.Log.d("PlaybackRepo", "reconcileQueueWithController: ${latestQueue.size} -> ${newQueue.size} items")
+        _playerState.value = _playerState.value.copy(queue = newQueue)
+    }
+
+    private suspend fun loadPersistedQueueById(
+        fallback: Map<String, Episode> = emptyMap()
+    ): Map<String, Episode> {
+        return try {
+            queueRepository.getQueueSnapshot().associateBy { it.id }
+        } catch (exception: Exception) {
+            android.util.Log.w("PlaybackRepo", "Unable to read persisted queue snapshot", exception)
+            fallback
         }
     }
 

@@ -39,7 +39,6 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
  * processing time and the remaining daily credit allowance.
  */
 @Composable
-@Suppress("kotlin:S3776")
 fun GenerateTranscriptDialog(
     episodeDurationSec: Long,
     autoTranscriptLimitLeft: Int?,

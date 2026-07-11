@@ -38,7 +38,9 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -65,11 +68,125 @@ import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 val MiniPlayerHeight = 72.dp
+
+data class MiniPlayerContent(
+    val episode: Episode,
+    val podcastTitle: String,
+    val podcastImageUrl: String?,
+    val isPlaying: Boolean,
+    val isLoading: Boolean,
+    val position: Long,
+    val duration: Long
+)
+
+data class MiniPlayerColors(
+    val colorScheme: ColorScheme,
+    val backgroundColor: Color
+)
+
+data class MiniPlayerActions(
+    val onPlayPause: () -> Unit,
+    val onReplay: () -> Unit,
+    val onForward: () -> Unit,
+    val onDismiss: () -> Unit
+)
+
+data class MiniPlayerSwipeTip(
+    val visible: Boolean = false,
+    val onDismissed: () -> Unit = {}
+)
+
+@Stable
+private class MiniSwipeState {
+    val offsetX = Animatable(0f)
+    var showConfirmPill by mutableStateOf(false)
+        private set
+    var direction by mutableIntStateOf(0)
+        private set
+    private var autoHideJob: Job? = null
+
+    fun onDragStart(haptics: HapticFeedback) {
+        autoHideJob?.cancel()
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    fun onDrag(scope: CoroutineScope, dragAmount: Float, threshold: Float) {
+        scope.launch {
+            offsetX.snapTo(offsetX.value + dragAmount)
+            if (kotlin.math.abs(offsetX.value) > threshold * 0.5f && !showConfirmPill) {
+                direction = if (offsetX.value < 0) -1 else 1
+                showConfirmPill = true
+            }
+            if (showConfirmPill && kotlin.math.abs(offsetX.value) < threshold * 0.3f) {
+                showConfirmPill = false
+                autoHideJob?.cancel()
+            }
+        }
+    }
+
+    fun onDragEnd(scope: CoroutineScope, threshold: Float, haptics: HapticFeedback) {
+        scope.launch {
+            if (kotlin.math.abs(offsetX.value) > threshold) {
+                revealConfirmation(scope, threshold, haptics)
+            } else {
+                hideConfirmation()
+            }
+        }
+    }
+
+    fun onDragCancel(scope: CoroutineScope) {
+        scope.launch { hideConfirmation() }
+    }
+
+    fun confirmDismiss(haptics: HapticFeedback, onDismiss: () -> Unit) {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        autoHideJob?.cancel()
+        onDismiss()
+    }
+
+    private suspend fun revealConfirmation(
+        scope: CoroutineScope,
+        threshold: Float,
+        haptics: HapticFeedback
+    ) {
+        direction = if (offsetX.value < 0) -1 else 1
+        showConfirmPill = true
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        offsetX.animateTo(
+            targetValue = direction * threshold * 1.5f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        )
+        autoHideJob = scope.launch {
+            delay(3000)
+            hideConfirmation(
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+        }
+    }
+
+    private suspend fun hideConfirmation(
+        animationSpec: androidx.compose.animation.core.AnimationSpec<Float> = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    ) {
+        showConfirmPill = false
+        offsetX.animateTo(0f, animationSpec)
+    }
+}
 
 /**
  * v2 mini player: squircle artwork, marquee-free two-line labels, transport buttons,
@@ -77,40 +194,40 @@ val MiniPlayerHeight = 72.dp
  * a dismiss pill.
  */
 @Composable
-@Suppress("kotlin:S107", "kotlin:S3776")
 fun MiniPlayerV2(
-    episode: Episode,
-    podcastTitle: String,
-    podcastImageUrl: String?,
-    isPlaying: Boolean,
-    isLoading: Boolean,
-    position: Long,
-    duration: Long,
-    colorScheme: ColorScheme,
-    onPlayPause: () -> Unit,
-    onReplay: () -> Unit,
-    onForward: () -> Unit,
-    onDismiss: () -> Unit,
-    backgroundColor: Color,
-    showSwipeTip: Boolean = false,
-    onSwipeTipDismissed: () -> Unit = {},
+    content: MiniPlayerContent,
+    colors: MiniPlayerColors,
+    actions: MiniPlayerActions,
+    swipeTip: MiniPlayerSwipeTip = MiniPlayerSwipeTip(),
     modifier: Modifier = Modifier
 ) {
+    val episode = content.episode
+    val podcastTitle = content.podcastTitle
+    val podcastImageUrl = content.podcastImageUrl
+    val isPlaying = content.isPlaying
+    val isLoading = content.isLoading
+    val position = content.position
+    val duration = content.duration
+    val colorScheme = colors.colorScheme
+    val backgroundColor = colors.backgroundColor
+    val onPlayPause = actions.onPlayPause
+    val onReplay = actions.onReplay
+    val onForward = actions.onForward
+    val onDismiss = actions.onDismiss
+    val showSwipeTip = swipeTip.visible
+    val onSwipeTipDismissed = swipeTip.onDismissed
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
     // Swipe-to-dismiss (only while paused)
-    val offsetX = remember { Animatable(0f) }
-    var showConfirmPill by remember { mutableStateOf(false) }
-    var swipeDirection by remember { mutableStateOf(0) }
-    var autoHideJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val swipeState = remember { MiniSwipeState() }
     val dismissThreshold = with(density) { 100.dp.toPx() }
 
     Box(modifier = modifier) {
         // Dismiss pill revealed behind the sliding content
         AnimatedVisibility(
-            visible = showConfirmPill,
+            visible = swipeState.showConfirmPill,
             enter = fadeIn(tween(200)),
             exit = fadeOut(tween(150)),
             modifier = Modifier
@@ -119,7 +236,7 @@ fun MiniPlayerV2(
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = if (swipeDirection > 0) Alignment.CenterStart else Alignment.CenterEnd
+                contentAlignment = if (swipeState.direction > 0) Alignment.CenterStart else Alignment.CenterEnd
             ) {
                 Row(
                     modifier = Modifier
@@ -127,9 +244,7 @@ fun MiniPlayerV2(
                         .clip(RoundedCornerShape(24.dp))
                         .background(MaterialTheme.colorScheme.errorContainer)
                         .clickable {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            autoHideJob?.cancel()
-                            onDismiss()
+                            swipeState.confirmDismiss(haptics, onDismiss)
                         }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -156,7 +271,7 @@ fun MiniPlayerV2(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(1f)
-                .offset { IntOffset(offsetX.value.toInt(), 0) }
+                .offset { IntOffset(swipeState.offsetX.value.toInt(), 0) }
                 .background(
                     color = backgroundColor,
                     shape = RoundedCornerShape(
@@ -177,64 +292,11 @@ fun MiniPlayerV2(
                 .pointerInput(isPlaying) {
                     if (isPlaying) return@pointerInput // No swipe-dismiss while playing
                     detectHorizontalDragGestures(
-                        onDragStart = {
-                            autoHideJob?.cancel()
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        },
-                        onDragEnd = {
-                            scope.launch {
-                                if (kotlin.math.abs(offsetX.value) > dismissThreshold) {
-                                    swipeDirection = if (offsetX.value < 0) -1 else 1
-                                    showConfirmPill = true
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    offsetX.animateTo(
-                                        targetValue = swipeDirection * dismissThreshold * 1.5f,
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                            stiffness = Spring.StiffnessMedium
-                                        )
-                                    )
-                                    autoHideJob = scope.launch {
-                                        delay(3000)
-                                        showConfirmPill = false
-                                        offsetX.animateTo(
-                                            targetValue = 0f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            )
-                                        )
-                                    }
-                                } else {
-                                    showConfirmPill = false
-                                    offsetX.animateTo(
-                                        targetValue = 0f,
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                            stiffness = Spring.StiffnessMedium
-                                        )
-                                    )
-                                }
-                            }
-                        },
-                        onDragCancel = {
-                            scope.launch {
-                                showConfirmPill = false
-                                offsetX.animateTo(0f, spring())
-                            }
-                        },
+                        onDragStart = { swipeState.onDragStart(haptics) },
+                        onDragEnd = { swipeState.onDragEnd(scope, dismissThreshold, haptics) },
+                        onDragCancel = { swipeState.onDragCancel(scope) },
                         onHorizontalDrag = { _, dragAmount ->
-                            scope.launch {
-                                offsetX.snapTo(offsetX.value + dragAmount)
-                                if (kotlin.math.abs(offsetX.value) > dismissThreshold * 0.5f && !showConfirmPill) {
-                                    swipeDirection = if (offsetX.value < 0) -1 else 1
-                                    showConfirmPill = true
-                                }
-                                if (showConfirmPill && kotlin.math.abs(offsetX.value) < dismissThreshold * 0.3f) {
-                                    showConfirmPill = false
-                                    autoHideJob?.cancel()
-                                }
-                            }
+                            swipeState.onDrag(scope, dragAmount, dismissThreshold)
                         }
                     )
                 }
@@ -383,7 +445,6 @@ private fun SwipeDismissTip(
 }
 
 @Composable
-@Suppress("kotlin:S3776")
 private fun MiniTransportButtons(
     isPlaying: Boolean,
     isLoading: Boolean,

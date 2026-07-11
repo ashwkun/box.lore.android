@@ -61,6 +61,18 @@ import kotlinx.coroutines.launch
 
 enum class PlayerSheetValue { Collapsed, Expanded }
 
+data class PlayerSheetLayout(
+    val collapsedTargetY: Float,
+    val containerHeight: Dp,
+    val collapsedHorizontalPadding: Dp = 12.dp,
+    val expandTrigger: Long = 0L
+)
+
+data class PlayerSheetActions(
+    val onEpisodeInfoClick: (cx.aswin.boxcast.core.model.Episode) -> Unit = {},
+    val onPodcastInfoClick: (cx.aswin.boxcast.core.model.Podcast) -> Unit = {}
+)
+
 /**
  * v2 player sheet: an [AnchoredDraggableState]-driven bottom sheet that morphs between
  * a mini bar and the immersive full player. Springs everywhere, velocity-aware settling,
@@ -68,19 +80,20 @@ enum class PlayerSheetValue { Collapsed, Expanded }
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-@Suppress("kotlin:S107", "kotlin:S3776")
 fun PlayerSheetScaffold(
     playbackRepository: PlaybackRepository,
     downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
     userPrefs: UserPreferencesRepository,
-    sheetCollapsedTargetY: Float,
-    containerHeight: Dp,
-    collapsedStateHorizontalPadding: Dp = 12.dp,
-    expandTrigger: Long = 0L,
-    onEpisodeInfoClick: (cx.aswin.boxcast.core.model.Episode) -> Unit = {},
-    onPodcastInfoClick: (cx.aswin.boxcast.core.model.Podcast) -> Unit = {},
+    layout: PlayerSheetLayout,
+    actions: PlayerSheetActions = PlayerSheetActions(),
     modifier: Modifier = Modifier
 ) {
+    val sheetCollapsedTargetY = layout.collapsedTargetY
+    val containerHeight = layout.containerHeight
+    val collapsedStateHorizontalPadding = layout.collapsedHorizontalPadding
+    val expandTrigger = layout.expandTrigger
+    val onEpisodeInfoClick = actions.onEpisodeInfoClick
+    val onPodcastInfoClick = actions.onPodcastInfoClick
     val state by playbackRepository.playerState.collectAsStateWithLifecycle()
     val episode = state.currentEpisode
     val podcast = state.currentPodcast
@@ -101,13 +114,7 @@ fun PlayerSheetScaffold(
     val hasSeenSwipeMinimizeTip by userPrefs.hasSeenSwipeMinimizeTip.collectAsStateWithLifecycle(initialValue = true)
 
     val effectiveDarkTheme = LocalEffectiveDarkTheme.current
-    SideEffect {
-        window?.let { win ->
-            val insetsController = androidx.core.view.WindowCompat.getInsetsController(win, win.decorView)
-            insetsController.isAppearanceLightStatusBars = !effectiveDarkTheme
-            insetsController.isAppearanceLightNavigationBars = !effectiveDarkTheme
-        }
-    }
+    PlayerSheetSystemBars(window, effectiveDarkTheme)
 
     // Artwork-seeded color scheme
     val colorScheme = rememberPlayerColorScheme(episode.imageUrl)
@@ -129,14 +136,7 @@ fun PlayerSheetScaffold(
         )
     }
 
-    LaunchedEffect(sheetCollapsedTargetY) {
-        sheetState.updateAnchors(
-            DraggableAnchors {
-                PlayerSheetValue.Collapsed at sheetCollapsedTargetY
-                PlayerSheetValue.Expanded at 0f
-            }
-        )
-    }
+    ConfigurePlayerSheetAnchors(sheetState, sheetCollapsedTargetY)
 
     val sheetOffset by remember(sheetState, sheetCollapsedTargetY) {
         derivedStateOf {
@@ -162,90 +162,17 @@ fun PlayerSheetScaffold(
         scope.launch { sheetState.animateTo(PlayerSheetValue.Collapsed) }
     }
 
-    // Session + haptics on settled-state transitions
-    LaunchedEffect(sheetState) {
-        var previous = sheetState.settledValue
-        snapshotFlow { sheetState.settledValue }.collect { value ->
-            if (value != previous) {
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                if (value == PlayerSheetValue.Expanded) {
-                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
-                        "expanded", podcast?.id, episode.id, podcast?.title, episode.title
-                    )
-                    cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.startSession(
-                        podcast?.id, episode.id, podcast?.title, episode.title
-                    )
-                } else {
-                    cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.endSession()
-                }
-                previous = value
-            }
-        }
-    }
-
-    // External expansion trigger (notification tap, deep link, resume)
-    LaunchedEffect(expandTrigger) {
-        if (expandTrigger > 0L && !sheetState.isAnimationRunning) {
-            sheetState.animateTo(PlayerSheetValue.Expanded)
-        }
-    }
-
-    // Predictive back scrubs the collapse
-    PredictiveBackHandler(enabled = isExpanded && !isFullscreenVideo) { progress ->
-        try {
-            progress.collect { backEvent ->
-                // Scrub the sheet up to 20% of its travel while the gesture is in progress
-                val target = sheetCollapsedTargetY * 0.2f * backEvent.progress
-                sheetState.dispatchRawDelta(target - sheetState.requireOffset())
-            }
-            // Gesture committed — collapse
-            sheetState.animateTo(PlayerSheetValue.Collapsed)
-        } catch (e: CancellationException) {
-            // Gesture cancelled — spring back to expanded
-            sheetState.animateTo(PlayerSheetValue.Expanded)
-            throw e
-        }
-    }
+    PlayerSheetSettledEffects(sheetState, haptics, episode, podcast)
+    PlayerSheetExternalExpansion(sheetState, expandTrigger)
+    PlayerSheetPredictiveBack(
+        enabled = isExpanded && !isFullscreenVideo,
+        sheetState = sheetState,
+        collapsedTargetY = sheetCollapsedTargetY
+    )
 
     // Nested-scroll handoff: the full player's inner scroll drives the sheet when
     // pulling down from the top or when the sheet sits between anchors.
-    val sheetNestedScrollConnection = remember(sheetState) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val delta = available.y
-                // Dragging up while the sheet isn't fully expanded: move the sheet first
-                return if (delta < 0 && sheetState.requireOffset() > 0f) {
-                    Offset(0f, sheetState.dispatchRawDelta(delta))
-                } else {
-                    Offset.Zero
-                }
-            }
-
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.UserInput) return Offset.Zero
-                // Downward overscroll left over by the content: collapse the sheet
-                return Offset(0f, sheetState.dispatchRawDelta(available.y))
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                return if (available.y < 0 && sheetState.requireOffset() > 0f) {
-                    sheetState.settle(available.y)
-                    available
-                } else {
-                    Velocity.Zero
-                }
-            }
-
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                return if (available.y != 0f && !sheetState.isAnimationRunning) {
-                    sheetState.settle(available.y)
-                    available
-                } else {
-                    Velocity.Zero
-                }
-            }
-        }
-    }
+    val sheetNestedScrollConnection = rememberPlayerSheetNestedScrollConnection(sheetState)
 
     // ------------------------------------------------------------------
     // Geometry derived from the expansion fraction
@@ -338,55 +265,65 @@ fun PlayerSheetScaffold(
                 if (expansionFraction < 0.999f) {
                     playerStateHolder.SaveableStateProvider("miniPlayer") {
                         // MINI PLAYER
-                    MiniPlayerV2(
-                        episode = episode,
-                        podcastTitle = podcast?.title ?: "",
-                        podcastImageUrl = podcast?.imageUrl,
-                        isPlaying = state.isPlaying,
-                        isLoading = state.isLoading,
-                        position = state.position,
-                        duration = state.duration,
-                        colorScheme = colorScheme,
-                        onPlayPause = {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
-                                "play_pause", podcast?.id, episode.id, podcast?.title, episode.title
-                            )
-                            if (state.isPlaying) {
-                                playbackRepository.pause()
-                            } else {
-                                playbackRepository.resume(
-                                    android.os.Bundle().apply { putString("entry_point", "resume_mini_player") }
-                                )
-                            }
-                        },
-                        onReplay = {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
-                                "previous", podcast?.id, episode.id, podcast?.title, episode.title
-                            )
-                            playbackRepository.skipBackward()
-                        },
-                        onForward = {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
-                                "next", podcast?.id, episode.id, podcast?.title, episode.title
-                            )
-                            playbackRepository.skipForward()
-                        },
-                        onDismiss = {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
-                                "dismissed", podcast?.id, episode.id, podcast?.title, episode.title
-                            )
-                            playbackRepository.clearSession()
-                        },
-                        backgroundColor = miniSheetColor(colorScheme),
-                        showSwipeTip = !hasSeenSwipeDismissTip && !state.isPlaying,
-                        onSwipeTipDismissed = { scope.launch { userPrefs.markSwipeDismissTipSeen() } },
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .height(MiniPlayerHeight)
-                            .fillMaxWidth()
-                            .graphicsLayer { alpha = miniAlpha }
-                            .zIndex(if (expansionFraction < 0.5f) 1f else 0f)
-                    )
+                        MiniPlayerV2(
+                            content = MiniPlayerContent(
+                                episode = episode,
+                                podcastTitle = podcast?.title ?: "",
+                                podcastImageUrl = podcast?.imageUrl,
+                                isPlaying = state.isPlaying,
+                                isLoading = state.isLoading,
+                                position = state.position,
+                                duration = state.duration
+                            ),
+                            colors = MiniPlayerColors(
+                                colorScheme = colorScheme,
+                                backgroundColor = miniSheetColor(colorScheme)
+                            ),
+                            actions = MiniPlayerActions(
+                                onPlayPause = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+                                        "play_pause", podcast?.id, episode.id, podcast?.title, episode.title
+                                    )
+                                    if (state.isPlaying) {
+                                        playbackRepository.pause()
+                                    } else {
+                                        playbackRepository.resume(
+                                            android.os.Bundle().apply {
+                                                putString("entry_point", "resume_mini_player")
+                                            }
+                                        )
+                                    }
+                                },
+                                onReplay = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+                                        "previous", podcast?.id, episode.id, podcast?.title, episode.title
+                                    )
+                                    playbackRepository.skipBackward()
+                                },
+                                onForward = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+                                        "next", podcast?.id, episode.id, podcast?.title, episode.title
+                                    )
+                                    playbackRepository.skipForward()
+                                },
+                                onDismiss = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+                                        "dismissed", podcast?.id, episode.id, podcast?.title, episode.title
+                                    )
+                                    playbackRepository.clearSession()
+                                }
+                            ),
+                            swipeTip = MiniPlayerSwipeTip(
+                                visible = !hasSeenSwipeDismissTip && !state.isPlaying,
+                                onDismissed = { scope.launch { userPrefs.markSwipeDismissTipSeen() } }
+                            ),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .height(MiniPlayerHeight)
+                                .fillMaxWidth()
+                                .graphicsLayer { alpha = miniAlpha }
+                                .zIndex(if (expansionFraction < 0.5f) 1f else 0f)
+                        )
                     }
                 }
 
@@ -406,23 +343,171 @@ fun PlayerSheetScaffold(
                             }
                     ) {
                         FullPlayerV2(
-                            playbackRepository = playbackRepository,
-                            downloadRepository = downloadRepository,
-                            colorScheme = colorScheme,
-                            isFullscreenVideo = isFullscreenVideo,
-                            onFullscreenVideoChange = { isFullscreenVideo = it },
-                            onCollapse = { collapseSheet() },
-                            onEpisodeInfoClick = onEpisodeInfoClick,
-                            onPodcastInfoClick = onPodcastInfoClick,
-                            sheetNestedScrollConnection = sheetNestedScrollConnection,
-                            isExpanded = expansionFraction >= 0.5f,
-                            showSwipeMinimizeTip = !hasSeenSwipeMinimizeTip,
-                            onSwipeMinimizeTipDismissed = { scope.launch { userPrefs.markSwipeMinimizeTipSeen() } }
+                            dependencies = FullPlayerDependencies(
+                                playbackRepository = playbackRepository,
+                                downloadRepository = downloadRepository
+                            ),
+                            display = FullPlayerDisplay(
+                                colorScheme = colorScheme,
+                                isFullscreenVideo = isFullscreenVideo,
+                                sheetNestedScrollConnection = sheetNestedScrollConnection,
+                                isExpanded = expansionFraction >= 0.5f,
+                                showSwipeMinimizeTip = !hasSeenSwipeMinimizeTip
+                            ),
+                            actions = FullPlayerActions(
+                                onFullscreenVideoChange = { isFullscreenVideo = it },
+                                onCollapse = { collapseSheet() },
+                                onEpisodeInfoClick = onEpisodeInfoClick,
+                                onPodcastInfoClick = onPodcastInfoClick,
+                                onSwipeMinimizeTipDismissed = {
+                                    scope.launch { userPrefs.markSwipeMinimizeTipSeen() }
+                                }
+                            )
                         )
                     }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PlayerSheetSystemBars(window: android.view.Window?, effectiveDarkTheme: Boolean) {
+    SideEffect {
+        window?.let { currentWindow ->
+            val controller = androidx.core.view.WindowCompat.getInsetsController(
+                currentWindow,
+                currentWindow.decorView
+            )
+            controller.isAppearanceLightStatusBars = !effectiveDarkTheme
+            controller.isAppearanceLightNavigationBars = !effectiveDarkTheme
+        }
+    }
+}
+
+@Composable
+private fun ConfigurePlayerSheetAnchors(
+    sheetState: AnchoredDraggableState<PlayerSheetValue>,
+    collapsedTargetY: Float
+) {
+    LaunchedEffect(collapsedTargetY) {
+        sheetState.updateAnchors(
+            DraggableAnchors {
+                PlayerSheetValue.Collapsed at collapsedTargetY
+                PlayerSheetValue.Expanded at 0f
+            }
+        )
+    }
+}
+
+@Composable
+private fun PlayerSheetSettledEffects(
+    sheetState: AnchoredDraggableState<PlayerSheetValue>,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    episode: cx.aswin.boxcast.core.model.Episode,
+    podcast: cx.aswin.boxcast.core.model.Podcast?
+) {
+    LaunchedEffect(sheetState, episode.id) {
+        var previous = sheetState.settledValue
+        snapshotFlow { sheetState.settledValue }.collect { value ->
+            if (value == previous) return@collect
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            updatePlayerSession(value, episode, podcast)
+            previous = value
+        }
+    }
+}
+
+private fun updatePlayerSession(
+    value: PlayerSheetValue,
+    episode: cx.aswin.boxcast.core.model.Episode,
+    podcast: cx.aswin.boxcast.core.model.Podcast?
+) {
+    if (value == PlayerSheetValue.Expanded) {
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+            "expanded",
+            podcast?.id,
+            episode.id,
+            podcast?.title,
+            episode.title
+        )
+        cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.startSession(
+            podcast?.id,
+            episode.id,
+            podcast?.title,
+            episode.title
+        )
+    } else {
+        cx.aswin.boxcast.core.data.analytics.PlayerSessionAggregator.endSession()
+    }
+}
+
+@Composable
+private fun PlayerSheetExternalExpansion(
+    sheetState: AnchoredDraggableState<PlayerSheetValue>,
+    expandTrigger: Long
+) {
+    LaunchedEffect(expandTrigger) {
+        if (expandTrigger > 0L && !sheetState.isAnimationRunning) {
+            sheetState.animateTo(PlayerSheetValue.Expanded)
+        }
+    }
+}
+
+@Composable
+private fun PlayerSheetPredictiveBack(
+    enabled: Boolean,
+    sheetState: AnchoredDraggableState<PlayerSheetValue>,
+    collapsedTargetY: Float
+) {
+    PredictiveBackHandler(enabled = enabled) { progress ->
+        try {
+            progress.collect { backEvent ->
+                val target = collapsedTargetY * 0.2f * backEvent.progress
+                sheetState.dispatchRawDelta(target - sheetState.requireOffset())
+            }
+            sheetState.animateTo(PlayerSheetValue.Collapsed)
+        } catch (exception: CancellationException) {
+            sheetState.animateTo(PlayerSheetValue.Expanded)
+            throw exception
+        }
+    }
+}
+
+@Composable
+private fun rememberPlayerSheetNestedScrollConnection(
+    sheetState: AnchoredDraggableState<PlayerSheetValue>
+): NestedScrollConnection = remember(sheetState) {
+    object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            val delta = available.y
+            return if (delta < 0 && sheetState.requireOffset() > 0f) {
+                Offset(0f, sheetState.dispatchRawDelta(delta))
+            } else {
+                Offset.Zero
+            }
+        }
+
+        override fun onPostScroll(
+            consumed: Offset,
+            available: Offset,
+            source: NestedScrollSource
+        ): Offset {
+            if (source != NestedScrollSource.UserInput) return Offset.Zero
+            return Offset(0f, sheetState.dispatchRawDelta(available.y))
+        }
+
+        override suspend fun onPreFling(available: Velocity): Velocity {
+            if (available.y >= 0 || sheetState.requireOffset() <= 0f) return Velocity.Zero
+            sheetState.settle(available.y)
+            return available
+        }
+
+        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+            if (available.y == 0f || sheetState.isAnimationRunning) return Velocity.Zero
+            sheetState.settle(available.y)
+            return available
         }
     }
 }

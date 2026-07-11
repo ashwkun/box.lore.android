@@ -124,23 +124,25 @@ fun PrimaryControls(
     }
     val activeIndex = pressedIndex ?: latchedIndex
     val baseWeights = remember { listOf(1f, 1.18f, 1f) }
-    fun targetWeight(index: Int): Float {
-        val active = activeIndex ?: return baseWeights[index]
-        val extra = baseWeights[active] * 0.14f
-        return if (index == active) {
-            baseWeights[index] + extra
-        } else {
-            val otherTotal = baseWeights.sum() - baseWeights[active]
-            baseWeights[index] - extra * (baseWeights[index] / otherTotal)
-        }
-    }
     val softGroupSpring = spring<Float>(
         dampingRatio = 0.78f,
         stiffness = 65f
     )
-    val replayWeight by animateFloatAsState(targetWeight(0), softGroupSpring, label = "replayWidth")
-    val playWeight by animateFloatAsState(targetWeight(1), softGroupSpring, label = "playWidth")
-    val forwardWeight by animateFloatAsState(targetWeight(2), softGroupSpring, label = "forwardWidth")
+    val replayWeight by animateFloatAsState(
+        targetControlWeight(0, activeIndex, baseWeights),
+        softGroupSpring,
+        label = "replayWidth"
+    )
+    val playWeight by animateFloatAsState(
+        targetControlWeight(1, activeIndex, baseWeights),
+        softGroupSpring,
+        label = "playWidth"
+    )
+    val forwardWeight by animateFloatAsState(
+        targetControlWeight(2, activeIndex, baseWeights),
+        softGroupSpring,
+        label = "forwardWidth"
+    )
     val replayShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 34.dp, smoothnessAsPercentTL = 60,
         cornerRadiusTR = 14.dp, smoothnessAsPercentTR = 60,
@@ -162,11 +164,13 @@ fun PrimaryControls(
         verticalAlignment = Alignment.CenterVertically
     ) {
         TransportButton(
-            icon = Icons.Rounded.Replay10,
-            contentDescription = "Replay 10 seconds",
+            icon = TransportIcon(
+                image = Icons.Rounded.Replay10,
+                contentDescription = "Replay 10 seconds",
+                size = 40.dp
+            ),
             colorScheme = colorScheme,
             shape = replayShape,
-            iconSize = 40.dp,
             interactionSource = interactionSources[0],
             onClick = {
                 latchedIndex = 0
@@ -192,11 +196,13 @@ fun PrimaryControls(
                 .height(104.dp)
         )
         TransportButton(
-            icon = Icons.Rounded.Forward30,
-            contentDescription = "Forward 30 seconds",
+            icon = TransportIcon(
+                image = Icons.Rounded.Forward30,
+                contentDescription = "Forward 30 seconds",
+                size = 40.dp
+            ),
             colorScheme = colorScheme,
             shape = forwardShape,
-            iconSize = 40.dp,
             interactionSource = interactionSources[2],
             onClick = {
                 latchedIndex = 2
@@ -210,15 +216,26 @@ fun PrimaryControls(
     }
 }
 
+private fun targetControlWeight(index: Int, activeIndex: Int?, baseWeights: List<Float>): Float {
+    if (activeIndex == null) return baseWeights[index]
+    val extra = baseWeights[activeIndex] * 0.14f
+    if (index == activeIndex) return baseWeights[index] + extra
+    val otherTotal = baseWeights.sum() - baseWeights[activeIndex]
+    return baseWeights[index] - extra * (baseWeights[index] / otherTotal)
+}
+
+private data class TransportIcon(
+    val image: ImageVector,
+    val contentDescription: String,
+    val size: androidx.compose.ui.unit.Dp
+)
+
 @Composable
-@Suppress("kotlin:S107")
 private fun TransportButton(
-    icon: ImageVector,
-    contentDescription: String,
+    icon: TransportIcon,
     colorScheme: ColorScheme,
     quiet: Boolean = false,
     shape: androidx.compose.ui.graphics.Shape,
-    iconSize: androidx.compose.ui.unit.Dp,
     interactionSource: MutableInteractionSource,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
@@ -238,9 +255,9 @@ private fun TransportButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(iconSize),
+            imageVector = icon.image,
+            contentDescription = icon.contentDescription,
+            modifier = Modifier.size(icon.size),
             tint = if (quiet) colorScheme.onSurfaceVariant else colorScheme.primary
         )
     }
@@ -313,37 +330,67 @@ private fun MorphingPlayButton(
 
 private enum class QuickControlMode { ACTIONS, SPEED, SLEEP }
 
+private data class QuickControlShapes(
+    val topStart: androidx.compose.ui.graphics.Shape,
+    val topEnd: androidx.compose.ui.graphics.Shape,
+    val middle: androidx.compose.ui.graphics.Shape,
+    val bottomStart: androidx.compose.ui.graphics.Shape,
+    val bottomEnd: androidx.compose.ui.graphics.Shape
+)
+
+data class SecondaryPlaybackState(
+    val playbackSpeed: Float,
+    val sleepTimerEnd: Long?,
+    val sleepAtEndOfEpisode: Boolean
+)
+
+data class SecondaryAvailabilityState(
+    val hasChapters: Boolean,
+    val hasTranscript: Boolean,
+    val isTranscriptVisible: Boolean,
+    val isChaptersLoading: Boolean,
+    val autoTranscriptState: AutoTranscriptState,
+    val autoChaptersState: AutoTranscriptState
+)
+
+data class SecondaryLibraryState(
+    val isLiked: Boolean,
+    val isDownloaded: Boolean,
+    val isDownloading: Boolean,
+    val isPlayed: Boolean
+)
+
+data class SecondarySelectionActions(
+    val onSpeedSelected: (Float) -> Unit,
+    val onSleepTimerSelected: (Int) -> Unit
+)
+
+data class SecondaryClickActions(
+    val onQueueClick: () -> Unit,
+    val onChaptersClick: () -> Unit,
+    val onTranscriptClick: () -> Unit,
+    val onLikeClick: () -> Unit,
+    val onDownloadClick: () -> Unit,
+    val onMarkPlayedClick: () -> Unit
+)
+
+private data class QuickControlNavigation(
+    val onSpeedClick: () -> Unit,
+    val onSleepClick: () -> Unit
+)
+
 /** Two visible rows expose every player feature without an overflow or horizontal scroll. */
 @Composable
-@Suppress("kotlin:S107", "kotlin:S3776")
 fun SecondaryRail(
-    playbackSpeed: Float,
-    sleepTimerEnd: Long?,
-    sleepAtEndOfEpisode: Boolean,
-    hasChapters: Boolean,
-    hasTranscript: Boolean,
-    isTranscriptVisible: Boolean,
-    isChaptersLoading: Boolean,
-    autoTranscriptState: AutoTranscriptState,
-    autoChaptersState: AutoTranscriptState,
-    isLiked: Boolean,
-    isDownloaded: Boolean,
-    isDownloading: Boolean,
-    isPlayed: Boolean,
+    playback: SecondaryPlaybackState,
+    availability: SecondaryAvailabilityState,
+    library: SecondaryLibraryState,
     colorScheme: ColorScheme,
-    onSpeedSelected: (Float) -> Unit,
-    onSleepTimerSelected: (Int) -> Unit,
-    onQueueClick: () -> Unit,
-    onChaptersClick: () -> Unit,
-    onTranscriptClick: () -> Unit,
-    onLikeClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onMarkPlayedClick: () -> Unit,
+    selectionActions: SecondarySelectionActions,
+    clickActions: SecondaryClickActions,
     modifier: Modifier = Modifier
 ) {
     var controlMode by rememberSaveable { mutableStateOf(QuickControlMode.ACTIONS) }
-    val isChaptersBusy = isChaptersLoading || autoChaptersState == AutoTranscriptState.GENERATING
-    val isTranscriptBusy = autoTranscriptState == AutoTranscriptState.GENERATING
     val groupTrayShape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 32.dp, smoothnessAsPercentTL = 60,
         cornerRadiusTR = 32.dp, smoothnessAsPercentTR = 60,
@@ -379,6 +426,13 @@ fun SecondaryRail(
         cornerRadiusTR = 9.dp, smoothnessAsPercentTR = 60,
         cornerRadiusBL = 9.dp, smoothnessAsPercentBL = 60,
         cornerRadiusBR = 24.dp, smoothnessAsPercentBR = 60
+    )
+    val selectorShapes = QuickControlShapes(
+        topStart = groupTopStartShape,
+        topEnd = groupTopEndShape,
+        middle = groupMiddleShape,
+        bottomStart = groupBottomStartShape,
+        bottomEnd = groupBottomEndShape
     )
 
     Column(
@@ -421,125 +475,34 @@ fun SecondaryRail(
             label = "quickControlMode"
         ) { mode ->
             when (mode) {
-                QuickControlMode.ACTIONS -> Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        UtilityAction(
-                            icon = Icons.Rounded.Speed,
-                            label = formatSpeedLabel(playbackSpeed),
-                            active = kotlin.math.abs(playbackSpeed - 1f) > 0.001f,
-                            status = formatSpeedLabel(playbackSpeed)
-                                .takeIf { kotlin.math.abs(playbackSpeed - 1f) > 0.001f },
-                            colorScheme = colorScheme,
-                            shape = groupTopStartShape,
-                            onClick = { controlMode = QuickControlMode.SPEED },
-                            modifier = Modifier.weight(1f)
-                        )
-                        SleepAction(
-                            sleepTimerEnd = sleepTimerEnd,
-                            sleepAtEndOfEpisode = sleepAtEndOfEpisode,
-                            colorScheme = colorScheme,
-                            shape = groupMiddleShape,
-                            onClick = { controlMode = QuickControlMode.SLEEP },
-                            modifier = Modifier.weight(1f)
-                        )
-                        UtilityAction(
-                            icon = if (isDownloaded) Icons.Outlined.DownloadDone else Icons.Outlined.Download,
-                            label = when {
-                                isDownloading -> "Saving"
-                                isDownloaded -> "Saved"
-                                else -> "Download"
-                            },
-                            active = isDownloaded,
-                            loading = isDownloading,
-                            colorScheme = colorScheme,
-                            shape = groupMiddleShape,
-                            onClick = onDownloadClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                        UtilityAction(
-                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                            label = "Queue",
-                            colorScheme = colorScheme,
-                            shape = groupTopEndShape,
-                            onClick = onQueueClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(Modifier.height(3.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        UtilityAction(
-                            icon = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            label = if (isLiked) "Liked" else "Like",
-                            active = isLiked,
-                            colorScheme = colorScheme,
-                            shape = groupBottomStartShape,
-                            onClick = onLikeClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                        UtilityAction(
-                            icon = Icons.AutoMirrored.Rounded.Toc,
-                            label = "Chapters",
-                            enabled = !isChaptersBusy,
-                            loading = isChaptersBusy,
-                            subdued = !hasChapters && !isChaptersBusy,
-                            colorScheme = colorScheme,
-                            shape = groupMiddleShape,
-                            onClick = onChaptersClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                        UtilityAction(
-                            icon = Icons.Rounded.Description,
-                            label = "Transcript",
-                            active = isTranscriptVisible,
-                            enabled = hasTranscript && !isTranscriptBusy,
-                            loading = isTranscriptBusy,
-                            subdued = !hasTranscript && !isTranscriptBusy,
-                            colorScheme = colorScheme,
-                            shape = groupMiddleShape,
-                            onClick = onTranscriptClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                        UtilityAction(
-                            icon = if (isPlayed) Icons.Rounded.CheckCircle else Icons.Outlined.CheckCircle,
-                            label = if (isPlayed) "Played" else "Complete",
-                            active = isPlayed,
-                            colorScheme = colorScheme,
-                            shape = groupBottomEndShape,
-                            onClick = onMarkPlayedClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+                QuickControlMode.ACTIONS -> QuickActionsGrid(
+                    playback = playback,
+                    availability = availability,
+                    library = library,
+                    colorScheme = colorScheme,
+                    shapes = selectorShapes,
+                    navigation = QuickControlNavigation(
+                        onSpeedClick = { controlMode = QuickControlMode.SPEED },
+                        onSleepClick = { controlMode = QuickControlMode.SLEEP }
+                    ),
+                    clickActions = clickActions
+                )
 
                 QuickControlMode.SPEED -> InlineSpeedSelector(
-                    currentSpeed = playbackSpeed,
+                    currentSpeed = playback.playbackSpeed,
                     colorScheme = colorScheme,
-                    topStartShape = groupTopStartShape,
-                    topEndShape = groupTopEndShape,
-                    middleShape = groupMiddleShape,
-                    bottomStartShape = groupBottomStartShape,
-                    bottomEndShape = groupBottomEndShape,
+                    shapes = selectorShapes,
                     onBack = { controlMode = QuickControlMode.ACTIONS },
-                    onSpeedSelected = onSpeedSelected
+                    onSpeedSelected = selectionActions.onSpeedSelected
                 )
 
                 QuickControlMode.SLEEP -> InlineSleepSelector(
-                    sleepTimerEnd = sleepTimerEnd,
-                    sleepAtEndOfEpisode = sleepAtEndOfEpisode,
+                    sleepTimerEnd = playback.sleepTimerEnd,
+                    sleepAtEndOfEpisode = playback.sleepAtEndOfEpisode,
                     colorScheme = colorScheme,
-                    topStartShape = groupTopStartShape,
-                    topEndShape = groupTopEndShape,
-                    middleShape = groupMiddleShape,
-                    bottomStartShape = groupBottomStartShape,
-                    bottomEndShape = groupBottomEndShape,
+                    shapes = selectorShapes,
                     onBack = { controlMode = QuickControlMode.ACTIONS },
-                    onDurationSelected = onSleepTimerSelected
+                    onDurationSelected = selectionActions.onSleepTimerSelected
                 )
             }
         }
@@ -547,15 +510,130 @@ fun SecondaryRail(
 }
 
 @Composable
-@Suppress("kotlin:S107")
+private fun QuickActionsGrid(
+    playback: SecondaryPlaybackState,
+    availability: SecondaryAvailabilityState,
+    library: SecondaryLibraryState,
+    colorScheme: ColorScheme,
+    shapes: QuickControlShapes,
+    navigation: QuickControlNavigation,
+    clickActions: SecondaryClickActions
+) {
+    val chaptersBusy = availability.isChaptersLoading ||
+        availability.autoChaptersState == AutoTranscriptState.GENERATING
+    val transcriptBusy = availability.autoTranscriptState == AutoTranscriptState.GENERATING
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            UtilityAction(
+                icon = Icons.Rounded.Speed,
+                label = formatSpeedLabel(playback.playbackSpeed),
+                state = UtilityActionState(
+                    active = kotlin.math.abs(playback.playbackSpeed - 1f) > 0.001f,
+                    status = formatSpeedLabel(playback.playbackSpeed)
+                        .takeIf { kotlin.math.abs(playback.playbackSpeed - 1f) > 0.001f }
+                ),
+                colorScheme = colorScheme,
+                shape = shapes.topStart,
+                onClick = navigation.onSpeedClick,
+                modifier = Modifier.weight(1f)
+            )
+            SleepAction(
+                sleepTimerEnd = playback.sleepTimerEnd,
+                sleepAtEndOfEpisode = playback.sleepAtEndOfEpisode,
+                colorScheme = colorScheme,
+                shape = shapes.middle,
+                onClick = navigation.onSleepClick,
+                modifier = Modifier.weight(1f)
+            )
+            UtilityAction(
+                icon = if (library.isDownloaded) Icons.Outlined.DownloadDone else Icons.Outlined.Download,
+                label = downloadLabel(library),
+                state = UtilityActionState(
+                    active = library.isDownloaded,
+                    loading = library.isDownloading
+                ),
+                colorScheme = colorScheme,
+                shape = shapes.middle,
+                onClick = clickActions.onDownloadClick,
+                modifier = Modifier.weight(1f)
+            )
+            UtilityAction(
+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                label = "Queue",
+                colorScheme = colorScheme,
+                shape = shapes.topEnd,
+                onClick = clickActions.onQueueClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            UtilityAction(
+                icon = if (library.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                label = if (library.isLiked) "Liked" else "Like",
+                state = UtilityActionState(active = library.isLiked),
+                colorScheme = colorScheme,
+                shape = shapes.bottomStart,
+                onClick = clickActions.onLikeClick,
+                modifier = Modifier.weight(1f)
+            )
+            UtilityAction(
+                icon = Icons.AutoMirrored.Rounded.Toc,
+                label = "Chapters",
+                state = UtilityActionState(
+                    enabled = !chaptersBusy,
+                    loading = chaptersBusy,
+                    subdued = !availability.hasChapters && !chaptersBusy
+                ),
+                colorScheme = colorScheme,
+                shape = shapes.middle,
+                onClick = clickActions.onChaptersClick,
+                modifier = Modifier.weight(1f)
+            )
+            UtilityAction(
+                icon = Icons.Rounded.Description,
+                label = "Transcript",
+                state = UtilityActionState(
+                    active = availability.isTranscriptVisible,
+                    enabled = availability.hasTranscript && !transcriptBusy,
+                    loading = transcriptBusy,
+                    subdued = !availability.hasTranscript && !transcriptBusy
+                ),
+                colorScheme = colorScheme,
+                shape = shapes.middle,
+                onClick = clickActions.onTranscriptClick,
+                modifier = Modifier.weight(1f)
+            )
+            UtilityAction(
+                icon = if (library.isPlayed) Icons.Rounded.CheckCircle else Icons.Outlined.CheckCircle,
+                label = if (library.isPlayed) "Played" else "Complete",
+                state = UtilityActionState(active = library.isPlayed),
+                colorScheme = colorScheme,
+                shape = shapes.bottomEnd,
+                onClick = clickActions.onMarkPlayedClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+private fun downloadLabel(library: SecondaryLibraryState): String = when {
+    library.isDownloading -> "Saving"
+    library.isDownloaded -> "Saved"
+    else -> "Download"
+}
+
+@Composable
 private fun InlineSpeedSelector(
     currentSpeed: Float,
     colorScheme: ColorScheme,
-    topStartShape: androidx.compose.ui.graphics.Shape,
-    topEndShape: androidx.compose.ui.graphics.Shape,
-    middleShape: androidx.compose.ui.graphics.Shape,
-    bottomStartShape: androidx.compose.ui.graphics.Shape,
-    bottomEndShape: androidx.compose.ui.graphics.Shape,
+    shapes: QuickControlShapes,
     onBack: () -> Unit,
     onSpeedSelected: (Float) -> Unit
 ) {
@@ -576,17 +654,19 @@ private fun InlineSpeedSelector(
                 icon = Icons.Rounded.ArrowBack,
                 label = "Back to quick actions",
                 colorScheme = colorScheme,
-                shape = topStartShape,
+                shape = shapes.topStart,
                 onClick = onBack,
                 modifier = Modifier.weight(1f)
             )
             UtilityAction(
                 icon = Icons.Rounded.Remove,
                 label = "Slower",
-                enabled = currentIndex > 0,
-                subdued = currentIndex <= 0,
+                state = UtilityActionState(
+                    enabled = currentIndex > 0,
+                    subdued = currentIndex <= 0
+                ),
                 colorScheme = colorScheme,
-                shape = middleShape,
+                shape = shapes.middle,
                 onClick = { onSpeedSelected(speeds[(currentIndex - 1).coerceAtLeast(0)]) },
                 modifier = Modifier.weight(1f)
             )
@@ -595,17 +675,19 @@ private fun InlineSpeedSelector(
                 active = true,
                 enabled = false,
                 colorScheme = colorScheme,
-                shape = middleShape,
+                shape = shapes.middle,
                 onClick = {},
                 modifier = Modifier.weight(1f)
             )
             UtilityAction(
                 icon = Icons.Rounded.Add,
                 label = "Faster",
-                enabled = currentIndex < speeds.lastIndex,
-                subdued = currentIndex >= speeds.lastIndex,
+                state = UtilityActionState(
+                    enabled = currentIndex < speeds.lastIndex,
+                    subdued = currentIndex >= speeds.lastIndex
+                ),
                 colorScheme = colorScheme,
-                shape = topEndShape,
+                shape = shapes.topEnd,
                 onClick = { onSpeedSelected(speeds[(currentIndex + 1).coerceAtMost(speeds.lastIndex)]) },
                 modifier = Modifier.weight(1f)
             )
@@ -621,9 +703,9 @@ private fun InlineSpeedSelector(
                     active = kotlin.math.abs(currentSpeed - speed) < 0.001f,
                     colorScheme = colorScheme,
                     shape = when (index) {
-                        0 -> bottomStartShape
-                        presets.lastIndex -> bottomEndShape
-                        else -> middleShape
+                        0 -> shapes.bottomStart
+                        presets.lastIndex -> shapes.bottomEnd
+                        else -> shapes.middle
                     },
                     onClick = {
                         onSpeedSelected(speed)
@@ -637,16 +719,11 @@ private fun InlineSpeedSelector(
 }
 
 @Composable
-@Suppress("kotlin:S107")
 private fun InlineSleepSelector(
     sleepTimerEnd: Long?,
     sleepAtEndOfEpisode: Boolean,
     colorScheme: ColorScheme,
-    topStartShape: androidx.compose.ui.graphics.Shape,
-    topEndShape: androidx.compose.ui.graphics.Shape,
-    middleShape: androidx.compose.ui.graphics.Shape,
-    bottomStartShape: androidx.compose.ui.graphics.Shape,
-    bottomEndShape: androidx.compose.ui.graphics.Shape,
+    shapes: QuickControlShapes,
     onBack: () -> Unit,
     onDurationSelected: (Int) -> Unit
 ) {
@@ -669,7 +746,7 @@ private fun InlineSleepSelector(
                 icon = Icons.Rounded.ArrowBack,
                 label = "Back to quick actions",
                 colorScheme = colorScheme,
-                shape = topStartShape,
+                shape = shapes.topStart,
                 onClick = onBack,
                 modifier = Modifier.weight(1f)
             )
@@ -677,7 +754,7 @@ private fun InlineSleepSelector(
                 label = "Off",
                 active = !timerActive,
                 colorScheme = colorScheme,
-                shape = middleShape,
+                shape = shapes.middle,
                 onClick = { selectDurationAndBack(0) },
                 modifier = Modifier.weight(1f)
             )
@@ -686,7 +763,7 @@ private fun InlineSleepSelector(
                 label = "15m",
                 active = !sleepAtEndOfEpisode && remainingMinutes == 15,
                 colorScheme = colorScheme,
-                shape = middleShape,
+                shape = shapes.middle,
                 onDurationSelected = selectDurationAndBack,
                 modifier = Modifier.weight(1f)
             )
@@ -695,7 +772,7 @@ private fun InlineSleepSelector(
                 label = "30m",
                 active = !sleepAtEndOfEpisode && remainingMinutes == 30,
                 colorScheme = colorScheme,
-                shape = topEndShape,
+                shape = shapes.topEnd,
                 onDurationSelected = selectDurationAndBack,
                 modifier = Modifier.weight(1f)
             )
@@ -710,7 +787,7 @@ private fun InlineSleepSelector(
                 label = "45m",
                 active = !sleepAtEndOfEpisode && remainingMinutes == 45,
                 colorScheme = colorScheme,
-                shape = bottomStartShape,
+                shape = shapes.bottomStart,
                 onDurationSelected = selectDurationAndBack,
                 modifier = Modifier.weight(1f)
             )
@@ -719,7 +796,7 @@ private fun InlineSleepSelector(
                 label = "1h",
                 active = !sleepAtEndOfEpisode && remainingMinutes == 60,
                 colorScheme = colorScheme,
-                shape = middleShape,
+                shape = shapes.middle,
                 onDurationSelected = selectDurationAndBack,
                 modifier = Modifier.weight(1f)
             )
@@ -728,7 +805,7 @@ private fun InlineSleepSelector(
                 label = "2h",
                 active = !sleepAtEndOfEpisode && remainingMinutes == 120,
                 colorScheme = colorScheme,
-                shape = middleShape,
+                shape = shapes.middle,
                 onDurationSelected = selectDurationAndBack,
                 modifier = Modifier.weight(1f)
             )
@@ -737,7 +814,7 @@ private fun InlineSleepSelector(
                 label = "End",
                 active = sleepAtEndOfEpisode,
                 colorScheme = colorScheme,
-                shape = bottomEndShape,
+                shape = shapes.bottomEnd,
                 onDurationSelected = selectDurationAndBack,
                 modifier = Modifier.weight(1f)
             )
@@ -803,25 +880,28 @@ private fun LabelAction(
     }
 }
 
+private data class UtilityActionState(
+    val active: Boolean = false,
+    val enabled: Boolean = true,
+    val loading: Boolean = false,
+    val subdued: Boolean = false,
+    val status: String? = null
+)
+
 @Composable
-@Suppress("kotlin:S107")
 private fun UtilityAction(
     icon: ImageVector,
     label: String,
     colorScheme: ColorScheme,
-    active: Boolean = false,
-    enabled: Boolean = true,
-    loading: Boolean = false,
-    subdued: Boolean = false,
-    status: String? = null,
+    state: UtilityActionState = UtilityActionState(),
     shape: androidx.compose.ui.graphics.Shape,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val targetContainer = if (active) colorScheme.primary else colorScheme.surfaceContainerHigh
+    val targetContainer = if (state.active) colorScheme.primary else colorScheme.surfaceContainerHigh
     val targetContent = when {
-        active -> colorScheme.onPrimary
-        subdued -> colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+        state.active -> colorScheme.onPrimary
+        state.subdued -> colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
         else -> colorScheme.onSurfaceVariant
     }
     val container by animateColorAsState(
@@ -839,12 +919,12 @@ private fun UtilityAction(
             .height(56.dp)
             .clip(shape)
             .background(container)
-            .quickActionClickable(enabled = enabled, shape = shape, onClick = onClick)
+            .quickActionClickable(enabled = state.enabled, shape = shape, onClick = onClick)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        if (loading) {
+        if (state.loading) {
             BoxLoreLoader.CircularWavy(
                 modifier = Modifier.size(24.dp),
                 size = 24.dp,
@@ -855,11 +935,11 @@ private fun UtilityAction(
                 imageVector = icon,
                 contentDescription = label,
                 tint = content,
-                modifier = Modifier.size(if (status == null) 27.dp else 21.dp)
+                modifier = Modifier.size(if (state.status == null) 27.dp else 21.dp)
             )
-            if (status != null) {
+            if (state.status != null) {
                 Text(
-                    text = status,
+                    text = state.status,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = content,
                     maxLines = 1
@@ -950,8 +1030,7 @@ private fun SleepAction(
     UtilityAction(
         icon = Icons.Rounded.NightsStay,
         label = "Sleep",
-        active = active,
-        status = status,
+        state = UtilityActionState(active = active, status = status),
         colorScheme = colorScheme,
         shape = shape,
         onClick = onClick,

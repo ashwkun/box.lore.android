@@ -42,6 +42,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -63,11 +64,14 @@ import kotlin.math.sin
  * - Dragging shows a floating preview pill with the target time and chapter title.
  * - The remaining-time label toggles between remaining and total duration on tap.
  */
+data class PlayerProgressFlows(
+    val position: kotlinx.coroutines.flow.Flow<Long>,
+    val bufferedPosition: kotlinx.coroutines.flow.Flow<Long>
+)
+
 @Composable
-@Suppress("kotlin:S107", "kotlin:S3776")
 fun PlayerSeekbar(
-    positionFlow: kotlinx.coroutines.flow.Flow<Long>,
-    bufferedPositionFlow: kotlinx.coroutines.flow.Flow<Long>,
+    progressFlows: PlayerProgressFlows,
     durationMs: Long,
     isPlaying: Boolean,
     colorScheme: ColorScheme,
@@ -75,8 +79,8 @@ fun PlayerSeekbar(
     chapters: List<Chapter> = emptyList(),
     modifier: Modifier = Modifier
 ) {
-    val position by positionFlow.collectAsState(initial = 0L)
-    val bufferedPosition by bufferedPositionFlow.collectAsState(initial = 0L)
+    val position by progressFlows.position.collectAsState(initial = 0L)
+    val bufferedPosition by progressFlows.bufferedPosition.collectAsState(initial = 0L)
     val haptics = LocalHapticFeedback.current
 
     var dragFraction by remember { mutableStateOf<Float?>(null) }
@@ -176,121 +180,17 @@ fun PlayerSeekbar(
                     )
                 }
         ) {
-            val activeColor = colorScheme.primary
-            val inactiveColor = colorScheme.primary.copy(alpha = 0.18f)
-            val bufferColor = colorScheme.primary.copy(alpha = 0.34f)
-
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val centerY = size.height / 2f
-                val trackStroke = 5.dp.toPx()
-                val waveAmplitude = 3.dp.toPx() * amplitudeFactor
-                val wavelength = 36.dp.toPx()
-                val thumbWidth = 5.dp.toPx()
-                val thumbHeight = 24.dp.toPx()
-                val gap = 7.dp.toPx()
-
-                val thumbX = size.width * playedFraction
-                val activeEnd = (thumbX - gap).coerceAtLeast(0f)
-                val inactiveStart = (thumbX + gap).coerceAtMost(size.width)
-
-                // Inactive (remaining) track
-                if (inactiveStart < size.width) {
-                    drawLine(
-                        color = inactiveColor,
-                        start = Offset(inactiveStart, centerY),
-                        end = Offset(size.width, centerY),
-                        strokeWidth = trackStroke,
-                        cap = StrokeCap.Round
-                    )
-                    // Buffered overlay on the remaining track
-                    val bufferEnd = size.width * bufferedFraction
-                    if (bufferEnd > inactiveStart) {
-                        drawLine(
-                            color = bufferColor,
-                            start = Offset(inactiveStart, centerY),
-                            end = Offset(bufferEnd.coerceAtMost(size.width), centerY),
-                            strokeWidth = trackStroke,
-                            cap = StrokeCap.Round
-                        )
-                    }
-                }
-
-                // Stop indicator dot at track end
-                drawCircle(
-                    color = activeColor,
-                    radius = 2.5.dp.toPx(),
-                    center = Offset(size.width - 2.5.dp.toPx(), centerY)
-                )
-
-                // Active (played) track — wavy while playing
-                if (activeEnd > 0f) {
-                    if (waveAmplitude > 0.15f) {
-                        val path = Path()
-                        var x = 0f
-                        val step = 3f
-                        path.moveTo(0f, centerY + waveAmplitude * sin(phase))
-                        while (x < activeEnd) {
-                            x = (x + step).coerceAtMost(activeEnd)
-                            val y = centerY + waveAmplitude * sin((x / wavelength) * 2f * PI.toFloat() + phase)
-                            path.lineTo(x, y)
-                        }
-                        drawPath(
-                            path = path,
-                            color = activeColor,
-                            style = Stroke(width = trackStroke, cap = StrokeCap.Round)
-                        )
-                    } else {
-                        drawLine(
-                            color = activeColor,
-                            start = Offset(0f, centerY),
-                            end = Offset(activeEnd, centerY),
-                            strokeWidth = trackStroke,
-                            cap = StrokeCap.Round
-                        )
-                    }
-                }
-
-                // M3 discrete-slider chapter markers. Rounded dots sit directly on
-                // the flat or wavy track and adapt contrast across played/unplayed areas.
-                if (chapters.isNotEmpty()) {
-                    chapters.forEach { chapter ->
-                        val startTimeMs = (chapter.startTime * 1000).toLong()
-                        if (startTimeMs > 0 && startTimeMs < duration + 3000) {
-                            val pct = (startTimeMs.toFloat() / duration).coerceAtMost(0.985f)
-                            if (abs(pct - playedFraction) > 0.015f) {
-                                val x = size.width * pct
-                                val isPlayedMarker = pct < playedFraction
-                                val markerY = if (isPlayedMarker && waveAmplitude > 0.15f) {
-                                    centerY + waveAmplitude *
-                                        sin((x / wavelength) * 2f * PI.toFloat() + phase)
-                                } else {
-                                    centerY
-                                }
-                                drawCircle(
-                                    color = if (isPlayedMarker) {
-                                        colorScheme.onPrimary.copy(alpha = 0.92f)
-                                    } else {
-                                        colorScheme.primary.copy(alpha = 0.72f)
-                                    },
-                                    radius = 2.25.dp.toPx(),
-                                    center = Offset(x, markerY)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Thumb: M3 expressive vertical handle bar
-                drawRoundRect(
-                    color = activeColor,
-                    topLeft = Offset(
-                        (thumbX - thumbWidth / 2f).coerceIn(0f, size.width - thumbWidth),
-                        centerY - thumbHeight / 2f
-                    ),
-                    size = androidx.compose.ui.geometry.Size(thumbWidth, thumbHeight),
-                    cornerRadius = CornerRadius(thumbWidth / 2f)
-                )
-            }
+            SeekbarTrack(
+                state = SeekbarDrawState(
+                    playedFraction = playedFraction,
+                    bufferedFraction = bufferedFraction,
+                    amplitudeFactor = amplitudeFactor,
+                    phase = phase,
+                    duration = duration,
+                    chapters = chapters
+                ),
+                colorScheme = colorScheme
+            )
         }
 
         Spacer(modifier = Modifier.height(2.dp))
@@ -322,4 +222,174 @@ fun PlayerSeekbar(
             )
         }
     }
+}
+
+private data class SeekbarDrawState(
+    val playedFraction: Float,
+    val bufferedFraction: Float,
+    val amplitudeFactor: Float,
+    val phase: Float,
+    val duration: Long,
+    val chapters: List<Chapter>
+)
+
+private data class SeekbarDrawMetrics(
+    val centerY: Float,
+    val trackStroke: Float,
+    val waveAmplitude: Float,
+    val wavelength: Float,
+    val thumbWidth: Float,
+    val thumbHeight: Float,
+    val thumbX: Float,
+    val activeEnd: Float,
+    val inactiveStart: Float
+)
+
+@Composable
+private fun SeekbarTrack(
+    state: SeekbarDrawState,
+    colorScheme: ColorScheme,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val metrics = seekbarMetrics(state)
+        drawInactiveTrack(state, metrics, colorScheme)
+        drawStopIndicator(metrics, colorScheme)
+        drawActiveTrack(state, metrics, colorScheme)
+        drawChapterMarkers(state, metrics, colorScheme)
+        drawThumb(metrics, colorScheme)
+    }
+}
+
+private fun DrawScope.seekbarMetrics(state: SeekbarDrawState): SeekbarDrawMetrics {
+    val centerY = size.height / 2f
+    val thumbX = size.width * state.playedFraction
+    val gap = 7.dp.toPx()
+    return SeekbarDrawMetrics(
+        centerY = centerY,
+        trackStroke = 5.dp.toPx(),
+        waveAmplitude = 3.dp.toPx() * state.amplitudeFactor,
+        wavelength = 36.dp.toPx(),
+        thumbWidth = 5.dp.toPx(),
+        thumbHeight = 24.dp.toPx(),
+        thumbX = thumbX,
+        activeEnd = (thumbX - gap).coerceAtLeast(0f),
+        inactiveStart = (thumbX + gap).coerceAtMost(size.width)
+    )
+}
+
+private fun DrawScope.drawInactiveTrack(
+    state: SeekbarDrawState,
+    metrics: SeekbarDrawMetrics,
+    colorScheme: ColorScheme
+) {
+    if (metrics.inactiveStart >= size.width) return
+    drawLine(
+        color = colorScheme.primary.copy(alpha = 0.18f),
+        start = Offset(metrics.inactiveStart, metrics.centerY),
+        end = Offset(size.width, metrics.centerY),
+        strokeWidth = metrics.trackStroke,
+        cap = StrokeCap.Round
+    )
+    val bufferEnd = size.width * state.bufferedFraction
+    if (bufferEnd <= metrics.inactiveStart) return
+    drawLine(
+        color = colorScheme.primary.copy(alpha = 0.34f),
+        start = Offset(metrics.inactiveStart, metrics.centerY),
+        end = Offset(bufferEnd.coerceAtMost(size.width), metrics.centerY),
+        strokeWidth = metrics.trackStroke,
+        cap = StrokeCap.Round
+    )
+}
+
+private fun DrawScope.drawStopIndicator(metrics: SeekbarDrawMetrics, colorScheme: ColorScheme) {
+    val radius = 2.5.dp.toPx()
+    drawCircle(
+        color = colorScheme.primary,
+        radius = radius,
+        center = Offset(size.width - radius, metrics.centerY)
+    )
+}
+
+private fun DrawScope.drawActiveTrack(
+    state: SeekbarDrawState,
+    metrics: SeekbarDrawMetrics,
+    colorScheme: ColorScheme
+) {
+    if (metrics.activeEnd <= 0f) return
+    if (metrics.waveAmplitude <= 0.15f) {
+        drawLine(
+            color = colorScheme.primary,
+            start = Offset(0f, metrics.centerY),
+            end = Offset(metrics.activeEnd, metrics.centerY),
+            strokeWidth = metrics.trackStroke,
+            cap = StrokeCap.Round
+        )
+        return
+    }
+    val path = Path()
+    var x = 0f
+    path.moveTo(0f, metrics.centerY + metrics.waveAmplitude * sin(state.phase))
+    while (x < metrics.activeEnd) {
+        x = (x + 3f).coerceAtMost(metrics.activeEnd)
+        val y = metrics.centerY + metrics.waveAmplitude *
+            sin((x / metrics.wavelength) * 2f * PI.toFloat() + state.phase)
+        path.lineTo(x, y)
+    }
+    drawPath(
+        path = path,
+        color = colorScheme.primary,
+        style = Stroke(width = metrics.trackStroke, cap = StrokeCap.Round)
+    )
+}
+
+private fun DrawScope.drawChapterMarkers(
+    state: SeekbarDrawState,
+    metrics: SeekbarDrawMetrics,
+    colorScheme: ColorScheme
+) {
+    state.chapters.forEach { chapter ->
+        val startTimeMs = (chapter.startTime * 1000).toLong()
+        if (startTimeMs <= 0 || startTimeMs >= state.duration + 3000) return@forEach
+        val fraction = (startTimeMs.toFloat() / state.duration).coerceAtMost(0.985f)
+        if (abs(fraction - state.playedFraction) <= 0.015f) return@forEach
+        drawChapterMarker(fraction, state, metrics, colorScheme)
+    }
+}
+
+private fun DrawScope.drawChapterMarker(
+    fraction: Float,
+    state: SeekbarDrawState,
+    metrics: SeekbarDrawMetrics,
+    colorScheme: ColorScheme
+) {
+    val x = size.width * fraction
+    val isPlayed = fraction < state.playedFraction
+    val markerY = if (isPlayed && metrics.waveAmplitude > 0.15f) {
+        metrics.centerY + metrics.waveAmplitude *
+            sin((x / metrics.wavelength) * 2f * PI.toFloat() + state.phase)
+    } else {
+        metrics.centerY
+    }
+    drawCircle(
+        color = if (isPlayed) {
+            colorScheme.onPrimary.copy(alpha = 0.92f)
+        } else {
+            colorScheme.primary.copy(alpha = 0.72f)
+        },
+        radius = 2.25.dp.toPx(),
+        center = Offset(x, markerY)
+    )
+}
+
+private fun DrawScope.drawThumb(metrics: SeekbarDrawMetrics, colorScheme: ColorScheme) {
+    drawRoundRect(
+        color = colorScheme.primary,
+        topLeft = Offset(
+            (metrics.thumbX - metrics.thumbWidth / 2f).coerceIn(0f, size.width - metrics.thumbWidth),
+            metrics.centerY - metrics.thumbHeight / 2f
+        ),
+        size = androidx.compose.ui.geometry.Size(metrics.thumbWidth, metrics.thumbHeight),
+        cornerRadius = CornerRadius(metrics.thumbWidth / 2f)
+    )
 }

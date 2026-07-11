@@ -26,19 +26,26 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.feature.player.TranscriptView
 import kotlinx.coroutines.flow.Flow
 
+data class InlineTranscriptContent(
+    val transcript: List<TranscriptSegment>,
+    val positionFlow: Flow<Long>,
+    val transcriptUrl: String?,
+    val artworkUrl: String?
+)
+
+data class InlineTranscriptActions(
+    val onSyncEnabledChange: (Boolean) -> Unit,
+    val onSeek: (Long) -> Unit,
+    val onShowArtwork: () -> Unit,
+    val onFullscreen: () -> Unit
+)
+
 @Composable
-@Suppress("kotlin:S107")
 fun InlineTranscriptHero(
-    transcript: List<TranscriptSegment>,
-    positionFlow: Flow<Long>,
-    transcriptUrl: String?,
-    artworkUrl: String?,
+    content: InlineTranscriptContent,
     colorScheme: ColorScheme,
     isSyncEnabled: Boolean,
-    onSyncEnabledChange: (Boolean) -> Unit,
-    onSeek: (Long) -> Unit,
-    onShowArtwork: () -> Unit,
-    onFullscreen: () -> Unit,
+    actions: InlineTranscriptActions,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -52,14 +59,14 @@ fun InlineTranscriptHero(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                onClick = onShowArtwork,
+                onClick = actions.onShowArtwork,
                 modifier = Modifier.size(44.dp),
                 shape = MaterialTheme.shapes.medium,
                 color = colorScheme.surfaceContainerHigh,
                 contentColor = colorScheme.onSurface
             ) {
                 OptimizedImage(
-                    url = artworkUrl,
+                    url = content.artworkUrl,
                     proxyWidth = 160,
                     contentDescription = "Show artwork",
                     contentScale = ContentScale.Crop,
@@ -72,7 +79,7 @@ fun InlineTranscriptHero(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            FilledTonalIconButton(onClick = onFullscreen) {
+            FilledTonalIconButton(onClick = actions.onFullscreen) {
                 Icon(
                     imageVector = Icons.Rounded.Fullscreen,
                     contentDescription = "Open fullscreen transcript"
@@ -81,13 +88,13 @@ fun InlineTranscriptHero(
         }
 
         TranscriptView(
-            transcript = transcript,
-            positionFlow = positionFlow,
+            transcript = content.transcript,
+            positionFlow = content.positionFlow,
             colorScheme = colorScheme,
-            onSeek = onSeek,
+            onSeek = actions.onSeek,
             isSyncEnabled = isSyncEnabled,
-            onSyncEnabledChange = onSyncEnabledChange,
-            transcriptUrl = transcriptUrl,
+            onSyncEnabledChange = actions.onSyncEnabledChange,
+            transcriptUrl = content.transcriptUrl,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)

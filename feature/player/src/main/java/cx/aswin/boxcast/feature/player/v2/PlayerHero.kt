@@ -65,30 +65,34 @@ import kotlin.math.absoluteValue
  * - Crossfades to chapter art when the active chapter carries an image.
  * - Peeks the queued episode and commits it when that card settles.
  */
+data class PlayerHeroArtwork(
+    val episodeId: String,
+    val artworkUrl: String?,
+    val nextArtworkUrl: String?,
+    val nextEpisodeTitle: String?,
+    val chapterArtFlow: Flow<String?>
+)
+
+data class PlayerHeroPlayback(
+    val isPlaying: Boolean,
+    val isVideo: Boolean,
+    val isFullscreenVideo: Boolean,
+    val controller: androidx.media3.common.Player?,
+    val isExpanded: Boolean
+)
+
 @Composable
-@Suppress("kotlin:S107", "kotlin:S3776")
 fun PlayerHero(
-    episodeId: String,
-    artworkUrl: String?,
-    nextArtworkUrl: String?,
-    nextEpisodeTitle: String?,
-    chapterArtFlow: Flow<String?>,
-    isPlaying: Boolean,
-    isVideo: Boolean,
-    isFullscreenVideo: Boolean,
-    controller: androidx.media3.common.Player?,
-    width: Dp,
-    height: Dp,
-    isExpanded: Boolean,
+    artwork: PlayerHeroArtwork,
+    playback: PlayerHeroPlayback,
+    dimensions: HeroDimensions,
     colorScheme: ColorScheme,
     onSkipNextEpisode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val haptics = LocalHapticFeedback.current
-
     // Breathing motion: shrink slightly when paused, spring back on play
     val heroScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else 0.94f,
+        targetValue = if (playback.isPlaying) 1f else 0.94f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -96,10 +100,11 @@ fun PlayerHero(
         label = "heroScale"
     )
 
-    val chapterArt by chapterArtFlow.collectAsState(initial = null)
-    val displayedArt = chapterArt?.takeIf { it.isNotBlank() } ?: artworkUrl
+    val chapterArt by artwork.chapterArtFlow.collectAsState(initial = null)
+    val displayedArt = chapterArt?.takeIf { it.isNotBlank() } ?: artwork.artworkUrl
 
     val heroShape = MaterialTheme.shapes.extraLarge
+    val controller = playback.controller
 
     Box(
         modifier = modifier.graphicsLayer {
@@ -108,135 +113,151 @@ fun PlayerHero(
         },
         contentAlignment = Alignment.Center
     ) {
-        if (isVideo && controller != null && !isFullscreenVideo) {
-            var playerViewRef by remember { mutableStateOf<androidx.media3.ui.PlayerView?>(null) }
-            DisposableEffect(controller) {
-                onDispose { playerViewRef?.player = null }
-            }
-            AndroidView(
-                factory = { ctx ->
-                    androidx.media3.ui.PlayerView(ctx).apply {
-                        player = controller
-                        useController = false // BoxLore controls instead of the default overlay
-                        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                        playerViewRef = this
-                    }
-                },
-                update = { playerView ->
-                    if (playerView.player != controller) playerView.player = controller
-                    playerViewRef = playerView
-                },
-                modifier = Modifier
-                    .width(width)
-                    .height(height)
-                    .shadow(elevation = 12.dp, shape = heroShape, clip = false)
-                    .clip(heroShape)
+        if (playback.isVideo && controller != null && !playback.isFullscreenVideo) {
+            PlayerVideoHero(
+                controller = controller,
+                width = dimensions.width,
+                height = dimensions.height,
+                shape = heroShape
             )
-        } else if (nextArtworkUrl.isNullOrBlank() || !isExpanded) {
+        } else if (artwork.nextArtworkUrl.isNullOrBlank() || !playback.isExpanded) {
             PlayerArtworkCard(
                 artworkUrl = displayedArt,
                 colorScheme = colorScheme,
                 modifier = Modifier
-                    .width(width)
-                    .height(height)
+                    .width(dimensions.width)
+                    .height(dimensions.height)
                     .shadow(elevation = 12.dp, shape = heroShape, clip = false)
             )
         } else {
-            key(episodeId) {
-                val pagerState = rememberPagerState { 2 }
+            PlayerArtworkPager(
+                episodeId = artwork.episodeId,
+                artworkUrl = displayedArt,
+                nextArtworkUrl = artwork.nextArtworkUrl,
+                nextEpisodeTitle = artwork.nextEpisodeTitle,
+                colorScheme = colorScheme,
+                dimensions = dimensions,
+                onSkipNextEpisode = onSkipNextEpisode
+            )
+        }
+    }
+}
 
-                LaunchedEffect(pagerState) {
-                    snapshotFlow { pagerState.settledPage }
-                        .filter { settledPage -> settledPage == 1 }
-                        .first()
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onSkipNextEpisode()
-                }
+@Composable
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private fun PlayerVideoHero(
+    controller: androidx.media3.common.Player,
+    width: Dp,
+    height: Dp,
+    shape: androidx.compose.ui.graphics.Shape
+) {
+    var playerViewRef by remember { mutableStateOf<androidx.media3.ui.PlayerView?>(null) }
+    DisposableEffect(controller) {
+        onDispose { playerViewRef?.player = null }
+    }
+    AndroidView(
+        factory = { context ->
+            androidx.media3.ui.PlayerView(context).apply {
+                player = controller
+                useController = false
+                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                playerViewRef = this
+            }
+        },
+        update = { playerView ->
+            if (playerView.player != controller) playerView.player = controller
+            playerViewRef = playerView
+        },
+        modifier = Modifier
+            .width(width)
+            .height(height)
+            .shadow(elevation = 12.dp, shape = shape, clip = false)
+            .clip(shape)
+    )
+}
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(height)
-                ) {
-                    HorizontalPager(
-                        state = pagerState,
-                        beyondViewportPageCount = 1,
-                        modifier = Modifier.fillMaxSize()
-                    ) { index ->
-                        val pageOffset = (
-                            (pagerState.currentPage - index) +
-                                pagerState.currentPageOffsetFraction
-                            ).absoluteValue.coerceIn(0f, 1f)
+data class HeroDimensions(val width: Dp, val height: Dp)
 
-                        if (index == 0) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                PlayerArtworkCard(
-                                    artworkUrl = displayedArt,
-                                    colorScheme = colorScheme,
-                                    modifier = Modifier
-                                        .width(width)
-                                        .height(height)
-                                        .graphicsLayer {
-                                            val scale = 1f - (pageOffset * 0.055f)
-                                            scaleX = scale
-                                            scaleY = scale
-                                            alpha = 1f - (pageOffset * 0.14f)
-                                        }
-                                        .shadow(elevation = 12.dp, shape = heroShape, clip = false)
-                                )
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                PlayerArtworkCard(
-                                    artworkUrl = nextArtworkUrl,
-                                    colorScheme = colorScheme,
-                                    contentDescription = "Up next: $nextEpisodeTitle",
-                                    modifier = Modifier
-                                        .width(width)
-                                        .height(height)
-                                        .graphicsLayer {
-                                            val scale = 1f - (pageOffset * 0.055f)
-                                            scaleX = scale
-                                            scaleY = scale
-                                            alpha = 1f - (pageOffset * 0.14f)
-                                        }
-                                        .shadow(elevation = 12.dp, shape = heroShape, clip = false)
-                                )
-                            }
-                        }
-                    }
+@Composable
+private fun PlayerArtworkPager(
+    episodeId: String,
+    artworkUrl: String?,
+    nextArtworkUrl: String,
+    nextEpisodeTitle: String?,
+    colorScheme: ColorScheme,
+    dimensions: HeroDimensions,
+    onSkipNextEpisode: () -> Unit
+) {
+    val haptics = LocalHapticFeedback.current
+    val heroShape = MaterialTheme.shapes.extraLarge
+    key(episodeId) {
+        val pagerState = rememberPagerState { 2 }
+        LaunchedEffect(pagerState) {
+            snapshotFlow { pagerState.settledPage }
+                .filter { settledPage -> settledPage == 1 }
+                .first()
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onSkipNextEpisode()
+        }
 
-                    Box(
+        Box(modifier = Modifier.fillMaxWidth().height(dimensions.height)) {
+            HorizontalPager(
+                state = pagerState,
+                beyondViewportPageCount = 1,
+                modifier = Modifier.fillMaxSize()
+            ) { index ->
+                val pageOffset = (
+                    (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
+                    ).absoluteValue.coerceIn(0f, 1f)
+                val pageArtwork = if (index == 0) artworkUrl else nextArtworkUrl
+                val contentDescription = if (index == 0) "Album Art" else "Up next: $nextEpisodeTitle"
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    PlayerArtworkCard(
+                        artworkUrl = pageArtwork,
+                        colorScheme = colorScheme,
+                        contentDescription = contentDescription,
                         modifier = Modifier
-                            .align(Alignment.Center)
-                            .width(width + 88.dp)
-                            .height(height)
-                    ) {
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .size(32.dp),
-                            shape = CircleShape,
-                            color = colorScheme.surface.copy(alpha = 0.72f),
-                            contentColor = colorScheme.onSurfaceVariant,
-                            shadowElevation = 2.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowRight,
-                                    contentDescription = "Swipe for next episode",
-                                    modifier = Modifier.size(21.dp)
-                                )
+                            .width(dimensions.width)
+                            .height(dimensions.height)
+                            .graphicsLayer {
+                                val scale = 1f - (pageOffset * 0.055f)
+                                scaleX = scale
+                                scaleY = scale
+                                alpha = 1f - (pageOffset * 0.14f)
                             }
-                        }
-                    }
+                            .shadow(elevation = 12.dp, shape = heroShape, clip = false)
+                    )
                 }
+            }
+            NextEpisodeHint(
+                width = dimensions.width,
+                height = dimensions.height,
+                colorScheme = colorScheme
+            )
+        }
+    }
+}
+
+@Composable
+private fun NextEpisodeHint(width: Dp, height: Dp, colorScheme: ColorScheme) {
+    Box(
+        modifier = Modifier
+            .width(width + 88.dp)
+            .height(height)
+    ) {
+        Surface(
+            modifier = Modifier.align(Alignment.CenterEnd).size(32.dp),
+            shape = CircleShape,
+            color = colorScheme.surface.copy(alpha = 0.72f),
+            contentColor = colorScheme.onSurfaceVariant,
+            shadowElevation = 2.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowRight,
+                    contentDescription = "Swipe for next episode",
+                    modifier = Modifier.size(21.dp)
+                )
             }
         }
     }
