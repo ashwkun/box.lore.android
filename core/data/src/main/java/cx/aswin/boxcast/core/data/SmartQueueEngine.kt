@@ -3,6 +3,7 @@ package cx.aswin.boxcast.core.data
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.network.model.EpisodeItem
+import cx.aswin.boxcast.core.network.model.HistoryItem
 
 /**
  * Represents an episode in the queue along with its podcast context.
@@ -20,8 +21,33 @@ interface SmartQueueEngine {
         const val SOURCE_SAME_PODCAST = "same_podcast"
         const val SOURCE_RESUME = "resume"
         const val SOURCE_SUBSCRIPTION = "subscription"
+        /** Legacy persisted rows; new refills use [SOURCE_PERSONALIZED_REC] or [SOURCE_SIMILAR_EPISODE]. */
         const val SOURCE_SERVER_REC = "server_rec"
+        const val SOURCE_PERSONALIZED_REC = "personalized_rec"
+        const val SOURCE_SIMILAR_EPISODE = "similar_episode"
+        /** Tier 3.5: similar to a recently liked episode (distinct label from [SOURCE_SIMILAR_EPISODE]). */
+        const val SOURCE_SIMILAR_LIKED = "similar_liked"
         const val SOURCE_TRENDING = "trending"
+
+        /**
+         * AUTO_FILL sources where the user got a single cross-show suggestion, not an
+         * intentional binge. Refills anchored on these skip Tier 0 deep continuation.
+         */
+        val DISCOVERY_REFILL_SOURCES: Set<String> = setOf(
+            SOURCE_RESUME,
+            SOURCE_SUBSCRIPTION,
+            SOURCE_SERVER_REC,
+            SOURCE_PERSONALIZED_REC,
+            SOURCE_SIMILAR_EPISODE,
+            SOURCE_SIMILAR_LIKED,
+            SOURCE_TRENDING
+        )
+
+        /** True when Tier 0 may queue a deep run of same-show episodes after [contextSourceId]. */
+        fun allowsSamePodcastContinuation(contextSourceId: String?): Boolean =
+            contextSourceId == null ||
+                contextSourceId == SOURCE_SAME_PODCAST ||
+                contextSourceId !in DISCOVERY_REFILL_SOURCES
     }
 
     /**
@@ -29,12 +55,17 @@ interface SmartQueueEngine {
      *
      * @param excludeEpisodeIds episode IDs already in the live player queue — the engine
      *   never suggests these (on top of completed episodes and skip-memory rejections).
+     * @param currentContextSourceId provenance of the episode currently playing (from the
+     *   queue row's contextSourceId). When the user landed via a discovery refill
+     *   (resume, rec, similar, trending, etc.), Tier 0 same-show continuation is skipped
+     *   so the queue does not backfill an entire archive after one suggested episode.
      */
     suspend fun getNextEpisodes(
         currentEpisode: EpisodeItem,
         podcast: Podcast?,
         preferredSort: String? = null,
-        excludeEpisodeIds: Set<String> = emptySet()
+        excludeEpisodeIds: Set<String> = emptySet(),
+        currentContextSourceId: String? = null
     ): List<QueueEntry>
 }
 
@@ -42,12 +73,16 @@ interface SmartQueueEngine {
  * Tiered, offline-first queue refill engine.
  *
  * Tier 0 — same-podcast continuation (respects preferredSort + serial/episodic type,
- *          skips completed episodes and trailers).
+ *          skips completed episodes and trailers). Skipped when the currently playing
+ *          episode arrived via a discovery refill (resume/rec/similar/trending/etc.).
  * Tier 1 — resume one in-progress episode (10-90% progress, played in the last 30 days).
  * Tier 2 — subscriptions ranked by [PodcastScoring] (newest unplayed, round-robin).
- * Tier 3 — server /recommendations (history + interests + region), only when local
- *          tiers are thin; failures degrade silently.
- * Tier 3.5 — one episode similar to the most recent liked episode (same online rules).
+ * Tier 3 — signal-aware network pick, only when local tiers are thin:
+ *          warm users (meaningful listen history) → /recommendations;
+ *          cold users with episode metadata → /episodes/similar on the current episode;
+ *          otherwise skip straight to Tier 4. Failures degrade silently.
+ * Tier 3.5 — one episode similar to the most recent liked episode, only when Tier 3
+ *          did not already use episode-similar on the current show.
  * Tier 4 — trending in the user's region + current genre, as a last resort.
  *
  * All tiers filter against the live queue, completed episodes, and [QueueSkipMemory];
@@ -85,9 +120,10 @@ class DefaultSmartQueueEngine(
         currentEpisode: EpisodeItem,
         podcast: Podcast?,
         preferredSort: String?,
-        excludeEpisodeIds: Set<String>
+        excludeEpisodeIds: Set<String>,
+        currentContextSourceId: String?
     ): List<QueueEntry> {
-        android.util.Log.d("SmartQueue", "getNextEpisodes: epId=${currentEpisode.id}, podcast=${podcast?.title}, sort=$preferredSort, exclude=${excludeEpisodeIds.size}")
+        android.util.Log.d("SmartQueue", "getNextEpisodes: epId=${currentEpisode.id}, podcast=${podcast?.title}, sort=$preferredSort, contextSource=$currentContextSourceId, exclude=${excludeEpisodeIds.size}")
         if (podcast == null) return emptyList()
 
         skipMemory?.prune()
@@ -111,7 +147,7 @@ class DefaultSmartQueueEngine(
         val batch = mutableListOf<QueueEntry>()
 
         // ── Tier 0: same-podcast continuation ─────────────────────────────
-        if (!isBriefing) {
+        if (!isBriefing && SmartQueueEngine.allowsSamePodcastContinuation(currentContextSourceId)) {
             val sameShow = sameShowContinuation(currentEpisode, effectivePodcast, preferredSort, exclude)
             batch += sameShow
             sameShow.forEach { exclude.add(it.episode.id.toString()) }
@@ -120,6 +156,8 @@ class DefaultSmartQueueEngine(
                 android.util.Log.d("SmartQueue", "Tier 0 satisfied batch with ${batch.size} same-show episodes")
                 return batch
             }
+        } else if (!isBriefing) {
+            android.util.Log.d("SmartQueue", "Tier 0 skipped — discovery landing (source=$currentContextSourceId)")
         }
 
         // ── Fallback assembly (Tiers 1-4) ──────────────────────────────────
@@ -147,15 +185,17 @@ class DefaultSmartQueueEngine(
         if (batch.size + fallback.size < MIN_ITEMS_BEFORE_NETWORK) {
             val region = sources.getRegion()
 
-            fallback += serverRecommendations(
+            val tier3 = networkTier3(
+                currentEpisode = currentEpisode,
                 currentPodcast = effectivePodcast,
                 exclude = exclude,
                 downRankedPodcasts = downRankedPodcasts,
                 region = region,
                 needed = FALLBACK_BATCH_TARGET - batch.size - fallback.size
             )
+            fallback += tier3.entries
 
-            if (batch.size + fallback.size < FALLBACK_BATCH_TARGET) {
+            if (batch.size + fallback.size < FALLBACK_BATCH_TARGET && !tier3.usedEpisodeSimilar) {
                 fallback += likedSimilarBoost(exclude, region)
             }
 
@@ -199,28 +239,56 @@ class DefaultSmartQueueEngine(
         if (allEpisodes.isEmpty()) return emptyList()
 
         val currentId = currentEpisode.id.toString()
+        // Match subscription defaults: serial → oldest, episodic → newest.
         val sort = preferredSort ?: podcast.preferredSort
+            ?: if (podcast.type == "serial") "oldest" else "newest"
         val isSerialListening = podcast.type == "serial" || sort == "oldest"
-        // News-style episodic shows jump to the freshest unplayed episode; everything
-        // else continues chronologically from the current episode.
+        // Episodic / news listening jumps forward to fresher episodes only — never
+        // rewinds into the archive when the user is already on (or past) the latest.
         val newestFirst = !isSerialListening &&
             (sort == "newest" || podcast.genre.equals("News", ignoreCase = true))
 
+        val currentPublished = allEpisodes.firstOrNull { it.id == currentId }?.publishedDate
+            ?: currentEpisode.datePublished
+            ?: 0L
+
         val candidates: List<Episode> = if (newestFirst) {
-            allEpisodes.sortedByDescending { it.publishedDate }
+            allEpisodes
+                .filter { it.publishedDate > currentPublished }
+                .sortedByDescending { it.publishedDate }
         } else {
             val chronological = allEpisodes.sortedBy { it.publishedDate }
             val idx = chronological.indexOfFirst { it.id == currentId }
             if (idx == -1) emptyList() else chronological.drop(idx + 1)
         }
 
-        return candidates.asSequence()
+        android.util.Log.d(
+            "SmartQueue",
+            "Tier0 ${podcast.title}: type=${podcast.type}, sort=$sort, " +
+                "mode=${if (newestFirst) "newest-forward" else "serial-chrono"}, " +
+                "currentId=$currentId, currentPub=$currentPublished, " +
+                "feedSize=${allEpisodes.size}, rawCandidates=${candidates.size}"
+        )
+
+        val picks = candidates.asSequence()
             .filter { it.id != currentId && it.id !in exclude }
             .filter { it.episodeType != "trailer" }
             .filter { it.audioUrl.isNotBlank() }
             .take(SAME_PODCAST_BATCH_LIMIT)
             .map { it.toQueueEntry(podcast, SmartQueueEngine.SOURCE_SAME_PODCAST) }
             .toList()
+
+        if (picks.isNotEmpty()) {
+            android.util.Log.d(
+                "SmartQueue",
+                "Tier0 picks: ${picks.take(5).joinToString { "${it.episode.id}(pub=${allEpisodes.firstOrNull { e -> e.id == it.episode.id.toString() }?.publishedDate})" }}" +
+                    if (picks.size > 5) " +${picks.size - 5} more" else ""
+            )
+        } else {
+            android.util.Log.d("SmartQueue", "Tier0 empty — ${if (newestFirst) "no newer episodes after current" else "show exhausted or all filtered"}")
+        }
+
+        return picks
     }
 
     // ── Tier 1 ─────────────────────────────────────────────────────────────
@@ -328,16 +396,59 @@ class DefaultSmartQueueEngine(
 
     // ── Tier 3 ─────────────────────────────────────────────────────────────
 
-    private suspend fun serverRecommendations(
+    private data class Tier3Result(
+        val entries: List<QueueEntry>,
+        val usedEpisodeSimilar: Boolean
+    )
+
+    private suspend fun networkTier3(
+        currentEpisode: EpisodeItem,
         currentPodcast: Podcast,
         exclude: MutableSet<String>,
         downRankedPodcasts: Set<String>,
         region: String,
         needed: Int
+    ): Tier3Result {
+        if (needed <= 0) return Tier3Result(emptyList(), usedEpisodeSimilar = false)
+
+        val history = runCatching { sources.getHistoryForRecommendations(15) }.getOrDefault(emptyList())
+        val picks = if (history.isNotEmpty()) {
+            personalizedRecommendations(
+                currentPodcast = currentPodcast,
+                exclude = exclude,
+                downRankedPodcasts = downRankedPodcasts,
+                region = region,
+                history = history,
+                needed = needed
+            )
+        } else if (hasSimilarMetadata(currentEpisode, currentPodcast)) {
+            similarToEpisode(
+                currentEpisode = currentEpisode,
+                currentPodcast = currentPodcast,
+                exclude = exclude,
+                downRankedPodcasts = downRankedPodcasts,
+                region = region,
+                needed = needed
+            )
+        } else {
+            emptyList()
+        }
+
+        return Tier3Result(
+            entries = picks,
+            usedEpisodeSimilar = history.isEmpty() && picks.isNotEmpty()
+        )
+    }
+
+    private suspend fun personalizedRecommendations(
+        currentPodcast: Podcast,
+        exclude: MutableSet<String>,
+        downRankedPodcasts: Set<String>,
+        region: String,
+        history: List<HistoryItem>,
+        needed: Int
     ): List<QueueEntry> {
-        if (needed <= 0) return emptyList()
         val recs = runCatching {
-            val history = sources.getHistoryForRecommendations(15)
             val interests = sources.getInterests()
             val subs = sources.getSubscribedPodcasts()
             sources.getPersonalizedRecommendations(
@@ -351,17 +462,69 @@ class DefaultSmartQueueEngine(
             )
         }.getOrDefault(emptyList())
 
-        val picks = recs.asSequence()
+        return networkEpisodePicks(
+            episodes = recs,
+            currentPodcast = currentPodcast,
+            exclude = exclude,
+            downRankedPodcasts = downRankedPodcasts,
+            needed = needed,
+            source = SmartQueueEngine.SOURCE_PERSONALIZED_REC
+        )
+    }
+
+    private suspend fun similarToEpisode(
+        currentEpisode: EpisodeItem,
+        currentPodcast: Podcast,
+        exclude: MutableSet<String>,
+        downRankedPodcasts: Set<String>,
+        region: String,
+        needed: Int
+    ): List<QueueEntry> {
+        val similar = runCatching {
+            sources.getSimilarEpisodes(
+                episodeId = currentEpisode.id.toString(),
+                podcastId = currentPodcast.id,
+                title = currentEpisode.title.orEmpty(),
+                description = currentEpisode.description.orEmpty(),
+                podcastTitle = currentPodcast.title,
+                country = region
+            )
+        }.getOrDefault(emptyList())
+
+        return networkEpisodePicks(
+            episodes = similar,
+            currentPodcast = currentPodcast,
+            exclude = exclude,
+            downRankedPodcasts = downRankedPodcasts,
+            needed = needed,
+            source = SmartQueueEngine.SOURCE_SIMILAR_EPISODE
+        )
+    }
+
+    private fun networkEpisodePicks(
+        episodes: List<Episode>,
+        currentPodcast: Podcast,
+        exclude: MutableSet<String>,
+        downRankedPodcasts: Set<String>,
+        needed: Int,
+        source: String
+    ): List<QueueEntry> {
+        val picks = episodes.asSequence()
             .filter { it.id !in exclude && it.id.toLongOrNull() != null }
             .filter { it.episodeType != "trailer" && it.audioUrl.isNotBlank() }
             .filter { it.podcastId != currentPodcast.id }
             .sortedBy { (it.podcastId ?: "") in downRankedPodcasts }
             .take(needed)
-            .map { it.toQueueEntry(podcastFromEpisode(it), SmartQueueEngine.SOURCE_SERVER_REC) }
+            .map { it.toQueueEntry(podcastFromEpisode(it), source) }
             .toList()
         picks.forEach { exclude.add(it.episode.id.toString()) }
         return picks
     }
+
+    private fun hasSimilarMetadata(episode: EpisodeItem, podcast: Podcast): Boolean =
+        episode.id != 0L &&
+            podcast.id.isNotBlank() &&
+            !episode.title.isNullOrBlank()
 
     // ── Tier 3.5: liked-episode similarity boost ───────────────────────────
 
@@ -390,7 +553,7 @@ class DefaultSmartQueueEngine(
                 it.episodeType != "trailer" && it.audioUrl.isNotBlank()
         } ?: return emptyList()
         exclude.add(pick.id)
-        return listOf(pick.toQueueEntry(podcastFromEpisode(pick), SmartQueueEngine.SOURCE_SERVER_REC))
+        return listOf(pick.toQueueEntry(podcastFromEpisode(pick), SmartQueueEngine.SOURCE_SIMILAR_LIKED))
     }
 
     // ── Tier 4 ─────────────────────────────────────────────────────────────

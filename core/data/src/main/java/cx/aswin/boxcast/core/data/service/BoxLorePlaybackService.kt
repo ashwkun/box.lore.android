@@ -847,13 +847,23 @@ class BoxLorePlaybackService : MediaLibraryService() {
             }.toSet()
         }
 
+        android.util.Log.d(
+            "AutoQueue",
+            "Refill context: podcastId=${podcast.id}, type=${podcast.type}, " +
+                "preferredSort=${podcastEntity?.preferredSort ?: podcast.preferredSort}, genre=${podcast.genre}"
+        )
+        val currentContextSourceId = database.queueDao().getQueueItemByEpisodeId(episodeId)?.contextSourceId
         val nextEntries = smartQueueEngine.getNextEpisodes(
             currentEpisode = currentEpisodeItem,
             podcast = podcast,
             preferredSort = podcastEntity?.preferredSort,
-            excludeEpisodeIds = existingIds
+            excludeEpisodeIds = existingIds,
+            currentContextSourceId = currentContextSourceId
         )
-        android.util.Log.d("AutoQueue", "SmartQueue returned ${nextEntries.size} episodes")
+        android.util.Log.d(
+            "AutoQueue",
+            "SmartQueue returned ${nextEntries.size} episodes: ${nextEntries.groupingBy { it.source }.eachCount()}"
+        )
         if (nextEntries.isEmpty()) return
 
         // Respect the queue cap when appending the batch.
@@ -930,7 +940,8 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 refilledEpisodeIds = refilledEpisodeIds,
                 region = region,
                 sourceCounts = sourceCounts,
-                usedServerRecommendations = cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_SERVER_REC in sourceCounts
+                usedServerRecommendations = cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_PERSONALIZED_REC in sourceCounts ||
+                    cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_SERVER_REC in sourceCounts
             )
         }
     }

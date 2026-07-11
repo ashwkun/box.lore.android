@@ -36,7 +36,9 @@ internal fun queueSourceLabel(episode: Episode): String? = when (episode.context
         "same_podcast" -> "Continuing series"
         "resume" -> "Pick up where you left off"
         "subscription" -> "From your subscriptions"
-        "server_rec" -> "Recommended for you"
+        "server_rec", "personalized_rec" -> "Recommended for you"
+        "similar_episode" -> "Based on what you're playing"
+        "similar_liked" -> "Based on something you liked"
         "trending" -> episode.podcastGenre
             ?.takeIf { it.isNotBlank() && it != "Podcast" }
             ?.let { "Trending in $it" } ?: "Trending now"
