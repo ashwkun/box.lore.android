@@ -40,6 +40,18 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 ---
 
+<!-- upcoming-changes:start -->
+## Upcoming Changes
+
+What's landing in the next release (also tracked in [CHANGELOG.md](CHANGELOG.md)).
+
+### Fixed
+- Reduced Home tab lag by flattening feed sections into individual lazy staggered‑grid items and pinning hero and Your Shows to avoid expensive recomposition ([#851](https://github.com/ashwkun/boxlore/pull/851))
+- Optimized skeleton shimmer rendering by removing temporary PerfLog instrumentation, caching draw paths, and slowing the shimmer pace from 1.6 s to 2.2 s for a calmer loading state ([#851](https://github.com/ashwkun/boxlore/pull/851))
+<!-- upcoming-changes:end -->
+
+---
+
 ## What makes it different
 
 ### Semantic search

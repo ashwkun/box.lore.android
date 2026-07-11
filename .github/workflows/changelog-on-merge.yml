@@ -53,15 +53,15 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number || github.event.pull_request.number }}
         run: |
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "No CHANGELOG changes to commit."
+          if git diff --quiet -- CHANGELOG.md README.md; then
+            echo "No CHANGELOG or README changes to commit."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs: update CHANGELOG for #${PR_NUMBER} [skip ci]"
+          git add CHANGELOG.md README.md
+          git commit -m "docs: update CHANGELOG and README for #${PR_NUMBER} [skip ci]"
 
           for attempt in 1 2 3 4 5; do
             if git push origin master; then

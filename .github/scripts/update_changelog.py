@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append merged-PR release notes to CHANGELOG.md under [Unreleased]."""
+"""Append merged-PR release notes to CHANGELOG.md and sync README Upcoming Changes."""
 
 from __future__ import annotations
 
@@ -11,7 +11,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-CHANGELOG_PATH = Path("CHANGELOG.md")
+README_PATH = Path("README.md")
+UPCOMING_CHANGES_START = "<!-- upcoming-changes:start -->"
+UPCOMING_CHANGES_END = "<!-- upcoming-changes:end -->"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_USER_AGENT = "boxlore-changelog/1.0"
@@ -159,10 +161,57 @@ def _merge_entries(
     return merged
 
 
-def _update_changelog(content: str, entries: dict[str, list[str]], pr_number: int) -> str:
+def _extract_unreleased_sections(content: str) -> dict[str, list[str]]:
+    match = re.search(r"^## \[Unreleased\]\s*$", content, flags=re.MULTILINE)
+    if not match:
+        return {}
+
+    start = match.end()
+    next_version = re.search(r"^## \[", content[start:], flags=re.MULTILINE)
+    end = start + next_version.start() if next_version else len(content)
+    return _parse_unreleased_sections(content[start:end])
+
+
+def _render_readme_upcoming_block(sections: dict[str, list[str]]) -> str:
+    if not any(sections.values()):
+        body = "_Nothing queued yet — see [CHANGELOG.md](CHANGELOG.md) for release history._"
+    else:
+        body = _render_unreleased(sections)
+
+    return (
+        f"{UPCOMING_CHANGES_START}\n"
+        "## Upcoming Changes\n\n"
+        "What's landing in the next release (also tracked in [CHANGELOG.md](CHANGELOG.md)).\n\n"
+        f"{body}\n"
+        f"{UPCOMING_CHANGES_END}"
+    )
+
+
+def _update_readme(content: str, sections: dict[str, list[str]]) -> str:
+    block = _render_readme_upcoming_block(sections)
+    pattern = re.compile(
+        re.escape(UPCOMING_CHANGES_START) + r".*?" + re.escape(UPCOMING_CHANGES_END),
+        flags=re.DOTALL,
+    )
+    if pattern.search(content):
+        updated = pattern.sub(block, content, count=1)
+    else:
+        anchor = re.search(r"^(---\s*\n)(## What makes it different)", content, flags=re.MULTILINE)
+        if not anchor:
+            raise ValueError(
+                "Could not find Upcoming Changes markers or insertion anchor in README.md"
+            )
+        updated = content[: anchor.start(1)] + block + "\n\n" + content[anchor.start(1) :]
+
+    if not updated.endswith("\n"):
+        updated += "\n"
+    return updated
+
+
+def _update_changelog(content: str, entries: dict[str, list[str]], pr_number: int) -> tuple[str, bool]:
     if _pr_already_present(content, pr_number):
-        print(f"CHANGELOG already contains entry for PR #{pr_number}; skipping.")
-        return content
+        print(f"CHANGELOG already contains entry for PR #{pr_number}; skipping merge.")
+        return content, False
 
     match = re.search(r"^## \[Unreleased\]\s*$", content, flags=re.MULTILINE)
     if not match:
@@ -185,7 +234,7 @@ def _update_changelog(content: str, entries: dict[str, list[str]], pr_number: in
     updated = content[:start] + replacement + content[end:]
     if not updated.endswith("\n"):
         updated += "\n"
-    return updated
+    return updated, True
 
 
 def main() -> None:
@@ -197,19 +246,33 @@ def main() -> None:
     if not CHANGELOG_PATH.exists():
         print("CHANGELOG.md not found", file=sys.stderr)
         sys.exit(1)
+    if not README_PATH.exists():
+        print("README.md not found", file=sys.stderr)
+        sys.exit(1)
+
+    changelog_original = CHANGELOG_PATH.read_text(encoding="utf-8")
+    readme_original = README_PATH.read_text(encoding="utf-8")
 
     entries = _groq_entries(api_key, pr_number, pr_title, pr_body)
-    if not entries:
-        print("Groq returned no changelog entries; nothing to update.")
-        return
-
-    original = CHANGELOG_PATH.read_text(encoding="utf-8")
-    updated = _update_changelog(original, entries, pr_number)
-    if updated != original:
-        CHANGELOG_PATH.write_text(updated, encoding="utf-8")
-        print(f"Updated CHANGELOG.md for PR #{pr_number}.")
+    if entries:
+        changelog_updated, changelog_changed = _update_changelog(
+            changelog_original, entries, pr_number
+        )
     else:
-        print("No CHANGELOG changes written.")
+        print("Groq returned no changelog entries; syncing README only.")
+        changelog_updated, changelog_changed = changelog_original, False
+
+    if changelog_changed:
+        CHANGELOG_PATH.write_text(changelog_updated, encoding="utf-8")
+        print(f"Updated CHANGELOG.md for PR #{pr_number}.")
+
+    unreleased = _extract_unreleased_sections(changelog_updated)
+    readme_updated = _update_readme(readme_original, unreleased)
+    if readme_updated != readme_original:
+        README_PATH.write_text(readme_updated, encoding="utf-8")
+        print("Synced README.md Upcoming Changes section.")
+    elif not changelog_changed:
+        print("No CHANGELOG or README changes written.")
 
 
 if __name__ == "__main__":
