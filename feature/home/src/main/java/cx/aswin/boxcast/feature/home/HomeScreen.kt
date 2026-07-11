@@ -64,6 +64,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import android.content.pm.PackageManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -129,6 +131,65 @@ data class StableEpisodeList(val list: List<Episode>)
 
 @androidx.compose.runtime.Stable
 data class StablePlaybackStateMap(val map: Map<String, Pair<EpisodeStatus, Float>>)
+
+@androidx.compose.runtime.Stable
+data class HomePlaybackUi(
+    val currentPlayingPodcastId: String?,
+    val currentPlayingEpisodeId: String?,
+    val isPlaying: Boolean,
+    val isPlayerLoading: Boolean = false,
+    val downloadedEpisodeIds: Set<String> = emptySet(),
+)
+
+@androidx.compose.runtime.Stable
+data class HomeSheetUi(
+    val showReviewPrompt: Boolean = false,
+    val showPostReview: Boolean = false,
+    val showFeedback: Boolean = false,
+    val candidatePodcasts: List<Podcast> = emptyList(),
+)
+
+@androidx.compose.runtime.Stable
+data class HomeFeedCallbacks(
+    val onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    val onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
+    val onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
+    val onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
+    val onCuratedImpression: (String, List<String>) -> Unit,
+    val onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
+    val onNavigateToLibrary: (() -> Unit)?,
+    val onNavigateToExplore: ((String?, String, String?) -> Unit)?,
+    val onToggleSubscription: (String) -> Unit,
+    val onTogglePlayback: (android.os.Bundle?) -> Unit,
+    val onSelectCategory: (String?) -> Unit,
+    val onSwitchRegion: (String) -> Unit,
+    val onDismissNudge: () -> Unit,
+    val onPodcastSelected: (String?) -> Unit,
+    val onPlayMix: () -> Unit,
+    val onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit,
+    val onImportClick: () -> Unit,
+    val onAiOnboardingClick: () -> Unit,
+    val onDismissImportBanner: () -> Unit,
+    val onBriefingClick: (String) -> Unit,
+    val onDismissBriefing: () -> Unit,
+    val onDismissBriefingForever: () -> Unit,
+    val onFeedbackClick: () -> Unit,
+)
+
+@androidx.compose.runtime.Stable
+data class HomeScreenCallbacks(
+    val feed: HomeFeedCallbacks,
+    val onNavigateToSettings: (() -> Unit)? = null,
+    val onForceReviewPrompt: () -> Unit = {},
+    val onDismissReviewPrompt: () -> Unit = {},
+    val onDismissPostReview: () -> Unit = {},
+    val onDismissFeedback: () -> Unit = {},
+    val onNavigateToPlayStoreReview: () -> Unit = {},
+    val onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
+    val onNavigateToDebug: () -> Unit = {},
+    val onOverrideRecommendationPodcast: (String?) -> Unit = {},
+    val onNavigateToLatestEpisodes: (() -> Unit)? = null,
+)
 
 @Composable
 fun HomeRoute(
@@ -207,106 +268,86 @@ fun HomeRoute(
     ) {
         HomeScreen(
             uiState = uiState,
-            downloadedEpisodeIds = downloadedEpisodeIds,
-            currentPlayingPodcastId = currentPlayingPodcastId,
-            currentPlayingEpisodeId = currentPlayingEpisodeId,
-            isPlaying = isPlaying,
-            isPlayerLoading = isPlayerLoading,
-            candidatePodcasts = candidatePodcasts,
-            onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
-            onPodcastClick = { podcast, entryPoint, category, index ->
-                podcast.latestEpisode?.id?.let { episodeId ->
-                    viewModel.markPodcastEpisodeAsSeen(podcast.id, episodeId)
-                }
-                onPodcastClick(podcast, entryPoint, category, index)
-            },
-            onHeroArrowClick = onHeroArrowClick,
-            onEpisodeClick = onEpisodeClick,
-            onCuratedEpisodeClick = onCuratedEpisodeClick,
-            onCuratedImpression = viewModel::trackCuratedImpressionOnce,
-            onPlayClick = onPlayClick,
-            onNavigateToLibrary = onNavigateToLibrary,
-            onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
-            onNavigateToExplore = onNavigateToExplore,
-            onToggleSubscription = viewModel::toggleSubscription,
-            onTogglePlayback = viewModel::togglePlayback,
-            onSelectCategory = viewModel::selectCategory,
-            onPodcastSelected = viewModel::selectPodcast,
-            onPlayMix = viewModel::playUnplayedMix,
-            onPlayEpisode = viewModel::playEpisode,
-            onNavigateToSettings = onNavigateToSettings,
-            onFeedbackClick = viewModel::triggerFeedback,
-            onForceReviewPrompt = viewModel::forceReviewPrompt,
-            showReviewPrompt = showReviewPrompt,
-            showPostReview = showPostReview,
-            showFeedback = showFeedback,
-            onDismissReviewPrompt = {
-                viewModel.markReviewPromptShown()
-                viewModel.dismissReviewPrompt()
-            },
-            onDismissPostReview = viewModel::dismissPostReview,
-            onDismissFeedback = viewModel::dismissFeedback,
-            onNavigateToPlayStoreReview = {
-                viewModel.markReviewed()
-                viewModel.triggerPostReview()
-                onNavigateToPlayStoreReview()
-            },
-            onSubmitFeedback = onSubmitFeedback,
-            onNavigateToDebug = onNavigateToDebug,
-            onSwitchRegion = viewModel::setRegion,
-            onDismissNudge = viewModel::dismissRegionNudge,
-            onImportClick = onImportClick,
-            onAiOnboardingClick = onAiOnboardingClick,
-            onDismissImportBanner = viewModel::dismissHomeImportBanner,
-            onBriefingClick = onBriefingClick,
-            onDismissBriefing = viewModel::dismissBriefingForToday,
-            onDismissBriefingForever = viewModel::dismissBriefingForever,
-
+            playback = HomePlaybackUi(
+                currentPlayingPodcastId = currentPlayingPodcastId,
+                currentPlayingEpisodeId = currentPlayingEpisodeId,
+                isPlaying = isPlaying,
+                isPlayerLoading = isPlayerLoading,
+                downloadedEpisodeIds = downloadedEpisodeIds,
+            ),
+            sheets = HomeSheetUi(
+                showReviewPrompt = showReviewPrompt,
+                showPostReview = showPostReview,
+                showFeedback = showFeedback,
+                candidatePodcasts = candidatePodcasts,
+            ),
+            callbacks = HomeScreenCallbacks(
+                feed = HomeFeedCallbacks(
+                    onPodcastClick = { podcast, entryPoint, category, index ->
+                        podcast.latestEpisode?.id?.let { episodeId ->
+                            viewModel.markPodcastEpisodeAsSeen(podcast.id, episodeId)
+                        }
+                        onPodcastClick(podcast, entryPoint, category, index)
+                    },
+                    onHeroArrowClick = onHeroArrowClick,
+                    onEpisodeClick = onEpisodeClick,
+                    onCuratedEpisodeClick = onCuratedEpisodeClick,
+                    onCuratedImpression = viewModel::trackCuratedImpressionOnce,
+                    onPlayClick = onPlayClick,
+                    onNavigateToLibrary = onNavigateToLibrary,
+                    onNavigateToExplore = onNavigateToExplore,
+                    onToggleSubscription = viewModel::toggleSubscription,
+                    onTogglePlayback = viewModel::togglePlayback,
+                    onSelectCategory = viewModel::selectCategory,
+                    onSwitchRegion = viewModel::setRegion,
+                    onDismissNudge = viewModel::dismissRegionNudge,
+                    onPodcastSelected = viewModel::selectPodcast,
+                    onPlayMix = viewModel::playUnplayedMix,
+                    onPlayEpisode = viewModel::playEpisode,
+                    onImportClick = onImportClick,
+                    onAiOnboardingClick = onAiOnboardingClick,
+                    onDismissImportBanner = viewModel::dismissHomeImportBanner,
+                    onBriefingClick = onBriefingClick,
+                    onDismissBriefing = viewModel::dismissBriefingForToday,
+                    onDismissBriefingForever = viewModel::dismissBriefingForever,
+                    onFeedbackClick = viewModel::triggerFeedback,
+                ),
+                onNavigateToSettings = onNavigateToSettings,
+                onForceReviewPrompt = viewModel::forceReviewPrompt,
+                onDismissReviewPrompt = {
+                    viewModel.markReviewPromptShown()
+                    viewModel.dismissReviewPrompt()
+                },
+                onDismissPostReview = viewModel::dismissPostReview,
+                onDismissFeedback = viewModel::dismissFeedback,
+                onNavigateToPlayStoreReview = {
+                    viewModel.markReviewed()
+                    viewModel.triggerPostReview()
+                    onNavigateToPlayStoreReview()
+                },
+                onSubmitFeedback = onSubmitFeedback,
+                onNavigateToDebug = onNavigateToDebug,
+                onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
+                onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
+            ),
             modifier = modifier
         )
     }
 }
 
-private fun homeScrollFraction(gridState: LazyStaggeredGridState): Float {
+private fun homeScrollFraction(gridState: LazyStaggeredGridState, collapseThresholdPx: Float): Float {
     if (gridState.firstVisibleItemIndex > 0) {
         return 1f
     }
-    val collapseThreshold = 100f
-    return (gridState.firstVisibleItemScrollOffset / collapseThreshold).coerceIn(0f, 1f)
+    return (gridState.firstVisibleItemScrollOffset / collapseThresholdPx).coerceIn(0f, 1f)
 }
 
 @Composable
 private fun HomeScreenFeedContent(
     uiState: HomeUiState,
     gridState: LazyStaggeredGridState,
-    currentPlayingPodcastId: String?,
-    currentPlayingEpisodeId: String?,
-    isPlaying: Boolean,
-    isPlayerLoading: Boolean,
-    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
-    onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
-    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
-    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
-    onCuratedImpression: (String, List<String>) -> Unit,
-    onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
-    onNavigateToLibrary: (() -> Unit)?,
-    onNavigateToExplore: ((String?, String, String?) -> Unit)?,
-    onToggleSubscription: (String) -> Unit,
-    onTogglePlayback: (android.os.Bundle?) -> Unit,
-    onSelectCategory: (String?) -> Unit,
-    onSwitchRegion: (String) -> Unit,
-    onDismissNudge: () -> Unit,
-    onPodcastSelected: (String?) -> Unit,
-    onPlayMix: () -> Unit,
-    onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit,
-    onImportClick: () -> Unit,
-    onAiOnboardingClick: () -> Unit,
-    onDismissImportBanner: () -> Unit,
-    onBriefingClick: (String) -> Unit,
-    onDismissBriefing: () -> Unit,
-    onDismissBriefingForever: () -> Unit,
-    onFeedbackClick: () -> Unit,
-    downloadedEpisodeIds: Set<String>,
+    playback: HomePlaybackUi,
+    callbacks: HomeFeedCallbacks,
     onChangePodcastClick: () -> Unit,
 ) {
     if (uiState.isError) {
@@ -325,12 +366,12 @@ private fun HomeScreenFeedContent(
         briefingChapters = uiState.briefingChapters,
         gridItems = StablePodcastList(uiState.discoverPodcasts),
         selectedCategory = uiState.selectedCategory,
-        currentPlayingPodcastId = currentPlayingPodcastId,
-        currentPlayingEpisodeId = currentPlayingEpisodeId,
+        currentPlayingPodcastId = playback.currentPlayingPodcastId,
+        currentPlayingEpisodeId = playback.currentPlayingEpisodeId,
         recommendations = StableEpisodeList(uiState.recommendations),
         isRecommendationsFallback = uiState.isRecommendationsFallback,
-        isPlaying = isPlaying,
-        isPlayerLoading = isPlayerLoading,
+        isPlaying = playback.isPlaying,
+        isPlayerLoading = playback.isPlayerLoading,
         isFilterLoading = uiState.isFilterLoading,
         selectedPodcastId = uiState.selectedPodcastId,
         selectedPodcastEpisodes = StableEpisodeList(uiState.selectedPodcastEpisodes),
@@ -343,34 +384,34 @@ private fun HomeScreenFeedContent(
         becauseYouLikeRecommendations = StableEpisodeList(uiState.becauseYouLikeRecommendations),
         becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
         onChangePodcastClick = onChangePodcastClick,
-        onPodcastSelected = onPodcastSelected,
-        downloadedEpisodeIds = downloadedEpisodeIds,
-        onPlayMix = onPlayMix,
-        onPlayEpisode = onPlayEpisode,
-        onPodcastClick = onPodcastClick,
-        onHeroArrowClick = onHeroArrowClick,
-        onEpisodeClick = onEpisodeClick,
-        onCuratedEpisodeClick = onCuratedEpisodeClick,
-        onCuratedImpression = onCuratedImpression,
-        onPlayClick = onPlayClick,
-        onNavigateToLibrary = onNavigateToLibrary,
-        onNavigateToExplore = onNavigateToExplore,
-        onToggleSubscription = onToggleSubscription,
-        onTogglePlayback = onTogglePlayback,
-        onSelectCategory = onSelectCategory,
+        onPodcastSelected = callbacks.onPodcastSelected,
+        downloadedEpisodeIds = playback.downloadedEpisodeIds,
+        onPlayMix = callbacks.onPlayMix,
+        onPlayEpisode = callbacks.onPlayEpisode,
+        onPodcastClick = callbacks.onPodcastClick,
+        onHeroArrowClick = callbacks.onHeroArrowClick,
+        onEpisodeClick = callbacks.onEpisodeClick,
+        onCuratedEpisodeClick = callbacks.onCuratedEpisodeClick,
+        onCuratedImpression = callbacks.onCuratedImpression,
+        onPlayClick = callbacks.onPlayClick,
+        onNavigateToLibrary = callbacks.onNavigateToLibrary,
+        onNavigateToExplore = callbacks.onNavigateToExplore,
+        onToggleSubscription = callbacks.onToggleSubscription,
+        onTogglePlayback = callbacks.onTogglePlayback,
+        onSelectCategory = callbacks.onSelectCategory,
         showRegionNudge = uiState.showRegionNudge,
         systemRegionCode = uiState.systemRegionCode,
         activeRegionCode = uiState.activeRegionCode,
-        onSwitchRegion = onSwitchRegion,
-        onDismissNudge = onDismissNudge,
+        onSwitchRegion = callbacks.onSwitchRegion,
+        onDismissNudge = callbacks.onDismissNudge,
         showImportBanner = uiState.showImportBanner,
-        onImportClick = onImportClick,
-        onAiOnboardingClick = onAiOnboardingClick,
-        onDismissImportBanner = onDismissImportBanner,
-        onBriefingClick = onBriefingClick,
-        onDismissBriefing = onDismissBriefing,
-        onDismissBriefingForever = onDismissBriefingForever,
-        onFeedbackClick = onFeedbackClick,
+        onImportClick = callbacks.onImportClick,
+        onAiOnboardingClick = callbacks.onAiOnboardingClick,
+        onDismissImportBanner = callbacks.onDismissImportBanner,
+        onBriefingClick = callbacks.onBriefingClick,
+        onDismissBriefing = callbacks.onDismissBriefing,
+        onDismissBriefingForever = callbacks.onDismissBriefingForever,
+        onFeedbackClick = callbacks.onFeedbackClick,
         gridState = gridState
     )
 }
@@ -415,11 +456,13 @@ private fun HomeScreenBottomSheets(
     }
 
     if (showFeedback) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        val versionStr = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
-        } catch (e: Exception) {
-            "unknown"
+        val context = LocalContext.current
+        val versionStr = remember(context) {
+            try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+            } catch (_: PackageManager.NameNotFoundException) {
+                "unknown"
+            }
         }
 
         cx.aswin.boxcast.feature.home.components.FeedbackSheet(
@@ -454,58 +497,18 @@ private fun HomeScreenBottomSheets(
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
-    currentPlayingPodcastId: String?,
-    currentPlayingEpisodeId: String?,
-    isPlaying: Boolean,
-    isPlayerLoading: Boolean = false,
-    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
-    onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
-    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
-    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
-    onCuratedImpression: (String, List<String>) -> Unit = { _, _ -> },
-    onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
-    onNavigateToLibrary: (() -> Unit)?,
-    onNavigateToLatestEpisodes: (() -> Unit)?,
-    onNavigateToExplore: ((String?, String, String?) -> Unit)?,
-    onToggleSubscription: (String) -> Unit,
-    onTogglePlayback: (android.os.Bundle?) -> Unit,
-    onSelectCategory: (String?) -> Unit,
-
-    onNavigateToSettings: (() -> Unit)? = null,
-    onFeedbackClick: () -> Unit,
-    onForceReviewPrompt: () -> Unit = {},
-    showReviewPrompt: Boolean = false,
-    showPostReview: Boolean = false,
-    showFeedback: Boolean = false,
-    onDismissReviewPrompt: () -> Unit = {},
-    onDismissPostReview: () -> Unit = {},
-    onDismissFeedback: () -> Unit = {},
-    onNavigateToPlayStoreReview: () -> Unit = {},
-    onSubmitFeedback: suspend (String, String, String, String) -> Boolean = { _, _, _, _ -> false },
-    onNavigateToDebug: () -> Unit = {},
-    onSwitchRegion: (String) -> Unit = {},
-    onDismissNudge: () -> Unit = {},
-    onPodcastSelected: (String?) -> Unit = {},
-    onPlayMix: () -> Unit = {},
-    onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit = { _, _, _ -> },
-    onImportClick: () -> Unit = {},
-    onAiOnboardingClick: () -> Unit = {},
-    onDismissImportBanner: () -> Unit = {},
-    onBriefingClick: (String) -> Unit = {},
-    onDismissBriefing: () -> Unit = {},
-    onDismissBriefingForever: () -> Unit = {},
-    candidatePodcasts: List<Podcast> = emptyList(),
-    onOverrideRecommendationPodcast: (String?) -> Unit = {},
-    downloadedEpisodeIds: Set<String> = emptySet(),
-
+    playback: HomePlaybackUi,
+    sheets: HomeSheetUi,
+    callbacks: HomeScreenCallbacks,
     modifier: Modifier = Modifier
 ) {
     // Track scroll state for collapsing top bar
     val gridState = rememberLazyStaggeredGridState()
     var showChangePodcastSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
-    
-    val scrollFraction by remember {
-        derivedStateOf { homeScrollFraction(gridState) }
+
+    val collapseThresholdPx = with(LocalDensity.current) { 100.dp.toPx() }
+    val scrollFraction by remember(gridState, collapseThresholdPx) {
+        derivedStateOf { homeScrollFraction(gridState, collapseThresholdPx) }
     }
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -514,19 +517,19 @@ fun HomeScreen(
 
                 onFeedbackClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("feedback_clicked", "home")
-                    onFeedbackClick()
+                    callbacks.feed.onFeedbackClick()
                 },
                 onFeedbackLongClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("feedback_long_clicked", "home")
-                    onForceReviewPrompt()
+                    callbacks.onForceReviewPrompt()
                 },
                 onAvatarClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("settings_clicked", "home")
-                    onNavigateToSettings?.invoke()
+                    callbacks.onNavigateToSettings?.invoke()
                 },
                 onAvatarLongClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("avatar_long_clicked", "home")
-                    onNavigateToDebug()
+                    callbacks.onNavigateToDebug()
                 }
             )
 
@@ -534,34 +537,8 @@ fun HomeScreen(
                 HomeScreenFeedContent(
                     uiState = uiState,
                     gridState = gridState,
-                    currentPlayingPodcastId = currentPlayingPodcastId,
-                    currentPlayingEpisodeId = currentPlayingEpisodeId,
-                    isPlaying = isPlaying,
-                    isPlayerLoading = isPlayerLoading,
-                    onPodcastClick = onPodcastClick,
-                    onHeroArrowClick = onHeroArrowClick,
-                    onEpisodeClick = onEpisodeClick,
-                    onCuratedEpisodeClick = onCuratedEpisodeClick,
-                    onCuratedImpression = onCuratedImpression,
-                    onPlayClick = onPlayClick,
-                    onNavigateToLibrary = onNavigateToLibrary,
-                    onNavigateToExplore = onNavigateToExplore,
-                    onToggleSubscription = onToggleSubscription,
-                    onTogglePlayback = onTogglePlayback,
-                    onSelectCategory = onSelectCategory,
-                    onSwitchRegion = onSwitchRegion,
-                    onDismissNudge = onDismissNudge,
-                    onPodcastSelected = onPodcastSelected,
-                    onPlayMix = onPlayMix,
-                    onPlayEpisode = onPlayEpisode,
-                    onImportClick = onImportClick,
-                    onAiOnboardingClick = onAiOnboardingClick,
-                    onDismissImportBanner = onDismissImportBanner,
-                    onBriefingClick = onBriefingClick,
-                    onDismissBriefing = onDismissBriefing,
-                    onDismissBriefingForever = onDismissBriefingForever,
-                    onFeedbackClick = onFeedbackClick,
-                    downloadedEpisodeIds = downloadedEpisodeIds,
+                    playback = playback,
+                    callbacks = callbacks.feed,
                     onChangePodcastClick = { showChangePodcastSheet = true },
                 )
             }
@@ -570,19 +547,19 @@ fun HomeScreen(
 
     HomeScreenBottomSheets(
         uiState = uiState,
-        showReviewPrompt = showReviewPrompt,
-        showPostReview = showPostReview,
-        showFeedback = showFeedback,
+        showReviewPrompt = sheets.showReviewPrompt,
+        showPostReview = sheets.showPostReview,
+        showFeedback = sheets.showFeedback,
         showChangePodcastSheet = showChangePodcastSheet,
-        candidatePodcasts = candidatePodcasts,
-        onDismissReviewPrompt = onDismissReviewPrompt,
-        onNavigateToPlayStoreReview = onNavigateToPlayStoreReview,
-        onFeedbackClick = onFeedbackClick,
-        onDismissPostReview = onDismissPostReview,
-        onDismissFeedback = onDismissFeedback,
-        onSubmitFeedback = onSubmitFeedback,
+        candidatePodcasts = sheets.candidatePodcasts,
+        onDismissReviewPrompt = callbacks.onDismissReviewPrompt,
+        onNavigateToPlayStoreReview = callbacks.onNavigateToPlayStoreReview,
+        onFeedbackClick = callbacks.feed.onFeedbackClick,
+        onDismissPostReview = callbacks.onDismissPostReview,
+        onDismissFeedback = callbacks.onDismissFeedback,
+        onSubmitFeedback = callbacks.onSubmitFeedback,
         onDismissChangePodcastSheet = { showChangePodcastSheet = false },
-        onOverrideRecommendationPodcast = onOverrideRecommendationPodcast,
+        onOverrideRecommendationPodcast = callbacks.onOverrideRecommendationPodcast,
     )
 }
 
