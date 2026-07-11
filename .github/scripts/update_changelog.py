@@ -10,6 +10,8 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 CHANGELOG_PATH = Path("CHANGELOG.md")
@@ -18,7 +20,7 @@ UPCOMING_CHANGES_START = "<!-- upcoming-changes:start -->"
 UPCOMING_CHANGES_END = "<!-- upcoming-changes:end -->"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "openai/gpt-oss-120b"
-GROQ_USER_AGENT = "boxlore-changelog/1.1"
+GROQ_USER_AGENT = "boxlore-changelog/1.2"
 CATEGORY_ORDER = ("Added", "Changed", "Fixed", "Deprecated", "Removed", "Security")
 README_GROUP_ORDER = ("New features", "Improvements", "Fixes", "Security", "Other")
 DEFAULT_GITHUB_REPOSITORY = "ashwkun/boxlore"
@@ -59,11 +61,13 @@ Each value is an array of bullet strings WITHOUT leading dashes.
 
 Rules:
 - Use plain English, user-facing wording, matching existing changelog tone.
-- One concise bullet per meaningful change; merge tiny related edits into one bullet.
+- Merge related bullets into one line per feature area (e.g. all queue UX → one Added bullet).
+- Omit analytics-only, test-only, or CI-only changes from the changelog.
 - Use "Fixed ..." phrasing for bug fixes, "Added ..." for new features, "Changed ..." for behavior/UI updates.
 - Do not invent changes not supported by the PR title/body.
 - Omit empty categories entirely.
 - Do not include version headers, dates, PR numbers, or markdown formatting in bullets.
+- Aim for 3–8 bullets total per PR, not one bullet per commit.
 """
 
     user_prompt = f"""PR #{pr_number}
@@ -90,6 +94,98 @@ Generate changelog bullets for the [Unreleased] section."""
         if bullets:
             normalized[category] = bullets
     return normalized
+
+
+def _extract_pr_number(bullet: str) -> int | None:
+    match = re.search(r"\(#(\d+)\)", bullet)
+    if match:
+        return int(match.group(1))
+    match = re.search(r"\[#(\d+)\]\(https://github\.com/[^/]+/[^/]+/pull/\1\)", bullet)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+@dataclass
+class ChangelogCluster:
+    pr_number: int | None
+    items: list[tuple[str, str]] = field(default_factory=list)
+    importance: int = 50
+    theme: str = "general"
+
+    def text_blob(self) -> str:
+        return " ".join(text for _, text in self.items).lower()
+
+
+def _cluster_theme(text: str) -> str:
+    if any(k in text for k in ("queue", "refill", "auto-fill", "auto‑fill", "reorder", "skip memory", "lore queue")):
+        return "queue & playback"
+    if any(k in text for k in ("nps", "survey", "play review", "play store", "engagement", "prompt", "posthog")):
+        return "feedback & surveys"
+    if any(k in text for k in ("home tab", "scroll", "lag", "shimmer", "staggered", "recomposition")):
+        return "home performance"
+    if any(k in text for k in ("gitignore", "pycache", "__pycache__", "bytecode")):
+        return "developer tooling"
+    if any(k in text for k in ("analytics", "telemetry", "event")):
+        return "analytics"
+    return "general"
+
+
+def _cluster_importance(theme: str, text: str, categories: set[str]) -> int:
+    if theme == "developer tooling" or theme == "analytics":
+        return 10
+    if theme == "queue & playback":
+        return 95
+    if theme == "home performance":
+        return 80
+    if theme == "feedback & surveys":
+        return 42
+    if "fixed" in {c.lower() for c in categories} and theme == "general":
+        return 55
+    return 50
+
+
+def _cluster_sections_by_pr(sections: dict[str, list[str]]) -> list[ChangelogCluster]:
+    grouped: dict[int | None, ChangelogCluster] = {}
+
+    for category, bullets in sections.items():
+        for bullet in bullets:
+            if not bullet.strip():
+                continue
+            pr_number = _extract_pr_number(bullet)
+            cleaned = _strip_pr_links(bullet)
+            cluster = grouped.setdefault(pr_number, ChangelogCluster(pr_number=pr_number))
+            cluster.items.append((category, cleaned))
+
+    clusters: list[ChangelogCluster] = []
+    for cluster in grouped.values():
+        categories = {cat for cat, _ in cluster.items}
+        blob = cluster.text_blob()
+        cluster.theme = _cluster_theme(blob)
+        cluster.importance = _cluster_importance(cluster.theme, blob, categories)
+        clusters.append(cluster)
+
+    clusters.sort(key=lambda c: (-c.importance, c.pr_number or 0))
+    return clusters
+
+
+def _render_clustered_changelog(clusters: list[ChangelogCluster]) -> str:
+    lines: list[str] = []
+    for cluster in clusters:
+        if cluster.importance < 40:
+            continue
+        label = f"PR #{cluster.pr_number}" if cluster.pr_number is not None else "Unlinked"
+        lines.append(
+            f"## {label} | importance {cluster.importance} | theme: {cluster.theme}"
+        )
+        by_category: dict[str, list[str]] = defaultdict(list)
+        for category, text in cluster.items:
+            by_category[category].append(text)
+        for category in CATEGORY_ORDER:
+            for text in by_category.get(category, []):
+                lines.append(f"- [{category}] {text}")
+        lines.append("")
+    return "\n".join(lines).strip()
 
 
 def _strip_pr_links(text: str) -> str:
@@ -140,49 +236,44 @@ def _groq_curate_readme_upcoming(
     if not any(sections.values()):
         return []
 
-    cleaned_sections: dict[str, list[str]] = {}
-    for category, bullets in sections.items():
-        cleaned = [_strip_pr_links(bullet) for bullet in bullets if bullet.strip()]
-        if cleaned:
-            cleaned_sections[category] = cleaned
-
-    if not cleaned_sections:
+    clusters = _cluster_sections_by_pr(sections)
+    clustered_input = _render_clustered_changelog(clusters)
+    if not clustered_input:
         return []
 
-    changelog_text = _render_unreleased(cleaned_sections)
-    system_prompt = """You curate the full [Unreleased] changelog for boxlore, an Android podcast app, into a README "Upcoming Changes" section for listeners — not developers.
+    system_prompt = """You curate clustered changelog entries for boxlore (Android podcast app) into a README "Upcoming Changes" section for listeners — not developers.
+
+Input is pre-grouped by PR/theme with an importance score (higher = more user-visible). Each ## block is ONE feature area — merge its bullets into as few README lines as possible.
 
 Return ONLY valid JSON:
 {"groups": [{"heading": "...", "bullets": ["...", ...]}, ...]}
 
-Allowed headings (use exactly one of these per group, omit empty groups):
-- "New features" — new capabilities users can try (maps from Added)
-- "Improvements" — better behavior, UI polish, smoother performance (maps from Changed)
-- "Fixes" — bugs or crashes resolved (maps from Fixed)
-- "Security" — privacy or security improvements (maps from Security)
-- "Other" — rare; only if nothing else fits
+Allowed headings (exactly one per group, omit empty):
+- "New features" — new capabilities (from Added clusters)
+- "Improvements" — behavior/UI polish (from Changed clusters)
+- "Fixes" — bugs resolved (from Fixed clusters)
+- "Security" — privacy/security only
 
-Process ALL input bullets together before writing output:
-1. Read every existing unreleased entry; do not treat the newest PR as more important by default.
-2. Score each distinct user-visible change 1–100 for customer importance (new major features ≈ 90+, small polish ≈ 40–60, internal-only ≈ 0–20).
-3. Drop or merge items below 40 importance; merge overlapping bullets (e.g. two Home scroll perf fixes → one line).
-4. Rewrite survivors in plain English for listeners; never mention Compose, Groq, CI, modules, refactors, or PR numbers.
-5. Sort groups: New features → Improvements → Fixes → Security → Other.
-6. Within each group, sort bullets highest importance first.
-7. Cap at 8 bullets total across all groups; prefer fewer, stronger lines over a long list.
+MANDATORY clustering rules:
+1. ONE README bullet per input ## block in most cases. Never split a single PR/theme across multiple bullets.
+2. For importance 90+ themes (queue, playback, discovery): allow at most TWO bullets if they describe clearly distinct user wins; prefer ONE strong sentence.
+3. For importance 40–55 themes (NPS, surveys, review prompts): exactly ONE bullet, never lead the list.
+4. Drop clusters with importance below 40 entirely (analytics, gitignore, CI, internal plumbing).
+5. Merge all bullets inside a ## block before writing — e.g. four queue bullets → one: "Smart queue auto-refills, shows why items appear, supports drag reorder, and undo remove."
+6. Sort bullets within each group by the cluster importance score (highest first). Queue/playback MUST appear before NPS/survey lines.
+7. Cap at 8 bullets total across all groups.
 
-Tone examples:
-- "New in-app NPS surveys that match the app's look."
-- "Home screen scroll is smoother with less lag and pinned Your Shows and hero items."
-- "Loading placeholders now shimmer more calmly, making the wait feel shorter."
+Importance guidance (respect the scores in input):
+- 90–100: core listening (queue, player, search, discovery) — headline features
+- 70–89: home/browse performance — Improvements section
+- 40–55: optional feedback surveys — one merged line, never prioritized over queue
+- below 40: omit from README
 
-Rules for bullets:
-- Under 120 characters each.
-- No leading dashes, markdown links, or PR references in output."""
+Rewrite in plain English; no PR numbers, Compose, modules, or developer jargon. Under 120 chars per bullet."""
 
-    user_prompt = f"""Curate this entire [Unreleased] changelog into grouped README bullets:
+    user_prompt = f"""Curate these PR/theme clusters into grouped README bullets:
 
-{changelog_text}"""
+{clustered_input}"""
 
     parsed = _groq_chat_json(
         api_key,
