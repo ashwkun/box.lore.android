@@ -9,11 +9,11 @@
 <br/>
 
 <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-  <img src="https://img.shields.io/badge/Google%20Play-Get%20it%20on%20Play%20(Coming%20Soon)-414141?style=for-the-badge&logo=googleplay&logoColor=white&labelColor=0f172a" alt="Get it on Google Play (Coming Soon)"/>
+  <img src="https://img.shields.io/badge/Get%20it%20on-Google%20Play-1e293b?style=for-the-badge&logo=googleplay&logoColor=white&labelColor=0f172a" alt="Get it on Google Play"/>
 </a>
 &nbsp;
-<a href="https://github.com/ashwkun/boxlore/releases/latest/download/app-release.apk">
-  <img src="https://img.shields.io/badge/Download%20APK-Latest%20Release-2ebbca?style=for-the-badge&logo=android&logoColor=white&labelColor=0f172a" alt="Download APK"/>
+<a href="https://github.com/ashwkun/boxlore/releases/latest">
+  <img src="https://img.shields.io/badge/Get%20it%20on-GitHub-1e293b?style=for-the-badge&logo=github&logoColor=white&labelColor=0f172a" alt="Get it on GitHub"/>
 </a>
 
 <br/><br/>
