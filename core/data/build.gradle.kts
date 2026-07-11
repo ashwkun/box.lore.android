@@ -39,6 +39,11 @@ android {
         abortOnError = false
         checkReleaseBuilds = true
     }
+
+    testOptions {
+        // Let android.util.Log calls no-op in JVM unit tests instead of throwing.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -81,4 +86,5 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
