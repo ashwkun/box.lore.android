@@ -56,15 +56,15 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 <h4 align="left">🆕 New features</h4>
 <ul align="left">
-<li>Smart Queue auto‑refills with smarter picks, shows why items appear, lets you drag‑reorder, and undo removals. <a href="https://github.com/ashwkun/boxlore/pull/853"><img src="https://img.shields.io/badge/PR-853-2ebbca?style=flat-square" alt="PR #853" height="18"/></a></li>
-<li>New Material 3 player with full‑screen transcripts, chapters, show notes, speed control, and queue previews. <a href="https://github.com/ashwkun/boxlore/pull/856"><img src="https://img.shields.io/badge/PR-856-2ebbca?style=flat-square" alt="PR #856" height="18"/></a></li>
-<li>Curiosity pages load faster, skip dismissed cards automatically, and offer a caught‑up view with refresh and history recovery. <a href="https://github.com/ashwkun/boxlore/pull/857"><img src="https://img.shields.io/badge/PR-857-2ebbca?style=flat-square" alt="PR #857" height="18"/></a></li>
+<li>Smart Queue now auto‑refills, shows why items appear, lets you drag‑reorder, undo removes, and handles playback conflicts. <a href="https://github.com/ashwkun/boxlore/pull/853"><img src="https://img.shields.io/badge/PR-853-2ebbca?style=flat-square" alt="PR #853" height="18"/></a></li>
+<li>New Material 3 player with full‑screen and mini UI, transcripts, queue preview, show notes, chapters, and saved playback speed. <a href="https://github.com/ashwkun/boxlore/pull/856"><img src="https://img.shields.io/badge/PR-856-2ebbca?style=flat-square" alt="PR #856" height="18"/></a></li>
+<li>Fresh card designs with swipe‑deck, halo background, built‑in share options (copy, send, Instagram Story) and improved share flow. <a href="https://github.com/ashwkun/boxlore/pull/858"><img src="https://img.shields.io/badge/PR-858-2ebbca?style=flat-square" alt="PR #858" height="18"/></a></li>
 </ul>
 <br/>
 <h4 align="left">⚡ Improvements</h4>
 <ul align="left">
-<li>Home feed loads faster with smoother scrolling and quicker hero section rendering. <a href="https://github.com/ashwkun/boxlore/pull/851"><img src="https://img.shields.io/badge/PR-851-2ebbca?style=flat-square" alt="PR #851" height="18"/></a></li>
-<li>New in‑app NPS and review survey appears after listening, with a 14‑day cooldown for promoters. <a href="https://github.com/ashwkun/boxlore/pull/852"><img src="https://img.shields.io/badge/PR-852-2ebbca?style=flat-square" alt="PR #852" height="18"/></a></li>
+<li>Home feed loads faster with a streamlined grid and smoother shimmer animations. <a href="https://github.com/ashwkun/boxlore/pull/851"><img src="https://img.shields.io/badge/PR-851-2ebbca?style=flat-square" alt="PR #851" height="18"/></a></li>
+<li>Curiosity pages load smaller images, auto‑skip dismissed cards, and show a refreshed brand look. <a href="https://github.com/ashwkun/boxlore/pull/857"><img src="https://img.shields.io/badge/PR-857-2ebbca?style=flat-square" alt="PR #857" height="18"/></a></li>
 </ul>
 
 </blockquote>
