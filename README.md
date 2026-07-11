@@ -48,17 +48,20 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 <b>New features</b>
 
-- New smart auto‑refill that batches episodes, learns from rejections, and respects your region.
-- Unified feedback prompt shows a short survey or Play Store review in one smooth modal, with a 14‑day cooldown.
-- Drag‑to‑reorder episodes directly in the queue sheet, and see source labels that explain each suggestion.
-- Undo snackbar lets you quickly restore a removed episode, preserving your skip history.
+- In‑app NPS surveys that match the app’s look, letting you share feedback easily.
+- A single feedback modal can ask for a rating or a Play Store review, with a 14‑day cooldown after a high score.
+- Smart auto‑refill batches 3–5 episodes, learns from rejections, and respects your region for seamless listening.
+- Drag‑to‑reorder support in the queue sheet lets you arrange episodes exactly how you want.
+- Each queue item shows a source label (e.g., “Based on what you’re playing”) so you know why it’s there.
+- Undo snackbar appears after removing an episode, letting you quickly restore it.
 
 <b>Improvements</b>
 
-- Home screen scroll is smoother with less lag, and hero and Your Shows stay pinned for quick access.
-- Loading placeholders now shimmer more calmly, making wait times feel shorter.
-- Sleep timer now respects auto‑refill, so episodes won’t keep adding after you fall asleep.
-- Queue skip memory no longer suggests episodes you’ve already skipped, keeping recommendations fresh.
+- Home screen scroll is smoother with less lag, keeping hero and Your Shows pinned.
+
+<b>Fixes</b>
+
+- Skipped or removed auto‑fill episodes are no longer suggested, keeping your queue relevant.
 
 <br/>
 <p align="center"><sub>Technical details in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>
