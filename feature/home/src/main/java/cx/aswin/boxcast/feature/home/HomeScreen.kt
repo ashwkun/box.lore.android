@@ -267,6 +267,189 @@ fun HomeRoute(
     }
 }
 
+private fun homeScrollFraction(gridState: LazyStaggeredGridState): Float {
+    if (gridState.firstVisibleItemIndex > 0) {
+        return 1f
+    }
+    val collapseThreshold = 100f
+    return (gridState.firstVisibleItemScrollOffset / collapseThreshold).coerceIn(0f, 1f)
+}
+
+@Composable
+private fun HomeScreenFeedContent(
+    uiState: HomeUiState,
+    gridState: LazyStaggeredGridState,
+    currentPlayingPodcastId: String?,
+    currentPlayingEpisodeId: String?,
+    isPlaying: Boolean,
+    isPlayerLoading: Boolean,
+    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
+    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
+    onCuratedImpression: (String, List<String>) -> Unit,
+    onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
+    onNavigateToLibrary: (() -> Unit)?,
+    onNavigateToExplore: ((String?, String, String?) -> Unit)?,
+    onToggleSubscription: (String) -> Unit,
+    onTogglePlayback: (android.os.Bundle?) -> Unit,
+    onSelectCategory: (String?) -> Unit,
+    onSwitchRegion: (String) -> Unit,
+    onDismissNudge: () -> Unit,
+    onPodcastSelected: (String?) -> Unit,
+    onPlayMix: () -> Unit,
+    onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit,
+    onImportClick: () -> Unit,
+    onAiOnboardingClick: () -> Unit,
+    onDismissImportBanner: () -> Unit,
+    onBriefingClick: (String) -> Unit,
+    onDismissBriefing: () -> Unit,
+    onDismissBriefingForever: () -> Unit,
+    onFeedbackClick: () -> Unit,
+    downloadedEpisodeIds: Set<String>,
+    onChangePodcastClick: () -> Unit,
+) {
+    if (uiState.isError) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Error loading content", color = MaterialTheme.colorScheme.error)
+        }
+        return
+    }
+
+    PodcastFeed(
+        heroItems = StableHeroList(uiState.heroItems),
+        latestItems = StablePodcastList(uiState.latestEpisodes),
+        subscribedItems = StablePodcastList(uiState.subscribedPodcasts),
+        timeBlock = uiState.timeBlock,
+        briefing = uiState.briefing,
+        briefingChapters = uiState.briefingChapters,
+        gridItems = StablePodcastList(uiState.discoverPodcasts),
+        selectedCategory = uiState.selectedCategory,
+        currentPlayingPodcastId = currentPlayingPodcastId,
+        currentPlayingEpisodeId = currentPlayingEpisodeId,
+        recommendations = StableEpisodeList(uiState.recommendations),
+        isRecommendationsFallback = uiState.isRecommendationsFallback,
+        isPlaying = isPlaying,
+        isPlayerLoading = isPlayerLoading,
+        isFilterLoading = uiState.isFilterLoading,
+        selectedPodcastId = uiState.selectedPodcastId,
+        selectedPodcastEpisodes = StableEpisodeList(uiState.selectedPodcastEpisodes),
+        isSelectedPodcastLoading = uiState.isSelectedPodcastLoading,
+        episodePlaybackState = StablePlaybackStateMap(uiState.episodePlaybackState),
+        isLoading = uiState.isLoading,
+        isRecommendationsLoading = uiState.isRecommendationsLoading,
+        isCuratedLoading = uiState.isCuratedLoading,
+        seemsToLikePodcast = uiState.seemsToLikePodcast,
+        becauseYouLikeRecommendations = StableEpisodeList(uiState.becauseYouLikeRecommendations),
+        becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
+        onChangePodcastClick = onChangePodcastClick,
+        onPodcastSelected = onPodcastSelected,
+        downloadedEpisodeIds = downloadedEpisodeIds,
+        onPlayMix = onPlayMix,
+        onPlayEpisode = onPlayEpisode,
+        onPodcastClick = onPodcastClick,
+        onHeroArrowClick = onHeroArrowClick,
+        onEpisodeClick = onEpisodeClick,
+        onCuratedEpisodeClick = onCuratedEpisodeClick,
+        onCuratedImpression = onCuratedImpression,
+        onPlayClick = onPlayClick,
+        onNavigateToLibrary = onNavigateToLibrary,
+        onNavigateToExplore = onNavigateToExplore,
+        onToggleSubscription = onToggleSubscription,
+        onTogglePlayback = onTogglePlayback,
+        onSelectCategory = onSelectCategory,
+        showRegionNudge = uiState.showRegionNudge,
+        systemRegionCode = uiState.systemRegionCode,
+        activeRegionCode = uiState.activeRegionCode,
+        onSwitchRegion = onSwitchRegion,
+        onDismissNudge = onDismissNudge,
+        showImportBanner = uiState.showImportBanner,
+        onImportClick = onImportClick,
+        onAiOnboardingClick = onAiOnboardingClick,
+        onDismissImportBanner = onDismissImportBanner,
+        onBriefingClick = onBriefingClick,
+        onDismissBriefing = onDismissBriefing,
+        onDismissBriefingForever = onDismissBriefingForever,
+        onFeedbackClick = onFeedbackClick,
+        gridState = gridState
+    )
+}
+
+@Composable
+private fun HomeScreenBottomSheets(
+    uiState: HomeUiState,
+    showReviewPrompt: Boolean,
+    showPostReview: Boolean,
+    showFeedback: Boolean,
+    showChangePodcastSheet: Boolean,
+    candidatePodcasts: List<Podcast>,
+    onDismissReviewPrompt: () -> Unit,
+    onNavigateToPlayStoreReview: () -> Unit,
+    onFeedbackClick: () -> Unit,
+    onDismissPostReview: () -> Unit,
+    onDismissFeedback: () -> Unit,
+    onSubmitFeedback: suspend (String, String, String, String) -> Boolean,
+    onDismissChangePodcastSheet: () -> Unit,
+    onOverrideRecommendationPodcast: (String?) -> Unit,
+) {
+    if (showReviewPrompt) {
+        cx.aswin.boxcast.feature.home.components.ReviewPromptSheet(
+            completedCount = uiState.completedEpisodeCount,
+            onDismissRequest = onDismissReviewPrompt,
+            onNavigateToReview = onNavigateToPlayStoreReview,
+            onNavigateToFeedback = {
+                onDismissReviewPrompt()
+                onFeedbackClick()
+            }
+        )
+    }
+
+    if (showPostReview) {
+        cx.aswin.boxcast.feature.home.components.PostReviewSheet(
+            onDismissRequest = onDismissPostReview,
+            onNavigateToFeedback = {
+                onDismissPostReview()
+                onFeedbackClick()
+            }
+        )
+    }
+
+    if (showFeedback) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val versionStr = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+        } catch (e: Exception) {
+            "unknown"
+        }
+
+        cx.aswin.boxcast.feature.home.components.FeedbackSheet(
+            appVersion = versionStr,
+            onSubmit = onSubmitFeedback,
+            onRateInstead = {
+                onDismissFeedback()
+                val pkgName = context.packageName
+                try {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkgName")))
+                } catch (e: Exception) {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkgName")))
+                }
+            },
+            onDismissRequest = onDismissFeedback
+        )
+    }
+
+    if (showChangePodcastSheet) {
+        ChangeRecommendationPodcastSheet(
+            candidatePodcasts = candidatePodcasts,
+            onDismissRequest = onDismissChangePodcastSheet,
+            onPodcastSelect = { podcast ->
+                onDismissChangePodcastSheet()
+                onOverrideRecommendationPodcast(podcast?.id)
+            }
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -321,19 +504,10 @@ fun HomeScreen(
     val gridState = rememberLazyStaggeredGridState()
     var showChangePodcastSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
     
-    // Calculate scroll fraction: 0 = at top (expanded), 1 = scrolled (collapsed)
     val scrollFraction by remember {
-        derivedStateOf {
-            if (gridState.firstVisibleItemIndex > 0) {
-                1f
-            } else {
-                val collapseThreshold = 100f
-                (gridState.firstVisibleItemScrollOffset / collapseThreshold).coerceIn(0f, 1f)
-            }
-        }
+        derivedStateOf { homeScrollFraction(gridState) }
     }
     Box(modifier = modifier.fillMaxSize()) {
-        // Main content underneath
         Column(modifier = Modifier.fillMaxSize()) {
             TopControlBar(
                 scrollFractionProvider = { scrollFraction },
@@ -355,132 +529,61 @@ fun HomeScreen(
                     onNavigateToDebug()
                 }
             )
-            
-            // Content area
+
             Box(modifier = Modifier.fillMaxSize()) {
-                    if (uiState.isError) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Error loading content", color = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        PodcastFeed(
-                            heroItems = StableHeroList(uiState.heroItems),
-                            latestItems = StablePodcastList(uiState.latestEpisodes),
-                            subscribedItems = StablePodcastList(uiState.subscribedPodcasts),
-                            timeBlock = uiState.timeBlock,
-                            briefing = uiState.briefing,
-                            briefingChapters = uiState.briefingChapters,
-                            gridItems = StablePodcastList(uiState.discoverPodcasts),
-                            selectedCategory = uiState.selectedCategory,
-                            currentPlayingPodcastId = currentPlayingPodcastId,
-                            currentPlayingEpisodeId = currentPlayingEpisodeId,
-                            recommendations = StableEpisodeList(uiState.recommendations),
-                            isRecommendationsFallback = uiState.isRecommendationsFallback,
-                            isPlaying = isPlaying,
-                            isPlayerLoading = isPlayerLoading,
-                            isFilterLoading = uiState.isFilterLoading,
-                            selectedPodcastId = uiState.selectedPodcastId,
-                            selectedPodcastEpisodes = StableEpisodeList(uiState.selectedPodcastEpisodes),
-                            isSelectedPodcastLoading = uiState.isSelectedPodcastLoading,
-                            episodePlaybackState = StablePlaybackStateMap(uiState.episodePlaybackState),
-                            isLoading = uiState.isLoading,
-                            isRecommendationsLoading = uiState.isRecommendationsLoading,
-                            isCuratedLoading = uiState.isCuratedLoading,
-                            seemsToLikePodcast = uiState.seemsToLikePodcast,
-                            becauseYouLikeRecommendations = StableEpisodeList(uiState.becauseYouLikeRecommendations),
-                            becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
-                            onChangePodcastClick = { showChangePodcastSheet = true },
-                            onPodcastSelected = onPodcastSelected,
-                            downloadedEpisodeIds = downloadedEpisodeIds,
-                            onPlayMix = onPlayMix,
-                            onPlayEpisode = onPlayEpisode,
-                            onPodcastClick = onPodcastClick,
-                            onHeroArrowClick = onHeroArrowClick,
-                            onEpisodeClick = onEpisodeClick,
-                            onCuratedEpisodeClick = onCuratedEpisodeClick,
-                            onCuratedImpression = onCuratedImpression,
-                            onPlayClick = { podcast, bundle -> onPlayClick?.invoke(podcast, bundle) },
-                            onNavigateToLibrary = onNavigateToLibrary,
-                            onNavigateToExplore = onNavigateToExplore,
-                            onToggleSubscription = onToggleSubscription,
-                            onTogglePlayback = onTogglePlayback,
-                            onSelectCategory = onSelectCategory,
-                            showRegionNudge = uiState.showRegionNudge,
-                            systemRegionCode = uiState.systemRegionCode,
-                            activeRegionCode = uiState.activeRegionCode,
-                            onSwitchRegion = onSwitchRegion,
-                            onDismissNudge = onDismissNudge,
-                            showImportBanner = uiState.showImportBanner,
-                            onImportClick = onImportClick,
-                            onAiOnboardingClick = onAiOnboardingClick,
-                            onDismissImportBanner = onDismissImportBanner,
-                            onBriefingClick = onBriefingClick,
-                            onDismissBriefing = onDismissBriefing,
-                            onDismissBriefingForever = onDismissBriefingForever,
-                            onFeedbackClick = onFeedbackClick,
-                            gridState = gridState
-                        )
-                    }
+                HomeScreenFeedContent(
+                    uiState = uiState,
+                    gridState = gridState,
+                    currentPlayingPodcastId = currentPlayingPodcastId,
+                    currentPlayingEpisodeId = currentPlayingEpisodeId,
+                    isPlaying = isPlaying,
+                    isPlayerLoading = isPlayerLoading,
+                    onPodcastClick = onPodcastClick,
+                    onHeroArrowClick = onHeroArrowClick,
+                    onEpisodeClick = onEpisodeClick,
+                    onCuratedEpisodeClick = onCuratedEpisodeClick,
+                    onCuratedImpression = onCuratedImpression,
+                    onPlayClick = onPlayClick,
+                    onNavigateToLibrary = onNavigateToLibrary,
+                    onNavigateToExplore = onNavigateToExplore,
+                    onToggleSubscription = onToggleSubscription,
+                    onTogglePlayback = onTogglePlayback,
+                    onSelectCategory = onSelectCategory,
+                    onSwitchRegion = onSwitchRegion,
+                    onDismissNudge = onDismissNudge,
+                    onPodcastSelected = onPodcastSelected,
+                    onPlayMix = onPlayMix,
+                    onPlayEpisode = onPlayEpisode,
+                    onImportClick = onImportClick,
+                    onAiOnboardingClick = onAiOnboardingClick,
+                    onDismissImportBanner = onDismissImportBanner,
+                    onBriefingClick = onBriefingClick,
+                    onDismissBriefing = onDismissBriefing,
+                    onDismissBriefingForever = onDismissBriefingForever,
+                    onFeedbackClick = onFeedbackClick,
+                    downloadedEpisodeIds = downloadedEpisodeIds,
+                    onChangePodcastClick = { showChangePodcastSheet = true },
+                )
+            }
         }
     }
-    }
-    // --- Bottom Sheets outside the scrollable area ---
-    if (showReviewPrompt) {
-        cx.aswin.boxcast.feature.home.components.ReviewPromptSheet(
-            completedCount = uiState.completedEpisodeCount,
-            onDismissRequest = onDismissReviewPrompt,
-            onNavigateToReview = onNavigateToPlayStoreReview,
-            onNavigateToFeedback = {
-                onDismissReviewPrompt()
-                onFeedbackClick()
-            }
-        )
-    }
 
-    if (showPostReview) {
-        cx.aswin.boxcast.feature.home.components.PostReviewSheet(
-            onDismissRequest = onDismissPostReview,
-            onNavigateToFeedback = {
-                onDismissPostReview()
-                onFeedbackClick()
-            }
-        )
-    }
-
-    if (showFeedback) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        val versionStr = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
-        } catch (e: Exception) {
-            "unknown"
-        }
-        
-        cx.aswin.boxcast.feature.home.components.FeedbackSheet(
-            appVersion = versionStr,
-            onSubmit = onSubmitFeedback,
-            onRateInstead = {
-                onDismissFeedback()
-                val pkgName = context.packageName
-                try {
-                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkgName")))
-                } catch (e: Exception) {
-                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkgName")))
-                }
-            },
-            onDismissRequest = onDismissFeedback
-        )
-    }
-
-    if (showChangePodcastSheet) {
-        ChangeRecommendationPodcastSheet(
-            candidatePodcasts = candidatePodcasts,
-            onDismissRequest = { showChangePodcastSheet = false },
-            onPodcastSelect = { podcast ->
-                showChangePodcastSheet = false
-                onOverrideRecommendationPodcast(podcast?.id)
-            }
-        )
-    }
+    HomeScreenBottomSheets(
+        uiState = uiState,
+        showReviewPrompt = showReviewPrompt,
+        showPostReview = showPostReview,
+        showFeedback = showFeedback,
+        showChangePodcastSheet = showChangePodcastSheet,
+        candidatePodcasts = candidatePodcasts,
+        onDismissReviewPrompt = onDismissReviewPrompt,
+        onNavigateToPlayStoreReview = onNavigateToPlayStoreReview,
+        onFeedbackClick = onFeedbackClick,
+        onDismissPostReview = onDismissPostReview,
+        onDismissFeedback = onDismissFeedback,
+        onSubmitFeedback = onSubmitFeedback,
+        onDismissChangePodcastSheet = { showChangePodcastSheet = false },
+        onOverrideRecommendationPodcast = onOverrideRecommendationPodcast,
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -865,16 +968,10 @@ private fun PodcastFeed(
             if (hasRecommendations) {
                 forYouItems(
                     recommendations = recommendations,
-                    currentPlayingEpisodeId = currentPlayingEpisodeId,
-                    isPlaying = isPlaying,
                     onEpisodeClick = { episode, podcast ->
                         onEpisodeClick?.invoke(episode, podcast, "home_for_you")
                     },
-                    onPlayEpisode = { ep, pod -> onPlayEpisode(ep, pod, cx.aswin.boxcast.core.model.PlaybackEntryPoint.GENERIC) },
                     timeBlock = timeBlock,
-                    onSeeAllClick = {
-                        onNavigateToExplore?.invoke(null, "home_for_you_see_all", "foryou")
-                    },
                     showTasteHeader = hasBecauseYouLike,
                     isFallback = isRecommendationsFallback
                 )

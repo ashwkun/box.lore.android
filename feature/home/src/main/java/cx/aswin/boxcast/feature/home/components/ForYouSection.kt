@@ -42,15 +42,10 @@ import cx.aswin.boxcast.feature.home.StableEpisodeList
  * remaining masonry cards become individual 1-span items so only the cards actually scrolling
  * into view are composed each frame (removes the atomic ~9-card compose spike).
  */
-@Suppress("UNUSED_PARAMETER")
 fun LazyStaggeredGridScope.forYouItems(
     recommendations: StableEpisodeList,
-    currentPlayingEpisodeId: String?,
-    isPlaying: Boolean,
     onEpisodeClick: (Episode, Podcast) -> Unit,
-    onPlayEpisode: (Episode, Podcast) -> Unit,
     timeBlock: CuratedTimeBlock?,
-    onSeeAllClick: () -> Unit,
     showTasteHeader: Boolean = true,
     isFallback: Boolean = true
 ) {
