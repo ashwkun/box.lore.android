@@ -21,6 +21,9 @@ interface PodcastDao {
     
     @Query("SELECT * FROM podcasts WHERE podcastId = :id")
     suspend fun getPodcast(id: String): PodcastEntity?
+
+    @Query("SELECT * FROM podcasts WHERE podcastId IN (:ids)")
+    suspend fun getPodcastsByIds(ids: List<String>): List<PodcastEntity>
     
     @Query("UPDATE podcasts SET isSubscribed = :isSubscribed WHERE podcastId = :id")
     suspend fun setSubscribed(id: String, isSubscribed: Boolean)

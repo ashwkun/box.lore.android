@@ -39,6 +39,10 @@ android {
         abortOnError = false
         checkReleaseBuilds = true
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = false
+    }
 }
 
 dependencies {
@@ -81,4 +85,5 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

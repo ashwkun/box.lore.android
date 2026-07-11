@@ -112,10 +112,10 @@ class PlaybackRepository(
     private var sleepTimerJob: Job? = null
     private var likeStateObserverJob: Job? = null
     
-    // Queue auto-refill callback - set by QueueManager
-    private val QUEUE_REFILL_THRESHOLD = 3
     private val QUEUE_MAX_SIZE = 50
-    var queueRefillCallback: ((currentEpisode: Episode, podcast: Podcast) -> Unit)? = null
+
+    // Local memory of rejected auto-fill suggestions (feeds the SmartQueueEngine).
+    private val queueSkipMemory = QueueSkipMemory.fromContext(context)
 
     init {
         getOrCreateDeviceUuid()
@@ -874,19 +874,24 @@ class PlaybackRepository(
                             val historyItem = listeningHistoryDao.getHistoryItem(newEpisode.id)
                             if (historyItem != null && !historyItem.isCompleted && historyItem.progressMs > 2000) {
                                 android.util.Log.d("PlaybackRepo", "onMediaItemTransition: Restoring saved position ${historyItem.progressMs}ms for ${newEpisode.title}")
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                repositoryScope.launch {
                                     mediaController?.seekTo(historyItem.progressMs)
                                 }
                             }
                         }
 
-                        // 6. Auto-refill when queue is running low
-                        val currentQueueSize = _playerState.value.queue.size
-                        val isLearn = mediaItem.mediaId.startsWith(LEARN_PREFIX)
-                        if (currentQueueSize < QUEUE_REFILL_THRESHOLD && newPodcast != null && !isLearn) {
-                            android.util.Log.d("PlaybackRepo", "Queue running low ($currentQueueSize items). Triggering auto-refill.")
-                            queueRefillCallback?.invoke(newEpisode, newPodcast)
-                        }
+                        // NOTE: auto-refill is owned exclusively by BoxLorePlaybackService's
+                        // transition listener (single guarded path, works with UI closed).
+                        // Items it appends are picked up by onTimelineChanged below.
+                    }
+                }
+
+                override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                    // The playback service (auto-refill, Android Auto) can append items
+                    // directly to the player. Reconcile the in-memory queue whenever the
+                    // playlist changes so the UI stays in sync.
+                    if (reason == androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                        reconcileQueueWithController()
                     }
                 }
             })
@@ -1061,6 +1066,76 @@ class PlaybackRepository(
         } catch (e: Exception) {
             android.util.Log.e("PlaybackRepo", "syncQueueToDb: Failed", e)
         }
+    }
+
+    /**
+     * Rebuilds PlayerState.queue from the controller's playlist when the two diverge —
+     * e.g. after the playback service auto-refilled the queue or Android Auto appended
+     * items directly to the player. Episode metadata is resolved from the in-memory
+     * queue first, then the persisted queue rows (which carry contextType/source for
+     * the queue-sheet labels), then the MediaItem itself as a last resort.
+     */
+    private fun reconcileQueueWithController() {
+        val controller = mediaController ?: return
+        if (controller.mediaItemCount == 0) return
+        val start = controller.currentMediaItemIndex.coerceAtLeast(0)
+        val orderedIds = (start until controller.mediaItemCount).map {
+            QueueMath.stripMediaIdPrefixes(controller.getMediaItemAt(it).mediaId)
+        }
+        if (orderedIds == _playerState.value.queue.map { it.id }) return
+
+        repositoryScope.launch {
+            var dbItems = try {
+                queueRepository.getQueueSnapshot().associateBy { it.id }
+            } catch (e: Exception) { emptyMap() }
+
+            // The service persists refill rows just before appending to the player; give
+            // a slow write one retry before falling back to bare MediaItem metadata.
+            val knownNow = _playerState.value.queue.associateBy { it.id }
+            if (orderedIds.any { it !in knownNow && it !in dbItems }) {
+                kotlinx.coroutines.delay(400)
+                dbItems = try {
+                    queueRepository.getQueueSnapshot().associateBy { it.id }
+                } catch (e: Exception) { dbItems }
+            }
+
+            // Re-read the controller: the playlist may have changed again meanwhile.
+            val controllerNow = mediaController ?: return@launch
+            if (controllerNow.mediaItemCount == 0) return@launch
+            val startNow = controllerNow.currentMediaItemIndex.coerceAtLeast(0)
+            val idsNow = (startNow until controllerNow.mediaItemCount).map {
+                QueueMath.stripMediaIdPrefixes(controllerNow.getMediaItemAt(it).mediaId)
+            }
+            val latestQueue = _playerState.value.queue
+            if (idsNow == latestQueue.map { it.id }) return@launch
+
+            val known = latestQueue.associateBy { it.id }
+            val newQueue = idsNow.mapIndexed { offset, id ->
+                known[id] ?: dbItems[id]
+                    ?: buildEpisodeFromMediaItem(controllerNow.getMediaItemAt(startNow + offset), id)
+            }
+            android.util.Log.d("PlaybackRepo", "reconcileQueueWithController: ${latestQueue.size} -> ${newQueue.size} items")
+            _playerState.value = _playerState.value.copy(queue = newQueue)
+        }
+    }
+
+    private fun buildEpisodeFromMediaItem(item: MediaItem, episodeId: String): Episode {
+        val metadata = item.mediaMetadata
+        return Episode(
+            id = episodeId,
+            title = metadata.title?.toString() ?: "Episode",
+            description = "",
+            audioUrl = item.localConfiguration?.uri?.toString() ?: "",
+            imageUrl = metadata.artworkUri?.toString(),
+            podcastImageUrl = metadata.artworkUri?.toString(),
+            podcastTitle = metadata.subtitle?.toString() ?: metadata.artist?.toString(),
+            podcastArtist = metadata.artist?.toString(),
+            podcastGenre = metadata.genre?.toString(),
+            duration = 0,
+            publishedDate = 0L,
+            // Items we didn't add locally were appended by the service refill path.
+            contextType = "AUTO_FILL"
+        )
     }
 
     private fun buildMediaItems(episodes: List<Episode>, podcast: Podcast, entryPointContext: android.os.Bundle?): List<MediaItem> {
@@ -1372,53 +1447,231 @@ class PlaybackRepository(
 
 
 
-    suspend fun removeFromQueue(episodeId: String) {
+    /**
+     * Snapshot of a removed queue item, returned so the UI can offer Undo and so the
+     * skip signal (analytics + skip memory) can be deferred until the undo window lapses.
+     */
+    data class RemovedQueueItem(
+        val episode: Episode,
+        val queueIndex: Int,
+        val mediaIndex: Int,
+        val contextType: String?,
+        val contextSourceId: String?
+    )
+
+    /**
+     * Removes an episode from the queue (Media3 + in-memory + DB).
+     *
+     * @param deferSkipSignal when true, the AUTO_FILL rejection signal is NOT recorded
+     *   here — the caller must invoke [confirmQueueRemoval] once the undo window lapses
+     *   (or [undoQueueRemoval] if the user undoes), so an undone remove doesn't count
+     *   as a rejection.
+     * @return removal info for undo, or null if the episode wasn't in the queue.
+     */
+    suspend fun removeFromQueue(episodeId: String, deferSkipSignal: Boolean = false): RemovedQueueItem? {
         if (mediaController == null) {
             mediaController = mediaControllerFuture?.await()
         }
-        
-        try {
-            val queueItem = queueRepository.getQueueItemByEpisodeId(episodeId)
-            if (queueItem != null && queueItem.contextType == "AUTO_FILL") {
-                var positionInQueue = -1
-                mediaController?.let { controller ->
-                    for (i in 0 until controller.mediaItemCount) {
-                        if (controller.getMediaItemAt(i).mediaId.removePrefix(LEARN_PREFIX) == episodeId) {
-                            positionInQueue = i
-                            break
-                        }
-                    }
-                }
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
-                    episodeId = episodeId,
-                    recommendationSource = queueItem.contextSourceId ?: "unknown",
-                    positionInQueue = positionInQueue
-                )
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("PlaybackRepo", "Failed to track skip for $episodeId", e)
+
+        val queueItem = try {
+            queueRepository.getQueueItemByEpisodeId(episodeId)
+        } catch (e: Exception) { null }
+
+        val currentQueue = _playerState.value.queue
+        val queueIndex = currentQueue.indexOfFirst { it.id == episodeId }
+
+        var mediaIndex = -1
+        mediaController?.let { controller ->
+            val mediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
+            mediaIndex = QueueMath.mediaIndexOfEpisode(mediaIds, episodeId)
+        }
+
+        val removedInfo = if (queueIndex != -1) {
+            val episode = currentQueue[queueIndex]
+            RemovedQueueItem(
+                episode = episode.copy(
+                    contextType = queueItem?.contextType ?: episode.contextType,
+                    contextSourceId = queueItem?.contextSourceId ?: episode.contextSourceId
+                ),
+                queueIndex = queueIndex,
+                mediaIndex = mediaIndex,
+                contextType = queueItem?.contextType ?: episode.contextType,
+                contextSourceId = queueItem?.contextSourceId ?: episode.contextSourceId
+            )
+        } else null
+
+        if (!deferSkipSignal && removedInfo != null) {
+            confirmQueueRemoval(removedInfo)
         }
 
         var removedFromController = false
         mediaController?.let { controller ->
-            for (i in 0 until controller.mediaItemCount) {
-                val item = controller.getMediaItemAt(i)
-                if (item.mediaId.removePrefix(LEARN_PREFIX) == episodeId) {
-                    controller.removeMediaItem(i)
-                    removedFromController = true
-                    break
-                }
+            if (mediaIndex != -1) {
+                controller.removeMediaItem(mediaIndex)
+                removedFromController = true
             }
         }
 
         // Always update local state and sync to DB, even if the item wasn't in Media3 playlist
-        val currentQueue = _playerState.value.queue
         val existsInLocalQueue = currentQueue.any { it.id == episodeId }
         
         if (existsInLocalQueue || !removedFromController) {
             val newQueue = currentQueue.filter { it.id != episodeId }
             _playerState.value = _playerState.value.copy(queue = newQueue)
             syncQueueToDb()
+        }
+        return removedInfo
+    }
+
+    /**
+     * Records the rejection signal for a removed AUTO_FILL item: PostHog analytics plus
+     * local skip memory (so the SmartQueueEngine stops re-suggesting it and can
+     * down-rank the podcast). Called immediately on remove, or after the undo window.
+     */
+    fun confirmQueueRemoval(removed: RemovedQueueItem) {
+        if (removed.contextType != "AUTO_FILL") return
+        try {
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
+                episodeId = removed.episode.id,
+                recommendationSource = removed.contextSourceId ?: "unknown",
+                positionInQueue = removed.mediaIndex
+            )
+            queueSkipMemory.recordSkip(
+                episodeId = removed.episode.id,
+                podcastId = removed.episode.podcastId,
+                source = removed.contextSourceId
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("PlaybackRepo", "Failed to record queue removal signal for ${removed.episode.id}", e)
+        }
+    }
+
+    /** Re-inserts a removed episode at its original position (Media3 + state + DB). */
+    suspend fun undoQueueRemoval(removed: RemovedQueueItem) {
+        val episode = removed.episode
+        if (_playerState.value.queue.any { it.id == episode.id }) return
+        if (mediaController == null) {
+            mediaController = mediaControllerFuture?.await()
+        }
+        val controller = mediaController ?: return
+
+        val isLore = removed.contextType == QueueMath.CONTEXT_TYPE_LORE
+        val mediaId = if (isLore) "$LEARN_PREFIX${episode.id}" else episode.id
+        val resolvedUrl = episode.imageUrl?.takeIf { it.isNotBlank() }
+            ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ""
+        val metadata = androidx.media3.common.MediaMetadata.Builder()
+            .setTitle(episode.title)
+            .setArtist(episode.podcastTitle ?: "")
+            .setArtworkUri(android.net.Uri.parse(resolvedUrl))
+            .setDisplayTitle(episode.title)
+            .setSubtitle(episode.podcastTitle ?: "")
+            .setGenre(episode.podcastGenre ?: "Podcast")
+            .build()
+        val mediaItem = MediaItem.Builder()
+            .setUri(episode.audioUrl)
+            .setMediaMetadata(metadata)
+            .setMediaId(mediaId)
+            .setCustomCacheKey(episode.id)
+            .build()
+
+        val insertMediaIndex = removed.mediaIndex
+            .takeIf { it in 0..controller.mediaItemCount }
+            ?: controller.mediaItemCount
+        controller.addMediaItem(insertMediaIndex, mediaItem)
+
+        val currentQueue = _playerState.value.queue.toMutableList()
+        val insertQueueIndex = removed.queueIndex.coerceIn(0, currentQueue.size)
+        currentQueue.add(insertQueueIndex, episode)
+        _playerState.value = _playerState.value.copy(queue = currentQueue.toList())
+        syncQueueToDb()
+    }
+
+    /**
+     * Moves a queue item to a new position, updating all three layers in order:
+     * Media3 playlist (no playback interruption), in-memory PlayerState.queue, and —
+     * via [persistQueueOrder], typically debounced to drag end — the Room queue table.
+     *
+     * Indices are PlayerState.queue indices; index 0 (the playing item) is pinned.
+     */
+    fun moveQueueItem(fromQueueIndex: Int, toQueueIndex: Int) {
+        val queue = _playerState.value.queue
+        if (fromQueueIndex == toQueueIndex) return
+        if (fromQueueIndex !in queue.indices || toQueueIndex !in queue.indices) return
+        if (fromQueueIndex == 0 || toQueueIndex == 0) return
+
+        val controller = mediaController ?: return
+        val episode = queue[fromQueueIndex]
+
+        // Resolve Media3 indices by mediaId (with learn-prefix stripped), never by raw
+        // queue index: the playlist can retain already-played items before the current one.
+        val mediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
+        val fromMedia = QueueMath.mediaIndexOfEpisode(mediaIds, episode.id)
+        if (fromMedia != -1) {
+            val base = QueueMath.mediaIndexOfEpisode(mediaIds, queue[0].id)
+                .takeIf { it != -1 } ?: controller.currentMediaItemIndex.coerceAtLeast(0)
+            val toMedia = (base + toQueueIndex).coerceIn(0, controller.mediaItemCount - 1)
+            controller.moveMediaItem(fromMedia, toMedia)
+        }
+
+        _playerState.value = _playerState.value.copy(
+            queue = QueueMath.moveItem(queue, fromQueueIndex, toQueueIndex)
+        )
+    }
+
+    /**
+     * Persists the current queue order to Room (called once on drag end so rapid moves
+     * don't thrash the DB) and emits the reorder analytics event.
+     */
+    suspend fun persistQueueOrder(movedEpisodeId: String? = null, fromQueueIndex: Int = -1, toQueueIndex: Int = -1) {
+        val queue = _playerState.value.queue
+        try {
+            queueRepository.reorderQueue(queue.map { it.id })
+        } catch (e: Exception) {
+            android.util.Log.e("PlaybackRepo", "persistQueueOrder: Failed", e)
+        }
+        if (movedEpisodeId != null && fromQueueIndex != toQueueIndex && fromQueueIndex >= 0 && toQueueIndex >= 0) {
+            val contextType = queue.firstOrNull { it.id == movedEpisodeId }?.contextType
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackQueueReordered(
+                episodeId = movedEpisodeId,
+                fromPosition = fromQueueIndex,
+                toPosition = toQueueIndex,
+                contextType = contextType
+            )
+        }
+    }
+
+    /**
+     * True when the current queue contains any normal (non-Lore) item. Checks the live
+     * player first, then the persisted queue rows (which survive process restarts).
+     */
+    suspend fun hasNonLoreQueue(): Boolean {
+        if (mediaController == null) {
+            mediaController = mediaControllerFuture?.await()
+        }
+        val controller = mediaController
+        if (controller != null && controller.mediaItemCount > 0) {
+            val mediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
+            return QueueMath.hasNonLoreMediaIds(mediaIds)
+        }
+        val snapshot = try { queueRepository.getQueueSnapshot() } catch (e: Exception) { emptyList() }
+        return snapshot.isNotEmpty() && QueueMath.hasNonLoreContextTypes(snapshot.map { it.contextType })
+    }
+
+    /**
+     * Stops playback and clears the queue everywhere (player + state + DB). Used when
+     * the user confirms starting a fresh Lore queue over an existing normal queue.
+     */
+    suspend fun stopAndClearQueue() {
+        mediaController?.stop()
+        mediaController?.clearMediaItems()
+        stopProgressTicker()
+        _playerState.value = PlayerState()
+        // A new queue is about to start; don't block session restore on next launch.
+        prefs.edit().putBoolean(KEY_PLAYER_DISMISSED, false).apply()
+        try {
+            queueRepository.clearQueue()
+        } catch (e: Exception) {
+            android.util.Log.e("PlaybackRepo", "stopAndClearQueue: Failed to clear DB queue", e)
         }
     }
 

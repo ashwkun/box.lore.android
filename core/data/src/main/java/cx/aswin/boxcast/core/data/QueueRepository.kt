@@ -228,7 +228,27 @@ class QueueRepository @Inject constructor(
         return queueDao.getQueueItemByEpisodeId(episodeId)
     }
 
-    suspend fun reorderQueue(items: List<EpisodeItem>) {
-        // Deferred
+    /**
+     * Rewrites row positions to match the given episode-id order (a Room transaction via
+     * the DAO), preserving each row's contextType/contextSourceId provenance.
+     * Ids not present in the DB are ignored; rows not present in the list keep their
+     * position but are pushed after the reordered block.
+     */
+    suspend fun reorderQueue(orderedEpisodeIds: List<String>) {
+        val items = queueDao.getAllQueueItemsSync()
+        if (items.isEmpty() || orderedEpisodeIds.isEmpty()) return
+
+        val byEpisodeId = items.associateBy { it.episodeId }
+        val reordered = mutableListOf<QueueItem>()
+        orderedEpisodeIds.forEach { episodeId ->
+            byEpisodeId[episodeId]?.let { reordered.add(it) }
+        }
+        // Keep any rows that weren't part of the provided order (defensive) at the tail.
+        val coveredIds = reordered.map { it.episodeId }.toSet()
+        items.filter { it.episodeId !in coveredIds }.forEach { reordered.add(it) }
+
+        val updated = reordered.mapIndexed { index, item -> item.copy(position = index) }
+        android.util.Log.d(TAG, "reorderQueue: Rewriting positions for ${updated.size} items")
+        queueDao.updateQueuePositions(updated)
     }
 }

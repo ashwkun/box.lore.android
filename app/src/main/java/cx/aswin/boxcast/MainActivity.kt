@@ -461,12 +461,62 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            // 5. Smart Queue Engine
-            val smartQueueEngine = remember { cx.aswin.boxcast.core.data.DefaultSmartQueueEngine(podcastRepository, database.listeningHistoryDao(), subscriptionRepository) }
-            
             // QueueManager (Singleton-ish) - Needs to be provided to ViewModels/Screens
+            // NOTE: auto-refill lives service-side (BoxLorePlaybackService owns the single
+            // SmartQueueEngine instance); the UI layer only performs explicit queue actions.
             val queueManager = remember { 
-                cx.aswin.boxcast.core.data.QueueManager(queueRepository, smartQueueEngine, playbackRepository, podcastRepository)
+                cx.aswin.boxcast.core.data.QueueManager(queueRepository, playbackRepository)
+            }
+
+            // Lore queue independence: queueing from the Lore card stack over an existing
+            // normal queue requires explicit confirmation (it clears the normal queue).
+            var loreQueueConflictEpisode by remember {
+                mutableStateOf<cx.aswin.boxcast.core.model.Episode?>(null)
+            }
+            val queueLoreEpisode: (cx.aswin.boxcast.core.model.Episode) -> Unit = { episode ->
+                val podcast = cx.aswin.boxcast.core.model.Podcast(
+                    id = episode.podcastId ?: "unknown",
+                    title = episode.podcastTitle ?: "Unknown Podcast",
+                    artist = episode.podcastTitle ?: "Unknown",
+                    imageUrl = episode.podcastImageUrl ?: episode.imageUrl ?: ""
+                )
+                queueManager.addToQueue(episode, podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint.LEARN)
+            }
+
+            loreQueueConflictEpisode?.let { pendingLoreEpisode ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = {
+                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "cancelled")
+                        loreQueueConflictEpisode = null
+                    },
+                    title = { Text("Start a Lore queue?") },
+                    text = {
+                        Text(
+                            "Adding from Lore starts a fresh Lore queue and clears your current queue. " +
+                                "To keep your queue instead, tap the card to open the episode and use \"Add to Queue\" there."
+                        )
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            loreQueueConflictEpisode = null
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "start_lore_queue")
+                            scope.launch {
+                                try {
+                                    playbackRepository.stopAndClearQueue()
+                                    queueLoreEpisode(pendingLoreEpisode)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainActivity", "Failed to start Lore queue", e)
+                                }
+                            }
+                        }) { Text("Start Lore queue") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "cancelled")
+                            loreQueueConflictEpisode = null
+                        }) { Text("Cancel") }
+                    }
+                )
             }
 
             val smartDownloadManager = remember {
@@ -1352,13 +1402,23 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate(route)
                                     },
                                     onQueueEpisode = { episode ->
-                                        val podcast = cx.aswin.boxcast.core.model.Podcast(
-                                            id = episode.podcastId ?: "unknown",
-                                            title = episode.podcastTitle ?: "Unknown Podcast",
-                                            artist = episode.podcastTitle ?: "Unknown",
-                                            imageUrl = episode.podcastImageUrl ?: episode.imageUrl ?: ""
-                                        )
-                                         queueManager.addToQueue(episode, podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint.LEARN)
+                                        scope.launch {
+                                            try {
+                                                // A normal queue exists: warn before clearing it for a
+                                                // Lore queue. Lore-only or empty queues append silently.
+                                                if (playbackRepository.hasNonLoreQueue()) {
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictShown(
+                                                        episodeId = episode.id,
+                                                        normalQueueSize = playbackRepository.playerState.value.queue.size
+                                                    )
+                                                    loreQueueConflictEpisode = episode
+                                                } else {
+                                                    queueLoreEpisode(episode)
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("MainActivity", "Failed to queue Lore episode", e)
+                                            }
+                                        }
                                     },
                                     onPodcastClick = { feedId, itunesId, feedUrl, title ->
                                         val pId = feedId?.toString() ?: ""

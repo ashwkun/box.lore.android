@@ -54,11 +54,19 @@ class BoxLorePlaybackService : MediaLibraryService() {
     private val subscriptionRepository by lazy {
         cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
     }
+    private val queueSkipMemory by lazy {
+        cx.aswin.boxcast.core.data.QueueSkipMemory.fromContext(this)
+    }
     private val smartQueueEngine by lazy {
         cx.aswin.boxcast.core.data.DefaultSmartQueueEngine(
-            podcastRepository = podcastRepository,
-            listeningHistoryDao = database.listeningHistoryDao(),
-            subscriptionRepository = subscriptionRepository
+            sources = cx.aswin.boxcast.core.data.DefaultSmartQueueSources(
+                context = this,
+                database = database,
+                podcastRepository = podcastRepository,
+                subscriptionRepository = subscriptionRepository,
+                userPreferencesRepository = userPreferencesRepository
+            ),
+            skipMemory = queueSkipMemory
         )
     }
     private val queueRepository by lazy {
@@ -239,7 +247,11 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 val currentItem = player.currentMediaItem
                 val isLearn = currentItem?.mediaId?.startsWith(LEARN_PREFIX) == true
 
-                if (remaining <= 2 && !isRefilling && player.mediaItemCount > 0 && !isLearn) {
+                // Sleep-timer guard: when playback will stop at the end of this episode,
+                // refilling would fetch episodes the player is about to abandon.
+                val sleepingAtEndOfEpisode = cx.aswin.boxcast.core.data.SleepTimerHolder.sleepAtEndOfEpisode
+
+                if (remaining <= 2 && !isRefilling && player.mediaItemCount > 0 && !isLearn && !sleepingAtEndOfEpisode) {
                     isRefilling = true
                     serviceScope.launch {
                         try {
@@ -699,13 +711,24 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     pauseReason = pauseReason
                 )
 
-                // Track skip if it's a transition skip within 30 seconds for an AUTO_FILL episode
+                // Track skip if it's a transition skip within 30 seconds for an AUTO_FILL episode.
+                // Also feed local skip memory so the SmartQueueEngine never re-suggests it
+                // and can down-rank the podcast after repeated rejections.
                 if (isTransition && durationPlayedSeconds <= 30f && playbackSessionContextType == "AUTO_FILL") {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
                         episodeId = currentEpisodeId,
                         recommendationSource = playbackSessionContextSourceId ?: "unknown",
                         positionInQueue = 0
                     )
+                    try {
+                        queueSkipMemory.recordSkip(
+                            episodeId = currentEpisodeId,
+                            podcastId = currentPodcastId,
+                            source = playbackSessionContextSourceId
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("AutoQueue", "Failed to record skip memory", e)
+                    }
                 }
             }
             
@@ -759,8 +782,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
     }
 
     /**
-     * SmartQueue refill: called when the player queue is running low.
-     * Uses SmartQueueEngine to find next episodes (same podcast → subscriptions → trending).
+     * SmartQueue refill: the single auto-refill path in the app (the UI-side triggers
+     * were removed). Uses the tiered SmartQueueEngine to build a batch of episodes
+     * (same podcast → resume → scored subscriptions → server recs → region trending).
      * Works independently of the app UI being open.
      */
     private suspend fun refillQueue(player: ExoPlayer) {
@@ -777,22 +801,33 @@ class BoxLorePlaybackService : MediaLibraryService() {
             return
         }
         
-        // Get podcast context (check DB first, then fallback to API)
-        val podcastId = findPodcastIdForEpisode(episodeId) ?: return
+        // Get podcast context (check DB first, then fallback to API).
+        // Briefings have no feed entry; synthesize a minimal podcast so the engine can
+        // run its fallback tiers (it detects the briefing_ prefix itself).
+        val isBriefing = episodeId.startsWith("briefing_")
+        val podcastId = if (isBriefing) episodeId else findPodcastIdForEpisode(episodeId) ?: return
         
-        val podcastEntity = database.podcastDao().getPodcast(podcastId)
-        val podcast = if (podcastEntity != null) {
-            cx.aswin.boxcast.core.model.Podcast(
+        val podcastEntity = if (isBriefing) null else database.podcastDao().getPodcast(podcastId)
+        val podcast = when {
+            podcastEntity != null -> cx.aswin.boxcast.core.model.Podcast(
                 id = podcastEntity.podcastId,
                 title = podcastEntity.title,
                 artist = podcastEntity.author,
                 imageUrl = podcastEntity.imageUrl,
                 description = podcastEntity.description,
-                genre = podcastEntity.genre ?: "Podcast"
+                genre = podcastEntity.genre ?: "Podcast",
+                type = podcastEntity.type,
+                preferredSort = podcastEntity.preferredSort
             )
-        } else {
+            isBriefing -> cx.aswin.boxcast.core.model.Podcast(
+                id = "briefing_daily",
+                title = metadata.subtitle?.toString() ?: "Daily Briefing",
+                artist = "",
+                imageUrl = metadata.artworkUri?.toString() ?: "",
+                genre = "News"
+            )
             // Fallback to API if not in local DB (e.g. unsubscribed podcast from history)
-            podcastRepository.getPodcastDetails(podcastId) ?: return
+            else -> podcastRepository.getPodcastDetails(podcastId) ?: return
         }
         
         // Build the EpisodeItem for SmartQueueEngine
@@ -805,92 +840,111 @@ class BoxLorePlaybackService : MediaLibraryService() {
             feedImage = podcast.imageUrl
         )
         
-        val nextEntries = smartQueueEngine.getNextEpisodes(currentEpisodeItem, podcast)
-        android.util.Log.d("AutoQueue", "SmartQueue returned ${nextEntries.size} episodes")
-        
-        if (nextEntries.isNotEmpty()) {
-            val refilledEpisodeIds = mutableListOf<String>()
-            val recommendationSources = mutableListOf<String>()
- 
-            // Collect existing mediaIds to avoid duplicates
-            val existingIds = kotlinx.coroutines.withContext(mainDispatcher) {
-                (0 until player.mediaItemCount).map { 
-                    player.getMediaItemAt(it).mediaId.removePrefix(LEARN_PREFIX).removePrefix(EPISODE_PREFIX).removePrefix(QUEUE_PREFIX)
-                }.toSet()
-            }
-            
-            // Add to player queue on main thread
-            kotlinx.coroutines.withContext(mainDispatcher) {
-                nextEntries.forEach { entry ->
-                    val ep = entry.episode
-                    val pod = entry.podcast
-                    val epIdStr = ep.id.toString()
-                    
-                    // Skip duplicates
-                    if (epIdStr in existingIds) {
-                        android.util.Log.d("AutoQueue", "Skipping duplicate: ${ep.title} ($epIdStr)")
-                        return@forEach
-                    }
-                    
-                    val epImageUrl = ep.image
-                    val podImageUrl = ep.feedImage ?: pod.imageUrl
-                    val finalImageUrl = epImageUrl ?: podImageUrl
-                    android.util.Log.d("BoxCastPlayer", "refillQueue: epId=${ep.id}, ep.image='$epImageUrl', pod.imageUrl='$podImageUrl', finalImageUrl='$finalImageUrl'")
-                    val artworkUri = finalImageUrl.let { android.net.Uri.parse(it) }
-                    
-                    // Use raw ID — same format as PlaybackRepository (L1 fix)
-                    val mediaItem = MediaItem.Builder()
-                        .setMediaId(epIdStr)
-                        .setUri(ep.enclosureUrl ?: "")
-                        .setMediaMetadata(
-                            MediaMetadata.Builder()
-                                .setTitle(ep.title)
-                                .setSubtitle(pod.title)
-                                .setArtist(pod.artist)
-                                .setArtworkUri(artworkUri)
-                                .setDisplayTitle(ep.title)
-                                .setGenre(pod.genre)
-                                .setIsPlayable(true)
-                                .setIsBrowsable(false)
-                                .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
-                                .build()
-                        )
-                        .build()
-                    
-                    player.addMediaItem(mediaItem)
-                    refilledEpisodeIds.add(epIdStr)
-                    recommendationSources.add(entry.source)
-                }
-                android.util.Log.d("AutoQueue", "Added ${refilledEpisodeIds.size} items. Queue now: ${player.mediaItemCount}")
-            }
-            
-            // Persist to QueueRepository so PlaybackRepository and UI stay in sync (C2 fix)
-            nextEntries.forEach { entry ->
-                val epIdStr = entry.episode.id.toString()
-                if (epIdStr in refilledEpisodeIds) {
-                    try {
-                        queueRepository.addToQueue(
-                            episode = entry.episode,
-                            podcast = entry.podcast,
-                            contextType = "AUTO_FILL",
-                            contextSourceId = entry.source
-                        )
-                    } catch (e: Exception) {
-                        android.util.Log.e("AutoQueue", "Failed to persist queue item: ${entry.episode.title}", e)
-                    }
-                }
-            }
+        // Everything already in the player is off-limits for the engine.
+        val existingIds = kotlinx.coroutines.withContext(mainDispatcher) {
+            (0 until player.mediaItemCount).map {
+                player.getMediaItemAt(it).mediaId.removePrefix(LEARN_PREFIX).removePrefix(EPISODE_PREFIX).removePrefix(QUEUE_PREFIX)
+            }.toSet()
+        }
 
-            if (refilledEpisodeIds.isNotEmpty()) {
-                val uniqueSources = recommendationSources.distinct()
-                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueRefilled(
+        android.util.Log.d(
+            "AutoQueue",
+            "Refill context: podcastId=${podcast.id}, type=${podcast.type}, " +
+                "preferredSort=${podcastEntity?.preferredSort ?: podcast.preferredSort}, genre=${podcast.genre}"
+        )
+        val currentContextSourceId = database.queueDao().getQueueItemByEpisodeId(episodeId)?.contextSourceId
+        val nextEntries = smartQueueEngine.getNextEpisodes(
+            currentEpisode = currentEpisodeItem,
+            podcast = podcast,
+            preferredSort = podcastEntity?.preferredSort,
+            excludeEpisodeIds = existingIds,
+            currentContextSourceId = currentContextSourceId
+        )
+        android.util.Log.d(
+            "AutoQueue",
+            "SmartQueue returned ${nextEntries.size} episodes: ${nextEntries.groupingBy { it.source }.eachCount()}"
+        )
+        if (nextEntries.isEmpty()) return
+
+        // Respect the queue cap when appending the batch.
+        val room = (QUEUE_MAX_SIZE - player.mediaItemCount).coerceAtLeast(0)
+        val entriesToAdd = nextEntries
+            .filter { it.episode.id.toString() !in existingIds }
+            .take(room)
+        if (entriesToAdd.isEmpty()) return
+
+        // Persist FIRST so PlaybackRepository's timeline reconciliation finds the rows
+        // (with contextType/source for queue-sheet labels) when the player callback fires.
+        entriesToAdd.forEach { entry ->
+            try {
+                queueRepository.addToQueue(
+                    episode = entry.episode,
+                    podcast = entry.podcast,
+                    contextType = "AUTO_FILL",
+                    contextSourceId = entry.source
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("AutoQueue", "Failed to persist queue item: ${entry.episode.title}", e)
+            }
+        }
+
+        val refilledEpisodeIds = mutableListOf<String>()
+        val recommendationSources = mutableListOf<String>()
+
+        // Add to player queue on main thread
+        kotlinx.coroutines.withContext(mainDispatcher) {
+            entriesToAdd.forEach { entry ->
+                val ep = entry.episode
+                val pod = entry.podcast
+                val epIdStr = ep.id.toString()
+                
+                val finalImageUrl = ep.image ?: ep.feedImage ?: pod.imageUrl
+                val artworkUri = finalImageUrl.let { android.net.Uri.parse(it) }
+                
+                // Use raw ID — same format as PlaybackRepository (L1 fix)
+                val mediaItem = MediaItem.Builder()
+                    .setMediaId(epIdStr)
+                    .setUri(ep.enclosureUrl ?: "")
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(ep.title)
+                            .setSubtitle(pod.title)
+                            .setArtist(pod.artist)
+                            .setArtworkUri(artworkUri)
+                            .setDisplayTitle(ep.title)
+                            .setGenre(pod.genre)
+                            .setIsPlayable(true)
+                            .setIsBrowsable(false)
+                            .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
+                            .build()
+                    )
+                    .build()
+                
+                player.addMediaItem(mediaItem)
+                refilledEpisodeIds.add(epIdStr)
+                recommendationSources.add(entry.source)
+            }
+            android.util.Log.d("AutoQueue", "Added ${refilledEpisodeIds.size} items. Queue now: ${player.mediaItemCount}")
+        }
+
+        if (refilledEpisodeIds.isNotEmpty()) {
+            val region = try {
+                userPreferencesRepository.regionStream.first()
+            } catch (e: Exception) { null }
+            val sourceCounts = recommendationSources.groupingBy { it }.eachCount()
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueRefilled(
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.SmartQueueRefillEvent(
                     triggeringEpisodeId = episodeId,
                     triggeringPodcastGenre = podcast.genre ?: "Podcast",
                     refilledCount = refilledEpisodeIds.size,
-                    recommendationSources = uniqueSources,
-                    refilledEpisodeIds = refilledEpisodeIds
+                    recommendationSources = recommendationSources.distinct(),
+                    refilledEpisodeIds = refilledEpisodeIds,
+                    region = region,
+                    sourceCounts = sourceCounts,
+                    usedServerRecommendations = cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_PERSONALIZED_REC in sourceCounts ||
+                        cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_SERVER_REC in sourceCounts
                 )
-            }
+            )
         }
     }
 
@@ -1620,53 +1674,35 @@ class BoxLorePlaybackService : MediaLibraryService() {
             }.toMutableList()
         }
 
+        /**
+         * Android Auto browse plays a single episode; this routes the follow-up queue
+         * build through the same guarded SmartQueueEngine refill path as the transition
+         * listener (shared isRefilling flag), so Auto no longer bypasses dedup/ranking
+         * or persists rows without provenance.
+         */
         private fun buildAndAppendQueueAsync(episodeId: String, mediaSession: MediaSession) {
             serviceScope.launch {
                 try {
-                    val podcastId = findPodcastIdForEpisode(episodeId)
-                    if (podcastId != null) {
-                        android.util.Log.d("AutoBrowse", "Async queue build: fetching episodes for $podcastId")
-                        val allEpisodes = podcastRepository.getEpisodes(podcastId)
-                        val podcastEntity = database.podcastDao().getPodcast(podcastId)
-                        
-                        val podcastApi = if (podcastEntity == null) podcastRepository.getPodcastDetails(podcastId) else null
-                        val podcastImageUrl = podcastEntity?.imageUrl ?: podcastApi?.imageUrl
-                        val podcastTitle = podcastEntity?.title ?: podcastApi?.title
-                        val podcastAuthor = podcastEntity?.author ?: podcastApi?.artist
-                        
-                        if (allEpisodes.isNotEmpty()) {
-                            val sorted = allEpisodes.sortedBy { it.publishedDate }
-                            val selectedIndex = sorted.indexOfFirst { it.id == episodeId }
-                            
-                            if (selectedIndex >= 0 && selectedIndex < sorted.size - 1) {
-                                val remainingQueue = sorted.subList(selectedIndex + 1, sorted.size)
-                                
-                                val mediaItemsToAdd = remainingQueue.map { episode ->
-                                    val artworkUri = (episode.imageUrl ?: podcastImageUrl)?.let { android.net.Uri.parse(it) }
-                                    
-                                    MediaItem.Builder()
-                                        .setMediaId("episode:${episode.id}")
-                                        .setUri(episode.audioUrl)
-                                        .setMediaMetadata(
-                                            MediaMetadata.Builder()
-                                                .setTitle(episode.title)
-                                                .setSubtitle(podcastTitle ?: episode.podcastTitle ?: "")
-                                                .setArtist(podcastAuthor ?: episode.podcastArtist ?: "")
-                                                .setArtworkUri(artworkUri)
-                                                .setIsPlayable(true)
-                                                .setIsBrowsable(false)
-                                                .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
-                                                .build()
-                                        )
-                                        .build()
-                                }
-                                
-                                kotlinx.coroutines.withContext(mainDispatcher) {
-                                    mediaSession.player.addMediaItems(mediaItemsToAdd)
-                                    android.util.Log.d("AutoBrowse", "Async queue built: appended ${mediaItemsToAdd.size} items")
-                                }
-                            }
-                        }
+                    val player = mediaSession.player as? ExoPlayer ?: return@launch
+                    // Wait briefly for the selected episode to become the current item so
+                    // the engine refills relative to it (playback start is asynchronous).
+                    var attempts = 0
+                    while (attempts < 20) {
+                        val currentId = player.currentMediaItem?.mediaId
+                            ?.removePrefix(LEARN_PREFIX)?.removePrefix(EPISODE_PREFIX)?.removePrefix(QUEUE_PREFIX)
+                        if (currentId == episodeId) break
+                        kotlinx.coroutines.delay(250)
+                        attempts++
+                    }
+                    if (isRefilling) {
+                        android.util.Log.d("AutoBrowse", "Refill already in flight; skipping Auto queue build")
+                        return@launch
+                    }
+                    isRefilling = true
+                    try {
+                        refillQueue(player)
+                    } finally {
+                        isRefilling = false
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("AutoBrowse", "Async queue build failed", e)

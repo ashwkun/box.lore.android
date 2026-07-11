@@ -11,73 +11,14 @@ import javax.inject.Singleton
 @Singleton
 class QueueManager @Inject constructor(
     private val queueRepository: QueueRepository,
-    private val smartQueueEngine: SmartQueueEngine,
-    private val playbackRepository: PlaybackRepository,
-    private val podcastRepository: PodcastRepository
+    private val playbackRepository: PlaybackRepository
 ) {
     private val TAG = "QueueManager"
     private val scope = CoroutineScope(Dispatchers.Main)
-    private var isRefilling = false
-    
-    init {
-        android.util.Log.d(TAG, "QueueManager initialized")
-        // Set up auto-refill callback
-        playbackRepository.queueRefillCallback = { currentEpisode, podcast ->
-            android.util.Log.d(TAG, "queueRefillCallback triggered for: ${currentEpisode.title}")
-            refillQueue(currentEpisode, podcast)
-        }
-    }
-    
-    /**
-     * Auto-refill queue when running low on episodes
-     */
-    private fun refillQueue(currentEpisode: cx.aswin.boxcast.core.model.Episode, podcast: cx.aswin.boxcast.core.model.Podcast) {
-        if (isRefilling) return
-        isRefilling = true
-        
-        scope.launch {
-            try {
-                android.util.Log.d(TAG, "Auto-refill triggered for: ${currentEpisode.title}")
-                
-                val currentItem = EpisodeItem(
-                    id = currentEpisode.id.toLongOrNull() ?: 0L,
-                    title = currentEpisode.title,
-                    description = currentEpisode.description,
-                    enclosureUrl = currentEpisode.audioUrl,
-                    duration = currentEpisode.duration,
-                    datePublished = currentEpisode.publishedDate,
-                    image = currentEpisode.imageUrl,
-                    feedImage = currentEpisode.podcastImageUrl
-                )
-                
-                val nextEntries = smartQueueEngine.getNextEpisodes(currentItem, podcast, null)
-                android.util.Log.d(TAG, "Auto-refill got ${nextEntries.size} more episodes")
-                
-                // Defensive dedup: skip any entry matching currently playing episode
-                val currentEpisodeId = currentEpisode.id
-                
-                nextEntries.forEach { entry ->
-                    val domainNext = entry.episode.toDomain(entry.podcast)
-                    
-                    // Skip if same ID as currently playing
-                    if (domainNext.id == currentEpisodeId) {
-                        android.util.Log.d(TAG, "Refill: Skipping duplicate '${domainNext.title}' (id=${domainNext.id})")
-                        return@forEach
-                    }
-                    
-                    // Add to Persistence
-                    queueRepository.addToQueue(entry.episode, entry.podcast)
-                    
-                    // Add to Active Player Queue
-                    playbackRepository.addToQueue(domainNext, entry.podcast)
-                }
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "Auto-refill failed", e)
-            } finally {
-                isRefilling = false
-            }
-        }
-    }
+
+    // NOTE: auto-refill is intentionally NOT handled here. BoxLorePlaybackService owns the
+    // single guarded refill path (it works with the UI closed and can't race a second
+    // trigger); this class only orchestrates explicit user actions.
 
     /**
      * Maps the rich "entry_point" string carried in the source bundle back to the coarse
@@ -105,7 +46,7 @@ class QueueManager @Inject constructor(
                 queueRepository.addToQueue(episode, podcast)
                 
                 // 3. Start playback IMMEDIATELY with just the current episode
-                // The queueRefillCallback will auto-fill more episodes when queue runs low
+                // The playback service auto-fills more episodes when the queue runs low
                 val domainEpisode = episode.toDomain(podcast)
                 val entryPoint = resolveEntryPoint(entryPointContext)
                 playbackRepository.playQueue(listOf(domainEpisode), podcast, 0, entryPoint, sourceContext = entryPointContext)
@@ -123,11 +64,15 @@ class QueueManager @Inject constructor(
         android.util.Log.d(TAG, "addToQueue called: episodeId=${episode.id}, title=${episode.title}, podcast=${podcast?.title}, entryPoint=$entryPoint")
         scope.launch {
             if (podcast != null) {
+                // Lore items carry their own contextType so queue-type detection is
+                // robust across restarts (see Lore queue independence).
+                val contextType = if (entryPoint == PlaybackEntryPoint.LEARN) QueueMath.CONTEXT_TYPE_LORE else "MANUAL"
+
                 // Persist
-                queueRepository.addToQueue(episode, podcast)
+                queueRepository.addToQueue(episode, podcast, contextType = contextType)
                 
-                // Add to Player
-                val domainEpisode = episode.toDomain(podcast)
+                // Add to Player (carry provenance so the queue sheet can label the row)
+                val domainEpisode = episode.toDomain(podcast).copy(contextType = contextType)
                 playbackRepository.addToQueue(domainEpisode, podcast, entryPoint)
                 android.util.Log.d(TAG, "addToQueue: Complete. Current queue size: ${playbackRepository.playerState.value.queue.size}")
             } else {
