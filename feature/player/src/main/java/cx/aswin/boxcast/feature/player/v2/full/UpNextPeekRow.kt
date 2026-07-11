@@ -29,6 +29,8 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.player.v2.chrome.PlayerChromeGeometry
 import cx.aswin.boxcast.feature.player.v2.chrome.playerSheetShape
+import cx.aswin.boxcast.feature.player.v2.logic.EpisodeCarouselLogic
+import cx.aswin.boxcast.feature.player.v2.logic.UpNextLogic
 
 @Composable
 fun UpNextPeekRow(
@@ -40,9 +42,7 @@ fun UpNextPeekRow(
     modifier: Modifier = Modifier,
     maxItems: Int = 2,
 ) {
-    val upNext = queue
-        .filter { it.id != currentEpisodeId }
-        .take(maxItems)
+    val upNext = UpNextLogic.upNextEpisodes(queue, currentEpisodeId, maxItems)
 
     if (upNext.isEmpty()) return
 
@@ -100,9 +100,7 @@ private fun UpNextPeekItem(
         PlayerChromeGeometry.QueueRowCorner,
         PlayerChromeGeometry.QueueRowCorner,
     )
-    val imageUrl = episode.imageUrl?.takeIf { it.isNotBlank() }
-        ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() }
-        ?: episode.podcastId?.let { podcasts[it]?.imageUrl }
+    val imageUrl = EpisodeCarouselLogic.resolveEpisodeImageUrl(episode, podcasts)
 
     Surface(
         modifier = modifier.clip(rowShape),

@@ -71,6 +71,7 @@ import cx.aswin.boxcast.feature.player.v2.chrome.playerSheetShape
 import cx.aswin.boxcast.feature.player.v2.full.FullPlayerV2
 import cx.aswin.boxcast.feature.player.v2.mini.MiniPlayerV2
 import cx.aswin.boxcast.feature.player.v2.mini.SwipeableMiniPlayerV2
+import cx.aswin.boxcast.feature.player.v2.logic.PlayerSheetDragLogic
 import cx.aswin.boxcast.feature.player.v2.motion.PlayerSheetMotionController
 import cx.aswin.boxcast.feature.player.v2.motion.rememberPlayerSheetVisualState
 import kotlinx.coroutines.launch
@@ -276,14 +277,20 @@ fun PlayerSheetV2(
                                 change.consume()
                                 accumulatedDragYSinceStart += dragAmount
                                 scope.launch {
-                                    val newY = (currentSheetTranslationY.value + dragAmount).coerceIn(
-                                        sheetExpandedTargetY - miniPlayerHeightPx * 0.2f,
-                                        sheetCollapsedTargetY + miniPlayerHeightPx * 0.2f,
+                                    val newY = PlayerSheetDragLogic.clampDragTranslationY(
+                                        proposedY = currentSheetTranslationY.value + dragAmount,
+                                        expandedY = sheetExpandedTargetY,
+                                        collapsedY = sheetCollapsedTargetY,
+                                        miniPlayerHeightPx = miniPlayerHeightPx,
                                     )
                                     currentSheetTranslationY.snapTo(newY)
-                                    val denom = (sheetCollapsedTargetY - sheetExpandedTargetY).coerceAtLeast(1f)
-                                    val dragRatio = (initialYOnDragStart - newY) / denom
-                                    val newFraction = (initialFractionOnDragStart + dragRatio).coerceIn(0f, 1f)
+                                    val newFraction = PlayerSheetDragLogic.expansionFractionFromDrag(
+                                        initialFraction = initialFractionOnDragStart,
+                                        initialTranslationY = initialYOnDragStart,
+                                        newTranslationY = newY,
+                                        collapsedY = sheetCollapsedTargetY,
+                                        expandedY = sheetExpandedTargetY,
+                                    )
                                     playerContentExpansionFraction.snapTo(newFraction)
                                 }
                                 velocityTracker.addPosition(change.uptimeMillis, change.position)
@@ -293,16 +300,13 @@ fun PlayerSheetV2(
                                 val verticalVelocity = velocityTracker.calculateVelocity().y
                                 val currentFraction = playerContentExpansionFraction.value
                                 val minDragThresholdPx = with(density) { 5.dp.toPx() }
-                                val velocityThreshold = 150f
 
-                                val targetState = when {
-                                    abs(accumulatedDragYSinceStart) > minDragThresholdPx ->
-                                        if (accumulatedDragYSinceStart < 0) PlayerSheetState.EXPANDED else PlayerSheetState.COLLAPSED
-                                    abs(verticalVelocity) > velocityThreshold ->
-                                        if (verticalVelocity < 0) PlayerSheetState.EXPANDED else PlayerSheetState.COLLAPSED
-                                    else ->
-                                        if (currentFraction > 0.5f) PlayerSheetState.EXPANDED else PlayerSheetState.COLLAPSED
-                                }
+                                val targetState = PlayerSheetDragLogic.resolveTargetState(
+                                    accumulatedDragY = accumulatedDragYSinceStart,
+                                    verticalVelocity = verticalVelocity,
+                                    expansionFraction = currentFraction,
+                                    minDragThresholdPx = minDragThresholdPx,
+                                )
 
                                 scope.launch {
                                     if (targetState == PlayerSheetState.EXPANDED) {

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.model.Chapter
 import cx.aswin.boxcast.feature.player.v2.chrome.playerSheetShape
+import cx.aswin.boxcast.feature.player.v2.logic.PlayerMetadataFormat
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -42,7 +43,10 @@ fun PlayerMetadataChips(
     ) {
         if (publishedDateSeconds > 0) {
             MetadataChip(
-                label = formatRelativeDate(publishedDateSeconds),
+                label = PlayerMetadataFormat.formatRelativeDate(
+                    publishedDateSeconds,
+                    System.currentTimeMillis() / 1000,
+                ),
                 leadingIcon = {
             Icon(
                 Icons.Rounded.CalendarToday,
@@ -57,7 +61,7 @@ fun PlayerMetadataChips(
 
         if (durationSeconds > 0) {
             MetadataChip(
-                label = formatDurationLabel(durationSeconds),
+                label = PlayerMetadataFormat.formatDurationLabel(durationSeconds),
                 leadingIcon = {
             Icon(
                 Icons.Rounded.Schedule,
@@ -153,22 +157,3 @@ fun MetadataSurfacePill(
     }
 }
 
-private fun formatRelativeDate(timestampSeconds: Long): String {
-    if (timestampSeconds == 0L) return ""
-    val now = System.currentTimeMillis() / 1000
-    val diff = now - timestampSeconds
-    return when {
-        diff < 3600 -> "${diff / 60}m ago"
-        diff < 86400 -> "${diff / 3600}h ago"
-        diff < 604800 -> "${diff / 86400}d ago"
-        diff < 2592000 -> "${diff / 604800}w ago"
-        diff < 31536000 -> "${diff / 2592000}mo ago"
-        else -> "${diff / 31536000}y ago"
-    }
-}
-
-private fun formatDurationLabel(seconds: Int): String {
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-}

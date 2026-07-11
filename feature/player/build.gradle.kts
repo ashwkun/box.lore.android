@@ -6,10 +6,13 @@ plugins {
 
 android {
     namespace = "cx.aswin.boxcast.feature.player"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31
+    }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
     buildFeatures {
         compose = true
@@ -52,4 +55,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.smooth.corner.rect)
     implementation(libs.reorderable)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

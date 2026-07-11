@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import cx.aswin.boxcast.feature.player.v2.chrome.PlayerChromeGeometry
 import cx.aswin.boxcast.feature.player.v2.chrome.playerSheetShape
+import cx.aswin.boxcast.feature.player.v2.logic.MiniPlayerDismissLogic
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -108,13 +109,16 @@ fun SwipeableMiniPlayerV2(
                         },
                         onDragEnd = {
                             coroutineScope.launch {
-                                if (abs(offsetX.value) > dismissThreshold) {
-                                    swipeDirection = if (offsetX.value < 0) -1 else 1
+                                if (MiniPlayerDismissLogic.shouldDismissOnDragEnd(offsetX.value, dismissThreshold)) {
+                                    swipeDirection = MiniPlayerDismissLogic.swipeDirection(offsetX.value)
                                     showConfirmPill = true
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
 
                                     offsetX.animateTo(
-                                        targetValue = swipeDirection * dismissThreshold * 1.5f,
+                                        targetValue = MiniPlayerDismissLogic.revealSnapTargetPx(
+                                            swipeDirection,
+                                            dismissThreshold,
+                                        ),
                                         animationSpec = spring(
                                             dampingRatio = Spring.DampingRatioMediumBouncy,
                                             stiffness = Spring.StiffnessMedium,
@@ -153,13 +157,17 @@ fun SwipeableMiniPlayerV2(
                         onHorizontalDrag = { _, dragAmount ->
                             coroutineScope.launch {
                                 offsetX.snapTo(offsetX.value + dragAmount)
-                                if (abs(offsetX.value) > dismissThreshold * 0.5f && !showConfirmPill) {
-                                    swipeDirection = if (offsetX.value < 0) -1 else 1
-                                    showConfirmPill = true
-                                }
-                                if (showConfirmPill && abs(offsetX.value) < dismissThreshold * 0.3f) {
-                                    showConfirmPill = false
+                                val nextShowPill = MiniPlayerDismissLogic.shouldShowConfirmPillWhileDragging(
+                                    offsetXPx = offsetX.value,
+                                    dismissThresholdPx = dismissThreshold,
+                                    currentlyShowing = showConfirmPill,
+                                )
+                                if (showConfirmPill && !nextShowPill) {
                                     autoHideJob?.cancel()
+                                }
+                                showConfirmPill = nextShowPill
+                                if (showConfirmPill) {
+                                    swipeDirection = MiniPlayerDismissLogic.swipeDirection(offsetX.value)
                                 }
                             }
                         },

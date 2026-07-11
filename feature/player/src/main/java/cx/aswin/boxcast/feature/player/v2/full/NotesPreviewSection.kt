@@ -1,6 +1,6 @@
 package cx.aswin.boxcast.feature.player.v2.full
 
-import android.text.Html
+import cx.aswin.boxcast.feature.player.v2.logic.NotesPreviewLogic
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -28,11 +28,11 @@ fun NotesPreviewSection(
     modifier: Modifier = Modifier,
     collapsedMaxLines: Int = 3,
 ) {
-    val strippedDescription = remember(descriptionHtml) { stripHtml(descriptionHtml) }
+    val strippedDescription = remember(descriptionHtml) { NotesPreviewLogic.stripHtml(descriptionHtml) }
     if (strippedDescription.isBlank()) return
 
     var expanded by remember(descriptionHtml) { mutableStateOf(false) }
-    val canExpand = strippedDescription.length > 120 || strippedDescription.count { it == '\n' } >= collapsedMaxLines
+    val canExpand = NotesPreviewLogic.canExpand(strippedDescription, collapsedMaxLines)
 
     Column(
         modifier = modifier
@@ -74,10 +74,3 @@ fun NotesPreviewSection(
     }
 }
 
-private fun stripHtml(html: String?): String {
-    if (html.isNullOrBlank()) return ""
-    return Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
-        .toString()
-        .replace(Regex("\\s+"), " ")
-        .trim()
-}

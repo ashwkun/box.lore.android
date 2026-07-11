@@ -31,6 +31,8 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.feature.player.v2.chrome.artworkSquircleShape
+import cx.aswin.boxcast.feature.player.v2.logic.CarouselSkipAction
+import cx.aswin.boxcast.feature.player.v2.logic.EpisodeCarouselLogic
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -51,13 +53,9 @@ fun EpisodeArtCarousel(
     val coroutineScope = rememberCoroutineScope()
     val dragOffset = remember { Animatable(0f) }
 
-    val currentIndex = queue.indexOfFirst { it.id == currentEpisode.id }
-    val previousEpisode = if (currentIndex > 0) queue[currentIndex - 1] else null
-    val nextEpisode = if (currentIndex >= 0 && currentIndex < queue.lastIndex) {
-        queue[currentIndex + 1]
-    } else {
-        null
-    }
+    val neighbors = EpisodeCarouselLogic.queueNeighbors(queue, currentEpisode.id)
+    val previousEpisode = neighbors.previous
+    val nextEpisode = neighbors.next
 
     LaunchedEffect(skipDirection) {
         when (skipDirection) {
@@ -92,15 +90,11 @@ fun EpisodeArtCarousel(
     ) {
         val artworkSize = maxWidth * artworkSizeFraction
         val artworkSizePx = with(density) { artworkSize.toPx() }
-        val commitThreshold = artworkSizePx * 0.3f
+        val commitThreshold = EpisodeCarouselLogic.commitThresholdPx(artworkSizePx)
         val artworkShape = artworkSquircleShape()
 
-        fun episodeImageUrl(episode: Episode): String? {
-            val podcastImage = episode.podcastId?.let { podcasts[it]?.imageUrl }
-            return episode.imageUrl?.takeIf { it.isNotBlank() }
-                ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() }
-                ?: podcastImage?.takeIf { it.isNotBlank() }
-        }
+        fun episodeImageUrl(episode: Episode): String? =
+            EpisodeCarouselLogic.resolveEpisodeImageUrl(episode, podcasts)
 
         Box(
             modifier = Modifier
@@ -110,21 +104,22 @@ fun EpisodeArtCarousel(
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             coroutineScope.launch {
-                                when {
-                                    totalDrag > commitThreshold -> {
+                                when (EpisodeCarouselLogic.resolveSkipFromDrag(totalDrag, commitThreshold)) {
+                                    CarouselSkipAction.PreviousEpisode -> {
                                         dragOffset.animateTo(
                                             targetValue = commitThreshold * 1.2f,
                                             animationSpec = spring(stiffness = Spring.StiffnessMedium),
                                         )
                                         onSkipPrevious()
                                     }
-                                    totalDrag < -commitThreshold -> {
+                                    CarouselSkipAction.NextEpisode -> {
                                         dragOffset.animateTo(
                                             targetValue = -commitThreshold * 1.2f,
                                             animationSpec = spring(stiffness = Spring.StiffnessMedium),
                                         )
                                         onSkipNext()
                                     }
+                                    CarouselSkipAction.None -> Unit
                                 }
                                 dragOffset.animateTo(0f, spring(stiffness = Spring.StiffnessMedium))
                                 totalDrag = 0f
