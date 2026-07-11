@@ -419,43 +419,34 @@ private fun HomeScreenFeedContent(
 @Composable
 private fun HomeScreenBottomSheets(
     uiState: HomeUiState,
-    showReviewPrompt: Boolean,
-    showPostReview: Boolean,
-    showFeedback: Boolean,
+    sheets: HomeSheetUi,
     showChangePodcastSheet: Boolean,
-    candidatePodcasts: List<Podcast>,
-    onDismissReviewPrompt: () -> Unit,
-    onNavigateToPlayStoreReview: () -> Unit,
-    onFeedbackClick: () -> Unit,
-    onDismissPostReview: () -> Unit,
-    onDismissFeedback: () -> Unit,
-    onSubmitFeedback: suspend (String, String, String, String) -> Boolean,
+    callbacks: HomeScreenCallbacks,
     onDismissChangePodcastSheet: () -> Unit,
-    onOverrideRecommendationPodcast: (String?) -> Unit,
 ) {
-    if (showReviewPrompt) {
+    if (sheets.showReviewPrompt) {
         cx.aswin.boxcast.feature.home.components.ReviewPromptSheet(
             completedCount = uiState.completedEpisodeCount,
-            onDismissRequest = onDismissReviewPrompt,
-            onNavigateToReview = onNavigateToPlayStoreReview,
+            onDismissRequest = callbacks.onDismissReviewPrompt,
+            onNavigateToReview = callbacks.onNavigateToPlayStoreReview,
             onNavigateToFeedback = {
-                onDismissReviewPrompt()
-                onFeedbackClick()
+                callbacks.onDismissReviewPrompt()
+                callbacks.feed.onFeedbackClick()
             }
         )
     }
 
-    if (showPostReview) {
+    if (sheets.showPostReview) {
         cx.aswin.boxcast.feature.home.components.PostReviewSheet(
-            onDismissRequest = onDismissPostReview,
+            onDismissRequest = callbacks.onDismissPostReview,
             onNavigateToFeedback = {
-                onDismissPostReview()
-                onFeedbackClick()
+                callbacks.onDismissPostReview()
+                callbacks.feed.onFeedbackClick()
             }
         )
     }
 
-    if (showFeedback) {
+    if (sheets.showFeedback) {
         val context = LocalContext.current
         val versionStr = remember(context) {
             try {
@@ -467,9 +458,9 @@ private fun HomeScreenBottomSheets(
 
         cx.aswin.boxcast.feature.home.components.FeedbackSheet(
             appVersion = versionStr,
-            onSubmit = onSubmitFeedback,
+            onSubmit = callbacks.onSubmitFeedback,
             onRateInstead = {
-                onDismissFeedback()
+                callbacks.onDismissFeedback()
                 val pkgName = context.packageName
                 try {
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkgName")))
@@ -477,17 +468,17 @@ private fun HomeScreenBottomSheets(
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkgName")))
                 }
             },
-            onDismissRequest = onDismissFeedback
+            onDismissRequest = callbacks.onDismissFeedback
         )
     }
 
     if (showChangePodcastSheet) {
         ChangeRecommendationPodcastSheet(
-            candidatePodcasts = candidatePodcasts,
+            candidatePodcasts = sheets.candidatePodcasts,
             onDismissRequest = onDismissChangePodcastSheet,
             onPodcastSelect = { podcast ->
                 onDismissChangePodcastSheet()
-                onOverrideRecommendationPodcast(podcast?.id)
+                callbacks.onOverrideRecommendationPodcast(podcast?.id)
             }
         )
     }
@@ -547,19 +538,10 @@ fun HomeScreen(
 
     HomeScreenBottomSheets(
         uiState = uiState,
-        showReviewPrompt = sheets.showReviewPrompt,
-        showPostReview = sheets.showPostReview,
-        showFeedback = sheets.showFeedback,
+        sheets = sheets,
         showChangePodcastSheet = showChangePodcastSheet,
-        candidatePodcasts = sheets.candidatePodcasts,
-        onDismissReviewPrompt = callbacks.onDismissReviewPrompt,
-        onNavigateToPlayStoreReview = callbacks.onNavigateToPlayStoreReview,
-        onFeedbackClick = callbacks.feed.onFeedbackClick,
-        onDismissPostReview = callbacks.onDismissPostReview,
-        onDismissFeedback = callbacks.onDismissFeedback,
-        onSubmitFeedback = callbacks.onSubmitFeedback,
+        callbacks = callbacks,
         onDismissChangePodcastSheet = { showChangePodcastSheet = false },
-        onOverrideRecommendationPodcast = callbacks.onOverrideRecommendationPodcast,
     )
 }
 
