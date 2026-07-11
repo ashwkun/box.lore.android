@@ -46,8 +46,13 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <summary><b>✨ Upcoming in the next release</b></summary>
 <br/>
 
-- Smoother Home tab scrolling when browsing your feed
-- Calmer loading animations while content loads
+- New in‑app NPS surveys that match the app’s look.
+- One‑time pop‑up can now show either an NPS survey or a Play Store review.
+- After a high NPS score (8+), you’ll see a special review sheet, with a 14‑day cooldown.
+- Play Store review prompts appear only after NPS and only for promoters, with custom wording.
+- Updated survey handling to prevent crashes on the latest Android UI library.
+- Home screen scroll is smoother with less lag and pinned “Your Shows” and hero items.
+- Loading placeholders now shimmer more calmly, making the wait feel shorter.
 
 <br/>
 <p align="center"><sub>Technical details in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>

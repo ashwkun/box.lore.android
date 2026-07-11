@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Native PostHog NPS surveys with Compose UI that matches the app theme ([#852](https://github.com/ashwkun/boxlore/pull/852))
+- Unified prompt system via EngagementPromptCoordinator, showing either NPS or Play review in a single modal per session ([#852](https://github.com/ashwkun/boxlore/pull/852))
+- 14‑day cooldown and deferred promoter handoff, showing a tailored review sheet after an NPS score of 8 or higher ([#852](https://github.com/ashwkun/boxlore/pull/852))
+- Milestone Play review now runs only after NPS has fired and skips detractors (score ≤ 7), with distinct copy for promoters ([#852](https://github.com/ashwkun/boxlore/pull/852))
+### Changed
+- Replaced the posthog-android-surveys-compose library with a custom BoxcastPostHogSurveysDelegate to avoid crashes on Material3 1.5 ([#852](https://github.com/ashwkun/boxlore/pull/852))
 ### Fixed
 - Reduced Home tab lag by flattening feed sections into individual lazy staggered‑grid items and pinning hero and Your Shows to avoid expensive recomposition ([#851](https://github.com/ashwkun/boxlore/pull/851))
 - Optimized skeleton shimmer rendering by removing temporary PerfLog instrumentation, caching draw paths, and slowing the shimmer pace from 1.6 s to 2.2 s for a calmer loading state ([#851](https://github.com/ashwkun/boxlore/pull/851))
