@@ -70,6 +70,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -151,8 +152,18 @@ class MainActivity : ComponentActivity() {
     
     // Analytics: Deduplicate cold vs warm starts
     private var isFirstResumeAfterLaunch = true
-    
 
+    // NPS survey trigger state (DataStore-backed; reads the same store as the UI layer)
+    private val surveyPrefs by lazy { cx.aswin.boxcast.core.data.UserPreferencesRepository(application) }
+    private val engagementCoordinator by lazy {
+        (application as BoxLoreApplication).engagementPromptCoordinator
+    }
+
+    @Volatile
+    private var playbackRepositoryRef: cx.aswin.boxcast.core.data.PlaybackRepository? = null
+
+    private fun isCurrentlyPlaying(): Boolean =
+        playbackRepositoryRef?.playerState?.value?.isPlaying == true
 
     // Google Play In-App Updates
     private val appUpdateManager by lazy { com.google.android.play.core.appupdate.AppUpdateManagerFactory.create(this) }
@@ -195,6 +206,9 @@ class MainActivity : ComponentActivity() {
         
         // Register the local time of day as a Super Property so it attaches to ALL events
         com.posthog.PostHog.register("local_time_of_day", java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY))
+
+        // NPS survey triggers: deferred auto trigger (ep-3 pending) + console remote trigger.
+        checkNpsSurveyTriggers()
         
         // Check for in-progress updates
         try {
@@ -218,7 +232,53 @@ class MainActivity : ComponentActivity() {
             android.util.Log.e("AppUpdate", "Error checking update status", e)
         }
     }
-    
+
+    /**
+     * Fires NPS survey trigger events on app open.
+     *
+     * 1. Console remote trigger: if the `survey-nps-remote-trigger` flag is enabled for this
+     *    user, fire the manual trigger and reload flags so the one-shot trigger doesn't repeat.
+     * 2. Deferred auto trigger: if the survey was marked pending (ep 3 reached, possibly during
+     *    background playback) and hasn't fired yet, fire it now and mark it fired.
+     *
+     * PostHog owns the survey's display conditions (onboarding status, audience flag, wait
+     * period), so this only emits the trigger events.
+     */
+    private fun checkNpsSurveyTriggers() {
+        try {
+            if (
+                com.posthog.PostHog.isFeatureEnabled("survey-nps-remote-trigger") &&
+                engagementCoordinator.canShowProactivePrompt(isCurrentlyPlaying())
+            ) {
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSurveyNpsManualTrigger(
+                    source = "remote_flag",
+                )
+                com.posthog.PostHog.reloadFeatureFlags()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NpsSurvey", "Remote trigger check failed", e)
+        }
+
+        lifecycleScope.launch {
+            try {
+                if (
+                    surveyPrefs.isNpsSurveyPending() &&
+                    !surveyPrefs.hasNpsSurveyFired() &&
+                    engagementCoordinator.canShowProactivePrompt(isCurrentlyPlaying()) &&
+                    surveyPrefs.isEngagementCooldownElapsed()
+                ) {
+                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSurveyNpsEligible(
+                        completedEpisodes = surveyPrefs.npsSurveyCompletedCount(),
+                        triggerContext = "app_open",
+                    )
+                    surveyPrefs.markNpsSurveyFired()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("NpsSurvey", "Deferred trigger check failed", e)
+            }
+        }
+    }
+
     override fun onPause() {
         super.onPause()
     }
@@ -337,6 +397,9 @@ class MainActivity : ComponentActivity() {
 
             // 3. Playback Repository (Depends on QueueRepo)
             val playbackRepository = remember { cx.aswin.boxcast.core.data.PlaybackRepository(application, database.listeningHistoryDao(), queueRepository, podcastRepository) }
+            androidx.compose.runtime.SideEffect {
+                playbackRepositoryRef = playbackRepository
+            }
             val downloadRepository = remember { cx.aswin.boxcast.core.data.DownloadRepository(application, database) }
             
             // 4. Subscription Repository
@@ -1140,6 +1203,7 @@ class MainActivity : ComponentActivity() {
                                     apiBaseUrl = apiBaseUrl,
                                     publicKey = publicKey,
                                     playbackRepository = playbackRepository,
+                                    engagementPromptCoordinator = (application as BoxLoreApplication).engagementPromptCoordinator,
                                     navController = navController,
                                     onPodcastClick = { podcast, entryPointStr, genreStr, depthVal ->
                                         var route = "podcast/${podcast.id}"

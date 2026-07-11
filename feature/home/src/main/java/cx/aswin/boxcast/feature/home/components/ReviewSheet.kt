@@ -20,11 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import cx.aswin.boxcast.core.designsystem.components.EngagementBottomSheetScaffold
 import kotlinx.coroutines.launch
 
 /**
  * Milestone review prompt — M3 Expressive bottom sheet.
  * Diverts happy users to Play Store, frustrated users to Feedback.
+ *
+ * @param variant Milestone uses episode-based copy; [ReviewPromptVariant.PromoterHandoff]
+ *   acknowledges the user already scored 8+ on NPS.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,114 +36,154 @@ fun ReviewPromptSheet(
     completedCount: Int,
     onDismissRequest: () -> Unit,
     onNavigateToReview: () -> Unit,
-    onNavigateToFeedback: () -> Unit
+    onNavigateToFeedback: () -> Unit,
+    variant: ReviewPromptVariant = ReviewPromptVariant.Milestone,
 ) {
-    val title = when {
-        completedCount >= 30 -> "You're a podcast pro"
-        completedCount >= 15 -> "You're a regular listener"
-        else -> "You're on a roll"
-    }
-    
-    val body = when {
-        completedCount >= 30 -> "$completedCount episodes and counting — your review would mean the world to us."
-        completedCount >= 15 -> "You've finished $completedCount episodes. Mind leaving a quick rating?"
-        else -> "You've completed $completedCount episodes. How's boxcast treating you?"
-    }
+    val title =
+        when (variant) {
+            ReviewPromptVariant.PromoterHandoff -> "Glad you're enjoying boxcast"
+            ReviewPromptVariant.Milestone ->
+                when {
+                    completedCount >= 30 -> "You're a podcast pro"
+                    completedCount >= 15 -> "You're a regular listener"
+                    else -> "You're on a roll"
+                }
+        }
+
+    val body =
+        when (variant) {
+            ReviewPromptVariant.PromoterHandoff ->
+                "Thanks for the great score — a quick Play Store rating helps other listeners discover boxcast."
+            ReviewPromptVariant.Milestone ->
+                when {
+                    completedCount >= 30 ->
+                        "$completedCount episodes and counting — your review would mean the world to us."
+                    completedCount >= 15 ->
+                        "You've finished $completedCount episodes. Mind leaving a quick rating?"
+                    else -> "You've completed $completedCount episodes. How's boxcast treating you?"
+                }
+        }
+
+    val primaryLabel =
+        when (variant) {
+            ReviewPromptVariant.PromoterHandoff -> "Rate on Play Store"
+            ReviewPromptVariant.Milestone ->
+                if (completedCount >= 15) "Rate boxcast" else "Loving it"
+        }
+
+    val secondaryLabel =
+        when (variant) {
+            ReviewPromptVariant.PromoterHandoff -> "Not right now"
+            ReviewPromptVariant.Milestone ->
+                if (completedCount >= 30) "Not right now" else "Could be better"
+        }
+
+    val onSecondaryClick =
+        when (variant) {
+            ReviewPromptVariant.PromoterHandoff -> onDismissRequest
+            ReviewPromptVariant.Milestone ->
+                if (completedCount >= 30) onDismissRequest else onNavigateToFeedback
+        }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(
+    EngagementBottomSheetScaffold(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
+        showCloseButton = false,
+        properties = ModalBottomSheetProperties(),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Icon header
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(56.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.Star,
                         contentDescription = null,
                         modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(20.dp))
-            
+
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = body,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
             )
-            
+
             Spacer(modifier = Modifier.height(28.dp))
-            
-            // Primary — rate on Play Store
+
             Button(
                 onClick = onNavigateToReview,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.ThumbUp,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (completedCount >= 15) "Rate boxcast" else "Loving it",
-                    style = MaterialTheme.typography.labelLarge
+                    text = primaryLabel,
+                    style = MaterialTheme.typography.labelLarge,
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
-            // Secondary — go to feedback or dismiss
+
             OutlinedButton(
-                onClick = if (completedCount >= 30) onDismissRequest else onNavigateToFeedback,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp)
+                onClick = onSecondaryClick,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                shape = RoundedCornerShape(16.dp),
             ) {
                 Text(
-                    text = if (completedCount >= 30) "Not right now" else "Could be better",
-                    style = MaterialTheme.typography.labelLarge
+                    text = secondaryLabel,
+                    style = MaterialTheme.typography.labelLarge,
                 )
             }
         }
     }
+}
+
+/** Copy variant for [ReviewPromptSheet] — milestone-based or post-NPS promoter handoff. */
+enum class ReviewPromptVariant {
+    /** Episode-count milestone (5/15/30 completed). */
+    Milestone,
+
+    /** Deferred Play review after the user scored 8+ on NPS. */
+    PromoterHandoff,
 }
 
 /**

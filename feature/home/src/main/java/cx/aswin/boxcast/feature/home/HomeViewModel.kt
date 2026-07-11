@@ -162,7 +162,8 @@ class HomeViewModel(
     application: Application,
     apiBaseUrl: String,
     publicKey: String,
-    private val playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository
+    private val playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository,
+    private val engagementCoordinator: cx.aswin.boxcast.core.data.EngagementPromptCoordinator,
 ) : AndroidViewModel(application) {
     
     val podcastRepository = PodcastRepository(baseUrl = apiBaseUrl, publicKey = publicKey, context = application)
@@ -184,6 +185,10 @@ class HomeViewModel(
 
     private val _showReviewPrompt = MutableStateFlow(false)
     val showReviewPrompt = _showReviewPrompt.asStateFlow()
+
+    private val _reviewPromptVariant =
+        MutableStateFlow(cx.aswin.boxcast.feature.home.components.ReviewPromptVariant.Milestone)
+    val reviewPromptVariant = _reviewPromptVariant.asStateFlow()
 
     private val _showPostReview = MutableStateFlow(false)
     val showPostReview = _showPostReview.asStateFlow()
@@ -945,12 +950,45 @@ class HomeViewModel(
                     // Compute completed count for review prompt logic
                     val completedCount = allHistory.count { it.isCompleted }
                     
-                    // Check if review prompt should be shown (milestone-based)
+                    // Check if review prompt should be shown (promoter handoff or milestone-based)
                     if (!_showReviewPrompt.value && !_showFeedback.value && !_showPostReview.value) {
-                        val shouldPrompt = userPrefs.shouldShowReviewPrompt(completedCount, playerState.value.isPlaying)
-                        if (shouldPrompt) {
+                        val isPlayingNow = playerState.value.isPlaying
+                        if (engagementCoordinator.shouldShowPromoterReview(isPlayingNow)) {
+                            engagementCoordinator.recordProactivePromptShown()
+                            engagementCoordinator.clearPromoterReviewPending()
+                            val npsScore = userPrefs.npsLastScore()
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackPromoterReviewHandoff(
+                                npsScore,
+                            )
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackEngagementPromptShown(
+                                promptType = "promoter_review",
+                                source = "nps_handoff",
+                            )
+                            _reviewPromptVariant.value =
+                                cx.aswin.boxcast.feature.home.components.ReviewPromptVariant.PromoterHandoff
                             _showReviewPrompt.value = true
+                        } else if (engagementCoordinator.canShowProactivePrompt(isPlayingNow)) {
+                            userPrefs.syncReviewMilestonePending(completedCount)
+                            val shouldPrompt = userPrefs.shouldShowReviewPrompt(isPlayingNow)
+                            if (shouldPrompt) {
+                                engagementCoordinator.recordProactivePromptShown()
+                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackEngagementPromptShown(
+                                    promptType = "milestone_review",
+                                    source = "episode_milestone",
+                                    completedEpisodes = completedCount,
+                                )
+                                _reviewPromptVariant.value =
+                                    cx.aswin.boxcast.feature.home.components.ReviewPromptVariant.Milestone
+                                _showReviewPrompt.value = true
+                            }
                         }
+                    }
+
+                    // NPS survey: mark eligible once the user reaches 3+ completed episodes.
+                    // The trigger event fires on the next app open (see MainActivity)
+                    // so it never interrupts background playback.
+                    if (completedCount >= 3 && !userPrefs.hasNpsSurveyFired() && !userPrefs.isNpsSurveyPending()) {
+                        userPrefs.markNpsSurveyPending(completedCount)
                     }
                     
                     // ... (Logic copied below) ...
@@ -1696,6 +1734,8 @@ mixtapePodcasts = cachedMix
 
     fun dismissReviewPrompt() {
         _showReviewPrompt.value = false
+        _reviewPromptVariant.value =
+            cx.aswin.boxcast.feature.home.components.ReviewPromptVariant.Milestone
     }
 
     fun dismissPostReview() {
@@ -1717,6 +1757,11 @@ mixtapePodcasts = cachedMix
         _showFeedback.value = false
         _showPostReview.value = false
         _showReviewPrompt.value = true
+    }
+
+    /** Manually trigger the NPS survey (long-press feedback icon). Bypasses the ep-3 milestone. */
+    fun forceSurveyNps() {
+        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSurveyNpsManualTrigger(source = "long_press")
     }
 
     fun triggerPostReview() {

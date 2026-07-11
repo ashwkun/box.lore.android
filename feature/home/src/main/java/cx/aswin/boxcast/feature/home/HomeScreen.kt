@@ -144,6 +144,8 @@ data class HomePlaybackUi(
 @androidx.compose.runtime.Stable
 data class HomeSheetUi(
     val showReviewPrompt: Boolean = false,
+    val reviewPromptVariant: cx.aswin.boxcast.feature.home.components.ReviewPromptVariant =
+        cx.aswin.boxcast.feature.home.components.ReviewPromptVariant.Milestone,
     val showPostReview: Boolean = false,
     val showFeedback: Boolean = false,
     val candidatePodcasts: List<Podcast> = emptyList(),
@@ -181,6 +183,7 @@ data class HomeScreenCallbacks(
     val feed: HomeFeedCallbacks,
     val onNavigateToSettings: (() -> Unit)? = null,
     val onForceReviewPrompt: () -> Unit = {},
+    val onForceSurveyNps: () -> Unit = {},
     val onDismissReviewPrompt: () -> Unit = {},
     val onDismissPostReview: () -> Unit = {},
     val onDismissFeedback: () -> Unit = {},
@@ -196,6 +199,7 @@ fun HomeRoute(
     apiBaseUrl: String,
     publicKey: String,
     playbackRepository: cx.aswin.boxcast.core.data.PlaybackRepository,
+    engagementPromptCoordinator: cx.aswin.boxcast.core.data.EngagementPromptCoordinator,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null, // Navigate to EpisodeInfo
@@ -219,7 +223,13 @@ fun HomeRoute(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return HomeViewModel(application, apiBaseUrl, publicKey, playbackRepository) as T
+                return HomeViewModel(
+                    application,
+                    apiBaseUrl,
+                    publicKey,
+                    playbackRepository,
+                    engagementPromptCoordinator,
+                ) as T
             }
         }
     )
@@ -253,6 +263,7 @@ fun HomeRoute(
         viewModel.playerState.map { it.isLoading }.distinctUntilChanged()
     }.collectAsState(initial = false)
     val showReviewPrompt by viewModel.showReviewPrompt.collectAsState()
+    val reviewPromptVariant by viewModel.reviewPromptVariant.collectAsState()
     val showPostReview by viewModel.showPostReview.collectAsState()
     val showFeedback by viewModel.showFeedback.collectAsState()
     
@@ -314,6 +325,7 @@ fun HomeRoute(
             ),
             onNavigateToSettings = onNavigateToSettings,
             onForceReviewPrompt = viewModel::forceReviewPrompt,
+            onForceSurveyNps = viewModel::forceSurveyNps,
             onDismissReviewPrompt = {
                 viewModel.markReviewPromptShown()
                 viewModel.dismissReviewPrompt()
@@ -346,6 +358,7 @@ fun HomeRoute(
             ),
             sheets = HomeSheetUi(
                 showReviewPrompt = showReviewPrompt,
+                reviewPromptVariant = reviewPromptVariant,
                 showPostReview = showPostReview,
                 showFeedback = showFeedback,
                 candidatePodcasts = candidatePodcasts,
@@ -448,6 +461,7 @@ private fun HomeScreenBottomSheets(
     if (sheets.showReviewPrompt) {
         cx.aswin.boxcast.feature.home.components.ReviewPromptSheet(
             completedCount = uiState.completedEpisodeCount,
+            variant = sheets.reviewPromptVariant,
             onDismissRequest = callbacks.onDismissReviewPrompt,
             onNavigateToReview = callbacks.onNavigateToPlayStoreReview,
             onNavigateToFeedback = {
@@ -533,7 +547,7 @@ fun HomeScreen(
                 },
                 onFeedbackLongClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("feedback_long_clicked", "home")
-                    callbacks.onForceReviewPrompt()
+                    callbacks.onForceSurveyNps()
                 },
                 onAvatarClick = {
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackTopControlbarInteraction("settings_clicked", "home")

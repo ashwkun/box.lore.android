@@ -12,13 +12,26 @@ import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderF
 import com.posthog.PostHog
 import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
+import cx.aswin.boxcast.core.data.EngagementPromptCoordinator
+import cx.aswin.boxcast.core.data.UserPreferencesRepository
 import cx.aswin.boxcast.core.network.NetworkModule
+import cx.aswin.boxcast.surveys.BoxcastPostHogSurveysDelegate
 import java.util.concurrent.TimeUnit
 
 class BoxLoreApplication : Application() {
 
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+        private set
+
+    /** Shared orchestrator for NPS and Play review proactive prompts. */
+    lateinit var engagementPromptCoordinator: EngagementPromptCoordinator
+        private set
+
     override fun onCreate() {
         super.onCreate()
+
+        userPreferencesRepository = UserPreferencesRepository(this)
+        engagementPromptCoordinator = EngagementPromptCoordinator(userPreferencesRepository)
 
         val config = PostHogAndroidConfig(
             apiKey = BuildConfig.POSTHOG_API_KEY,
@@ -28,6 +41,15 @@ class BoxLoreApplication : Application() {
             captureScreenViews = false
             captureDeepLinks = false
             debug = BuildConfig.DEBUG
+            // PostHog Surveys with a Material3 1.5-compatible delegate (the published
+            // posthog-android-surveys-compose:0.1.0 module crashes against our M3 pin).
+            surveys = true
+            surveysConfig.surveysDelegate =
+                BoxcastPostHogSurveysDelegate(
+                    context = this@BoxLoreApplication,
+                    userPrefs = userPreferencesRepository,
+                    engagementCoordinator = engagementPromptCoordinator,
+                )
         }
         PostHogAndroid.setup(this, config)
 

@@ -140,6 +140,69 @@ object AnalyticsHelper {
         )
     }
 
+    // ── PostHog Surveys: NPS triggers ──────────────────────────────
+    // These events are display-condition triggers for the "Boxcast NPS +
+    // Feature Ideas" survey. The app only emits the trigger; PostHog owns the
+    // survey content, branching, and targeting.
+
+    /** Deferred automatic trigger, fired on app open once the user hits the eligibility milestone. */
+    fun trackSurveyNpsEligible(completedEpisodes: Int?, triggerContext: String) {
+        PostHog.capture(
+            event = "survey_nps_eligible",
+            properties = buildMap {
+                put("trigger_type", "automatic")
+                put("trigger_context", triggerContext)
+                completedEpisodes?.let { put("completed_episodes", it) }
+            }
+        )
+        deliverSurveyTriggerEvent()
+    }
+
+    /** Manual trigger from a long-press or a remote console feature flag. */
+    fun trackSurveyNpsManualTrigger(source: String) {
+        PostHog.capture(
+            event = "survey_nps_manual_trigger",
+            properties = mapOf(
+                "trigger_source" to source,
+                "trigger_type" to "manual",
+                "trigger_context" to if (source == "remote_flag") "console" else "manual"
+            )
+        )
+        deliverSurveyTriggerEvent()
+    }
+
+    /** Flush and refresh flags so the SDK evaluates survey display conditions immediately. */
+    private fun deliverSurveyTriggerEvent() {
+        try {
+            PostHog.flush()
+            PostHog.reloadFeatureFlags()
+        } catch (e: Exception) {
+            android.util.Log.e("AnalyticsHelper", "Failed to deliver survey trigger", e)
+        }
+    }
+
+    /** Tracks when a proactive engagement modal (NPS, review, etc.) is shown. */
+    fun trackEngagementPromptShown(promptType: String, source: String, completedEpisodes: Int? = null) {
+        PostHog.capture(
+            event = "engagement_prompt_shown",
+            properties = buildMap {
+                put("prompt_type", promptType)
+                put("source", source)
+                completedEpisodes?.let { put("completed_episodes", it) }
+            },
+        )
+    }
+
+    /** Fired when a promoter (NPS 8+) is routed to the Play Store review sheet on a later open. */
+    fun trackPromoterReviewHandoff(npsScore: Int?) {
+        PostHog.capture(
+            event = "promoter_review_handoff",
+            properties = buildMap {
+                npsScore?.let { put("nps_score", it) }
+            },
+        )
+    }
+
     // ── Home Import Banner (Empty State) ───────────────────────────
 
     fun trackHomeImportBannerImpression() {
