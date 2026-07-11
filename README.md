@@ -9,7 +9,7 @@
 <br/>
 
 <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-  <img src="https://img.shields.io/badge/Google_Play-Get_it_on_Play-414141?style=for-the-badge&logo=googleplay&logoColor=white&labelColor=0f172a" alt="Get it on Google Play"/>
+  <img src="https://img.shields.io/badge/Google_Play-Get_it_on_Play_(Coming_Soon)-414141?style=for-the-badge&logo=googleplay&logoColor=white&labelColor=0f172a" alt="Get it on Google Play (Coming Soon)"/>
 </a>
 &nbsp;
 <a href="https://github.com/ashwkun/boxlore/releases/latest/download/app-release.apk">
@@ -46,12 +46,11 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <summary><b>✨ Upcoming in the next release</b></summary>
 <br/>
 
-### Fixed
-- Reduced Home tab lag by flattening feed sections into individual lazy staggered‑grid items and pinning hero and Your Shows to avoid expensive recomposition ([#851](https://github.com/ashwkun/boxlore/pull/851))
-- Optimized skeleton shimmer rendering by removing temporary PerfLog instrumentation, caching draw paths, and slowing the shimmer pace from 1.6 s to 2.2 s for a calmer loading state ([#851](https://github.com/ashwkun/boxlore/pull/851))
+- Smoother Home tab scrolling when browsing your feed
+- Calmer loading animations while content loads
 
 <br/>
-<p align="center"><sub>Full history in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>
+<p align="center"><sub>Technical details in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>
 </details>
 <!-- upcoming-changes:end -->
 

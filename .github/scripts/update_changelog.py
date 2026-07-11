@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+CHANGELOG_PATH = Path("CHANGELOG.md")
 README_PATH = Path("README.md")
 UPCOMING_CHANGES_START = "<!-- upcoming-changes:start -->"
 UPCOMING_CHANGES_END = "<!-- upcoming-changes:end -->"
@@ -116,6 +117,63 @@ Generate changelog bullets for the [Unreleased] section."""
     return normalized
 
 
+def _groq_readme_summary(api_key: str, sections: dict[str, list[str]]) -> list[str]:
+    if not any(sections.values()):
+        return []
+
+    changelog_text = _render_unreleased(sections)
+    system_prompt = """You rewrite changelog entries as short README bullets for end users of boxlore, a podcast Android app.
+Return ONLY valid JSON: {"bullets": ["...", ...]}.
+
+Rules:
+- Write for listeners using the app, not developers.
+- One bullet per user-visible change; merge related technical items into one line.
+- Never mention: Compose, recomposition, lazy grid, PerfLog, CI, Groq, CodeRabbit, Sonar, refactoring, parameters, modules, workflows, or internal code names.
+- Describe what users notice: smoother scrolling, faster load, calmer animations, new screens, fixed bugs in plain terms.
+- Keep each bullet under 120 characters.
+- No leading dashes, PR numbers, or markdown links."""
+
+    user_prompt = f"""Convert these [Unreleased] changelog entries into user-facing README bullets:
+
+{changelog_text}"""
+
+    payload = {
+        "model": GROQ_MODEL,
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+
+    request = urllib.request.Request(
+        GROQ_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": GROQ_USER_AGENT,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        print(f"Groq README summary error ({exc.code}): {detail}", file=sys.stderr)
+        sys.exit(1)
+
+    content = body["choices"][0]["message"]["content"]
+    parsed = json.loads(content)
+    raw = parsed.get("bullets", [])
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()]
+
+
 def _parse_unreleased_sections(unreleased_block: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
     current: str | None = None
@@ -172,11 +230,11 @@ def _extract_unreleased_sections(content: str) -> dict[str, list[str]]:
     return _parse_unreleased_sections(content[start:end])
 
 
-def _render_readme_upcoming_block(sections: dict[str, list[str]]) -> str:
-    if not any(sections.values()):
+def _render_readme_upcoming_block(bullets: list[str]) -> str:
+    if not bullets:
         body = "<p><em>Nothing queued yet.</em></p>"
     else:
-        body = _render_unreleased(sections)
+        body = "\n".join(f"- {bullet}" for bullet in bullets)
 
     return (
         f"{UPCOMING_CHANGES_START}\n"
@@ -185,14 +243,14 @@ def _render_readme_upcoming_block(sections: dict[str, list[str]]) -> str:
         "<br/>\n\n"
         f"{body}\n\n"
         "<br/>\n"
-        '<p align="center"><sub>Full history in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>\n'
+        '<p align="center"><sub>Technical details in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>\n'
         "</details>\n"
         f"{UPCOMING_CHANGES_END}"
     )
 
 
-def _update_readme(content: str, sections: dict[str, list[str]]) -> str:
-    block = _render_readme_upcoming_block(sections)
+def _update_readme(content: str, bullets: list[str]) -> str:
+    block = _render_readme_upcoming_block(bullets)
     pattern = re.compile(
         re.escape(UPCOMING_CHANGES_START) + r".*?" + re.escape(UPCOMING_CHANGES_END),
         flags=re.DOTALL,
@@ -271,7 +329,8 @@ def main() -> None:
         print(f"Updated CHANGELOG.md for PR #{pr_number}.")
 
     unreleased = _extract_unreleased_sections(changelog_updated)
-    readme_updated = _update_readme(readme_original, unreleased)
+    readme_bullets = _groq_readme_summary(api_key, unreleased) if unreleased else []
+    readme_updated = _update_readme(readme_original, readme_bullets)
     if readme_updated != readme_original:
         README_PATH.write_text(readme_updated, encoding="utf-8")
         print("Synced README.md Upcoming Changes section.")
