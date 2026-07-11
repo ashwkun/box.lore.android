@@ -7,8 +7,7 @@
 *Open source under GPL v3. No ads. Ever.*
 
 <br/>
-<br/>
-<table align="center" width="500">
+<table align="center" width="450">
   <thead>
     <tr>
       <th align="center">📲 Download the app</th>
@@ -16,8 +15,7 @@
   </thead>
   <tbody>
     <tr>
-      <td align="center" style="padding: 20px;">
-        <p>Enjoy a smarter, ad-free podcast experience that actually gets personal.</p>
+      <td align="center">
         <br/>
         <a href="https://github.com/ashwkun/boxlore/releases/latest">
           <img src="docs/images/badge_github.svg" height="46" alt="Get it on GitHub"/>
@@ -26,6 +24,7 @@
         <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
           <img src="docs/images/badge_playstore.svg" height="46" alt="Coming soon on Google Play"/>
         </a>
+        <br/><br/>
       </td>
     </tr>
   </tbody>
