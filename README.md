@@ -7,16 +7,23 @@
 *Open source under GPL v3. No ads. Ever.*
 
 <br/>
-
-<a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-  <img src="docs/images/badge_playstore.svg" height="50" alt="Coming soon on Google Play"/>
-</a>
-&nbsp;
-<a href="https://github.com/ashwkun/boxlore/releases/latest">
-  <img src="docs/images/badge_apk.svg" height="50" alt="Download APK on GitHub"/>
-</a>
-
-<br/><br/>
+<table align="center" width="500">
+  <tr>
+    <td align="center" style="padding: 24px; border: 1px solid #1e293b;">
+      <h3 style="margin-top: 0;">⚡ Get started with boxlore</h3>
+      <p style="color: #94a3b8; font-size: 14px;">Enjoy a smarter, ad-free podcast experience that actually gets personal.</p>
+      <br/>
+      <a href="https://github.com/ashwkun/boxlore/releases/latest">
+        <img src="docs/images/badge_apk.svg" height="44" alt="Download APK on GitHub"/>
+      </a>
+      &nbsp;
+      <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
+        <img src="docs/images/badge_playstore.svg" height="44" alt="Coming soon on Google Play"/>
+      </a>
+    </td>
+  </tr>
+</table>
+<br/>
 
 <a href="LICENSE">
   <img src="https://img.shields.io/badge/License-GPLv3-ff0080?style=flat-square&logo=gnu&logoColor=white" alt="GPL v3"/>
