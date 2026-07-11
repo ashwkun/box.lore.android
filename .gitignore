@@ -21,6 +21,10 @@ local.properties
 # Node
 node_modules/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Firebase (client config — keep local only; workflows use FCM_SERVICE_ACCOUNT_KEY)
 app/google-services.json
 .firebase/
