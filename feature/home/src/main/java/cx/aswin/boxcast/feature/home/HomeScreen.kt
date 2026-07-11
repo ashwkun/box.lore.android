@@ -263,6 +263,75 @@ fun HomeRoute(
     val downloadedEpisodeIds by viewModel.downloadedEpisodeIds.collectAsState(initial = emptySet())
     val lastSeenEpisodes by viewModel.lastSeenEpisodes.collectAsState()
 
+    val callbacks = remember(
+        viewModel,
+        onPodcastClick,
+        onHeroArrowClick,
+        onEpisodeClick,
+        onCuratedEpisodeClick,
+        onPlayClick,
+        onNavigateToLibrary,
+        onNavigateToExplore,
+        onNavigateToSettings,
+        onNavigateToPlayStoreReview,
+        onSubmitFeedback,
+        onNavigateToDebug,
+        onImportClick,
+        onAiOnboardingClick,
+        onBriefingClick,
+        onNavigateToLatestEpisodes,
+    ) {
+        HomeScreenCallbacks(
+            feed = HomeFeedCallbacks(
+                onPodcastClick = { podcast, entryPoint, category, index ->
+                    podcast.latestEpisode?.id?.let { episodeId ->
+                        viewModel.markPodcastEpisodeAsSeen(podcast.id, episodeId)
+                    }
+                    onPodcastClick(podcast, entryPoint, category, index)
+                },
+                onHeroArrowClick = onHeroArrowClick,
+                onEpisodeClick = onEpisodeClick,
+                onCuratedEpisodeClick = onCuratedEpisodeClick,
+                onCuratedImpression = viewModel::trackCuratedImpressionOnce,
+                onPlayClick = onPlayClick,
+                onNavigateToLibrary = onNavigateToLibrary,
+                onNavigateToExplore = onNavigateToExplore,
+                onToggleSubscription = viewModel::toggleSubscription,
+                onTogglePlayback = viewModel::togglePlayback,
+                onSelectCategory = viewModel::selectCategory,
+                onSwitchRegion = viewModel::setRegion,
+                onDismissNudge = viewModel::dismissRegionNudge,
+                onPodcastSelected = viewModel::selectPodcast,
+                onPlayMix = viewModel::playUnplayedMix,
+                onPlayEpisode = viewModel::playEpisode,
+                onImportClick = onImportClick,
+                onAiOnboardingClick = onAiOnboardingClick,
+                onDismissImportBanner = viewModel::dismissHomeImportBanner,
+                onBriefingClick = onBriefingClick,
+                onDismissBriefing = viewModel::dismissBriefingForToday,
+                onDismissBriefingForever = viewModel::dismissBriefingForever,
+                onFeedbackClick = viewModel::triggerFeedback,
+            ),
+            onNavigateToSettings = onNavigateToSettings,
+            onForceReviewPrompt = viewModel::forceReviewPrompt,
+            onDismissReviewPrompt = {
+                viewModel.markReviewPromptShown()
+                viewModel.dismissReviewPrompt()
+            },
+            onDismissPostReview = viewModel::dismissPostReview,
+            onDismissFeedback = viewModel::dismissFeedback,
+            onNavigateToPlayStoreReview = {
+                viewModel.markReviewed()
+                viewModel.triggerPostReview()
+                onNavigateToPlayStoreReview()
+            },
+            onSubmitFeedback = onSubmitFeedback,
+            onNavigateToDebug = onNavigateToDebug,
+            onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
+            onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
+        )
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalLastSeenEpisodes provides lastSeenEpisodes
     ) {
@@ -281,55 +350,7 @@ fun HomeRoute(
                 showFeedback = showFeedback,
                 candidatePodcasts = candidatePodcasts,
             ),
-            callbacks = HomeScreenCallbacks(
-                feed = HomeFeedCallbacks(
-                    onPodcastClick = { podcast, entryPoint, category, index ->
-                        podcast.latestEpisode?.id?.let { episodeId ->
-                            viewModel.markPodcastEpisodeAsSeen(podcast.id, episodeId)
-                        }
-                        onPodcastClick(podcast, entryPoint, category, index)
-                    },
-                    onHeroArrowClick = onHeroArrowClick,
-                    onEpisodeClick = onEpisodeClick,
-                    onCuratedEpisodeClick = onCuratedEpisodeClick,
-                    onCuratedImpression = viewModel::trackCuratedImpressionOnce,
-                    onPlayClick = onPlayClick,
-                    onNavigateToLibrary = onNavigateToLibrary,
-                    onNavigateToExplore = onNavigateToExplore,
-                    onToggleSubscription = viewModel::toggleSubscription,
-                    onTogglePlayback = viewModel::togglePlayback,
-                    onSelectCategory = viewModel::selectCategory,
-                    onSwitchRegion = viewModel::setRegion,
-                    onDismissNudge = viewModel::dismissRegionNudge,
-                    onPodcastSelected = viewModel::selectPodcast,
-                    onPlayMix = viewModel::playUnplayedMix,
-                    onPlayEpisode = viewModel::playEpisode,
-                    onImportClick = onImportClick,
-                    onAiOnboardingClick = onAiOnboardingClick,
-                    onDismissImportBanner = viewModel::dismissHomeImportBanner,
-                    onBriefingClick = onBriefingClick,
-                    onDismissBriefing = viewModel::dismissBriefingForToday,
-                    onDismissBriefingForever = viewModel::dismissBriefingForever,
-                    onFeedbackClick = viewModel::triggerFeedback,
-                ),
-                onNavigateToSettings = onNavigateToSettings,
-                onForceReviewPrompt = viewModel::forceReviewPrompt,
-                onDismissReviewPrompt = {
-                    viewModel.markReviewPromptShown()
-                    viewModel.dismissReviewPrompt()
-                },
-                onDismissPostReview = viewModel::dismissPostReview,
-                onDismissFeedback = viewModel::dismissFeedback,
-                onNavigateToPlayStoreReview = {
-                    viewModel.markReviewed()
-                    viewModel.triggerPostReview()
-                    onNavigateToPlayStoreReview()
-                },
-                onSubmitFeedback = onSubmitFeedback,
-                onNavigateToDebug = onNavigateToDebug,
-                onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
-                onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
-            ),
+            callbacks = callbacks,
             modifier = modifier
         )
     }
