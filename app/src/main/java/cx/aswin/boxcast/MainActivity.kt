@@ -501,8 +501,12 @@ class MainActivity : ComponentActivity() {
                             loreQueueConflictEpisode = null
                             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "start_lore_queue")
                             scope.launch {
-                                playbackRepository.stopAndClearQueue()
-                                queueLoreEpisode(pendingLoreEpisode)
+                                try {
+                                    playbackRepository.stopAndClearQueue()
+                                    queueLoreEpisode(pendingLoreEpisode)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainActivity", "Failed to start Lore queue", e)
+                                }
                             }
                         }) { Text("Start Lore queue") }
                     },
@@ -1399,16 +1403,20 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onQueueEpisode = { episode ->
                                         scope.launch {
-                                            // A normal queue exists: warn before clearing it for a
-                                            // Lore queue. Lore-only or empty queues append silently.
-                                            if (playbackRepository.hasNonLoreQueue()) {
-                                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictShown(
-                                                    episodeId = episode.id,
-                                                    normalQueueSize = playbackRepository.playerState.value.queue.size
-                                                )
-                                                loreQueueConflictEpisode = episode
-                                            } else {
-                                                queueLoreEpisode(episode)
+                                            try {
+                                                // A normal queue exists: warn before clearing it for a
+                                                // Lore queue. Lore-only or empty queues append silently.
+                                                if (playbackRepository.hasNonLoreQueue()) {
+                                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictShown(
+                                                        episodeId = episode.id,
+                                                        normalQueueSize = playbackRepository.playerState.value.queue.size
+                                                    )
+                                                    loreQueueConflictEpisode = episode
+                                                } else {
+                                                    queueLoreEpisode(episode)
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("MainActivity", "Failed to queue Lore episode", e)
                                             }
                                         }
                                     },

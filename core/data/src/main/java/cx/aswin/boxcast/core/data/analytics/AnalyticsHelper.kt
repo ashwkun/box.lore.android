@@ -1151,26 +1151,28 @@ object AnalyticsHelper {
         )
     }
 
-    fun trackSmartQueueRefilled(
-        triggeringEpisodeId: String,
-        triggeringPodcastGenre: String,
-        refilledCount: Int,
-        recommendationSources: List<String>,
-        refilledEpisodeIds: List<String>,
-        region: String? = null,
-        sourceCounts: Map<String, Int> = emptyMap(),
-        usedServerRecommendations: Boolean = false
-    ) {
+    data class SmartQueueRefillEvent(
+        val triggeringEpisodeId: String,
+        val triggeringPodcastGenre: String,
+        val refilledCount: Int,
+        val recommendationSources: List<String>,
+        val refilledEpisodeIds: List<String>,
+        val region: String? = null,
+        val sourceCounts: Map<String, Int> = emptyMap(),
+        val usedServerRecommendations: Boolean = false
+    )
+
+    fun trackSmartQueueRefilled(event: SmartQueueRefillEvent) {
         val props = mutableMapOf<String, Any>(
-            "triggering_episode_id" to triggeringEpisodeId,
-            "triggering_podcast_genre" to triggeringPodcastGenre,
-            "refilled_count" to refilledCount,
-            "recommendation_sources" to recommendationSources,
-            "refilled_episode_ids" to refilledEpisodeIds,
-            "used_server_recommendations" to usedServerRecommendations
+            "triggering_episode_id" to event.triggeringEpisodeId,
+            "triggering_podcast_genre" to event.triggeringPodcastGenre,
+            "refilled_count" to event.refilledCount,
+            "recommendation_sources" to event.recommendationSources,
+            "refilled_episode_ids" to event.refilledEpisodeIds,
+            "used_server_recommendations" to event.usedServerRecommendations
         )
-        region?.let { props["region"] = it }
-        sourceCounts.forEach { (source, count) -> props["source_count_$source"] = count }
+        event.region?.let { props["region"] = it }
+        event.sourceCounts.forEach { (source, count) -> props["source_count_$source"] = count }
         PostHog.capture(
             event = "smart_queue_refilled",
             properties = props

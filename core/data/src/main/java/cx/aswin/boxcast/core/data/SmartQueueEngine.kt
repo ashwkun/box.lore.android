@@ -114,6 +114,8 @@ class DefaultSmartQueueEngine(
         /** Bound network cost: max feed fetches while hunting for fallback episodes. */
         const val MAX_SUBSCRIPTION_FEED_FETCHES = 6
         const val MAX_TRENDING_FEED_FETCHES = 5
+
+        private const val LOG_TAG = "SmartQueue"
     }
 
     override suspend fun getNextEpisodes(
@@ -123,109 +125,120 @@ class DefaultSmartQueueEngine(
         excludeEpisodeIds: Set<String>,
         currentContextSourceId: String?
     ): List<QueueEntry> {
-        android.util.Log.d("SmartQueue", "getNextEpisodes: epId=${currentEpisode.id}, podcast=${podcast?.title}, sort=$preferredSort, contextSource=$currentContextSourceId, exclude=${excludeEpisodeIds.size}")
+        android.util.Log.d(
+            LOG_TAG,
+            "getNextEpisodes: epId=${currentEpisode.id}, podcast=${podcast?.title}, " +
+                "sort=$preferredSort, contextSource=$currentContextSourceId, exclude=${excludeEpisodeIds.size}"
+        )
         if (podcast == null) return emptyList()
 
         skipMemory?.prune()
-        val skippedEpisodes = skipMemory?.skippedEpisodeIds() ?: emptySet()
-        val downRankedPodcasts = skipMemory?.downRankedPodcastIds() ?: emptySet()
-        val completed = runCatching { sources.getCompletedEpisodeIds() }.getOrDefault(emptySet())
+        val exclude = buildExcludeSet(currentEpisode, excludeEpisodeIds)
+        val isBriefing = podcast.id.startsWith("briefing_")
+        val effectivePodcast = if (isBriefing) podcast.copy(genre = "News") else podcast
 
+        val tier0 = if (!isBriefing && SmartQueueEngine.allowsSamePodcastContinuation(currentContextSourceId)) {
+            sameShowContinuation(currentEpisode, effectivePodcast, preferredSort, exclude)
+        } else {
+            if (!isBriefing) {
+                android.util.Log.d(LOG_TAG, "Tier 0 skipped — discovery landing (source=$currentContextSourceId)")
+            }
+            emptyList()
+        }
+        tier0.forEach { exclude.add(it.episode.id.toString()) }
+        if (tier0.size >= MIN_ITEMS_BEFORE_NETWORK) {
+            android.util.Log.d(LOG_TAG, "Tier 0 satisfied batch with ${tier0.size} same-show episodes")
+            return tier0
+        }
+
+        val batch = mutableListOf<QueueEntry>()
+        batch += tier0
+        val fallback = assembleFallbackTiers(
+            currentEpisode = currentEpisode,
+            effectivePodcast = effectivePodcast,
+            exclude = exclude,
+            downRankedPodcasts = skipMemory?.downRankedPodcastIds() ?: emptySet(),
+            existingBatchSize = batch.size
+        )
+        batch += if (isBriefing) sortBriefingFallback(fallback) else fallback
+        android.util.Log.d(LOG_TAG, "Returning batch of ${batch.size}: ${batch.groupingBy { it.source }.eachCount()}")
+        return batch.distinctBy { it.episode.id }
+    }
+
+    private suspend fun buildExcludeSet(
+        currentEpisode: EpisodeItem,
+        excludeEpisodeIds: Set<String>
+    ): MutableSet<String> {
+        val skippedEpisodes = skipMemory?.skippedEpisodeIds() ?: emptySet()
+        val completed = runCatching { sources.getCompletedEpisodeIds() }.getOrDefault(emptySet())
         val currentId = currentEpisode.id.toString()
-        val exclude = HashSet<String>(excludeEpisodeIds.size + completed.size + skippedEpisodes.size + 1).apply {
+        return HashSet<String>(excludeEpisodeIds.size + completed.size + skippedEpisodes.size + 1).apply {
             addAll(excludeEpisodeIds)
             addAll(completed)
             addAll(skippedEpisodes)
             add(currentId)
         }
+    }
 
-        // Daily briefings are standalone (no feed in the podcast index): skip straight to
-        // the fallback tiers using the News genre, preferring short follow-ups.
-        val isBriefing = podcast.id.startsWith("briefing_")
-        val effectivePodcast = if (isBriefing) podcast.copy(genre = "News") else podcast
-
-        val batch = mutableListOf<QueueEntry>()
-
-        // ── Tier 0: same-podcast continuation ─────────────────────────────
-        if (!isBriefing && SmartQueueEngine.allowsSamePodcastContinuation(currentContextSourceId)) {
-            val sameShow = sameShowContinuation(currentEpisode, effectivePodcast, preferredSort, exclude)
-            batch += sameShow
-            sameShow.forEach { exclude.add(it.episode.id.toString()) }
-            if (batch.size >= MIN_ITEMS_BEFORE_NETWORK) {
-                // Binge fast path: plenty of the same show left, no fallback needed.
-                android.util.Log.d("SmartQueue", "Tier 0 satisfied batch with ${batch.size} same-show episodes")
-                return batch
-            }
-        } else if (!isBriefing) {
-            android.util.Log.d("SmartQueue", "Tier 0 skipped — discovery landing (source=$currentContextSourceId)")
-        }
-
-        // ── Fallback assembly (Tiers 1-4) ──────────────────────────────────
+    private suspend fun assembleFallbackTiers(
+        currentEpisode: EpisodeItem,
+        effectivePodcast: Podcast,
+        exclude: MutableSet<String>,
+        downRankedPodcasts: Set<String>,
+        existingBatchSize: Int
+    ): List<QueueEntry> {
         val recentPodcasts = runCatching {
             sources.getRecentlyPlayedPodcastIds(nowMs() - RECENT_PODCAST_WINDOW_MS)
         }.getOrDefault(emptySet())
 
         val fallback = mutableListOf<QueueEntry>()
-
-        // Tier 1: resume nudge
         fallback += resumeCandidates(effectivePodcast, exclude)
 
-        // Tier 2: scored subscriptions
-        if (batch.size + fallback.size < FALLBACK_BATCH_TARGET) {
+        if (existingBatchSize + fallback.size < FALLBACK_BATCH_TARGET) {
             fallback += scoredSubscriptionEpisodes(
                 currentPodcast = effectivePodcast,
                 exclude = exclude,
                 recentPodcasts = recentPodcasts,
                 downRankedPodcasts = downRankedPodcasts,
-                needed = FALLBACK_BATCH_TARGET - batch.size - fallback.size
+                needed = FALLBACK_BATCH_TARGET - existingBatchSize - fallback.size
             )
         }
 
-        // Tiers 3/3.5/4: network, only when local tiers came up thin
-        if (batch.size + fallback.size < MIN_ITEMS_BEFORE_NETWORK) {
-            val region = sources.getRegion()
+        if (existingBatchSize + fallback.size >= MIN_ITEMS_BEFORE_NETWORK) return fallback
 
-            val tier3 = networkTier3(
-                currentEpisode = currentEpisode,
+        val region = sources.getRegion()
+        val tier3 = networkTier3(
+            currentEpisode = currentEpisode,
+            currentPodcast = effectivePodcast,
+            exclude = exclude,
+            downRankedPodcasts = downRankedPodcasts,
+            region = region,
+            needed = FALLBACK_BATCH_TARGET - existingBatchSize - fallback.size
+        )
+        fallback += tier3.entries
+
+        if (existingBatchSize + fallback.size < FALLBACK_BATCH_TARGET && !tier3.usedEpisodeSimilar) {
+            fallback += likedSimilarBoost(exclude, region)
+        }
+
+        if (existingBatchSize + fallback.size < MIN_ITEMS_BEFORE_NETWORK) {
+            fallback += trendingEpisodes(
                 currentPodcast = effectivePodcast,
                 exclude = exclude,
+                recentPodcasts = recentPodcasts,
                 downRankedPodcasts = downRankedPodcasts,
                 region = region,
-                needed = FALLBACK_BATCH_TARGET - batch.size - fallback.size
+                needed = FALLBACK_BATCH_TARGET - existingBatchSize - fallback.size
             )
-            fallback += tier3.entries
-
-            if (batch.size + fallback.size < FALLBACK_BATCH_TARGET && !tier3.usedEpisodeSimilar) {
-                fallback += likedSimilarBoost(exclude, region)
-            }
-
-            if (batch.size + fallback.size < MIN_ITEMS_BEFORE_NETWORK) {
-                fallback += trendingEpisodes(
-                    currentPodcast = effectivePodcast,
-                    exclude = exclude,
-                    recentPodcasts = recentPodcasts,
-                    downRankedPodcasts = downRankedPodcasts,
-                    region = region,
-                    needed = FALLBACK_BATCH_TARGET - batch.size - fallback.size
-                )
-            }
         }
-
-        // Briefing follow-ups: soft preference for short episodes (stable sort keeps
-        // relative tier ordering within each duration bucket).
-        val orderedFallback = if (isBriefing) {
-            fallback.sortedBy { entry ->
-                val duration = entry.episode.duration ?: 0
-                if (duration in 1..SHORT_EPISODE_MAX_SECONDS) 0 else 1
-            }
-        } else {
-            fallback
-        }
-
-        batch += orderedFallback
-        android.util.Log.d("SmartQueue", "Returning batch of ${batch.size}: ${batch.groupingBy { it.source }.eachCount()}")
-        return batch.distinctBy { it.episode.id }
+        return fallback
     }
+
+    private fun sortBriefingFallback(fallback: List<QueueEntry>): List<QueueEntry> =
+        fallback.sortedBy { entry ->
+            val duration = entry.episode.duration ?: 0
+            if (duration in 1..SHORT_EPISODE_MAX_SECONDS) 0 else 1
+        }
 
     // ── Tier 0 ─────────────────────────────────────────────────────────────
 
@@ -239,35 +252,21 @@ class DefaultSmartQueueEngine(
         if (allEpisodes.isEmpty()) return emptyList()
 
         val currentId = currentEpisode.id.toString()
-        // Match subscription defaults: serial → oldest, episodic → newest.
-        val sort = preferredSort ?: podcast.preferredSort
-            ?: if (podcast.type == "serial") "oldest" else "newest"
+        val sort = effectiveContinuationSort(preferredSort, podcast)
         val isSerialListening = podcast.type == "serial" || sort == "oldest"
-        // Episodic / news listening jumps forward to fresher episodes only — never
-        // rewinds into the archive when the user is already on (or past) the latest.
         val newestFirst = !isSerialListening &&
             (sort == "newest" || podcast.genre.equals("News", ignoreCase = true))
+        val currentPublished = continuationAnchorDate(allEpisodes, currentId, currentEpisode)
+        val candidates = continuationCandidates(allEpisodes, currentId, currentPublished, newestFirst)
 
-        val currentPublished = allEpisodes.firstOrNull { it.id == currentId }?.publishedDate
-            ?: currentEpisode.datePublished
-            ?: 0L
-
-        val candidates: List<Episode> = if (newestFirst) {
-            allEpisodes
-                .filter { it.publishedDate > currentPublished }
-                .sortedByDescending { it.publishedDate }
-        } else {
-            val chronological = allEpisodes.sortedBy { it.publishedDate }
-            val idx = chronological.indexOfFirst { it.id == currentId }
-            if (idx == -1) emptyList() else chronological.drop(idx + 1)
-        }
-
-        android.util.Log.d(
-            "SmartQueue",
-            "Tier0 ${podcast.title}: type=${podcast.type}, sort=$sort, " +
-                "mode=${if (newestFirst) "newest-forward" else "serial-chrono"}, " +
-                "currentId=$currentId, currentPub=$currentPublished, " +
-                "feedSize=${allEpisodes.size}, rawCandidates=${candidates.size}"
+        logTier0Summary(
+            podcast = podcast,
+            sort = sort,
+            newestFirst = newestFirst,
+            currentId = currentId,
+            currentPublished = currentPublished,
+            feedSize = allEpisodes.size,
+            candidateCount = candidates.size
         )
 
         val picks = candidates.asSequence()
@@ -278,17 +277,72 @@ class DefaultSmartQueueEngine(
             .map { it.toQueueEntry(podcast, SmartQueueEngine.SOURCE_SAME_PODCAST) }
             .toList()
 
+        logTier0Picks(picks, newestFirst)
+        return picks
+    }
+
+    private fun effectiveContinuationSort(preferredSort: String?, podcast: Podcast): String {
+        preferredSort?.takeIf { it.isNotBlank() }?.let { return it }
+        podcast.preferredSort?.takeIf { it.isNotBlank() }?.let { return it }
+        return if (podcast.type == "serial") "oldest" else "newest"
+    }
+
+    private fun continuationAnchorDate(
+        allEpisodes: List<Episode>,
+        currentId: String,
+        currentEpisode: EpisodeItem
+    ): Long = allEpisodes.firstOrNull { it.id == currentId }?.publishedDate
+        ?: currentEpisode.datePublished
+        ?: 0L
+
+    private fun continuationCandidates(
+        allEpisodes: List<Episode>,
+        currentId: String,
+        currentPublished: Long,
+        newestFirst: Boolean
+    ): List<Episode> = if (newestFirst) {
+        allEpisodes
+            .filter { it.publishedDate > currentPublished }
+            .sortedByDescending { it.publishedDate }
+    } else {
+        val chronological = allEpisodes.sortedBy { it.publishedDate }
+        val idx = chronological.indexOfFirst { it.id == currentId }
+        if (idx == -1) emptyList() else chronological.drop(idx + 1)
+    }
+
+    private fun logTier0Summary(
+        podcast: Podcast,
+        sort: String,
+        newestFirst: Boolean,
+        currentId: String,
+        currentPublished: Long,
+        feedSize: Int,
+        candidateCount: Int
+    ) {
+        if (!android.util.Log.isLoggable(LOG_TAG, android.util.Log.DEBUG)) return
+        android.util.Log.d(
+            LOG_TAG,
+            "Tier0 ${podcast.title}: type=${podcast.type}, sort=$sort, " +
+                "mode=${if (newestFirst) "newest-forward" else "serial-chrono"}, " +
+                "currentId=$currentId, currentPub=$currentPublished, " +
+                "feedSize=$feedSize, rawCandidates=$candidateCount"
+        )
+    }
+
+    private fun logTier0Picks(picks: List<QueueEntry>, newestFirst: Boolean) {
+        if (!android.util.Log.isLoggable(LOG_TAG, android.util.Log.DEBUG)) return
         if (picks.isNotEmpty()) {
             android.util.Log.d(
-                "SmartQueue",
-                "Tier0 picks: ${picks.take(5).joinToString { "${it.episode.id}(pub=${allEpisodes.firstOrNull { e -> e.id == it.episode.id.toString() }?.publishedDate})" }}" +
+                LOG_TAG,
+                "Tier0 picks: ${picks.take(5).joinToString { it.episode.id.toString() }}" +
                     if (picks.size > 5) " +${picks.size - 5} more" else ""
             )
         } else {
-            android.util.Log.d("SmartQueue", "Tier0 empty — ${if (newestFirst) "no newer episodes after current" else "show exhausted or all filtered"}")
+            android.util.Log.d(
+                LOG_TAG,
+                "Tier0 empty — ${if (newestFirst) "no newer episodes after current" else "show exhausted or all filtered"}"
+            )
         }
-
-        return picks
     }
 
     // ── Tier 1 ─────────────────────────────────────────────────────────────

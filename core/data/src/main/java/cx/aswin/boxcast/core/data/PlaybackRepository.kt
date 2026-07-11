@@ -874,7 +874,7 @@ class PlaybackRepository(
                             val historyItem = listeningHistoryDao.getHistoryItem(newEpisode.id)
                             if (historyItem != null && !historyItem.isCompleted && historyItem.progressMs > 2000) {
                                 android.util.Log.d("PlaybackRepo", "onMediaItemTransition: Restoring saved position ${historyItem.progressMs}ms for ${newEpisode.title}")
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                repositoryScope.launch {
                                     mediaController?.seekTo(historyItem.progressMs)
                                 }
                             }

@@ -6,6 +6,7 @@ import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.network.model.HistoryItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 /**
@@ -83,6 +84,8 @@ class DefaultSmartQueueSources(
 
     override suspend fun getRegion(): String = try {
         userPreferencesRepository.regionStream.first()
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         "us"
     }
@@ -90,6 +93,8 @@ class DefaultSmartQueueSources(
     override suspend fun getInterests(): List<String> = try {
         context.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
             .getStringSet("user_genres", emptySet())?.toList() ?: emptyList()
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         emptyList()
     }
@@ -101,27 +106,32 @@ class DefaultSmartQueueSources(
     override suspend fun getHistoryForRecommendations(limit: Int): List<HistoryItem> {
         val podcastDao = database.podcastDao()
         val rawHistory = database.listeningHistoryDao().getRecentHistoryList(limit * 3)
-        return rawHistory
+        val filtered = rawHistory
             .filter { entity ->
                 !entity.isManualCompletion && !entity.isBulkCompletion &&
                     (entity.progressMs >= 60_000L || entity.isCompleted)
             }
             .take(limit)
-            .map { entity ->
-                val podcast = podcastDao.getPodcast(entity.podcastId)
-                HistoryItem(
-                    podcastTitle = entity.podcastName,
-                    episodeTitle = entity.episodeTitle,
-                    podcastId = entity.podcastId,
-                    episodeId = entity.episodeId,
-                    genre = podcast?.genre,
-                    durationMs = entity.durationMs,
-                    progressMs = entity.progressMs,
-                    isCompleted = entity.isCompleted,
-                    isLiked = entity.isLiked,
-                    episodeDescription = entity.episodeDescription
-                )
-            }
+        val genreByPodcastId = if (filtered.isEmpty()) {
+            emptyMap()
+        } else {
+            podcastDao.getPodcastsByIds(filtered.map { it.podcastId }.distinct())
+                .associate { it.podcastId to it.genre }
+        }
+        return filtered.map { entity ->
+            HistoryItem(
+                podcastTitle = entity.podcastName,
+                episodeTitle = entity.episodeTitle,
+                podcastId = entity.podcastId,
+                episodeId = entity.episodeId,
+                genre = genreByPodcastId[entity.podcastId],
+                durationMs = entity.durationMs,
+                progressMs = entity.progressMs,
+                isCompleted = entity.isCompleted,
+                isLiked = entity.isLiked,
+                episodeDescription = entity.episodeDescription
+            )
+        }
     }
 
     override suspend fun getPersonalizedRecommendations(

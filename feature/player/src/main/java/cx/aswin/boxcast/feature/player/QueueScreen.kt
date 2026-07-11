@@ -26,6 +26,22 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
+data class QueueSheetActions(
+    val onPlayEpisode: (Episode) -> Unit,
+    val onRemoveEpisode: (Episode) -> Unit,
+    val onClose: () -> Unit,
+    val onMove: (fromUiIndex: Int, toUiIndex: Int) -> Unit = { _, _ -> },
+    val onDragEnd: (episodeId: String, fromUiIndex: Int, toUiIndex: Int) -> Unit = { _, _, _ -> }
+)
+
+data class QueueItemDisplay(
+    val episode: Episode,
+    val podcast: Podcast?,
+    val sourceLabel: String? = null,
+    val isDragging: Boolean = false,
+    val dragHandleModifier: Modifier? = null
+)
+
 /**
  * Small caption explaining why an item is in the queue, derived from the provenance
  * persisted on each queue row (contextType + contextSourceId).
@@ -50,7 +66,7 @@ internal fun queueSourceLabel(episode: Episode): String? = when (episode.context
 /**
  * Queue bottom sheet content: header with close button + drag-to-reorder queue list.
  *
- * Indices in [onMove]/[onDragEnd] are UI list indices — the currently playing episode
+ * Indices in [actions.onMove]/[actions.onDragEnd] are UI list indices — the currently playing episode
  * is hidden from this sheet, so callers must map them with QueueMath.uiIndexToQueueIndex.
  */
 @Composable
@@ -58,13 +74,12 @@ fun QueueSheetContent(
     queue: List<Episode>,
     currentPodcast: Podcast?,
     colorScheme: ColorScheme,
-    onPlayEpisode: (Episode) -> Unit,
-    onRemoveEpisode: (Episode) -> Unit,
-    onClose: () -> Unit,
-    onMove: (fromUiIndex: Int, toUiIndex: Int) -> Unit = { _, _ -> },
-    onDragEnd: (episodeId: String, fromUiIndex: Int, toUiIndex: Int) -> Unit = { _, _, _ -> },
+    actions: QueueSheetActions,
     modifier: Modifier = Modifier
 ) {
+    val lazyListState = rememberLazyListState()
+    val dragStartIndex = remember { mutableIntStateOf(-1) }
+
     Column(modifier = modifier.fillMaxWidth()) {
         // Header: "Up Next" + Close button
         Row(
@@ -90,7 +105,7 @@ fun QueueSheetContent(
             
             Spacer(modifier = Modifier.width(12.dp))
 
-            IconButton(onClick = onClose) {
+            IconButton(onClick = actions.onClose) {
                 Icon(
                     Icons.Rounded.Close,
                     contentDescription = "Close queue",
@@ -118,11 +133,8 @@ fun QueueSheetContent(
                 )
             }
         } else {
-            val lazyListState = rememberLazyListState()
-            // Where the active drag started, so drag-end can report from -> to once.
-            val dragStartIndex = remember { mutableIntStateOf(-1) }
             val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
-                onMove(from.index, to.index)
+                actions.onMove(from.index, to.index)
             }
             LazyColumn(
                 state = lazyListState,
@@ -132,22 +144,24 @@ fun QueueSheetContent(
                 itemsIndexed(queue, key = { _, episode -> episode.id }) { index, episode ->
                     ReorderableItem(reorderableState, key = episode.id) { isDragging ->
                         QueueItemRow(
-                            episode = episode,
-                            podcast = currentPodcast,
+                            display = QueueItemDisplay(
+                                episode = episode,
+                                podcast = currentPodcast,
+                                sourceLabel = queueSourceLabel(episode),
+                                isDragging = isDragging,
+                                dragHandleModifier = Modifier.draggableHandle(
+                                    onDragStarted = { dragStartIndex.intValue = index },
+                                    onDragStopped = {
+                                        val from = dragStartIndex.intValue
+                                        dragStartIndex.intValue = -1
+                                        val to = queue.indexOfFirst { it.id == episode.id }
+                                        if (from != -1 && to != -1) actions.onDragEnd(episode.id, from, to)
+                                    }
+                                )
+                            ),
                             colorScheme = colorScheme,
-                            onClick = { onPlayEpisode(episode) },
-                            onRemove = { onRemoveEpisode(episode) },
-                            sourceLabel = queueSourceLabel(episode),
-                            isDragging = isDragging,
-                            dragHandleModifier = Modifier.draggableHandle(
-                                onDragStarted = { dragStartIndex.intValue = index },
-                                onDragStopped = {
-                                    val from = dragStartIndex.intValue
-                                    dragStartIndex.intValue = -1
-                                    val to = queue.indexOfFirst { it.id == episode.id }
-                                    if (from != -1 && to != -1) onDragEnd(episode.id, from, to)
-                                }
-                            )
+                            onClick = { actions.onPlayEpisode(episode) },
+                            onRemove = { actions.onRemoveEpisode(episode) }
                         )
                     }
                 }
@@ -158,21 +172,19 @@ fun QueueSheetContent(
 
 @Composable
 fun QueueItemRow(
-    episode: Episode,
-    podcast: Podcast?,
+    display: QueueItemDisplay,
     colorScheme: ColorScheme,
     onClick: () -> Unit,
     onRemove: (() -> Unit)? = null,
-    sourceLabel: String? = null,
-    isDragging: Boolean = false,
-    dragHandleModifier: Modifier? = null,
     modifier: Modifier = Modifier
 ) {
+    val episode = display.episode
+    val podcast = display.podcast
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                if (isDragging) colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                if (display.isDragging) colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 else colorScheme.surface.copy(alpha = 0f)
             )
             .expressiveClickable { onClick() }
@@ -210,7 +222,7 @@ fun QueueItemRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (sourceLabel != null) {
+            display.sourceLabel?.let { sourceLabel ->
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = sourceLabel,
@@ -222,7 +234,6 @@ fun QueueItemRow(
             }
         }
         
-        // Remove button
         if (onRemove != null) {
             IconButton(
                 onClick = onRemove,
@@ -237,8 +248,7 @@ fun QueueItemRow(
             }
         }
 
-        // Drag-to-reorder handle
-        if (dragHandleModifier != null) {
+        display.dragHandleModifier?.let { dragHandleModifier ->
             Icon(
                 Icons.Rounded.DragHandle,
                 contentDescription = "Reorder",

@@ -933,15 +933,17 @@ class BoxLorePlaybackService : MediaLibraryService() {
             } catch (e: Exception) { null }
             val sourceCounts = recommendationSources.groupingBy { it }.eachCount()
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackSmartQueueRefilled(
-                triggeringEpisodeId = episodeId,
-                triggeringPodcastGenre = podcast.genre ?: "Podcast",
-                refilledCount = refilledEpisodeIds.size,
-                recommendationSources = recommendationSources.distinct(),
-                refilledEpisodeIds = refilledEpisodeIds,
-                region = region,
-                sourceCounts = sourceCounts,
-                usedServerRecommendations = cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_PERSONALIZED_REC in sourceCounts ||
-                    cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_SERVER_REC in sourceCounts
+                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.SmartQueueRefillEvent(
+                    triggeringEpisodeId = episodeId,
+                    triggeringPodcastGenre = podcast.genre ?: "Podcast",
+                    refilledCount = refilledEpisodeIds.size,
+                    recommendationSources = recommendationSources.distinct(),
+                    refilledEpisodeIds = refilledEpisodeIds,
+                    region = region,
+                    sourceCounts = sourceCounts,
+                    usedServerRecommendations = cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_PERSONALIZED_REC in sourceCounts ||
+                        cx.aswin.boxcast.core.data.SmartQueueEngine.SOURCE_SERVER_REC in sourceCounts
+                )
             )
         }
     }

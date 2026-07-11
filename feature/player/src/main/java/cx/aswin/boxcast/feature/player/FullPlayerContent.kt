@@ -117,6 +117,7 @@ fun FullPlayerContent(
     
     // Queue bottom sheet state
     var showQueueSheet by remember { mutableStateOf(false) }
+    val queueSnackbarHostState = remember { SnackbarHostState() }
     var showShareSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
@@ -384,6 +385,13 @@ fun FullPlayerContent(
             onFullscreenVideoChange = onFullscreenVideoChange,
             modifier = Modifier.fillMaxSize()
         )
+        }
+        SnackbarHost(
+            hostState = queueSnackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+        )
     }
     
     // Queue Bottom Sheet
@@ -404,75 +412,68 @@ fun FullPlayerContent(
                 )
             }
         ) {
-            val queueSnackbarHostState = remember { SnackbarHostState() }
-            Box {
-                QueueSheetContent(
-                    queue = state.queue.drop(1), // Skip currently playing
-                    currentPodcast = podcast,
-                    colorScheme = colorScheme,
-                    onPlayEpisode = { ep ->
-                        scope.launch {
-                            val freshQueue = playbackRepository.playerState.value.queue
-                            val epPodcastId = ep.podcastId
-                            val episodePodcast = if (epPodcastId != null && epPodcastId != podcast.id) {
-                                cx.aswin.boxcast.core.model.Podcast(
-                                    id = epPodcastId,
-                                    title = ep.podcastTitle ?: "Unknown",
-                                    artist = ep.podcastArtist ?: "",
-                                    imageUrl = ep.podcastImageUrl ?: "",
-                                    description = null,
-                                    genre = ep.podcastGenre ?: ""
-                                )
-                            } else {
-                                podcast
-                            }
-                            playbackRepository.playFromQueueIndex(ep.id, freshQueue, episodePodcast)
-                            showQueueSheet = false
-                        }
-                    },
-                    onRemoveEpisode = { ep ->
-                        scope.launch {
-                            // Defer the AUTO_FILL rejection signal until the undo window
-                            // lapses, so an undone remove doesn't count as a rejection.
-                            val removed = playbackRepository.removeFromQueue(ep.id, deferSkipSignal = true)
-                            if (removed != null) {
-                                val result = queueSnackbarHostState.showSnackbar(
-                                    message = "Removed from queue",
-                                    actionLabel = "Undo",
-                                    duration = SnackbarDuration.Short
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    playbackRepository.undoQueueRemoval(removed)
+            QueueSheetContent(
+                queue = state.queue.drop(1), // Skip currently playing
+                currentPodcast = podcast,
+                colorScheme = colorScheme,
+                actions = QueueSheetActions(
+                        onPlayEpisode = { ep ->
+                            scope.launch {
+                                val freshQueue = playbackRepository.playerState.value.queue
+                                val epPodcastId = ep.podcastId
+                                val episodePodcast = if (epPodcastId != null && epPodcastId != podcast.id) {
+                                    cx.aswin.boxcast.core.model.Podcast(
+                                        id = epPodcastId,
+                                        title = ep.podcastTitle ?: "Unknown",
+                                        artist = ep.podcastArtist ?: "",
+                                        imageUrl = ep.podcastImageUrl ?: "",
+                                        description = null,
+                                        genre = ep.podcastGenre ?: ""
+                                    )
                                 } else {
-                                    playbackRepository.confirmQueueRemoval(removed)
+                                    podcast
+                                }
+                                playbackRepository.playFromQueueIndex(ep.id, freshQueue, episodePodcast)
+                                showQueueSheet = false
+                            }
+                        },
+                        onRemoveEpisode = { ep ->
+                            scope.launch {
+                                // Defer the AUTO_FILL rejection signal until the undo window
+                                // lapses, so an undone remove doesn't count as a rejection.
+                                val removed = playbackRepository.removeFromQueue(ep.id, deferSkipSignal = true)
+                                if (removed != null) {
+                                    val result = queueSnackbarHostState.showSnackbar(
+                                        message = "Removed from queue",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        playbackRepository.undoQueueRemoval(removed)
+                                    } else {
+                                        playbackRepository.confirmQueueRemoval(removed)
+                                    }
                                 }
                             }
-                        }
-                    },
-                    onClose = { showQueueSheet = false },
-                    onMove = { fromUi, toUi ->
-                        // The sheet hides the playing item, so UI indices are offset by 1.
-                        playbackRepository.moveQueueItem(
-                            cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(fromUi),
-                            cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(toUi)
-                        )
-                    },
-                    onDragEnd = { episodeId, fromUi, toUi ->
-                        // Persist once on drag end (rapid mid-drag moves stay in memory).
-                        scope.launch {
-                            playbackRepository.persistQueueOrder(
-                                movedEpisodeId = episodeId,
-                                fromQueueIndex = cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(fromUi),
-                                toQueueIndex = cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(toUi)
+                        },
+                        onClose = { showQueueSheet = false },
+                        onMove = { fromUi, toUi ->
+                            playbackRepository.moveQueueItem(
+                                cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(fromUi),
+                                cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(toUi)
                             )
+                        },
+                        onDragEnd = { episodeId, fromUi, toUi ->
+                            scope.launch {
+                                playbackRepository.persistQueueOrder(
+                                    movedEpisodeId = episodeId,
+                                    fromQueueIndex = cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(fromUi),
+                                    toQueueIndex = cx.aswin.boxcast.core.data.QueueMath.uiIndexToQueueIndex(toUi)
+                                )
+                            }
                         }
-                    }
+                    )
                 )
-                SnackbarHost(
-                    hostState = queueSnackbarHostState,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
         }
     }
 
@@ -776,5 +777,4 @@ fun FullPlayerContent(
             }
         )
     }
-}
 }

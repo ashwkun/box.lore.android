@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.core.data
 
 import android.content.Context
+import android.util.Log
 
 /**
  * Lightweight local memory of auto-filled episodes the user rejected — either removed
@@ -36,6 +37,7 @@ class QueueSkipMemory(
         private const val ENTRY_SEPARATOR = "\n"
         private const val PREFS_NAME = "queue_skip_memory"
         private const val KEY_ENTRIES = "entries"
+        private const val TAG = "QueueSkipMemory"
 
         fun fromContext(context: Context): QueueSkipMemory {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -94,7 +96,12 @@ class QueueSkipMemory(
     }
 
     private fun load(): List<SkipEntry> {
-        val raw = try { readRaw() } catch (e: Exception) { null } ?: return emptyList()
+        val raw = try {
+            readRaw()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read skip memory", e)
+            null
+        } ?: return emptyList()
         return raw.split(ENTRY_SEPARATOR).mapNotNull { line ->
             val parts = line.split(FIELD_SEPARATOR)
             if (parts.size < 4) return@mapNotNull null
@@ -113,6 +120,10 @@ class QueueSkipMemory(
             listOf(entry.episodeId, entry.podcastId, entry.source, entry.timestampMs.toString())
                 .joinToString(FIELD_SEPARATOR) { it.replace(FIELD_SEPARATOR, "_").replace(ENTRY_SEPARATOR, " ") }
         }
-        try { writeRaw(sanitized) } catch (_: Exception) { }
+        try {
+            writeRaw(sanitized)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to persist skip memory", e)
+        }
     }
 }

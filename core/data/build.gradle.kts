@@ -41,8 +41,7 @@ android {
     }
 
     testOptions {
-        // Let android.util.Log calls no-op in JVM unit tests instead of throwing.
-        unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = false
     }
 }
 
