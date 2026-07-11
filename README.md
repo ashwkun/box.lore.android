@@ -10,11 +10,11 @@
 <br/>
 <div align="center">
   <a href="https://github.com/ashwkun/boxlore/releases/latest/download/app-release.apk">
-    <img src="docs/images/card_github_v2.svg" height="70" alt="Download APK on GitHub"/>
+    <img src="docs/images/card_github_v3.svg" height="70" alt="Download APK on GitHub"/>
   </a>
   &nbsp;&nbsp;
   <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-    <img src="docs/images/card_playstore_v2.svg" height="70" alt="Coming soon on Google Play"/>
+    <img src="docs/images/card_playstore_v3.svg" height="70" alt="Coming soon on Google Play"/>
   </a>
 </div>
 <br/>
