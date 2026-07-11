@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Smart Queue v2: tiered SmartQueueEngine (T0–T4, T3.5) with batch refill, skip memory, region‑aware recommendations, signal‑aware Tier 3 routing, and unified guarded refill path in BoxLorePlaybackService; Queue UX enhancements include drag‑to‑reorder sheet, provenance source labels, undo‑remove snackbar with deferred skip signal, and Lore queue conflict dialog (LORE contextType). ([#853](https://github.com/ashwkun/boxlore/pull/853))
-- EngagementPromptCoordinator: native PostHog NPS surveys with unified NPS/Play review modal, 14‑day promoter cooldown, and promoter‑only review handoff. ([#852](https://github.com/ashwkun/boxlore/pull/852))
+- Responsive Material 3 Expressive full player and polished mini player UI replacing the legacy player sheet; playback utilities including inline and fullscreen transcripts, queue previews, show notes, chapters, persisted playback speed, and enhanced loading and motion states. ([#856](https://github.com/ashwkun/boxlore/pull/856))
 ### Changed
 - Integrated SmartQueueEngine with Android Auto using unified refill guard; sleep‑timer now blocks end‑of‑episode refill; AUTO_FILL provenance persisted before append; contextSourceId gates Tier 0 on discovery landings. ([#853](https://github.com/ashwkun/boxlore/pull/853))
-- Switched survey implementation from posthog-android-surveys-compose to BoxcastPostHogSurveysDelegate for Material3 1.5 stability. ([#852](https://github.com/ashwkun/boxlore/pull/852))
+- Restored queue handling now deduplicates episodes on restore; click animation handling updated to avoid sticking during rapid input. ([#856](https://github.com/ashwkun/boxlore/pull/856))
+- Switched survey implementation from posthog-android-surveys-compose to BoxcastPostHogSurveysDelegate for Material3 1.5 stability and added native PostHog NPS surveys with unified NPS/Play review modal and 14‑day promoter cooldown. ([#852](https://github.com/ashwkun/boxlore/pull/852))
 ### Fixed
 - Fixed Tier 0 newest‑sort guard for episodic/news and discovery landing skip; added Tier 3.5 deduplication when Tier 3 already similar; corrected skip‑memory filters and removed auto‑fill skips. ([#853](https://github.com/ashwkun/boxlore/pull/853))
 - Optimized Home tab feed by flattening into lazy staggered‑grid items and pinning hero/Your Shows to reduce recomposition lag; cached skeleton shimmer draw paths and slowed animation to 2.2 s. ([#851](https://github.com/ashwkun/boxlore/pull/851))

@@ -56,15 +56,14 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 <h4 align="left">🆕 New features</h4>
 <ul align="left">
-<li>Smart Queue auto‑refills, shows why items appear, lets you drag‑reorder, undo removes, and improves playback reliability. <a href="https://github.com/ashwkun/boxlore/pull/853"><img src="https://img.shields.io/badge/PR-853-2ebbca?style=flat-square" alt="PR #853" height="18"/></a></li>
+<li>Smart queue auto‑refills, shows why items appear, lets you drag‑reorder, undo removals, and handles Android Auto and sleep‑timer limits. <a href="https://github.com/ashwkun/boxlore/pull/853"><img src="https://img.shields.io/badge/PR-853-2ebbca?style=flat-square" alt="PR #853" height="18"/></a></li>
+<li>New Material 3 player with full‑screen and mini views, transcripts, chapters, show notes, speed control, and smoother loading. <a href="https://github.com/ashwkun/boxlore/pull/856"><img src="https://img.shields.io/badge/PR-856-2ebbca?style=flat-square" alt="PR #856" height="18"/></a></li>
 </ul>
-
 <br/>
-
 <h4 align="left">⚡ Improvements</h4>
 <ul align="left">
-<li>Home feed loads faster with smoother scrolling and quicker hero section. <a href="https://github.com/ashwkun/boxlore/pull/851"><img src="https://img.shields.io/badge/PR-851-2ebbca?style=flat-square" alt="PR #851" height="18"/></a></li>
-<li>In‑app surveys now appear with a unified prompt and a 14‑day cooldown for repeat feedback. <a href="https://github.com/ashwkun/boxlore/pull/852"><img src="https://img.shields.io/badge/PR-852-2ebbca?style=flat-square" alt="PR #852" height="18"/></a></li>
+<li>Home feed loads faster with smoother scrolling and reduced animation lag. <a href="https://github.com/ashwkun/boxlore/pull/851"><img src="https://img.shields.io/badge/PR-851-2ebbca?style=flat-square" alt="PR #851" height="18"/></a></li>
+<li>Added native NPS and review surveys with a 14‑day cooldown, using Material 3 design. <a href="https://github.com/ashwkun/boxlore/pull/852"><img src="https://img.shields.io/badge/PR-852-2ebbca?style=flat-square" alt="PR #852" height="18"/></a></li>
 </ul>
 
 </blockquote>
