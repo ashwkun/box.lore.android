@@ -1,6 +1,6 @@
 <div align="center" id="top">
 
-<img src="docs/images/featured_image.jpg" width="800" alt="boxlore Feature Banner"/>
+<img src="docs/images/featured_image.png" width="800" alt="boxlore Feature Banner"/>
 
 ### A podcast app that actually gets personal
 
