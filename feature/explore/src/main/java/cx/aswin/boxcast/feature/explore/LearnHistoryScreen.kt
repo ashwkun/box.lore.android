@@ -16,15 +16,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -100,65 +98,118 @@ fun LearnHistoryScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(horizontal = 8.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Card History",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                if (uiState is LearnHistoryUiState.Success &&
-                    (uiState as LearnHistoryUiState.Success).entries.isNotEmpty()
+    LoreHaloBackground(accentColor = MaterialTheme.colorScheme.primary) {
+        Scaffold(
+            topBar = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    IconButton(onClick = { showClearDialog = true }) {
-                        Icon(Icons.Rounded.ClearAll, contentDescription = "Clear history")
+                    Surface(
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        tonalElevation = 2.dp,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(
+                            id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore
+                        ),
+                        contentDescription = "Lore",
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                            MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .height(32.dp)
+                            .align(Alignment.Center)
+                    )
+                    if (uiState is LearnHistoryUiState.Success &&
+                        (uiState as LearnHistoryUiState.Success).entries.isNotEmpty()
+                    ) {
+                        Surface(
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = 2.dp,
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) {
+                            IconButton(onClick = { showClearDialog = true }) {
+                                Icon(Icons.Rounded.ClearAll, contentDescription = "Clear history")
+                            }
+                        }
                     }
                 }
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface
-    ) { innerPadding ->
-        when (val state = uiState) {
-            is LearnHistoryUiState.Loading -> Unit
-            is LearnHistoryUiState.Success -> {
-                if (state.entries.isEmpty()) {
-                    LearnHistoryEmptyState(
+            },
+            containerColor = androidx.compose.ui.graphics.Color.Transparent
+        ) { innerPadding ->
+            when (val state = uiState) {
+                is LearnHistoryUiState.Loading -> {
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
-                            .padding(bottom = bottomContentPadding)
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            start = 16.dp,
-                            end = 16.dp,
-                            top = 8.dp,
-                            bottom = bottomContentPadding + 16.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(bottom = bottomContentPadding),
+                        contentAlignment = Alignment.Center
                     ) {
-                        items(state.entries, key = { it.episodeId }) { entry ->
-                            LearnHistoryRow(
-                                entry = entry,
-                                onClick = { onEpisodeClick(entry.toDailyCuriosityDto().episode.toEpisode()) },
-                                onRestore = { viewModel.restoreEntry(entry.episodeId) }
-                            )
+                        cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader.Expressive(size = 64.dp)
+                    }
+                }
+                is LearnHistoryUiState.Success -> {
+                    if (state.entries.isEmpty()) {
+                        LearnHistoryEmptyState(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                                .padding(bottom = bottomContentPadding)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 8.dp,
+                                bottom = bottomContentPadding + 16.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            item {
+                                Column(
+                                    modifier = Modifier.padding(
+                                        start = 4.dp,
+                                        end = 4.dp,
+                                        bottom = 8.dp
+                                    )
+                                ) {
+                                    Text(
+                                        text = "Your Lore history",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Questions you dismissed or queued, ready to rediscover.",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            items(state.entries, key = { it.episodeId }) { entry ->
+                                LearnHistoryRow(
+                                    entry = entry,
+                                    onClick = {
+                                        onEpisodeClick(entry.toDailyCuriosityDto().episode.toEpisode())
+                                    },
+                                    onRestore = { viewModel.restoreEntry(entry.episodeId) }
+                                )
+                            }
                         }
                     }
                 }
@@ -169,35 +220,51 @@ fun LearnHistoryScreen(
 
 @Composable
 private fun LearnHistoryEmptyState(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = modifier.padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Rounded.History,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "No cards yet",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
             modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Episodes you dismiss or queue on Learn show up here so you can find them again.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 36.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Cookie6,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.History,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .size(36.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "No Lore to revisit yet",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Questions you dismiss or queue will wait here, ready for another look.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }
 
@@ -224,32 +291,32 @@ private fun LearnHistoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp),
+            verticalAlignment = Alignment.Top
         ) {
             OptimizedImage(
                 url = imageUrl.orEmpty(),
                 proxyWidth = 160,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(72.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = entry.question.ifBlank { entry.episodeTitle },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
                 )
+                Spacer(modifier = Modifier.height(6.dp))
                 if (entry.question.isNotBlank()) {
                     Text(
                         text = entry.episodeTitle,
@@ -268,15 +335,27 @@ private fun LearnHistoryRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = listOf(actionLabel, dateLabel).filter { it.isNotBlank() }.joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = when (entry.action) {
+                        LearnHistoryAction.DISMISS -> MaterialTheme.colorScheme.errorContainer
+                        LearnHistoryAction.QUEUE -> MaterialTheme.colorScheme.tertiaryContainer
+                    }
+                ) {
+                    Text(
+                        text = listOf(actionLabel, dateLabel)
+                            .filter { it.isNotBlank() }
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
             }
-            IconButton(onClick = onRestore) {
-                Icon(Icons.Rounded.Undo, contentDescription = "Restore card")
+            Spacer(modifier = Modifier.width(8.dp))
+            androidx.compose.material3.FilledTonalIconButton(onClick = onRestore) {
+                Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Restore card")
             }
         }
     }

@@ -2,56 +2,28 @@ package cx.aswin.boxcast.feature.explore
 
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,34 +40,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
-import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
-import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Episode
-import cx.aswin.boxcast.core.network.model.CuratedCuriosityPodcastDto
 import cx.aswin.boxcast.core.network.model.DailyCuriosityDto
 import cx.aswin.boxcast.core.data.toEpisode
 import cx.aswin.boxcast.core.designsystem.theme.TrackScreenSession
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,7 +71,14 @@ fun LearnScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val playerState by playbackRepository.playerState.collectAsState()
+    val stablePlayerState = remember(playbackRepository) {
+        playbackRepository.playerState
+            .map { it.copy(position = 0L, bufferedPosition = 0L) }
+            .distinctUntilChanged()
+    }
+    val playerState by stablePlayerState.collectAsState(
+        initial = cx.aswin.boxcast.core.data.PlayerState()
+    )
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -131,31 +98,8 @@ fun LearnScreen(
     // Animate color transition smoothly for ambient background gradient and tinting
     val animatedAccentColor by animateColorAsState(
         targetValue = baseAccentColor,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        animationSpec = tween(durationMillis = 700),
         label = "AccentColorTransition"
-    )
-
-    // Infinite transition for fluid background glow animations (pulsing and drifting)
-    val infiniteTransition = rememberInfiniteTransition(label = "BackgroundGlowPulse")
-    
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.88f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 7000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "GlowPulseScale"
-    )
-    
-    val driftX by infiniteTransition.animateFloat(
-        initialValue = -25f,
-        targetValue = 25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 11000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "GlowDriftX"
     )
 
     // Trigger color extraction based on active card cover artwork changes
@@ -200,44 +144,9 @@ fun LearnScreen(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent
     ) { _ ->
-        // Ambient background gradient glow wrapping the pull to refresh box
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val density = this
-                    val driftXPx = with(density) { driftX.dp.toPx() }
-
-                    // 1. Top-center ambient glow orb (Breathing and drifting gently)
-                    val topGlowBrush = Brush.radialGradient(
-                        colors = listOf(
-                            animatedAccentColor.copy(alpha = 0.25f),
-                            animatedAccentColor.copy(alpha = 0.06f),
-                            Color.Transparent
-                        ),
-                        center = Offset(
-                            x = size.width / 2f + driftXPx,
-                            y = -size.height * 0.1f
-                        ),
-                        radius = size.height * 0.85f * pulseScale
-                    )
-                    drawRect(brush = topGlowBrush)
-
-                    // 2. Bottom-right ambient glow orb (Pulsing out-of-phase for a fluid lava-lamp atmosphere)
-                    val bottomGlowBrush = Brush.radialGradient(
-                        colors = listOf(
-                            animatedAccentColor.copy(alpha = 0.18f),
-                            animatedAccentColor.copy(alpha = 0.04f),
-                            Color.Transparent
-                        ),
-                        center = Offset(
-                            x = size.width * 0.8f - driftXPx,
-                            y = size.height * 0.95f
-                        ),
-                        radius = size.height * 0.65f * (2f - pulseScale)
-                    )
-                    drawRect(brush = bottomGlowBrush)
-                }
+        LoreHaloBackground(
+            accentColor = animatedAccentColor,
+            modifier = Modifier.fillMaxSize()
         ) {
             val isRefreshing = when (val state = uiState) {
                 is LearnUiState.Success -> state.isRefreshing
@@ -258,37 +167,29 @@ fun LearnScreen(
                 when (val state = uiState) {
                     is LearnUiState.Loading -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = bottomContentPaddingCalculated),
                             contentAlignment = Alignment.Center
                         ) {
                             BoxLoreLoader.Expressive(size = 64.dp)
                         }
                     }
                     is LearnUiState.CaughtUp -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                        LoreStateCard(
+                            accentColor = animatedAccentColor,
+                            title = "You’re all caught up",
+                            description = "New curiosities arrive daily. Restore a favorite from your Lore history whenever inspiration strikes.",
+                            bottomContentPadding = bottomContentPaddingCalculated
                         ) {
-                            Text(
-                                text = "You’re all caught up",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "New curiosities arrive daily. You can also restore cards from your history.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            FilledTonalButton(onClick = viewModel::refresh) {
+                            FilledTonalButton(
+                                onClick = viewModel::refresh,
+                                shape = CircleShape
+                            ) {
                                 Text("Check for new cards")
                             }
                             TextButton(onClick = onNavigateToHistory) {
-                                Text("Review history")
+                                Text("Open Lore history")
                             }
                         }
                     }
@@ -355,39 +256,40 @@ fun LearnScreen(
                                 .padding(bottom = bottomContentPaddingCalculated),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // 1. Brand logo with history action
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 20.dp, vertical = 4.dp)
                             ) {
                                 Image(
                                     painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
                                     contentDescription = "Lore",
                                     colorFilter = ColorFilter.tint(animatedAccentColor),
                                     modifier = Modifier
-                                        .height(32.dp)
+                                        .height(34.dp)
                                         .align(Alignment.Center)
                                 )
-                                IconButton(
-                                    onClick = onNavigateToHistory,
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    tonalElevation = 2.dp,
                                     modifier = Modifier.align(Alignment.CenterEnd)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.History,
-                                        contentDescription = "Card history",
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                                    )
+                                    IconButton(onClick = onNavigateToHistory) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.History,
+                                            contentDescription = "Lore history",
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
                             }
 
-                            // 2. Top flexible spacer (absorbs 50% of the dynamic vertical margin)
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            // 3. Curiosity Card Stack with 28.dp horizontal padding to avoid being too wide
+                            Spacer(modifier = Modifier.height(30.dp))
                             CuriosityCardStack(
                                 questions = state.questionsStack,
+                                isCurrentEpisode = { id -> playerState.currentEpisode?.id == id },
                                 isCurrentlyPlaying = { id -> playerState.currentEpisode?.id == id && playerState.isPlaying },
                                 isCurrentlyLoading = { id -> playerState.currentEpisode?.id == id && playerState.isLoading },
                                 onSwipeLeft = { handleLearnCardAction("dismiss", it) },
@@ -398,41 +300,24 @@ fun LearnScreen(
                                 accentColor = animatedAccentColor,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 28.dp)
+                                    .weight(1f)
+                                    .padding(horizontal = 20.dp)
                             )
-
-                            // 4. Middle spacer between card stack and controls (Tightly bounded to 10.dp)
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // 5. Deck controls row (Dismiss, Info, Queue compact pill buttons on the screen bg below the card)
-                            val activeCard = state.questionsStack.firstOrNull()
-                            DeckControlsRow(
-                                activeCard = activeCard,
-                                onDismissClick = {
-                                    activeCard?.let { handleLearnCardAction("dismiss", it) }
-                                },
-                                onInfoClick = {
-                                    activeCard?.let { handleLearnCardAction("info", it) }
-                                },
-                                onQueueClick = {
-                                    activeCard?.let { handleLearnCardAction("queue", it) }
-                                }
-                            )
-
-                            // 6. Bottom flexible spacer (absorbs the other 50% of the dynamic vertical margin)
-                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                     is LearnUiState.Error -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+                        LoreStateCard(
+                            accentColor = animatedAccentColor,
+                            title = "Lore lost the thread",
+                            description = state.message,
+                            bottomContentPadding = bottomContentPaddingCalculated
                         ) {
-                            Text(
-                                text = state.message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            FilledTonalButton(
+                                onClick = viewModel::refresh,
+                                shape = CircleShape
+                            ) {
+                                Text("Try again")
+                            }
                         }
                     }
                 }
@@ -442,122 +327,62 @@ fun LearnScreen(
 }
 
 @Composable
-private fun DeckControlsRow(
-    activeCard: DailyCuriosityDto?,
-    onDismissClick: () -> Unit,
-    onInfoClick: () -> Unit,
-    onQueueClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun LoreStateCard(
+    accentColor: Color,
+    title: String,
+    description: String,
+    bottomContentPadding: Dp,
+    content: @Composable () -> Unit
 ) {
-    if (activeCard == null) return
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = bottomContentPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        // Dismiss Pill Button (Left)
-        Box(
+        Image(
+            painter = painterResource(id = cx.aswin.boxcast.core.designsystem.R.drawable.logo_lore),
+            contentDescription = "Lore",
+            colorFilter = ColorFilter.tint(accentColor),
+            modifier = Modifier.height(38.dp)
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
             modifier = Modifier
-                .height(36.dp)
-                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
-                .expressiveClickable(onClick = onDismissClick)
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .widthIn(max = 460.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = Color(0xFFFF6B6B),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "DISMISS",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.1.sp,
-                    color = Color(0xFFFF6B6B)
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(10.dp))
-
-        // Info Pill Button (Center)
-        Box(
-            modifier = Modifier
-                .height(36.dp)
-                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
-                .expressiveClickable(onClick = onInfoClick)
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.TouchApp,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "INFO",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.1.sp,
-                    color = Color.White.copy(alpha = 0.9f)
+                    text = description,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(10.dp))
-
-        // Queue Pill Button (Right)
-        Box(
-            modifier = Modifier
-                .height(36.dp)
-                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
-                .expressiveClickable(onClick = onQueueClick)
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = Color(0xFF69DB7C),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "QUEUE",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.1.sp,
-                    color = Color(0xFF69DB7C)
-                )
+                Spacer(modifier = Modifier.height(24.dp))
+                content()
             }
         }
     }
 }
 
-private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
+internal fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
     val palette = androidx.palette.graphics.Palette.from(bitmap).generate()
     
     // 1. Get the absolute dominant swatch from the image palette
@@ -582,51 +407,6 @@ private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
     // 5. Convert back to RGB and then Compose Color
     val colorInt = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
     return Color(colorInt)
-}
-
-@Composable
-private fun CuratedShowItem(
-    show: CuratedCuriosityPodcastDto,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .width(110.dp)
-            .expressiveClickable(onClick = onClick)
-    ) {
-        OptimizedImage(
-            url = show.artwork ?: show.image ?: "",
-            proxyWidth = 220,
-            contentDescription = null,
-            modifier = Modifier
-                .size(110.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        )
-        
-        Spacer(modifier = Modifier.height(6.dp))
-        
-        Text(
-            text = show.title,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        
-        val author = show.author
-        if (!author.isNullOrEmpty()) {
-            Text(
-                text = author,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
 }
 
 private fun trackLearnCardAction(

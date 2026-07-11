@@ -1091,12 +1091,19 @@ fun EpisodeInfoScreen(
                             type = "episode",
                             title = shareEpisode.title,
                             subtitle = podcastTitle,
+                            imageUrl = shareEpisode.imageUrl ?: shareEpisode.podcastImageUrl,
                             onDismissRequest = { showShareSheet = false },
                             durationMs = shareEpisode.duration * 1000L,
                             currentPositionMs = currentSuccessState?.resumePositionMs ?: 0L,
                             showTimestampOption = false,
-                            onShare = { _, _, t ->
-                                cx.aswin.boxcast.core.data.ShareManager.shareEpisode(context, shareEpisode, podcastTitle, t)
+                            onShare = { _, _, timestamp, target ->
+                                cx.aswin.boxcast.core.data.ShareManager.shareEpisode(
+                                    context = context,
+                                    episode = shareEpisode,
+                                    podcastTitle = podcastTitle,
+                                    timestampMs = timestamp,
+                                    target = target
+                                )
                             }
                         )
                     }

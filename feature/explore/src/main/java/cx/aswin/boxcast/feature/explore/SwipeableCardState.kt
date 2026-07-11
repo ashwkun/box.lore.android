@@ -1,8 +1,9 @@
 package cx.aswin.boxcast.feature.explore
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,7 +26,10 @@ class SwipeableCardState(
             val targetX = if (direction == SwipeDirection.Left) -1500f else 1500f
             offset.animateTo(
                 targetValue = Offset(targetX, offset.value.y),
-                animationSpec = tween(durationMillis = 350)
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
             )
             onSwiped(direction)
             offset.snapTo(Offset.Zero)
@@ -34,7 +38,12 @@ class SwipeableCardState(
 
     fun drag(dragAmount: Offset) {
         coroutineScope.launch {
-            offset.snapTo(offset.value + dragAmount)
+            offset.snapTo(
+                Offset(
+                    x = offset.value.x + dragAmount.x,
+                    y = 0f
+                )
+            )
         }
     }
 
@@ -42,7 +51,10 @@ class SwipeableCardState(
         coroutineScope.launch {
             offset.animateTo(
                 targetValue = Offset.Zero,
-                animationSpec = tween(durationMillis = 250)
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
             )
         }
     }

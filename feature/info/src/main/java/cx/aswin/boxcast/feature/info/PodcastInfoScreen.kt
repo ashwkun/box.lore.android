@@ -1462,9 +1462,14 @@ fun PodcastInfoScreen(
                                     type = "podcast",
                                     title = sharePodcast.title,
                                     subtitle = sharePodcast.artist,
+                                    imageUrl = sharePodcast.imageUrl,
                                     onDismissRequest = { showShareSheet = false },
-                                    onShare = { _, _, _ ->
-                                        cx.aswin.boxcast.core.data.ShareManager.sharePodcast(context, sharePodcast)
+                                    onShare = { _, _, _, target ->
+                                        cx.aswin.boxcast.core.data.ShareManager.sharePodcast(
+                                            context = context,
+                                            podcast = sharePodcast,
+                                            target = target
+                                        )
                                     }
                                 )
                             }

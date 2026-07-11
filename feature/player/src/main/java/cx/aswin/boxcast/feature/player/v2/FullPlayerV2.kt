@@ -530,16 +530,18 @@ private fun PlayerShareSheet(
         type = "episode",
         title = model.episode.title,
         subtitle = model.podcast.title,
+        imageUrl = model.episode.imageUrl ?: model.podcast.imageUrl,
         onDismissRequest = { ui.showShareSheet = false },
         durationMs = model.episode.duration * 1000L,
         currentPositionMs = currentPosition,
         showTimestampOption = true,
-        onShare = { _, _, timestamp ->
+        onShare = { _, _, timestamp, target ->
             cx.aswin.boxcast.core.data.ShareManager.shareEpisode(
-                context,
-                model.episode,
-                model.podcast.title,
-                timestamp
+                context = context,
+                episode = model.episode,
+                podcastTitle = model.podcast.title,
+                timestampMs = timestamp,
+                target = target
             )
         }
     )
@@ -852,15 +854,13 @@ private fun MarqueeMetadataText(
     velocity: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit
 ) {
-    var overflows by remember(text) { mutableStateOf(false) }
     Text(
         text = text,
         style = style,
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Clip,
-        textAlign = if (overflows) TextAlign.Start else TextAlign.Center,
-        onTextLayout = { overflows = it.hasVisualOverflow },
+        textAlign = TextAlign.Center,
         modifier = Modifier
             .fillMaxWidth()
             .clipToBounds()
@@ -869,19 +869,13 @@ private fun MarqueeMetadataText(
                 indication = null,
                 onClick = onClick
             )
-            .then(
-                if (overflows) {
-                    Modifier.basicMarquee(
-                        iterations = Int.MAX_VALUE,
-                        animationMode = MarqueeAnimationMode.Immediately,
-                        repeatDelayMillis = 1_600,
-                        initialDelayMillis = 1_800,
-                        spacing = MarqueeSpacing.fractionOfContainer(0.18f),
-                        velocity = velocity
-                    )
-                } else {
-                    Modifier
-                }
+            .basicMarquee(
+                iterations = Int.MAX_VALUE,
+                animationMode = MarqueeAnimationMode.Immediately,
+                repeatDelayMillis = 1_600,
+                initialDelayMillis = 1_800,
+                spacing = MarqueeSpacing.fractionOfContainer(0.18f),
+                velocity = velocity
             )
     )
 }

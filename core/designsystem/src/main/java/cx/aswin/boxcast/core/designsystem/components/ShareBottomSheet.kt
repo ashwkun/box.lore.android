@@ -1,8 +1,6 @@
 package cx.aswin.boxcast.core.designsystem.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,19 +9,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -34,13 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxcast.core.model.ShareLinkBuilder
+import cx.aswin.boxcast.core.model.ShareTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,23 +47,23 @@ fun ShareBottomSheet(
     type: String, // "podcast" or "episode"
     title: String,
     subtitle: String,
+    imageUrl: String? = null,
     onDismissRequest: () -> Unit,
     durationMs: Long = 0L,
     currentPositionMs: Long = 0L,
     showTimestampOption: Boolean = false,
-    onShare: (id: String, type: String, timestampMs: Long?) -> Unit
+    onShare: (
+        id: String,
+        type: String,
+        timestampMs: Long?,
+        target: ShareTarget
+    ) -> Unit
 ) {
-    android.util.Log.d("ShareBottomSheet", "ShareBottomSheet composed! id=$id, type=$type")
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    // Checkbox state
     var includeTimestamp by remember { mutableStateOf(false) }
-
-    // Colors
     val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -78,43 +76,61 @@ fun ShareBottomSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Start
         ) {
-            // Header
             Text(
-                text = "Share with Friends",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
+                text = "Share the good stuff",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
+            Text(
+                text = "A polished boxlore card is ready to send.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Content Card Preview
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .padding(16.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
                 Row(
+                    modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (!imageUrl.isNullOrBlank()) {
+                        OptimizedImage(
+                            url = imageUrl,
+                            proxyWidth = 160,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                    }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
+                            text = if (type == "podcast") "PODCAST" else "EPISODE",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor
+                        )
+                        Text(
                             text = title,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = secondaryTextColor,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -122,105 +138,143 @@ fun ShareBottomSheet(
                 }
             }
 
-            // Episode Sharing Options (Only when initiated from player share and playing)
             if (type == "episode" && showTimestampOption && currentPositionMs > 1000L) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.52f)
                 ) {
-                    Checkbox(
-                        checked = includeTimestamp,
-                        onCheckedChange = { includeTimestamp = it },
-                        colors = CheckboxDefaults.colors(checkedColor = primaryColor)
-                    )
-                    Text(
-                        text = "Share from current time (${formatTime(currentPositionMs)})",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = includeTimestamp,
+                            onCheckedChange = { includeTimestamp = it },
+                            colors = CheckboxDefaults.colors(checkedColor = primaryColor)
+                        )
+                        Text(
+                            text = "Start at ${formatTime(currentPositionMs)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Action Buttons Row
+            Spacer(modifier = Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Copy Link Button
-                OutlinedButton(
+                ShareActionTile(
+                    icon = Icons.Rounded.ContentCopy,
+                    label = "Copy",
                     onClick = {
-                        val finalLink = generateFinalLink(
+                        val finalLink = ShareLinkBuilder.build(
                             id = id,
                             type = type,
-                            includeTimestamp = includeTimestamp && showTimestampOption,
-                            currentPositionMs = currentPositionMs
+                            timestampMs = currentPositionMs.takeIf {
+                                includeTimestamp && showTimestampOption
+                            }
                         )
-                        clipboardManager.setText(AnnotatedString(finalLink))
-                        android.widget.Toast.makeText(context, "Link copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                        val clipboard = context.getSystemService(
+                            android.content.Context.CLIPBOARD_SERVICE
+                        ) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText("boxlore link", finalLink)
+                        )
+                        android.widget.Toast.makeText(
+                            context,
+                            "Link copied",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                         onDismissRequest()
                     },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Copy Link", style = MaterialTheme.typography.labelLarge)
-                }
-
-                // Main Share Button
-                Button(
+                    modifier = Modifier.weight(1f)
+                )
+                ShareActionTile(
+                    icon = Icons.Rounded.ChatBubble,
+                    label = "Send",
                     onClick = {
                         val tMs = if (includeTimestamp && showTimestampOption) currentPositionMs else null
-                        onShare(id, type, tMs)
+                        onShare(id, type, tMs, ShareTarget.MESSAGE)
                         onDismissRequest()
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Share Link", style = MaterialTheme.typography.labelLarge)
-                }
+                    emphasized = true
+                )
+                ShareActionTile(
+                    icon = Icons.Rounded.AutoAwesome,
+                    label = "Story",
+                    onClick = {
+                        val tMs = if (includeTimestamp && showTimestampOption) currentPositionMs else null
+                        onShare(id, type, tMs, ShareTarget.INSTAGRAM_STORY)
+                        onDismissRequest()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Story copies the link so you can add it with Instagram’s Link sticker.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
-private fun generateFinalLink(
-    id: String,
-    type: String,
-    includeTimestamp: Boolean,
-    currentPositionMs: Long
-): String {
-    return if (type == "podcast") {
-        "https://aswin.cx/boxlore/share?type=podcast&id=$id"
+@Composable
+private fun ShareActionTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false
+) {
+    val containerColor = if (emphasized) {
+        MaterialTheme.colorScheme.primary
     } else {
-        val baseUrl = "https://aswin.cx/boxlore/share?type=episode&id=$id"
-        if (includeTimestamp && currentPositionMs > 0) {
-            val tSec = currentPositionMs / 1000
-            "$baseUrl&t=$tSec"
-        } else {
-            baseUrl
+        MaterialTheme.colorScheme.surfaceContainerHighest
+    }
+    val contentColor = if (emphasized) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    Surface(
+        modifier = modifier.expressiveClickable(
+            shape = MaterialTheme.shapes.extraLarge,
+            onClick = onClick
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = containerColor
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = contentColor.copy(alpha = 0.12f)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.padding(8.dp).size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(7.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
         }
     }
 }

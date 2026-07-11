@@ -11,6 +11,14 @@
     <!-- Included to satisfy Google Play Console Advertising ID declaration requirements -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
+    <queries>
+        <package android:name="com.instagram.android" />
+        <intent>
+            <action android:name="com.instagram.share.ADD_TO_STORY" />
+            <data android:mimeType="image/*" />
+        </intent>
+    </queries>
+
     <application
         android:name=".BoxLoreApplication"
         android:allowBackup="true"

@@ -482,42 +482,6 @@ class MainActivity : ComponentActivity() {
                 queueManager.addToQueue(episode, podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint.LEARN)
             }
 
-            loreQueueConflictEpisode?.let { pendingLoreEpisode ->
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = {
-                        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "cancelled")
-                        loreQueueConflictEpisode = null
-                    },
-                    title = { Text("Start a Lore queue?") },
-                    text = {
-                        Text(
-                            "Adding from Lore starts a fresh Lore queue and clears your current queue. " +
-                                "To keep your queue instead, tap the card to open the episode and use \"Add to Queue\" there."
-                        )
-                    },
-                    confirmButton = {
-                        androidx.compose.material3.TextButton(onClick = {
-                            loreQueueConflictEpisode = null
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "start_lore_queue")
-                            scope.launch {
-                                try {
-                                    playbackRepository.stopAndClearQueue()
-                                    queueLoreEpisode(pendingLoreEpisode)
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MainActivity", "Failed to start Lore queue", e)
-                                }
-                            }
-                        }) { Text("Start Lore queue") }
-                    },
-                    dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = {
-                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "cancelled")
-                            loreQueueConflictEpisode = null
-                        }) { Text("Cancel") }
-                    }
-                )
-            }
-
             val smartDownloadManager = remember {
                 cx.aswin.boxcast.core.data.SmartDownloadManager(
                     context = application,
@@ -817,6 +781,79 @@ class MainActivity : ComponentActivity() {
                 themeBrand = themeBrand,
                 surfaceStyle = surfaceStyle
             ) {
+                loreQueueConflictEpisode?.let { pendingLoreEpisode ->
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "cancelled")
+                            loreQueueConflictEpisode = null
+                        },
+                        icon = {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.tertiaryContainer
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(12.dp).size(24.dp)
+                                )
+                            }
+                        },
+                        title = {
+                            Text(
+                                text = "Start a Lore queue?",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = "This starts a fresh Lore queue and clears your current queue. " +
+                                    "To keep it, open the episode and use Add to Queue instead.",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.FilledTonalButton(
+                                onClick = {
+                                    loreQueueConflictEpisode = null
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "start_lore_queue")
+                                    scope.launch {
+                                        try {
+                                            playbackRepository.stopAndClearQueue()
+                                            queueLoreEpisode(pendingLoreEpisode)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("MainActivity", "Failed to start Lore queue", e)
+                                        }
+                                    }
+                                },
+                                shape = CircleShape
+                            ) {
+                                Text("Start Lore queue")
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictResult(pendingLoreEpisode.id, "cancelled")
+                                    loreQueueConflictEpisode = null
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            ) {
+                                Text("Keep current queue")
+                            }
+                        },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 // Show Announcement Dialog if onboarding is completed
                 if (onboardingCompleted && activeAnnouncement != null) {
                     val announcement = activeAnnouncement!!

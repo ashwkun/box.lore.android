@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -98,6 +99,13 @@ class CachedPolygonShape(
  * Uses CachedPolygonShape and CachedPathShape to eliminate draw-time allocations.
  */
 object ExpressiveShapes {
+
+    enum class DecorativeType {
+        Puffy,
+        PuffyDiamond,
+        SoftBurst,
+        Cookie4
+    }
 
     // --- Basic Shapes ---
     val Circle = CircleShape
@@ -317,6 +325,41 @@ object ExpressiveShapes {
         Heart, Bun, GhostIsh,
         Diamond, Gem, Pentagon
     )
+
+    fun androidPath(
+        type: DecorativeType,
+        width: Float,
+        height: Float
+    ): android.graphics.Path {
+        val shape = when (type) {
+            DecorativeType.Puffy -> Puffy
+            DecorativeType.PuffyDiamond -> PuffyDiamond
+            DecorativeType.SoftBurst -> SoftBurst
+            DecorativeType.Cookie4 -> Cookie4
+        }
+        val outline = shape.createOutline(
+            size = Size(width, height),
+            layoutDirection = LayoutDirection.Ltr,
+            density = Density(1f)
+        )
+        return when (outline) {
+            is Outline.Generic -> outline.path.asAndroidPath()
+            is Outline.Rectangle -> android.graphics.Path().apply {
+                addRect(0f, 0f, width, height, android.graphics.Path.Direction.CW)
+            }
+            is Outline.Rounded -> android.graphics.Path().apply {
+                addRoundRect(
+                    0f,
+                    0f,
+                    width,
+                    height,
+                    outline.roundRect.topLeftCornerRadius.x,
+                    outline.roundRect.topLeftCornerRadius.y,
+                    android.graphics.Path.Direction.CW
+                )
+            }
+        }
+    }
 
     // --- Raw Polygons (for LoadingIndicator) ---
     object Polygons {
