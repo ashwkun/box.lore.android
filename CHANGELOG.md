@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Smart Queue v2: tiered SmartQueueEngine (T0–T4, T3.5) with batch refill, skip memory, region‑aware recommendations, signal‑aware Tier 3 routing, and unified guarded refill path in BoxLorePlaybackService; Queue UX enhancements include drag‑to‑reorder sheet, provenance source labels, undo‑remove snackbar with deferred skip signal, and Lore queue conflict dialog (LORE contextType). ([#853](https://github.com/ashwkun/boxlore/pull/853))
 - Responsive Material 3 Expressive full player and polished mini player UI replacing the legacy player sheet; playback utilities including inline and fullscreen transcripts, queue previews, show notes, chapters, persisted playback speed, and enhanced loading and motion states. ([#856](https://github.com/ashwkun/boxlore/pull/856))
+- Implemented loading of reduced-size curiosity pages and automatic advancement past dismissed cards; introduced a caught‑up state including refresh and history recovery actions. ([#857](https://github.com/ashwkun/boxlore/pull/857))
 ### Changed
 - Integrated SmartQueueEngine with Android Auto using unified refill guard; sleep‑timer now blocks end‑of‑episode refill; AUTO_FILL provenance persisted before append; contextSourceId gates Tier 0 on discovery landings. ([#853](https://github.com/ashwkun/boxlore/pull/853))
 - Restored queue handling now deduplicates episodes on restore; click animation handling updated to avoid sticking during rapid input. ([#856](https://github.com/ashwkun/boxlore/pull/856))
+- Replaced Lore screen branding assets with refreshed artwork. ([#857](https://github.com/ashwkun/boxlore/pull/857))
 - Switched survey implementation from posthog-android-surveys-compose to BoxcastPostHogSurveysDelegate for Material3 1.5 stability and added native PostHog NPS surveys with unified NPS/Play review modal and 14‑day promoter cooldown. ([#852](https://github.com/ashwkun/boxlore/pull/852))
 ### Fixed
 - Fixed Tier 0 newest‑sort guard for episodic/news and discovery landing skip; added Tier 3.5 deduplication when Tier 3 already similar; corrected skip‑memory filters and removed auto‑fill skips. ([#853](https://github.com/ashwkun/boxlore/pull/853))
