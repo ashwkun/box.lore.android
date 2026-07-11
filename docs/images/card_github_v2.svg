@@ -8,12 +8,12 @@
   <!-- Card Outer -->
   <rect width="220" height="70" rx="8" fill="url(#card-grad)" stroke="#1e293b" stroke-width="1.2"/>
   <!-- Octocat Icon -->
-  <g transform="translate(14, 18) scale(1.2)">
+  <g transform="translate(16, 18) scale(1.15)">
     <path d="M14,0C6.27,0,0,6.27,0,14c0,6.18,4.01,11.43,9.57,13.28.7,.13.96-.3.96-.67,0-.33-.01-1.21-.02-2.38-3.9,0-4.72-1.88-4.72-1.88-.64-1.62-1.56-2.05-1.56-2.05-1.27-.87.1-.85.1-.85,1.4.1,2.14,1.44,2.14,1.44,1.25,2.14,3.28,1.52,4.08,1.16.13-.91.49-1.52.89-1.87-3.11-.35-6.38-1.56-6.38-6.93,0-1.53.55-2.78,1.44-3.76-.14-.35-.62-1.78.14-3.71,0,0,1.18-.38,3.85,1.44,1.12-.31,2.32-.47,3.52-.47,1.2,0,2.4.16,3.52.47,2.67-1.82,3.85-1.44,3.85-1.44,.76,1.93,.28,3.36,.14,3.71,.89,.98,1.44,2.23,1.44,3.76,0,5.38-3.27,6.58-6.39,6.93,.5,.43,.95,1.29,.95,2.6,0,1.88-.02,3.39-.02,3.85,0,.37,.25,.81,.96,.67,5.56-1.85,9.56-7.1,9.56-13.28,0-7.73-6.27-14-14-14Z" fill="#FFFFFF"/>
   </g>
   <!-- Text Elements -->
   <g fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
-    <text x="52" y="27" font-size="8" font-weight="600" fill="#94a3b8" letter-spacing="0.6">DOWNLOAD THE APP</text>
-    <text x="52" y="47" font-size="16" font-weight="700" fill="#ffffff" letter-spacing="0.2">on GitHub</text>
+    <text x="58" y="28" font-size="8" font-weight="600" fill="#94a3b8" letter-spacing="0.6">DOWNLOAD THE APP</text>
+    <text x="58" y="48" font-size="16" font-weight="700" fill="#ffffff" letter-spacing="0.2">on GitHub</text>
   </g>
 </svg>

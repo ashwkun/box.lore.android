@@ -8,7 +8,7 @@
   <!-- Card Outer -->
   <rect width="220" height="70" rx="8" fill="url(#card-grad)" stroke="#1e293b" stroke-width="1.2"/>
   <!-- Google Play Icon -->
-  <g transform="translate(14, 18) scale(1.1)">
+  <g transform="translate(16, 18) scale(1.05)">
     <path d="M 1.5,0.7 C 0.7,1.5 0.2,2.8 0.2,4.4 L 0.2,25.6 C 0.2,27.2 0.7,28.5 1.5,29.3 L 1.6,29.4 L 15.7,15.3 L 15.7,14.7 L 1.6,0.6 L 1.5,0.7 Z" fill="#EA4335"/>
     <path d="M 19.7,18.8 L 15.7,14.7 L 15.7,13.3 L 19.7,9.2 L 19.8,9.3 L 24.7,12.1 C 26.1,12.9 26.1,14.2 24.7,15.0 L 19.8,18.8 Z" fill="#FBBC05"/>
     <path d="M 19.8,9.3 L 1.6,0.1 C 0.9,-0.3 0.2,0.1 0.2,1.2 L 15.7,14.7 L 19.8,9.3 Z" fill="#4285F4"/>
@@ -16,7 +16,7 @@
   </g>
   <!-- Text Elements -->
   <g fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
-    <text x="52" y="27" font-size="8" font-weight="600" fill="#94a3b8" letter-spacing="0.6">COMING SOON ON</text>
-    <text x="52" y="47" font-size="16" font-weight="700" fill="#ffffff" letter-spacing="0.2">Google Play</text>
+    <text x="58" y="28" font-size="8" font-weight="600" fill="#94a3b8" letter-spacing="0.6">COMING SOON ON</text>
+    <text x="58" y="48" font-size="16" font-weight="700" fill="#ffffff" letter-spacing="0.2">Google Play</text>
   </g>
 </svg>
