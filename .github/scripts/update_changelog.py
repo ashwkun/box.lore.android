@@ -610,7 +610,7 @@ def _render_readme_upcoming_body(groups: list[dict[str, list[str]]] | None = Non
     if groups:
         visible = [g for g in groups if g.get("bullets")]
         if not visible:
-            return '<p align="center"><em>Nothing queued yet.</em></p>'
+            return 'We are currently focusing on offline playback enhancements, database indexing optimizations, and search query auto-completions.'
 
         sections: list[str] = []
         for group in visible:
@@ -618,48 +618,46 @@ def _render_readme_upcoming_body(groups: list[dict[str, list[str]]] | None = Non
             emoji = README_GROUP_EMOJI.get(heading, "•")
             items = "\n".join(_bullet_to_html_list_item(b) for b in group["bullets"])
             sections.append(
-                f"<h4 align=\"left\">{emoji} {heading}</h4>\n<ul align=\"left\">\n{items}\n</ul>"
+                f"<b>{emoji} {heading}:</b>\n<ul align=\"left\">\n{items}\n</ul>"
             )
-        inner = "\n<br/>\n".join(sections)
+        return "\n".join(sections)
     elif bullets:
         items = "\n".join(_bullet_to_html_list_item(b) for b in bullets)
-        inner = f'<ul align="left">\n{items}\n</ul>'
+        return f'<ul align="left">\n{items}\n</ul>'
     else:
-        return '<p align="center"><em>Nothing queued yet.</em></p>'
-
-    return (
-        '<table>\n'
-        '<tr>\n'
-        '<td align="left">\n\n'
-        '<blockquote align="left">\n\n'
-        f"{inner}\n\n"
-        "</blockquote>\n\n"
-        "</td>\n"
-        "</tr>\n"
-        "</table>"
-    )
+        return 'We are currently focusing on offline playback enhancements, database indexing optimizations, and search query auto-completions.'
 
 
-def _render_readme_upcoming_block(groups: list[dict[str, list[str]]] | None = None, bullets: list[str] | None = None) -> str:
+def _render_readme_upcoming_block(content: str, groups: list[dict[str, list[str]]] | None = None, bullets: list[str] | None = None) -> str:
     body = _render_readme_upcoming_body(groups=groups, bullets=bullets)
+
+    # Extract existing "What's New" block from content to preserve it
+    whats_new_match = re.search(
+        r"(<details>\s*<summary><b>🎉 What's New.*?</details>)",
+        content,
+        flags=re.DOTALL
+    )
+    whats_new_block = whats_new_match.group(1) if whats_new_match else ""
+    whats_new_formatted = f"\n\n<br/>\n\n{whats_new_block}" if whats_new_block else ""
+
+    # If body is the plain text fallback, wrap it in <p align="left">
+    if not body.startswith("<ul") and not body.startswith("<b>"):
+        body = f'<p align="left">\n{body}\n</p>'
 
     return (
         f"{UPCOMING_CHANGES_START}\n"
         '<div align="center">\n\n'
-        "<details>\n"
-        '<summary><b>✨ Upcoming in the next release</b></summary>\n'
-        "<br/>\n\n"
-        f"{body}\n\n"
-        "<br/>\n"
-        '<p align="center"><sub>Technical details in <a href="CHANGELOG.md">CHANGELOG.md</a></sub></p>\n'
-        "</details>\n\n"
+        "<details open>\n"
+        '<summary><b>🔮 Upcoming in the Next Release</b></summary>\n'
+        f"{body}\n"
+        f"</details>{whats_new_formatted}\n\n"
         "</div>\n"
         f"{UPCOMING_CHANGES_END}"
     )
 
 
 def _update_readme(content: str, groups: list[dict[str, list[str]]] | None = None, bullets: list[str] | None = None) -> str:
-    block = _render_readme_upcoming_block(groups=groups, bullets=bullets)
+    block = _render_readme_upcoming_block(content, groups=groups, bullets=bullets)
     pattern = re.compile(
         re.escape(UPCOMING_CHANGES_START) + r".*?" + re.escape(UPCOMING_CHANGES_END),
         flags=re.DOTALL,
