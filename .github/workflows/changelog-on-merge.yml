@@ -1,0 +1,56 @@
+name: Update Changelog on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: changelog-on-merge
+  cancel-in-progress: false
+
+jobs:
+  update-changelog:
+    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[skip changelog]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG via Groq
+        env:
+          GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 .github/scripts/update_changelog.py
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "No CHANGELOG changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for #${{ github.event.pull_request.number }} [skip ci]"
+
+          for attempt in 1 2 3 4 5; do
+            if git push origin master; then
+              echo "Pushed CHANGELOG update on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push failed; rebasing onto latest master (attempt ${attempt})..."
+            git pull --rebase origin master
+          done
+
+          echo "::error::Failed to push CHANGELOG update after 5 attempts"
+          exit 1

@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -19,7 +21,7 @@ fun Modifier.shimmerEffect(): Modifier = composed {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1600)
+            animation = tween(2200)
         ),
         label = "ShimmerProgress"
     )
@@ -55,25 +57,34 @@ fun Modifier.m3Shimmer(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1600)
+            animation = tween(2200)
         ),
         label = "ShimmerProgress"
     )
 
-    this.clip(shape).drawBehind {
+    // Brush is built once per size (drawWithCache) and translated per frame, instead
+    // of allocating a new gradient every frame. `progress` is only read inside the
+    // draw block, so the shimmer invalidates the draw phase only - no recomposition
+    // or relayout per frame.
+    this.clip(shape).drawWithCache {
         val width = size.width
-        val height = size.height
-        val startX = -width + progress * (3 * width)
-
         val brush = Brush.linearGradient(
             colors = listOf(
                 baseColor,
                 highlightColor,
                 baseColor,
             ),
-            start = Offset(startX, 0f),
-            end = Offset(startX + width, height)
+            start = Offset(0f, 0f),
+            end = Offset(width, size.height)
         )
-        drawRect(brush = brush)
+        onDrawBehind {
+            // Gradient clamps to baseColor at both ends, so a solid base underlay +
+            // translated band is visually identical to the old full-size gradient.
+            drawRect(color = baseColor)
+            val startX = -width + progress * (3 * width)
+            translate(left = startX) {
+                drawRect(brush = brush)
+            }
+        }
     }
 }

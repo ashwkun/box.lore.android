@@ -162,7 +162,6 @@ import cx.aswin.boxcast.core.designsystem.component.ExpressiveExtendedFab
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
-import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.TrackScreenSession
@@ -259,7 +258,6 @@ fun PodcastInfoScreen(
     bottomContentPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
-    LogRecomposition(name = "PodcastInfoScreen")
     val uiState by viewModel.uiState.collectAsState()
     val queuedEpisodeIds by viewModel.queuedEpisodeIds.collectAsState()
     val downloadedEpisodeIds by viewModel.downloadedEpisodeIds.collectAsState()
@@ -1821,7 +1819,6 @@ fun EpisodeListItem(
     showMarkPlayedButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    LogRecomposition(name = "EpisodeListItem")
     androidx.compose.material3.OutlinedCard(
         modifier = modifier
             .fillMaxWidth()

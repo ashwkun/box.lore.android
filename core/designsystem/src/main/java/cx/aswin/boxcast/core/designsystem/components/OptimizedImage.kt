@@ -57,7 +57,6 @@ fun OptimizedImage(
     contentScale: ContentScale = ContentScale.Crop,
     colorFilter: ColorFilter? = null
 ) {
-    LogRecomposition(name = "OptimizedImage: ${url?.takeLast(20)}")
     if (url.isNullOrBlank()) {
         Box(modifier = modifier) {
             AnimatedShapesFallback()

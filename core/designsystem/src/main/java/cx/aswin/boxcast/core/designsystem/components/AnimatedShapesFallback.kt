@@ -29,8 +29,6 @@ data class PlacedShape(val x: Float, val y: Float, val size: Int, val shape: and
 
 @Composable
 fun AnimatedShapesFallback() {
-    LogRecomposition(name = "AnimatedShapesFallback")
-    
     val primaryColor = MaterialTheme.colorScheme.primary
     val podcastIcon = Icons.Rounded.Podcasts
     val iconColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
@@ -44,8 +42,6 @@ fun AnimatedShapesFallback() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.primaryContainer)
             .graphicsLayer { clip = true } // Allow clipping at container edge
-            .logDrawTime("AnimatedShapesFallbackDraw")
-            .logLayoutTime("AnimatedShapesFallbackLayout")
             .drawWithCache {
                 val cachedOutlines = shapes.map { placed ->
                     val sizePx = placed.size.dp.toPx()

@@ -4,7 +4,6 @@ import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxcast.feature.home.StablePodcastList
 import cx.aswin.boxcast.feature.home.StableEpisodeList
 import cx.aswin.boxcast.feature.home.StablePlaybackStateMap
-import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.components.NewEpisodeBadge
@@ -141,7 +140,6 @@ fun YourShowsSection(
     downloadedEpisodeIds: Set<String> = emptySet(),
     modifier: Modifier = Modifier
 ) {
-    LogRecomposition(name = "YourShowsSection")
     if (subscribedPodcasts.list.isEmpty()) return
     val lastSeenEpisodes = LocalLastSeenEpisodes.current
 

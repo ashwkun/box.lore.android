@@ -9,6 +9,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,114 +40,141 @@ import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 
 
-@Composable
-fun TimeBlockSection(
+/**
+ * Emits the time-based curated block into a [LazyStaggeredGridScope]. The header and each vibe
+ * rail become individual full-line items so a single rail (a cheap horizontal LazyRow) composes
+ * as it scrolls into view, instead of composing every rail atomically — which caused a large
+ * frame whenever the block entered or re-entered the viewport near the bottom of the feed.
+ */
+fun LazyStaggeredGridScope.timeBlockItems(
     data: CuratedTimeBlock,
     onCuratedEpisodeClick: (Episode, Podcast, String, Int) -> Unit,
     onImpression: (String, List<String>) -> Unit = { _, _ -> },
-    onSeeAllClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onSeeAllClick: () -> Unit = {}
 ) {
-    LaunchedEffect(data.title) {
-        onImpression(data.title, data.sections.map { it.category })
+    item(span = StaggeredGridItemSpan.FullLine, key = "time_block_header", contentType = "time_block_header") {
+        LaunchedEffect(data.title) {
+            onImpression(data.title, data.sections.map { it.category })
+        }
+        TimeBlockHeader(data = data, onSeeAllClick = onSeeAllClick)
     }
+    data.sections.forEachIndexed { index, section ->
+        item(
+            span = StaggeredGridItemSpan.FullLine,
+            key = "time_block_rail_${section.category}",
+            contentType = "time_block_rail"
+        ) {
+            TimeBlockRail(
+                section = section,
+                index = index,
+                onCuratedEpisodeClick = onCuratedEpisodeClick
+            )
+        }
+    }
+}
 
-    Column(
-        modifier = modifier.fillMaxWidth()
+@Composable
+private fun TimeBlockHeader(
+    data: CuratedTimeBlock,
+    onSeeAllClick: () -> Unit
+) {
+    val themeColor = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 0.dp, bottom = 8.dp)
     ) {
-        // --- Secondary Time Block Header ---
-        val themeColor = MaterialTheme.colorScheme.primary
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 0.dp, bottom = 8.dp)
+            modifier = Modifier.weight(1f)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                AnimatedTimeBlockIcon(
-                    title = data.title,
-                    themeColor = themeColor,
-                    fallbackIcon = data.icon
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = data.title,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontFamily = SectionHeaderFontFamily,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            // Action chevron decorator
-            FilledTonalIconButton(
-                onClick = onSeeAllClick,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = "See All",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            AnimatedTimeBlockIcon(
+                title = data.title,
+                themeColor = themeColor,
+                fallbackIcon = data.icon
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = data.title,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = SectionHeaderFontFamily,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
-        // --- Genre Rails ---
-        data.sections.forEachIndexed { index, section ->
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(
-                        top = if (index == 0) 12.dp else 28.dp,
-                        bottom = 12.dp
-                    )
-                ) {
-                    Text(
-                        text = section.title,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.1).sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
-                // Rail
-                val distinctPodcasts = remember(section.podcasts) { section.podcasts.distinctBy { it.id } }
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 0.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        count = distinctPodcasts.size,
-                        key = { i -> distinctPodcasts[i].id }
-                    ) { i ->
-                        val podcast = distinctPodcasts[i]
-                        val episode = podcast.latestEpisode
-                        
-                        if (episode != null) {
-                            CuratedEpisodeCard(
-                                podcast = podcast,
-                                episode = episode,
-                                onClick = {
-                                    cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackCuratedCardTapped(
-                                        podcastId = podcast.id,
-                                        podcastName = podcast.title,
-                                        vibeId = section.category,
-                                        positionIndex = i
-                                    )
-                                    onCuratedEpisodeClick(episode, podcast, section.category, i)
-                                },
-                                modifier = Modifier.width(140.dp)
+        // Action chevron decorator
+        FilledTonalIconButton(
+            onClick = onSeeAllClick,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = "See All",
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimeBlockRail(
+    section: cx.aswin.boxcast.feature.home.CuratedSectionData,
+    index: Int,
+    onCuratedEpisodeClick: (Episode, Podcast, String, Int) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(
+                // Grid verticalItemSpacing already adds ~12dp between items, so trim the
+                // internal top padding to keep the original vertical rhythm.
+                top = if (index == 0) 4.dp else 16.dp,
+                bottom = 12.dp
+            )
+        ) {
+            Text(
+                text = section.title,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.1).sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        val distinctPodcasts = remember(section.podcasts) { section.podcasts.distinctBy { it.id } }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(
+                count = distinctPodcasts.size,
+                key = { i -> distinctPodcasts[i].id }
+            ) { i ->
+                val podcast = distinctPodcasts[i]
+                val episode = podcast.latestEpisode
+
+                if (episode != null) {
+                    CuratedEpisodeCard(
+                        podcast = podcast,
+                        episode = episode,
+                        onClick = {
+                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackCuratedCardTapped(
+                                podcastId = podcast.id,
+                                podcastName = podcast.title,
+                                vibeId = section.category,
+                                positionIndex = i
                             )
-                        }
-                    }
+                            onCuratedEpisodeClick(episode, podcast, section.category, i)
+                        },
+                        modifier = Modifier.width(140.dp)
+                    )
                 }
             }
         }

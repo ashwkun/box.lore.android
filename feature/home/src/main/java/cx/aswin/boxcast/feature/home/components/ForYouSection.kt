@@ -21,6 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
@@ -32,21 +36,45 @@ import androidx.compose.runtime.LaunchedEffect
 import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
 import cx.aswin.boxcast.feature.home.StableEpisodeList
 
-@Suppress("UNUSED_PARAMETER")
-@Composable
-fun ForYouSection(
+/**
+ * Emits the "For You" section directly into a [LazyStaggeredGridScope] instead of composing
+ * the whole section as one heavy full-line item. The hero card stays full-line, while the
+ * remaining masonry cards become individual 1-span items so only the cards actually scrolling
+ * into view are composed each frame (removes the atomic ~9-card compose spike).
+ */
+fun LazyStaggeredGridScope.forYouItems(
     recommendations: StableEpisodeList,
-    currentPlayingEpisodeId: String?,
-    isPlaying: Boolean,
     onEpisodeClick: (Episode, Podcast) -> Unit,
-    onPlayEpisode: (Episode, Podcast) -> Unit,
     timeBlock: CuratedTimeBlock?,
-    onSeeAllClick: () -> Unit,
     showTasteHeader: Boolean = true,
-    isFallback: Boolean = true,
-    modifier: Modifier = Modifier
+    isFallback: Boolean = true
 ) {
-    if (recommendations.list.isNotEmpty()) {
+    val items = recommendations.list.take(9)
+
+    if (showTasteHeader) {
+        item(span = StaggeredGridItemSpan.FullLine, key = "for_you_header", contentType = "for_you_header") {
+            ForYouHeader(
+                isFallback = isFallback,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+        }
+    }
+
+    if (items.isEmpty()) {
+        // Skeleton: hero + a handful of grid skeletons, each an individual staggered item.
+        item(span = StaggeredGridItemSpan.FullLine, key = "for_you_hero_skeleton", contentType = "for_you_hero_skeleton") {
+            val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+            val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            ForYouHeroSkeleton(baseColor = baseColor, highlightColor = highlightColor)
+        }
+        items(8, key = { "for_you_skel_$it" }, contentType = { "for_you_skel" }) {
+            GridSkeletonItem()
+        }
+        return
+    }
+
+    // Hero card (index 0) — full width. Also hosts the impression analytics effect.
+    item(span = StaggeredGridItemSpan.FullLine, key = "for_you_hero", contentType = "for_you_hero") {
         LaunchedEffect(recommendations.list) {
             AnalyticsHelper.trackHomeRecommendationsImpression(
                 recommendationsCount = recommendations.list.size,
@@ -54,133 +82,65 @@ fun ForYouSection(
                 timeBlockTitle = timeBlock?.title
             )
         }
+        val ep = items[0]
+        val parentPodcast = Podcast(
+            id = ep.podcastId ?: "",
+            title = ep.podcastTitle ?: "Podcast",
+            artist = "",
+            imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+            description = "",
+            genre = ep.podcastGenre ?: "Podcast"
+        )
+        ForYouHeroCard(
+            episode = ep,
+            parentPodcast = parentPodcast,
+            isFallback = isFallback,
+            onClick = {
+                AnalyticsHelper.trackHomeRecommendationCardTapped(
+                    episodeId = ep.id,
+                    episodeTitle = ep.title,
+                    podcastId = parentPodcast.id,
+                    podcastName = parentPodcast.title,
+                    positionIndex = 0,
+                    timeBlockTitle = timeBlock?.title
+                )
+                onEpisodeClick(ep, parentPodcast)
+            }
+        )
     }
 
-    val items = recommendations.list.take(9)
-
-    Column(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        if (showTasteHeader) {
-            ForYouHeader(
-                isFallback = isFallback,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-        }
-
-        androidx.compose.animation.Crossfade(
-            targetState = items,
-            animationSpec = androidx.compose.animation.core.tween(500),
-            label = "foryou_crossfade"
-        ) { currentItems ->
-            if (currentItems.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // --- Skeletal Shimmer Loader for Recommendations ---
-                    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-
-                    // Hero Skeleton
-                    ForYouHeroSkeleton(baseColor = baseColor, highlightColor = highlightColor)
-
-                    // 4 uniform rows of 2 skeletons each
-                    repeat(4) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            GridSkeletonItem(modifier = Modifier.weight(1f))
-                            GridSkeletonItem(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // --- Uniform Grid Layout ---
-
-                    // Item 1 (Hero Card - index 0)
-                    if (currentItems.isNotEmpty()) {
-                        val ep = currentItems[0]
-                        val parentPodcast = Podcast(
-                            id = ep.podcastId ?: "",
-                            title = ep.podcastTitle ?: "Podcast",
-                            artist = "",
-                            imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                            description = "",
-                            genre = ep.podcastGenre ?: "Podcast"
-                        )
-                        ForYouHeroCard(
-                            episode = ep,
-                            parentPodcast = parentPodcast,
-                            isFallback = isFallback,
-                            onClick = {
-                                AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                    episodeId = ep.id,
-                                    episodeTitle = ep.title,
-                                    podcastId = parentPodcast.id,
-                                    podcastName = parentPodcast.title,
-                                    positionIndex = 0,
-                                    timeBlockTitle = timeBlock?.title
-                                )
-                                onEpisodeClick(ep, parentPodcast)
-                            }
-                        )
-                    }
-
-                    // Remaining items in 2-column masonry layout (indices 1..8)
-                    val remaining = currentItems.drop(1)
-                    val remainingWithIndex = remaining.mapIndexed { index, ep -> ep to (index + 1) }
-                    val leftColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 0 }
-                    val rightColumn = remainingWithIndex.filterIndexed { index, _ -> index % 2 == 1 }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        // Render left and right columns using a loop to avoid code duplication
-                        val columns = listOf(leftColumn, rightColumn)
-                        columns.forEach { columnItems ->
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                columnItems.forEach { (ep, originalIndex) ->
-                                    val parentPodcast = Podcast(
-                                        id = ep.podcastId ?: "",
-                                        title = ep.podcastTitle ?: "Podcast",
-                                        artist = "",
-                                        imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
-                                        description = "",
-                                        genre = ep.podcastGenre ?: "Podcast"
-                                    )
-                                    CuratedEpisodeCard(
-                                        podcast = parentPodcast,
-                                        episode = ep,
-                                        onClick = {
-                                            AnalyticsHelper.trackHomeRecommendationCardTapped(
-                                                episodeId = ep.id,
-                                                episodeTitle = ep.title,
-                                                podcastId = parentPodcast.id,
-                                                podcastName = parentPodcast.title,
-                                                positionIndex = originalIndex,
-                                                timeBlockTitle = timeBlock?.title
-                                            )
-                                            onEpisodeClick(ep, parentPodcast)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // Remaining items become individual staggered (masonry) cards.
+    val remaining = items.drop(1)
+    itemsIndexed(
+        remaining,
+        key = { _, ep -> "for_you_${ep.id}" },
+        contentType = { _, _ -> "for_you_card" }
+    ) { index, ep ->
+        val originalIndex = index + 1
+        val parentPodcast = Podcast(
+            id = ep.podcastId ?: "",
+            title = ep.podcastTitle ?: "Podcast",
+            artist = "",
+            imageUrl = ep.podcastImageUrl?.takeIf { it.isNotBlank() } ?: ep.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+            description = "",
+            genre = ep.podcastGenre ?: "Podcast"
+        )
+        CuratedEpisodeCard(
+            podcast = parentPodcast,
+            episode = ep,
+            onClick = {
+                AnalyticsHelper.trackHomeRecommendationCardTapped(
+                    episodeId = ep.id,
+                    episodeTitle = ep.title,
+                    podcastId = parentPodcast.id,
+                    podcastName = parentPodcast.title,
+                    positionIndex = originalIndex,
+                    timeBlockTitle = timeBlock?.title
+                )
+                onEpisodeClick(ep, parentPodcast)
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

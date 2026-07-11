@@ -692,7 +692,6 @@ class HomeViewModel(
     }
 
     init {
-        android.util.Log.d("BoxCastPerf", "PERF: HomeViewModel init started")
         observeSelectedPodcast()
         loadData()
         startBackgroundSync()
@@ -743,7 +742,6 @@ class HomeViewModel(
 
     private fun loadData() {
         viewModelScope.launch {
-            android.util.Log.d("BoxCastPerf", "PERF: HomeViewModel.loadData launch block started")
             // Seed the WAS_INITIAL_REGION_MATCH if not set yet
             val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
                 if (it == "us" || it == "in" || it == "gb" || it == "uk" || it == "fr") it else "us"
@@ -753,13 +751,11 @@ class HomeViewModel(
                 val isMatch = (systemCountry == currentReg)
                 userPrefs.setWasInitialRegionMatch(isMatch)
             }
-            android.util.Log.d("BoxCastPerf", "PERF: Initial region checks completed")
 
             // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
             userPrefs.regionStream
                 .distinctUntilChanged()
                 .collectLatest { region ->
-                android.util.Log.d("BoxCastPerf", "PERF: regionStream emitted region=$region")
                 if (cachedRegion != region) {
                     cachedRegion = region
                     cachedForYouTrending = emptyList()
@@ -782,13 +778,10 @@ class HomeViewModel(
                 val fastJob = launch {
                     _isTrendingLoaded.value = false
                     try {
-                        android.util.Log.d("BoxCastPerf", "PERF: Fast Bootstrap API call starting for region=$region")
-                        
                         val bootstrapData = podcastRepository.getHomeBootstrapDataFast(
                             country = region
                         )
                         
-                        android.util.Log.d("BoxCastPerf", "PERF: Fast Bootstrap API call returned data successfully")
                         _briefingState.value = bootstrapData.briefing
                         _briefingChaptersState.value = bootstrapData.briefingChapters
                         trendingState.value = bootstrapData.trending
@@ -797,7 +790,6 @@ class HomeViewModel(
                         android.util.Log.e("BoxCastTiming", "VM: Fast Bootstrap API load failed", e)
                     } finally {
                         _isTrendingLoaded.value = true
-                        android.util.Log.d("BoxCastPerf", "PERF: _isTrendingLoaded set to TRUE")
                     }
                 }
 

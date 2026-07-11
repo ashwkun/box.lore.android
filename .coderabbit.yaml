@@ -1,0 +1,123 @@
+# CodeRabbit configuration for boxlore (Android / Kotlin / Jetpack Compose).
+# Docs: https://docs.coderabbit.ai/reference/configuration
+
+language: en-US
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  changed_files_summary: true
+  review_status: true
+  poem: false
+
+  auto_title_placeholder: "@coderabbitai"
+  auto_title_instructions: |
+    Generate a Conventional Commits PR title: type(scope): description
+    Use lowercase types: feat, fix, ci, docs, style, refactor, perf, test, chore.
+    Use imperative mood. Keep under ~72 characters. Example: fix(home): reduce tab lag on feed scroll
+
+  instructions: |
+    Boxlore is a Kotlin Android app using Jetpack Compose, Hilt, Room/Turso, and OkHttp.
+
+    For every finding, format as:
+    **Issue:** [clear description]
+    **Impact:** [what breaks or degrades if unfixed]
+    **Fix:** [actionable suggestion]
+
+    Global rules:
+    - Flag unnecessary Compose recompositions and unstable lambda/object parameters passed to composables.
+    - Ensure database and network work never runs on the Main thread.
+    - Verify meaningful exception handling for Crashlytics on failure paths.
+    - Flag missing keys in LazyColumn/LazyRow/LazyVerticalStaggeredGrid items.
+    - Do not comment on Gradle formatting or Spotless-style nits already enforced by CI.
+    - Do not suggest committing secrets (local.properties, .env, keystores, google-services.json).
+
+  path_filters:
+    - "!**/gradle/**"
+    - "!**/gradlew"
+    - "!**/gradlew.bat"
+    - "!**/build/**"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.webp"
+    - "!**/*.svg"
+    - "!**/*.mp3"
+    - "!**/*.ogg"
+    - "!**/local.properties"
+    - "!**/*.jks"
+    - "!**/*.keystore"
+    - "!**/google-services.json"
+
+  path_instructions:
+    - path: "feature/**/*.kt"
+      instructions: |
+        Jetpack Compose UI review focus:
+        - Unstable parameters causing recomposition (lambdas, lists, state holders).
+        - Heavy work during composition or animation frames.
+        - Scroll state loss from conditional/lazy rendering patterns.
+        - Prefer keyed lazy items and incremental section composition for large feeds.
+    - path: "core/data/**"
+      instructions: |
+        Data layer review focus:
+        - DAO/repository calls must not block the main thread.
+        - Flow/coroutine cancellation and error propagation.
+        - Cache invalidation and migration safety.
+    - path: "core/network/**"
+      instructions: |
+        Network layer review focus:
+        - OkHttp interceptors must not log secrets (App Check tokens, API keys).
+        - Timeouts, retries, and structured error mapping.
+        - App Check header usage on authenticated routes.
+    - path: "app/**"
+      instructions: |
+        App shell / navigation review focus:
+        - NavHost transition cost and double-animation conflicts.
+        - Lifecycle-aware state collection (repeatOnLifecycle, collectAsStateWithLifecycle).
+
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_usernames:
+      - github-actions
+      - github-actions[bot]
+
+  finishing_touches:
+    autofix:
+      enabled: false
+    unit_tests:
+      enabled: false
+    docstrings:
+      enabled: true
+    custom:
+      - name: update changelog
+        enabled: true
+        instructions: |
+          Read the PR diff and update CHANGELOG.md.
+          Add bullet(s) under the [Unreleased] section only.
+          Use Keep a Changelog categories: Added, Changed, Fixed, Removed, Security.
+          Do not modify, reorder, or remove existing versioned sections.
+          Write concise, user-facing bullets in plain English.
+
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: |
+        PR titles must follow Conventional Commits: type(scope): description
+        Allowed types: feat, fix, ci, docs, style, refactor, perf, test, chore
+        Use imperative mood. Keep the title under ~72 characters.
+
+  tools:
+    gitleaks:
+      enabled: true
+    markdownlint:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false

@@ -108,7 +108,6 @@ import coil.compose.SubcomposeAsyncImageContent
 import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
-import cx.aswin.boxcast.core.designsystem.components.LogRecomposition
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
@@ -187,8 +186,6 @@ fun ExploreContent(
     onDismissNudge: () -> Unit = {},
     onLoadMore: () -> Unit = {}
 ) {
-    LogRecomposition(name = "ExploreContent")
-
     // Handle error/loading states
     when (uiState) {
         is ExploreUiState.Loading -> {
@@ -1125,7 +1122,6 @@ fun ExplorePodcastCard(
     modifier: Modifier = Modifier,
     showGenreChip: Boolean = false
 ) {
-    LogRecomposition(name = "ExplorePodcastCard")
     OutlinedCard(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.outlinedCardColors(
