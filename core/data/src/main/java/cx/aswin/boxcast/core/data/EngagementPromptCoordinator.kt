@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.core.data
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,8 +36,13 @@ class EngagementPromptCoordinator(
     fun recordProactivePromptShown() {
         sessionProactivePromptShown = true
         scope.launch {
-            runCatching { userPrefs.recordEngagementPromptShown() }
-                .onFailure { Log.e(TAG, "Failed to record engagement prompt", it) }
+            try {
+                userPrefs.recordEngagementPromptShown()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to record engagement prompt", e)
+            }
         }
     }
 
@@ -51,12 +57,16 @@ class EngagementPromptCoordinator(
     fun onNpsRatingSubmitted(score: Int?) {
         if (score == null) return
         scope.launch {
-            runCatching {
+            try {
                 userPrefs.setNpsLastScore(score)
                 if (score >= EngagementPromptConstants.PROMOTER_SCORE_THRESHOLD) {
                     userPrefs.setPromoterReviewPending(true)
                 }
-            }.onFailure { Log.e(TAG, "Failed to persist NPS score", it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to persist NPS score", e)
+            }
         }
     }
 
