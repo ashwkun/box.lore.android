@@ -348,7 +348,24 @@ Do NOT use README listener tone like "shows why each item is there" — use prov
                 curated[category].append((text, pr_number))
 
     if curated:
-        return _sections_from_cluster_bullets(curated, clusters)
+        curated_sections = _sections_from_cluster_bullets(curated, clusters)
+        expected_prs = {
+            cluster.pr_number
+            for cluster in clusters
+            if cluster.pr_number is not None
+        }
+        returned_prs = {
+            pr_number
+            for bullets in curated_sections.values()
+            for bullet in bullets
+            if (pr_number := _extract_pr_number(bullet)) is not None
+        }
+        if returned_prs == expected_prs:
+            return curated_sections
+        print(
+            "Groq curation omitted or added PR clusters; "
+            "using deterministic fallback."
+        )
     return _fallback_changelog_from_clusters(clusters)
 
 

@@ -8,6 +8,7 @@ import html
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -525,8 +526,48 @@ def prepare_release(args: argparse.Namespace) -> None:
     )
 
 
+def verify_release_diff(current: AppVersion) -> None:
+    try:
+        changed_files = {
+            line
+            for line in subprocess.check_output(
+                ["git", "diff", "--name-only", "HEAD^1", "HEAD"],
+                text=True,
+            ).splitlines()
+            if line
+        }
+        previous_gradle = subprocess.check_output(
+            ["git", "show", "HEAD^1:app/build.gradle.kts"],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        fail(f"Could not inspect the release merge diff: {exc}")
+
+    if changed_files != EXPECTED_FILES:
+        fail(
+            f"Release merge changed {sorted(changed_files)}; "
+            f"expected exactly {sorted(EXPECTED_FILES)}"
+        )
+
+    previous = read_app_version(previous_gradle)
+    allowed_targets = {
+        bump_version(previous, bump)
+        for bump in ("patch", "minor", "major")
+    }
+    if current not in allowed_targets:
+        fail(
+            f"Release version {current.name} ({current.code}) is not one valid "
+            f"bump after {previous.name} ({previous.code})"
+        )
+
+    current_gradle = require_file(APP_GRADLE_PATH)
+    if replace_gradle_version(current_gradle, current, previous) != previous_gradle:
+        fail("Release merge changed app/build.gradle.kts beyond version fields")
+
+
 def verify_release(args: argparse.Namespace) -> None:
     current = read_app_version()
+    verify_release_diff(current)
     changelog_version = latest_changelog_version()
     readme_version = latest_readme_version()
     expected_branch = f"release/{current.tag}"
