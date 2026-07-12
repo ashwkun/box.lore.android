@@ -449,10 +449,20 @@ class UserPreferencesRepository(context: Context) {
         val BODY = stringPreferencesKey("announcement_body")
         val ROUTE = stringPreferencesKey("announcement_route")
         val IMAGE_URL = stringPreferencesKey("announcement_image_url")
+        val ACTION_LABEL = stringPreferencesKey("announcement_action_label")
+        val SHOW_ACTION_IN_APP = androidx.datastore.preferences.core.booleanPreferencesKey("announcement_show_action_in_app")
         val TIMESTAMP = androidx.datastore.preferences.core.longPreferencesKey("announcement_timestamp")
     }
     
-    data class Announcement(val title: String, val body: String, val route: String?, val imageUrl: String?, val timestamp: Long)
+    data class Announcement(
+        val title: String, 
+        val body: String, 
+        val route: String?, 
+        val imageUrl: String?, 
+        val actionLabel: String?, 
+        val showActionInApp: Boolean, 
+        val timestamp: Long
+    )
     
     val activeAnnouncementStream: Flow<Announcement?> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -465,18 +475,30 @@ class UserPreferencesRepository(context: Context) {
                     body = body,
                     route = pref[AnnouncementKeys.ROUTE],
                     imageUrl = pref[AnnouncementKeys.IMAGE_URL],
+                    actionLabel = pref[AnnouncementKeys.ACTION_LABEL],
+                    showActionInApp = pref[AnnouncementKeys.SHOW_ACTION_IN_APP] ?: true,
                     timestamp = pref[AnnouncementKeys.TIMESTAMP] ?: 0L
                 )
             } else null
         }
         .distinctUntilChanged()
         
-    suspend fun setAnnouncement(title: String, body: String, route: String?, imageUrl: String?, timestamp: Long) {
+    suspend fun setAnnouncement(
+        title: String, 
+        body: String, 
+        route: String?, 
+        imageUrl: String?, 
+        actionLabel: String?, 
+        showActionInApp: Boolean, 
+        timestamp: Long
+    ) {
         dataStore.edit {
             it[AnnouncementKeys.TITLE] = title
             it[AnnouncementKeys.BODY] = body
             if (route != null) it[AnnouncementKeys.ROUTE] = route else it.remove(AnnouncementKeys.ROUTE)
             if (imageUrl != null) it[AnnouncementKeys.IMAGE_URL] = imageUrl else it.remove(AnnouncementKeys.IMAGE_URL)
+            if (actionLabel != null) it[AnnouncementKeys.ACTION_LABEL] = actionLabel else it.remove(AnnouncementKeys.ACTION_LABEL)
+            it[AnnouncementKeys.SHOW_ACTION_IN_APP] = showActionInApp
             it[AnnouncementKeys.TIMESTAMP] = timestamp
         }
     }
@@ -486,6 +508,9 @@ class UserPreferencesRepository(context: Context) {
             pref.remove(AnnouncementKeys.TITLE)
             pref.remove(AnnouncementKeys.BODY)
             pref.remove(AnnouncementKeys.ROUTE)
+            pref.remove(AnnouncementKeys.IMAGE_URL)
+            pref.remove(AnnouncementKeys.ACTION_LABEL)
+            pref.remove(AnnouncementKeys.SHOW_ACTION_IN_APP)
             pref.remove(AnnouncementKeys.TIMESTAMP)
         }
     }

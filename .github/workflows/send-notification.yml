@@ -35,6 +35,48 @@ on:
         - all_users
         - debug_users
         - prod_users
+      dry_run:
+        description: 'Dry Run Mode (Validate only)'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+        - 'false'
+        - 'true'
+      collapse_key:
+        description: 'Collapse Key (Optional)'
+        required: false
+        default: ''
+      sound:
+        description: 'Notification Sound'
+        required: true
+        default: 'default'
+        type: choice
+        options:
+        - default
+        - chime
+        - announcement
+        - silent
+      action_label:
+        description: 'Action Button Text'
+        required: true
+        default: 'View'
+      show_action_in_push:
+        description: 'Show action button in push notification?'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+      show_action_in_app:
+        description: 'Show action button in in-app popup?'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 jobs:
   send-notification:
@@ -63,4 +105,10 @@ jobs:
             --type "${{ inputs.type }}" \
             --route "${{ inputs.route }}" \
             --image "${{ inputs.image }}" \
-            --target "${{ inputs.target }}"
+            --target "${{ inputs.target }}" \
+            --dry-run "${{ inputs.dry_run }}" \
+            --collapse-key "${{ inputs.collapse_key }}" \
+            --sound "${{ inputs.sound }}" \
+            --action-label "${{ inputs.action_label }}" \
+            --show-action-in-push "${{ inputs.show_action_in_push }}" \
+            --show-action-in-app "${{ inputs.show_action_in_app }}"

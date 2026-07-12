@@ -56,13 +56,17 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             val messageType = type ?: "both" // push, in-app, both
             val route = data["route"]
             val imageUrl = data["image"]
+            val sound = data["sound"] ?: "default"
+            val actionLabel = data["action_label"] ?: "View"
+            val showActionInPush = data["show_action_in_push"] != "false"
+            val showActionInApp = data["show_action_in_app"] != "false"
 
             if (messageType == "in-app" || messageType == "both") {
-                saveInAppAnnouncement(title, body, route, imageUrl)
+                saveInAppAnnouncement(title, body, route, imageUrl, actionLabel, showActionInApp)
             }
 
             if (messageType == "push" || messageType == "both") {
-                showPushNotification(title, body, route, imageUrl)
+                showPushNotification(title, body, route, imageUrl, sound, actionLabel, showActionInPush)
             }
         }
     }
@@ -199,30 +203,80 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         }
     }
 
-    private fun saveInAppAnnouncement(title: String, body: String, route: String?, imageUrl: String?) {
+    private fun saveInAppAnnouncement(
+        title: String, 
+        body: String, 
+        route: String?, 
+        imageUrl: String?, 
+        actionLabel: String?, 
+        showActionInApp: Boolean
+    ) {
         val prefs = UserPreferencesRepository(applicationContext)
         CoroutineScope(Dispatchers.IO).launch {
-            prefs.setAnnouncement(title, body, route, imageUrl, System.currentTimeMillis())
+            prefs.setAnnouncement(title, body, route, imageUrl, actionLabel, showActionInApp, System.currentTimeMillis())
         }
     }
 
-    private fun showPushNotification(title: String, body: String, route: String?, imageUrl: String?) {
+    private fun showPushNotification(
+        title: String, 
+        body: String, 
+        route: String?, 
+        imageUrl: String?, 
+        sound: String?, 
+        actionLabel: String?, 
+        showActionInPush: Boolean
+    ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val soundUri = Uri.parse("android.resource://$packageName/raw/boxlore_announcement_chime")
+        
+        val channelId: String
+        val channelName: String
+        val soundUri: Uri?
+        val importance: Int
+
+        when (sound) {
+            "chime" -> {
+                channelId = "boxlore_new_episodes_v1"
+                channelName = "New Episode Alerts"
+                soundUri = Uri.parse("android.resource://$packageName/raw/boxlore_chime")
+                importance = NotificationManager.IMPORTANCE_DEFAULT
+            }
+            "silent" -> {
+                channelId = "boxlore_silent_v1"
+                channelName = "Silent Notifications"
+                soundUri = null
+                importance = NotificationManager.IMPORTANCE_LOW
+            }
+            "announcement" -> {
+                channelId = "boxlore_announcements_v2"
+                channelName = "Announcements"
+                soundUri = Uri.parse("android.resource://$packageName/raw/boxlore_announcement_chime")
+                importance = NotificationManager.IMPORTANCE_DEFAULT
+            }
+            else -> {
+                channelId = "boxlore_announcements_v2"
+                channelName = "Announcements"
+                soundUri = Uri.parse("android.resource://$packageName/raw/boxlore_announcement_chime")
+                importance = NotificationManager.IMPORTANCE_DEFAULT
+            }
+        }
 
         // Create channel for Android O+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                .build()
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Announcements",
-                NotificationManager.IMPORTANCE_DEFAULT
+                channelId,
+                channelName,
+                importance
             ).apply {
                 description = "boxlore news and updates"
-                setSound(soundUri, audioAttributes)
+                if (soundUri != null) {
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .build()
+                    setSound(soundUri, audioAttributes)
+                } else {
+                    setSound(null, null)
+                }
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -236,7 +290,6 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra("from_push", true)
-                // If we want internal routing via deep link, we pass an extra
                 if (route != null) {
                     putExtra("target_route", route)
                 }
@@ -250,16 +303,44 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-
-
-        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(cx.aswin.boxcast.R.drawable.ic_notification_custom)
             .setColor(android.graphics.Color.parseColor("#5B5BD6")) // Brand purple color matching launcher icon
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setSound(soundUri)
+            
+        if (soundUri != null) {
+            notificationBuilder.setSound(soundUri)
+        }
+
+        // If showActionInPush is enabled and we have a deep link, add action button
+        if (showActionInPush && !route.isNullOrBlank()) {
+            val actionIntent = if (route.startsWith("http")) {
+                Intent(Intent.ACTION_VIEW, Uri.parse(route)).apply {
+                    putExtra("from_push", true)
+                }
+            } else {
+                Intent(this, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra("from_push", true)
+                    putExtra("target_route", route)
+                }
+            }
+            val actionPendingIntent = PendingIntent.getActivity(
+                this,
+                route.hashCode(),
+                actionIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val btnLabel = actionLabel ?: "View"
+            notificationBuilder.addAction(
+                cx.aswin.boxcast.R.drawable.ic_notification_custom,
+                btnLabel,
+                actionPendingIntent
+            )
+        }
 
         if (!imageUrl.isNullOrBlank()) {
             try {
