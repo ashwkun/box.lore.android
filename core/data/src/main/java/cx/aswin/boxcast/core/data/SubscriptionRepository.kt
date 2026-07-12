@@ -202,4 +202,34 @@ class SubscriptionRepository(
     suspend fun setAutoDownloadEnabled(podcastId: String, enabled: Boolean) {
         podcastDao.setAutoDownloadEnabled(podcastId, enabled)
     }
+
+    /**
+     * Re-subscribes all notification-enabled podcasts to their FCM topics.
+     *
+     * After an uninstall/reinstall or device migration, the Room database may be
+     * restored from backup while the FCM token is new and has no topic
+     * subscriptions. This method reconciles the two by iterating every podcast
+     * where [PodcastEntity.notificationsEnabled] is true and calling
+     * [updateFirebaseSubscription] to re-register with Firebase.
+     */
+    suspend fun reconcileFcmTopicSubscriptions() {
+        try {
+            val podcasts = podcastDao.getNotificationEnabledPodcasts()
+            if (podcasts.isEmpty()) return
+            android.util.Log.i(
+                "FCM_Topic",
+                "Reconciling ${podcasts.size} FCM topic subscriptions after restore",
+            )
+            for (entity in podcasts) {
+                updateFirebaseSubscription(
+                    podcastId = entity.podcastId,
+                    title = entity.title,
+                    imageUrl = entity.imageUrl,
+                    isSubscribed = true,
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FCM_Topic", "FCM topic reconciliation failed", e)
+        }
+    }
 }

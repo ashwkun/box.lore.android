@@ -46,6 +46,22 @@ internal fun Color.isLight(): Boolean {
     return luminance >= 0.6f
 }
 
+/**
+ * Returns true when [foreground] has enough perceptual contrast against [background]
+ * to remain legible. Uses a simplified relative-luminance ratio check; the threshold
+ * of 1.8 catches obvious clashes like black-on-black or white-on-white while still
+ * accepting most intentional PostHog color pairings.
+ */
+internal fun hasAdequateContrast(foreground: Color, background: Color): Boolean {
+    fun luminance(c: Color): Float =
+        0.2126f * c.red + 0.7152f * c.green + 0.0722f * c.blue
+
+    val fgL = luminance(foreground) + 0.05f
+    val bgL = luminance(background) + 0.05f
+    val ratio = maxOf(fgL, bgL) / minOf(fgL, bgL)
+    return ratio >= 1.8f
+}
+
 private fun isHexDigit(c: Char): Boolean = c in '0'..'9' || c in 'a'..'f' || c in 'A'..'F'
 
 // CSS named-color table (140 entries + transparency aliases). Uppercased keys.

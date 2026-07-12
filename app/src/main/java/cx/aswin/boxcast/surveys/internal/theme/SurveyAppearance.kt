@@ -93,9 +93,22 @@ internal fun PostHogDisplaySurveyAppearance?.resolve(
     val submitButtonColor = parseSurveyColorOrDefault(this?.submitButtonColor, defaults.primary)
     val submitButtonTextColor =
         parseSurveyColorOrDefault(this?.submitButtonTextColor, defaults.onPrimary)
-    val textColor = parseSurveyColorOrDefault(this?.textColor, defaults.onSurface)
-    val descriptionTextColor =
+    val rawTextColor = parseSurveyColorOrDefault(this?.textColor, defaults.onSurface)
+    val rawDescriptionTextColor =
         parseSurveyColorOrDefault(this?.descriptionTextColor, defaults.onSurfaceVariant)
+    // PostHog may send hardcoded light-mode text colors (e.g. black) from the dashboard
+    // config. The actual sheet background is always MaterialTheme.colorScheme.surface
+    // (defaults.background), not the PostHog backgroundColor, so contrast must be checked
+    // against the real rendered surface to prevent black-on-black in dark mode.
+    val sheetBackground = defaults.background
+    val textColor =
+        if (hasAdequateContrast(rawTextColor, sheetBackground)) rawTextColor else defaults.onSurface
+    val descriptionTextColor =
+        if (hasAdequateContrast(rawDescriptionTextColor, sheetBackground)) {
+            rawDescriptionTextColor
+        } else {
+            defaults.onSurfaceVariant
+        }
     val borderColor = parseSurveyColorOrDefault(this?.borderColor, defaults.outlineVariant)
     val ratingButtonColor =
         parseSurveyColorOrDefault(this?.ratingButtonColor, defaults.surfaceContainerHigh)
@@ -103,11 +116,18 @@ internal fun PostHogDisplaySurveyAppearance?.resolve(
         parseSurveyColorOrDefault(this?.ratingButtonActiveColor, defaults.primaryContainer)
     val ratingButtonActiveTextColor = defaults.onPrimaryContainer
     val submitButtonText = this?.submitButtonText?.takeIf { it.isNotBlank() } ?: "Submit"
-    val questionTextColor = parseSurveyColorOrDefault(this?.textColor, defaults.onSurface)
+    val questionTextColor =
+        if (hasAdequateContrast(rawTextColor, sheetBackground)) rawTextColor else defaults.onSurface
     val inputBackgroundColor =
         parseSurveyColorOrDefault(this?.inputBackground, defaults.surfaceContainerHighest)
-    val inputTextColor =
+    val rawInputTextColor =
         parseSurveyColorOrDefault(this?.inputTextColor, defaults.onSurface)
+    val inputTextColor =
+        if (hasAdequateContrast(rawInputTextColor, inputBackgroundColor)) {
+            rawInputTextColor
+        } else {
+            defaults.onSurface
+        }
     val placeholderTextColor = defaults.onSurfaceVariant.copy(alpha = 0.7f)
     val placeholder = this?.placeholder?.takeIf { it.isNotBlank() } ?: DEFAULT_PLACEHOLDER
     val displayThankYouMessage = this?.displayThankYouMessage ?: false
