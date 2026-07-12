@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.0.8] - 2026-07-12
+
 ### Added
-- Implemented Android Auto integration via AutoConnectionManager service, introduced AutoBrowseNode hierarchy for browsing and AutoActionHandler for action handling. ([#865](https://github.com/ashwkun/boxlore/pull/865))
-- Extended notification workflow with dry‑run mode (send‑notification.yml, manual_dispatch.py) and Admin UI support, added collapse‑key input, sound routing options (chime, announcement, silent) with HTML5 preview, live validation of route prefixes and image asset status in dashboard.js, persisted notification templates in localStorage, introduced workflow execution list view, updated compose dialog card layout in MainActivity.kt to Material 3 color tokens, and added custom action button labels, visibility controls, and dispatch readiness lock/unlock state banners. ([#861](https://github.com/ashwkun/boxlore/pull/861))
+- Extended notification workflow with dry‑run mode, Admin UI support, collapse‑key input, sound routing options (chime, announcement, silent), HTML5 preview, live validation of route prefixes and image asset status, persisted notification templates in localStorage, workflow execution list view, updated compose dialog card layout in MainActivity.kt to Material 3 color tokens, custom action button labels, visibility controls, and dispatch readiness lock/unlock state banners. ([#861](https://github.com/ashwkun/boxlore/pull/861))
 - Added customizable category badge label parameter to InAppAnnouncementDialog, configurable via FCM payload. ([#862](https://github.com/ashwkun/boxlore/pull/862))
 - Added documentation describing the FCM notification fix and migration steps for affected users. ([#863](https://github.com/ashwkun/boxlore/pull/863))
+- Implemented Android Auto integration via AutoConnectionManager service, introduced AutoBrowseNode hierarchy for browsing and AutoActionHandler for action handling. ([#865](https://github.com/ashwkun/boxlore/pull/865))
 ### Changed
 - Refactored BoxLoreFcmService.showPushNotification into smaller private methods to reduce cognitive complexity and eliminate duplicate branches. ([#861](https://github.com/ashwkun/boxlore/pull/861))
 - Constrained announcement dialog height with headroom and enabled scrolling for overflow content. ([#863](https://github.com/ashwkun/boxlore/pull/863))
@@ -21,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stabilized artwork image transition in PlayerBottomSheet during drag gestures and updated next‑episode chevron styling and position to use Material 3 accent colors. ([#864](https://github.com/ashwkun/boxlore/pull/864))
 - Fixed dark‑mode contrast calculation in Survey using Material surface background fallback, reconciled FCM topic subscriptions on reinstall/device migration by re‑subscribing notification‑enabled podcasts via sentinel file in noBackupFilesDir, and corrected markdown bullet list rendering in announcement dialogs. ([#863](https://github.com/ashwkun/boxlore/pull/863))
 - Replaced PostHog survey icon with Campaign megaphone in SurveyIconProvider, fixed rating bar container layout overflow in RatingBarView, and corrected low‑contrast text colors in SurveyPromptView to meet accessibility guidelines. ([#865](https://github.com/ashwkun/boxlore/pull/865))
+
 ## [v0.0.7] - 2026-07-12
 
 ### Added
