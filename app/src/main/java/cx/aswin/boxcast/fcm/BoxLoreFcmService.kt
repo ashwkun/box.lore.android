@@ -51,22 +51,29 @@ class BoxLoreFcmService : FirebaseMessagingService() {
                 return
             }
 
-            val title = data["title"] ?: "boxlore Update"
-            val body = data["body"] ?: "Check out what's new in boxlore!"
-            val messageType = type ?: "both" // push, in-app, both
-            val route = data["route"]
-            val imageUrl = data["image"]
-            val sound = data["sound"] ?: "default"
-            val actionLabel = data["action_label"] ?: "View"
-            val showActionInPush = data["show_action_in_push"] != "false"
-            val showActionInApp = data["show_action_in_app"] != "false"
+            val parsed = FcmPayloadParser.parse(data)
 
-            if (messageType == "in-app" || messageType == "both") {
-                saveInAppAnnouncement(title, body, route, imageUrl, actionLabel, showActionInApp)
+            if (parsed.type == "in-app" || parsed.type == "both") {
+                saveInAppAnnouncement(
+                    parsed.title,
+                    parsed.body,
+                    parsed.route,
+                    parsed.imageUrl,
+                    parsed.actionLabel,
+                    parsed.showActionInApp
+                )
             }
 
-            if (messageType == "push" || messageType == "both") {
-                showPushNotification(title, body, route, imageUrl, sound, actionLabel, showActionInPush)
+            if (parsed.type == "push" || parsed.type == "both") {
+                showPushNotification(
+                    parsed.title,
+                    parsed.body,
+                    parsed.route,
+                    parsed.imageUrl,
+                    parsed.sound,
+                    parsed.actionLabel,
+                    parsed.showActionInPush
+                )
             }
         }
     }
