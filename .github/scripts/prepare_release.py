@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -58,6 +59,8 @@ EXPECTED_FILES = {
     "README.md",
     "app/build.gradle.kts",
 }
+GITHUB_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+GITHUB_MAX_RETRIES = 5
 
 
 @dataclass(frozen=True)
@@ -175,31 +178,61 @@ def github_request(
     data = None
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=data,
-        method=method,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "boxlore-release/1.0",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            if response.status == 204:
+
+    last_error: urllib.error.HTTPError | urllib.error.URLError | None = None
+    for attempt in range(1, GITHUB_MAX_RETRIES + 1):
+        request = urllib.request.Request(
+            url,
+            data=data,
+            method=method,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "User-Agent": "boxlore-release/1.0",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                if response.status == 204:
+                    return None
+                body = response.read().decode("utf-8")
+                if not body:
+                    return None
+                return json.loads(body)
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if allow_missing and exc.code == 404:
                 return None
-            body = response.read().decode("utf-8")
-            if not body:
-                return None
-            return json.loads(body)
-    except urllib.error.HTTPError as exc:
-        if allow_missing and exc.code == 404:
-            return None
-        fail(f"GitHub API request failed for {path} with status {exc.code}")
-    except urllib.error.URLError as exc:
-        fail(f"GitHub API request failed for {path}: {exc.reason}")
+            if exc.code in GITHUB_RETRYABLE_STATUS and attempt < GITHUB_MAX_RETRIES:
+                delay = min(2**attempt, 30)
+                print(
+                    f"GitHub API {path} returned {exc.code}; "
+                    f"retrying in {delay}s (attempt {attempt}/{GITHUB_MAX_RETRIES})",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                continue
+            fail(f"GitHub API request failed for {path} with status {exc.code}")
+        except urllib.error.URLError as exc:
+            last_error = exc
+            if attempt < GITHUB_MAX_RETRIES:
+                delay = min(2**attempt, 30)
+                print(
+                    f"GitHub API {path} failed: {exc.reason}; "
+                    f"retrying in {delay}s (attempt {attempt}/{GITHUB_MAX_RETRIES})",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                continue
+            fail(f"GitHub API request failed for {path}: {exc.reason}")
+
+    if isinstance(last_error, urllib.error.HTTPError):
+        fail(
+            f"GitHub API request failed for {path} with status {last_error.code}"
+        )
+    if isinstance(last_error, urllib.error.URLError):
+        fail(f"GitHub API request failed for {path}: {last_error.reason}")
     return None
 
 
@@ -320,6 +353,20 @@ def assert_remote_target_is_free(
     ensure_remote_target_is_available(repository, token, target)
 
 
+def pull_request_is_release_candidate(pull_request: dict[str, object]) -> bool:
+    number = pull_request.get("number")
+    title = str(pull_request.get("title") or "")
+    base_ref = str((pull_request.get("base") or {}).get("ref") or "")
+    head_ref = str((pull_request.get("head") or {}).get("ref") or "")
+    return (
+        number is not None
+        and pull_request.get("merged_at") is not None
+        and base_ref == "master"
+        and "[skip changelog]" not in title
+        and not head_ref.startswith("release/v")
+    )
+
+
 def pull_requests_between(
     repository: str,
     token: str,
@@ -344,30 +391,45 @@ def pull_requests_between(
             f"{len(commits)}; cut a smaller release range"
         )
 
+    commit_shas = {
+        str(commit["sha"])
+        for commit in commits
+        if isinstance(commit, dict) and commit.get("sha")
+    }
+
     pull_requests: dict[int, dict[str, object]] = {}
-    for commit in commits:
-        if not isinstance(commit, dict) or not commit.get("sha"):
-            continue
-        sha = urllib.parse.quote(str(commit["sha"]), safe="")
-        associated = github_request(repository, token, f"commits/{sha}/pulls")
-        if not isinstance(associated, list):
-            fail(f"GitHub did not return pull requests for commit {sha}")
-        for pull_request in associated:
+    page = 1
+    while page <= 20:
+        query = urllib.parse.urlencode(
+            {
+                "state": "closed",
+                "base": "master",
+                "sort": "updated",
+                "direction": "desc",
+                "per_page": "100",
+                "page": str(page),
+            }
+        )
+        page_pulls = github_request(repository, token, f"pulls?{query}")
+        if not isinstance(page_pulls, list) or not page_pulls:
+            break
+
+        matched_on_page = 0
+        for pull_request in page_pulls:
             if not isinstance(pull_request, dict):
                 continue
-            number = pull_request.get("number")
-            title = str(pull_request.get("title") or "")
-            base_ref = str((pull_request.get("base") or {}).get("ref") or "")
-            head_ref = str((pull_request.get("head") or {}).get("ref") or "")
-            if (
-                number is None
-                or pull_request.get("merged_at") is None
-                or base_ref != "master"
-                or "[skip changelog]" in title
-                or head_ref.startswith("release/v")
-            ):
+            merge_commit_sha = str(pull_request.get("merge_commit_sha") or "")
+            if merge_commit_sha not in commit_shas:
                 continue
-            pull_requests[int(number)] = pull_request
+            if not pull_request_is_release_candidate(pull_request):
+                continue
+            number = int(pull_request["number"])
+            pull_requests[number] = pull_request
+            matched_on_page += 1
+
+        if matched_on_page == 0 and page > 1:
+            break
+        page += 1
 
     return sorted(
         pull_requests.values(),
