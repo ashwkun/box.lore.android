@@ -439,15 +439,11 @@ def update_readme_download_url(
     target: AppVersion,
 ) -> str:
     matches = list(README_APK_URL_RE.finditer(content))
-    if len(matches) != 1:
-        fail(
-            "README.md must contain exactly one GitHub latest-download APK URL; "
-            f"found {len(matches)}"
-        )
+    if not matches:
+        fail("README.md must contain at least one GitHub latest-download APK URL")
     updated = README_APK_URL_RE.sub(
         release_apk_url(repository, target),
         content,
-        count=1,
     )
     if release_apk_url(repository, target) not in updated:
         fail("README APK download URL did not update to the release asset")
