@@ -486,25 +486,16 @@ class UserPreferencesRepository(context: Context) {
         }
         .distinctUntilChanged()
         
-    suspend fun setAnnouncement(
-        title: String, 
-        body: String, 
-        route: String?, 
-        imageUrl: String?, 
-        actionLabel: String?, 
-        showActionInApp: Boolean, 
-        category: String,
-        timestamp: Long
-    ) {
+    suspend fun setAnnouncement(announcement: Announcement) {
         dataStore.edit {
-            it[AnnouncementKeys.TITLE] = title
-            it[AnnouncementKeys.BODY] = body
-            if (route != null) it[AnnouncementKeys.ROUTE] = route else it.remove(AnnouncementKeys.ROUTE)
-            if (imageUrl != null) it[AnnouncementKeys.IMAGE_URL] = imageUrl else it.remove(AnnouncementKeys.IMAGE_URL)
-            if (actionLabel != null) it[AnnouncementKeys.ACTION_LABEL] = actionLabel else it.remove(AnnouncementKeys.ACTION_LABEL)
-            it[AnnouncementKeys.SHOW_ACTION_IN_APP] = showActionInApp
-            it[AnnouncementKeys.CATEGORY] = category
-            it[AnnouncementKeys.TIMESTAMP] = timestamp
+            it[AnnouncementKeys.TITLE] = announcement.title
+            it[AnnouncementKeys.BODY] = announcement.body
+            if (announcement.route != null) it[AnnouncementKeys.ROUTE] = announcement.route else it.remove(AnnouncementKeys.ROUTE)
+            if (announcement.imageUrl != null) it[AnnouncementKeys.IMAGE_URL] = announcement.imageUrl else it.remove(AnnouncementKeys.IMAGE_URL)
+            if (announcement.actionLabel != null) it[AnnouncementKeys.ACTION_LABEL] = announcement.actionLabel else it.remove(AnnouncementKeys.ACTION_LABEL)
+            it[AnnouncementKeys.SHOW_ACTION_IN_APP] = announcement.showActionInApp
+            it[AnnouncementKeys.CATEGORY] = announcement.category
+            it[AnnouncementKeys.TIMESTAMP] = announcement.timestamp
         }
     }
     

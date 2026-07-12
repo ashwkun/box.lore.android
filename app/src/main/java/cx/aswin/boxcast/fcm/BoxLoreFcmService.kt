@@ -222,7 +222,17 @@ class BoxLoreFcmService : FirebaseMessagingService() {
     ) {
         val prefs = UserPreferencesRepository(applicationContext)
         CoroutineScope(Dispatchers.IO).launch {
-            prefs.setAnnouncement(title, body, route, imageUrl, actionLabel, showActionInApp, category, System.currentTimeMillis())
+            val announcement = UserPreferencesRepository.Announcement(
+                title = title,
+                body = body,
+                route = route,
+                imageUrl = imageUrl,
+                actionLabel = actionLabel,
+                showActionInApp = showActionInApp,
+                category = category,
+                timestamp = System.currentTimeMillis()
+            )
+            prefs.setAnnouncement(announcement)
         }
     }
 
