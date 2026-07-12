@@ -59,6 +59,7 @@ scratch/
 
 # Local reference docs (not for repo)
 rules.md
+/RELEASE.md
 RELEASE_NOTES.md
 ROADMAP.md
 API_GUIDE.md

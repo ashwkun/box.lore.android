@@ -1,4 +1,4 @@
-name: Update Changelog on Merge
+name: Changelog and Release
 
 on:
   pull_request:
@@ -6,48 +6,80 @@ on:
     branches: [master]
   workflow_dispatch:
     inputs:
+      operation:
+        description: Operation to run
+        required: true
+        default: prepare-release
+        type: choice
+        options:
+          - prepare-release
+          - backfill-changelog
+      bump:
+        description: Version bump for prepare-release
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
       pr_number:
-        description: Merged PR number
-        required: true
-        type: string
-      pr_title:
-        description: Merged PR title
-        required: true
-        type: string
-      pr_body:
-        description: Merged PR body (optional)
+        description: Merged PR number for backfill-changelog
         required: false
         type: string
-        default: ""
 
 permissions:
-  contents: write
-
-concurrency:
-  group: changelog-on-merge
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   update-changelog:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.merged == true &&
-       !contains(github.event.pull_request.title, '[skip changelog]'))
+      (github.event_name == 'workflow_dispatch' &&
+       github.event.inputs.operation == 'backfill-changelog') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       !contains(github.event.pull_request.title, '[skip changelog]') &&
+       !startsWith(github.event.pull_request.head.ref, 'release/v'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    concurrency:
+      group: changelog-on-merge
+      cancel-in-progress: false
     steps:
       - name: Checkout master
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: master
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Append merged PR to CHANGELOG
+      - name: Append merged PR event to CHANGELOG
+        if: github.event_name == 'pull_request'
         env:
           GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
-          PR_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number || github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_title || github.event.pull_request.title }}
-          PR_BODY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_body || github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: python3 .github/scripts/update_changelog.py append
+
+      - name: Load and append backfill PR
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: |
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::backfill-changelog requires a numeric pr_number"
+            exit 1
+          fi
+          gh pr view "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json number,title,body,mergedAt,baseRefName \
+            > "$RUNNER_TEMP/pr.json"
+          python3 .github/scripts/update_changelog.py append \
+            --pr-json "$RUNNER_TEMP/pr.json"
 
       - name: Curate CHANGELOG grouping and priority
         env:
@@ -59,7 +91,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
         run: python3 .github/scripts/update_changelog.py sync-readme
 
-      - name: Commit and push
+      - name: Commit and push changelog update
         env:
           PR_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number || github.event.pull_request.number }}
         run: |
@@ -84,3 +116,503 @@ jobs:
 
           echo "::error::Failed to push CHANGELOG update after 5 attempts"
           exit 1
+
+  prepare-release:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.operation == 'prepare-release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: prepare-release
+      cancel-in-progress: false
+    steps:
+      - name: Checkout master with release history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve current GitHub Latest release
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest_tag="$(gh release view \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName \
+            --jq '.tagName')"
+          if [[ -z "$latest_tag" ]]; then
+            echo "::error::No GitHub Latest release was found"
+            exit 1
+          fi
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Reconcile notes and prepare release files
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.REVIEW_KEY }}
+          BUMP: ${{ github.event.inputs.bump }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          head_sha="$(git rev-parse HEAD)"
+          python3 .github/scripts/prepare_release.py prepare \
+            --bump "$BUMP" \
+            --latest-tag "$LATEST_TAG" \
+            --head-sha "$head_sha"
+
+      - name: Validate release diff
+        run: |
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+
+          expected = {"CHANGELOG.md", "README.md", "app/build.gradle.kts"}
+          changed = {
+              line
+              for line in subprocess.check_output(
+                  ["git", "diff", "--name-only"],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+          if changed != expected:
+              raise SystemExit(
+                  f"Unexpected release files: {sorted(changed)}; "
+                  f"expected: {sorted(expected)}"
+              )
+          PY
+
+      - name: Commit and push release branch
+        env:
+          BRANCH: ${{ steps.release.outputs.branch }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add app/build.gradle.kts CHANGELOG.md README.md
+          git commit -m "release: prepare ${TAG} [skip changelog]"
+          git push --set-upstream origin "$BRANCH"
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.release.outputs.branch }}
+          TAG: ${{ steps.release.outputs.tag }}
+          CURRENT_VERSION: ${{ steps.release.outputs.current_version }}
+          CURRENT_CODE: ${{ steps.release.outputs.current_code }}
+          NEW_VERSION: ${{ steps.release.outputs.new_version }}
+          NEW_CODE: ${{ steps.release.outputs.new_code }}
+          RELEASE_DATE: ${{ steps.release.outputs.release_date }}
+          RECONCILED_PRS: ${{ steps.release.outputs.reconciled_pr_count }}
+          APK_ASSET: ${{ steps.release.outputs.apk_asset }}
+          AAB_ASSET: ${{ steps.release.outputs.aab_asset }}
+        run: |
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base master \
+            --head "$BRANCH" \
+            --title "release: ${TAG} [skip changelog]" \
+            --body "$(cat <<EOF
+          ## Release
+          - Version: \`${CURRENT_VERSION} (${CURRENT_CODE}) → ${NEW_VERSION} (${NEW_CODE})\`
+          - Date: \`${RELEASE_DATE}\`
+          - Reconciled PRs since the latest release: \`${RECONCILED_PRS}\`
+          - APK asset: \`${APK_ASSET}\`
+          - AAB asset: \`${AAB_ASSET}\`
+
+          > Changelog and README summaries are AI-generated and may contain mistakes. Verify them against the linked pull requests before merging.
+
+          ## On merge
+          The protected release job will rebuild this exact merge commit, verify versions and signing identity, then publish the signed APK and AAB with checksums.
+
+          ## Review checklist
+          - [ ] Gradle version transition is correct
+          - [ ] CHANGELOG contains every intended change
+          - [ ] README What's New summary is accurate
+          - [ ] Only Gradle, CHANGELOG, and README release files changed
+          EOF
+          )"
+
+  publish-release:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/v') &&
+      startsWith(github.event.pull_request.title, 'release: v') &&
+      contains(github.event.pull_request.title, '[skip changelog]')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      notification_title: ${{ steps.notification.outputs.notification_title }}
+      notification_body: ${{ steps.notification.outputs.notification_body }}
+      notification_route: ${{ steps.notification.outputs.notification_route }}
+    concurrency:
+      group: publish-release
+      cancel-in-progress: false
+    steps:
+      - name: Checkout exact merged release commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Java 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify merged release metadata
+        id: release
+        env:
+          RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          RELEASE_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 .github/scripts/prepare_release.py verify \
+            --branch "$RELEASE_BRANCH" \
+            --title "$RELEASE_TITLE"
+
+      - name: Validate existing tag and release state
+        id: state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          git fetch --force --tags origin
+          if git show-ref --verify --quiet "refs/tags/${TAG}"; then
+            tag_target="$(git rev-list -n 1 "$TAG")"
+            if [[ "$tag_target" != "$MERGE_SHA" ]]; then
+              echo "::error::${TAG} already points to ${tag_target}, not ${MERGE_SHA}"
+              exit 1
+            fi
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Materialize protected build inputs
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          BOXCAST_PUBLIC_KEY: ${{ secrets.BOXCAST_PUBLIC_KEY }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          BOXCAST_API_BASE_URL: ${{ vars.BOXCAST_API_BASE_URL }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import binascii
+          import os
+          from pathlib import Path
+
+          required = (
+              "RELEASE_KEYSTORE_BASE64",
+              "GOOGLE_SERVICES_JSON_BASE64",
+              "KEY_STORE_PASSWORD",
+              "KEY_PASSWORD",
+              "BOXCAST_PUBLIC_KEY",
+              "POSTHOG_API_KEY",
+              "BOXCAST_API_BASE_URL",
+              "POSTHOG_HOST",
+          )
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit(
+                  "Missing protected release values: " + ", ".join(missing)
+              )
+
+          def decode_secret(name: str, path: Path) -> None:
+              try:
+                  payload = base64.b64decode(
+                      os.environ[name].strip(),
+                      validate=True,
+                  )
+              except (ValueError, binascii.Error) as exc:
+                  raise SystemExit(f"{name} is not valid Base64") from exc
+              if not payload:
+                  raise SystemExit(f"{name} decoded to an empty file")
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(payload)
+              path.chmod(0o600)
+
+          def property_value(name: str) -> str:
+              value = os.environ[name]
+              if not value.isascii() or any(char in value for char in "\r\n"):
+                  raise SystemExit(
+                      f"{name} must be a single-line ASCII value"
+                  )
+              escaped = value.replace("\\", "\\\\")
+              for char in ("=", ":", "#", "!"):
+                  escaped = escaped.replace(char, f"\\{char}")
+              if escaped.startswith(" "):
+                  escaped = "\\ " + escaped[1:]
+              return escaped
+
+          decode_secret("RELEASE_KEYSTORE_BASE64", Path("app/release.keystore"))
+          decode_secret(
+              "GOOGLE_SERVICES_JSON_BASE64",
+              Path("app/google-services.json"),
+          )
+          properties = {
+              "KEY_STORE_PASSWORD": property_value("KEY_STORE_PASSWORD"),
+              "KEY_PASSWORD": property_value("KEY_PASSWORD"),
+              "BOXCAST_API_BASE_URL": property_value("BOXCAST_API_BASE_URL"),
+              "BOXCAST_PUBLIC_KEY": property_value("BOXCAST_PUBLIC_KEY"),
+              "posthog.apiKey": property_value("POSTHOG_API_KEY"),
+              "posthog.host": property_value("POSTHOG_HOST"),
+          }
+          local_properties = Path("local.properties")
+          local_properties.write_text(
+              "".join(f"{key}={value}\n" for key, value in properties.items()),
+              encoding="ascii",
+          )
+          local_properties.chmod(0o600)
+          PY
+
+      - name: Verify release keystore identity
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          EXPECTED_CERT_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
+        run: |
+          expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if ! [[ "$expected" =~ ^[0-9A-F]{64}$ ]]; then
+            echo "::error::RELEASE_CERT_SHA256 must be a 64-digit SHA-256 fingerprint"
+            exit 1
+          fi
+          actual="$(
+            keytool -list -v \
+              -keystore app/release.keystore \
+              -alias upload \
+              -storepass:env KEY_STORE_PASSWORD 2>/dev/null |
+              awk '/SHA256:/{print $2; exit}' |
+              tr -d ':' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Release keystore certificate fingerprint mismatch"
+            exit 1
+          fi
+
+      - name: Build signed release APK and AAB
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: Verify artifact versions and signatures
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          EXPECTED_VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          EXPECTED_CERT_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
+        run: |
+          apk="app/build/outputs/apk/release/app-release.apk"
+          aab="app/build/outputs/bundle/release/app-release.aab"
+          [[ -s "$apk" ]] || { echo "::error::Signed release APK is missing"; exit 1; }
+          [[ -s "$aab" ]] || { echo "::error::Signed release AAB is missing"; exit 1; }
+
+          apk_summary="$("$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/apkanalyzer" apk summary "$apk")"
+          read -r apk_application_id apk_version_code apk_version <<< "$apk_summary"
+          if [[ "$apk_application_id" != "cx.aswin.boxlore" ||
+                "$apk_version_code" != "$EXPECTED_VERSION_CODE" ||
+                "$apk_version" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::APK manifest does not match the release metadata"
+            exit 1
+          fi
+
+          bundletool_json="$RUNNER_TEMP/bundletool-release.json"
+          gh api repos/google/bundletool/releases/latest > "$bundletool_json"
+          bundletool_url="$(
+            jq -r '[.assets[] | select(.name | test("^bundletool-all-.*\\.jar$"))][0].browser_download_url // empty' \
+              "$bundletool_json"
+          )"
+          bundletool_digest="$(
+            jq -r '[.assets[] | select(.name | test("^bundletool-all-.*\\.jar$"))][0].digest // empty' \
+              "$bundletool_json"
+          )"
+          if [[ -z "$bundletool_url" || ! "$bundletool_digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]]; then
+            echo "::error::Latest bundletool release has no verifiable JAR digest"
+            exit 1
+          fi
+          bundletool="$RUNNER_TEMP/bundletool.jar"
+          curl --fail --silent --show-error --location "$bundletool_url" --output "$bundletool"
+          printf '%s  %s\n' "${bundletool_digest#sha256:}" "$bundletool" |
+            sha256sum --check --status
+
+          aab_version="$(
+            java -jar "$bundletool" dump manifest \
+              --bundle="$aab" \
+              --xpath=/manifest/@android:versionName
+          )"
+          aab_version_code="$(
+            java -jar "$bundletool" dump manifest \
+              --bundle="$aab" \
+              --xpath=/manifest/@android:versionCode
+          )"
+          if [[ "$aab_version" != "$EXPECTED_VERSION" ||
+                "$aab_version_code" != "$EXPECTED_VERSION_CODE" ]]; then
+            echo "::error::AAB manifest does not match the release metadata"
+            exit 1
+          fi
+
+          expected_cert="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          build_tools="$(
+            printf '%s\n' "$ANDROID_SDK_ROOT"/build-tools/* |
+              sort -V |
+              awk 'END { print }'
+          )"
+          apk_cert="$(
+            "$build_tools/apksigner" verify --print-certs "$apk" |
+              awk -F': ' '/certificate SHA-256 digest/{print $2; exit}' |
+              tr -d ':' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          jarsigner -verify "$aab" >/dev/null
+          aab_cert="$(
+            keytool -printcert -jarfile "$aab" |
+              awk '/SHA256:/{print $2; exit}' |
+              tr -d ':' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          if [[ "$apk_cert" != "$expected_cert" || "$aab_cert" != "$expected_cert" ]]; then
+            echo "::error::Built artifact signing certificate mismatch"
+            exit 1
+          fi
+
+      - name: Prepare release assets and notes
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          APK_ASSET: ${{ steps.release.outputs.apk_asset }}
+          AAB_ASSET: ${{ steps.release.outputs.aab_asset }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          cp app/build/outputs/apk/release/app-release.apk \
+            "$RUNNER_TEMP/release-assets/$APK_ASSET"
+          cp app/build/outputs/bundle/release/app-release.aab \
+            "$RUNNER_TEMP/release-assets/$AAB_ASSET"
+          (
+            cd "$RUNNER_TEMP/release-assets"
+            sha256sum "$APK_ASSET" "$AAB_ASSET" > SHA256SUMS
+          )
+          python3 .github/scripts/prepare_release.py notes \
+            --output "$RUNNER_TEMP/release-notes.md"
+
+      - name: Prepare concise in-app announcement
+        id: notification
+        run: python3 .github/scripts/prepare_release.py notification
+
+      - name: Create or repair GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          RELEASE_EXISTS: ${{ steps.state.outputs.release_exists }}
+          TAG_EXISTS: ${{ steps.state.outputs.tag_exists }}
+          APK_ASSET: ${{ steps.release.outputs.apk_asset }}
+          AAB_ASSET: ${{ steps.release.outputs.aab_asset }}
+        run: |
+          assets=(
+            "$RUNNER_TEMP/release-assets/$APK_ASSET"
+            "$RUNNER_TEMP/release-assets/$AAB_ASSET"
+            "$RUNNER_TEMP/release-assets/SHA256SUMS"
+          )
+          if [[ "$RELEASE_EXISTS" == "true" ]]; then
+            gh release upload "$TAG" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          elif [[ "$TAG_EXISTS" == "true" ]]; then
+            gh release create "$TAG" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --latest
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$MERGE_SHA" \
+              --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --latest
+          fi
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --latest
+
+      - name: Verify README latest-download APK
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          APK_ASSET: ${{ steps.release.outputs.apk_asset }}
+        run: |
+          expected_apk="$RUNNER_TEMP/release-assets/$APK_ASSET"
+          downloaded_apk="$RUNNER_TEMP/readme-latest-$APK_ASSET"
+          expected_sha="$(sha256sum "$expected_apk" | awk '{print $1}')"
+          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APK_ASSET}"
+
+          for attempt in {1..12}; do
+            if curl \
+              --fail \
+              --silent \
+              --show-error \
+              --location \
+              --header "Cache-Control: no-cache" \
+              "${download_url}?release=${TAG}&run=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --output "$downloaded_apk"; then
+              downloaded_sha="$(sha256sum "$downloaded_apk" | awk '{print $1}')"
+              if [[ "$downloaded_sha" == "$expected_sha" ]]; then
+                echo "README latest-download URL serves the verified ${TAG} APK."
+                exit 0
+              fi
+            fi
+            echo "Latest-download APK has not propagated yet (attempt ${attempt}/12)."
+            sleep 10
+          done
+
+          echo "::error::README latest-download URL does not serve the ${TAG} APK"
+          exit 1
+
+      - name: Remove protected build inputs
+        if: always()
+        run: |
+          rm -f local.properties
+          rm -f app/release.keystore
+          rm -f app/google-services.json
+
+  announce-release:
+    needs: publish-release
+    if: needs.publish-release.result == 'success'
+    uses: ./.github/workflows/send-notification.yml
+    with:
+      title: ${{ needs.publish-release.outputs.notification_title }}
+      body: ${{ needs.publish-release.outputs.notification_body }}
+      type: in-app
+      route: ${{ needs.publish-release.outputs.notification_route }}
+      image: ''
+      target: all_users
+      dry_run: 'false'
+      collapse_key: ${{ format('boxlore-release-{0}', needs.publish-release.outputs.tag) }}
+      sound: silent
+      action_label: Download update
+      show_action_in_push: 'false'
+      show_action_in_app: 'true'
+      category: NEW RELEASE
+    secrets:
+      FCM_SERVICE_ACCOUNT_KEY: ${{ secrets.FCM_SERVICE_ACCOUNT_KEY }}

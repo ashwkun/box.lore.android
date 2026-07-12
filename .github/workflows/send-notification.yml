@@ -81,16 +81,88 @@ on:
         description: 'In-App category badge label'
         required: true
         default: "WHAT'S NEW"
+  workflow_call:
+    inputs:
+      title:
+        description: 'Notification title'
+        required: true
+        type: string
+      body:
+        description: 'Notification body'
+        required: true
+        type: string
+      type:
+        description: 'Where to show this message'
+        required: true
+        type: string
+      route:
+        description: 'Optional deep-link or external URL'
+        required: false
+        default: ''
+        type: string
+      image:
+        description: 'Optional image URL'
+        required: false
+        default: ''
+        type: string
+      target:
+        description: 'FCM topic'
+        required: true
+        type: string
+      dry_run:
+        description: 'Validate without sending'
+        required: false
+        default: 'false'
+        type: string
+      collapse_key:
+        description: 'Optional Android collapse key'
+        required: false
+        default: ''
+        type: string
+      sound:
+        description: 'Notification sound mode'
+        required: false
+        default: 'default'
+        type: string
+      action_label:
+        description: 'Action button label'
+        required: false
+        default: 'View'
+        type: string
+      show_action_in_push:
+        description: 'Show action in system push notification'
+        required: false
+        default: 'true'
+        type: string
+      show_action_in_app:
+        description: 'Show action in in-app announcement'
+        required: false
+        default: 'true'
+        type: string
+      category:
+        description: 'In-app category badge'
+        required: false
+        default: "WHAT'S NEW"
+        type: string
+    secrets:
+      FCM_SERVICE_ACCOUNT_KEY:
+        description: 'Firebase service-account JSON'
+        required: true
 
 jobs:
   send-notification:
+    name: Send notification
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.9'
 
@@ -102,18 +174,31 @@ jobs:
       - name: Send Notification
         env:
           FIREBASE_CREDENTIALS: ${{ secrets.FCM_SERVICE_ACCOUNT_KEY }}
+          NOTIFICATION_TITLE: ${{ inputs.title }}
+          NOTIFICATION_BODY: ${{ inputs.body }}
+          NOTIFICATION_TYPE: ${{ inputs.type }}
+          NOTIFICATION_ROUTE: ${{ inputs.route }}
+          NOTIFICATION_IMAGE: ${{ inputs.image }}
+          NOTIFICATION_TARGET: ${{ inputs.target }}
+          NOTIFICATION_DRY_RUN: ${{ inputs.dry_run }}
+          NOTIFICATION_COLLAPSE_KEY: ${{ inputs.collapse_key }}
+          NOTIFICATION_SOUND: ${{ inputs.sound }}
+          NOTIFICATION_ACTION_LABEL: ${{ inputs.action_label }}
+          NOTIFICATION_SHOW_ACTION_IN_PUSH: ${{ inputs.show_action_in_push }}
+          NOTIFICATION_SHOW_ACTION_IN_APP: ${{ inputs.show_action_in_app }}
+          NOTIFICATION_CATEGORY: ${{ inputs.category }}
         run: |
           python .github/scripts/manual_dispatch.py \
-            --title "${{ inputs.title }}" \
-            --body "${{ inputs.body }}" \
-            --type "${{ inputs.type }}" \
-            --route "${{ inputs.route }}" \
-            --image "${{ inputs.image }}" \
-            --target "${{ inputs.target }}" \
-            --dry-run "${{ inputs.dry_run }}" \
-            --collapse-key "${{ inputs.collapse_key }}" \
-            --sound "${{ inputs.sound }}" \
-            --action-label "${{ inputs.action_label }}" \
-            --show-action-in-push "${{ inputs.show_action_in_push }}" \
-            --show-action-in-app "${{ inputs.show_action_in_app }}" \
-            --category "${{ inputs.category }}"
+            --title "$NOTIFICATION_TITLE" \
+            --body "$NOTIFICATION_BODY" \
+            --type "$NOTIFICATION_TYPE" \
+            --route "$NOTIFICATION_ROUTE" \
+            --image "$NOTIFICATION_IMAGE" \
+            --target "$NOTIFICATION_TARGET" \
+            --dry-run "$NOTIFICATION_DRY_RUN" \
+            --collapse-key "$NOTIFICATION_COLLAPSE_KEY" \
+            --sound "$NOTIFICATION_SOUND" \
+            --action-label "$NOTIFICATION_ACTION_LABEL" \
+            --show-action-in-push "$NOTIFICATION_SHOW_ACTION_IN_PUSH" \
+            --show-action-in-app "$NOTIFICATION_SHOW_ACTION_IN_APP" \
+            --category "$NOTIFICATION_CATEGORY"

@@ -18,6 +18,11 @@ CHANGELOG_PATH = Path("CHANGELOG.md")
 README_PATH = Path("README.md")
 UPCOMING_CHANGES_START = "<!-- upcoming-changes:start -->"
 UPCOMING_CHANGES_END = "<!-- upcoming-changes:end -->"
+README_AI_NOTICE = (
+    '<p align="left"><sub>AI-generated summary; may contain mistakes. '
+    'Verify details in the <a href="CHANGELOG.md">changelog</a> and linked '
+    "pull requests.</sub></p>"
+)
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_USER_AGENT = "boxlore-changelog/1.3"
@@ -180,8 +185,6 @@ def _cluster_sections_by_pr(sections: dict[str, list[str]]) -> list[ChangelogClu
 def _render_clustered_changelog(clusters: list[ChangelogCluster]) -> str:
     lines: list[str] = []
     for cluster in clusters:
-        if cluster.importance < 40:
-            continue
         label = f"PR #{cluster.pr_number}" if cluster.pr_number is not None else "Unlinked"
         lines.append(
             f"## {label} | importance {cluster.importance} | theme: {cluster.theme}"
@@ -271,7 +274,7 @@ def _sections_from_cluster_bullets(
 def _fallback_changelog_from_clusters(clusters: list[ChangelogCluster]) -> dict[str, list[str]]:
     curated: dict[str, list[tuple[str, int | None]]] = defaultdict(list)
     for cluster in clusters:
-        if cluster.importance < 40 or not cluster.items:
+        if not cluster.items:
             continue
         by_category: dict[str, list[str]] = defaultdict(list)
         for category, text in cluster.items:
@@ -310,7 +313,7 @@ Return ONLY valid JSON:
 Rules:
 1. ONE bullet object per ## block per category. Merge all [Added] lines in a block into one Added bullet; same for Changed/Fixed/Removed.
 2. Include "pr" from the ## PR #NNN header on every bullet.
-3. Drop ## blocks with importance below 40 (gitignore, CI-only). Collapse pure analytics/telemetry into at most one Changed bullet at the bottom, or omit.
+3. Preserve every ## block so release reconciliation can prove each merged PR is represented. Put low-importance tooling or telemetry last and collapse it to one concise Changed bullet.
 4. Within each category array, order bullets by importance (queue/playback 95 first, home perf 80, NPS/surveys 42 last).
 5. Keep a Changelog category names exactly: Added, Changed, Fixed, Deprecated, Removed, Security.
 6. No PR numbers inside "text" (appended separately). No markdown headers in output.
@@ -345,7 +348,24 @@ Do NOT use README listener tone like "shows why each item is there" — use prov
                 curated[category].append((text, pr_number))
 
     if curated:
-        return _sections_from_cluster_bullets(curated, clusters)
+        curated_sections = _sections_from_cluster_bullets(curated, clusters)
+        expected_prs = {
+            cluster.pr_number
+            for cluster in clusters
+            if cluster.pr_number is not None
+        }
+        returned_prs = {
+            pr_number
+            for bullets in curated_sections.values()
+            for bullet in bullets
+            if (pr_number := _extract_pr_number(bullet)) is not None
+        }
+        if returned_prs == expected_prs:
+            return curated_sections
+        print(
+            "Groq curation omitted or added PR clusters; "
+            "using deterministic fallback."
+        )
     return _fallback_changelog_from_clusters(clusters)
 
 
@@ -628,23 +648,36 @@ def _render_readme_upcoming_body(groups: list[dict[str, list[str]]] | None = Non
         return 'New features and improvements for the next release are currently in development.'
 
 
+def _ensure_readme_ai_notice(block: str) -> str:
+    if "AI-generated summary; may contain mistakes." in block:
+        return block
+    return block.replace(
+        "</details>",
+        f"{README_AI_NOTICE}\n</details>",
+        1,
+    )
+
+
 def _render_readme_upcoming_block(content: str, groups: list[dict[str, list[str]]] | None = None, bullets: list[str] | None = None) -> str:
     body = _render_readme_upcoming_body(groups=groups, bullets=bullets)
 
-    # Extract existing "What's New" block from content to preserve it
-    whats_new_match = re.search(
-        r"(<details>\s*<summary><b>🎉 What's New.*?</details>)",
+    # Preserve every historical "What's New" block, including the currently
+    # expanded one. Release preparation makes only the newest block expanded.
+    whats_new_blocks = re.findall(
+        r"(<details(?:\s+open)?>\s*<summary><b>🎉 What's New.*?</details>)",
         content,
         flags=re.DOTALL
     )
-    whats_new_block = whats_new_match.group(1) if whats_new_match else ""
-    whats_new_formatted = f"\n\n<br/>\n\n{whats_new_block}" if whats_new_block else ""
+    whats_new_formatted = "".join(
+        f"\n\n<br/>\n\n{_ensure_readme_ai_notice(block)}"
+        for block in whats_new_blocks
+    )
 
     # If body is the plain text fallback, wrap it in <p align="left">
     if not body.startswith("<ul") and not body.startswith("<b>"):
         body = f'<p align="left">\n{body}\n</p>'
 
-    body = body + '\n<p align="left">For more details, refer to <a href="CHANGELOG.md">CHANGELOG.md</a>.</p>'
+    body = body + f"\n{README_AI_NOTICE}"
 
     return (
         f"{UPCOMING_CHANGES_START}\n"
@@ -792,6 +825,25 @@ def sync_readme_upcoming(api_key: str) -> bool:
     return False
 
 
+def _load_pr_metadata(path: str) -> tuple[int, str, str]:
+    metadata_path = Path(path)
+    if not metadata_path.is_file():
+        raise ValueError(f"PR metadata file does not exist: {metadata_path}")
+
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if payload.get("mergedAt") is None:
+        raise ValueError("Changelog backfill requires a merged pull request")
+    if payload.get("baseRefName") != "master":
+        raise ValueError("Changelog backfill only accepts pull requests merged into master")
+
+    number = int(payload["number"])
+    title = str(payload.get("title", "")).strip()
+    body = str(payload.get("body") or "")
+    if not title:
+        raise ValueError("Pull request metadata is missing a title")
+    return number, title, body
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Update CHANGELOG and README on PR merge.")
     parser.add_argument(
@@ -801,6 +853,10 @@ def main() -> None:
         choices=("all", "append", "sync-changelog", "sync-readme"),
         help="append: write PR to CHANGELOG; sync-changelog: re-group [Unreleased]; sync-readme: curate README; all: append + sync-changelog + sync-readme",
     )
+    parser.add_argument(
+        "--pr-json",
+        help="Path to `gh pr view --json number,title,body,mergedAt,baseRefName` output for append/backfill",
+    )
     args = parser.parse_args()
 
     api_key = _require_env("GROQ_API_KEY")
@@ -809,9 +865,12 @@ def main() -> None:
     readme_changed = False
 
     if args.command in ("all", "append"):
-        pr_number = int(_require_env("PR_NUMBER"))
-        pr_title = _require_env("PR_TITLE")
-        pr_body = os.environ.get("PR_BODY", "")
+        if args.pr_json:
+            pr_number, pr_title, pr_body = _load_pr_metadata(args.pr_json)
+        else:
+            pr_number = int(_require_env("PR_NUMBER"))
+            pr_title = _require_env("PR_TITLE")
+            pr_body = os.environ.get("PR_BODY", "")
         changelog_changed = append_changelog(api_key, pr_number, pr_title, pr_body)
 
     if args.command in ("all", "sync-changelog"):
