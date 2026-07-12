@@ -6,7 +6,7 @@ on:
       title:
         description: 'Notification Title'
         required: true
-        default: 'BoxLore Update'
+        default: 'boxlore Update'
       body:
         description: 'Notification Body'
         required: true
