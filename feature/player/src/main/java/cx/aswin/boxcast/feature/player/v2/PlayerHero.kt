@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -230,7 +232,6 @@ private fun PlayerArtworkPager(
                 }
             }
             NextEpisodeHint(
-                width = dimensions.width,
                 height = dimensions.height,
                 colorScheme = colorScheme
             )
@@ -239,26 +240,35 @@ private fun PlayerArtworkPager(
 }
 
 @Composable
-private fun NextEpisodeHint(width: Dp, height: Dp, colorScheme: ColorScheme) {
+private fun NextEpisodeHint(height: Dp, colorScheme: ColorScheme) {
     Box(
         modifier = Modifier
-            .width(width + 88.dp)
+            .fillMaxWidth()
             .height(height)
     ) {
-        Surface(
-            modifier = Modifier.align(Alignment.CenterEnd).size(32.dp),
-            shape = CircleShape,
-            color = colorScheme.surface.copy(alpha = 0.72f),
-            contentColor = colorScheme.onSurfaceVariant,
-            shadowElevation = 2.dp
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = 16.dp)
+                .size(36.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.KeyboardArrowRight,
-                    contentDescription = "Swipe for next episode",
-                    modifier = Modifier.size(21.dp)
-                )
-            }
+            // Drop shadow layer: Offset black icon with alpha
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.Black.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .size(32.dp)
+                    .offset(x = 1.dp, y = 1.5.dp)
+            )
+            // Foreground M3 accent icon
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowRight,
+                contentDescription = "Swipe for next episode",
+                tint = colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }

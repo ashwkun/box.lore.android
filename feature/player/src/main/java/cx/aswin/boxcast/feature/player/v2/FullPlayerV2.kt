@@ -83,6 +83,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -585,6 +586,11 @@ private fun FullPlayerBody(
             .fillMaxSize()
             .playerCanvas(display.colorScheme)
     ) {
+        val configuration = LocalConfiguration.current
+        val screenWidth = configuration.screenWidthDp.dp
+        val screenHeight = configuration.screenHeightDp.dp
+        val finalMaxHeight = screenHeight - resources.statusBarPadding - resources.navBarPadding
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -606,6 +612,7 @@ private fun FullPlayerBody(
                     .fillMaxSize()
                     .nestedScroll(display.sheetNestedScrollConnection)
             ) {
+                val layoutValues = calculateResponsiveHeroLayout(screenWidth, finalMaxHeight, model.isVideo)
                 FullPlayerScrollableContent(
                     model = model,
                     dependencies = dependencies,
@@ -615,7 +622,7 @@ private fun FullPlayerBody(
                     ui = ui,
                     resources = FullPlayerScrollResources(
                         resources.scope,
-                        calculateResponsiveHeroLayout(maxWidth, maxHeight, model.isVideo)
+                        layoutValues
                     )
                 )
             }
