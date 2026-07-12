@@ -42,8 +42,12 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
 <b>🆕 New features:</b>
 <ul align="left">
-<li>Added dry‑run mode for notifications, admin UI preview, validation, template storage, and UI tweaks. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-2ebbca?style=flat-square" alt="PR #861" height="18"/></a></li>
-<li>Added customizable badge label for in‑app announcements, set via push payload. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-2ebbca?style=flat-square" alt="PR #862" height="18"/></a></li>
+<li>Add dry‑run mode for notifications, admin UI tweaks, badge label customization, and UI validation improvements. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-2ebbca?style=flat-square" alt="PR #861" height="18"/></a></li>
+<li>Add customizable badge label for announcement categories via push payload. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-2ebbca?style=flat-square" alt="PR #862" height="18"/></a></li>
+</ul>
+<b>🐛 Fixes:</b>
+<ul align="left">
+<li>Fix dark‑mode contrast, subscription handling on reinstall, and markdown rendering in announcements. <a href="https://github.com/ashwkun/boxlore/pull/863"><img src="https://img.shields.io/badge/PR-863-2ebbca?style=flat-square" alt="PR #863" height="18"/></a></li>
 </ul>
 </details>
 
