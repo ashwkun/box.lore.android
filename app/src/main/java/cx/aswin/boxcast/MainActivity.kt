@@ -411,17 +411,13 @@ class MainActivity : ComponentActivity() {
             // The sentinel file lives in noBackupFilesDir so it is NOT restored —
             // its absence signals a fresh install or restore, triggering re-subscription.
             LaunchedEffect(Unit) {
-                kotlinx.coroutines.Dispatchers.IO.let { io ->
-                    kotlinx.coroutines.withContext(io) {
-                        val sentinel = java.io.File(noBackupFilesDir, "fcm_topics_synced")
-                        if (!sentinel.exists()) {
-                            subscriptionRepository.reconcileFcmTopicSubscriptions()
-                            try {
-                                sentinel.createNewFile()
-                            } catch (e: Exception) {
-                                android.util.Log.e("FCM_Topic", "Failed to write sentinel", e)
-                            }
-                        }
+                val sentinel = java.io.File(noBackupFilesDir, "fcm_topics_synced")
+                if (!sentinel.exists()) {
+                    subscriptionRepository.reconcileFcmTopicSubscriptions()
+                    try {
+                        sentinel.createNewFile()
+                    } catch (e: Exception) {
+                        android.util.Log.e("FCM_Topic", "Failed to write sentinel", e)
                     }
                 }
             }
