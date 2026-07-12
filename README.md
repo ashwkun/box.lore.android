@@ -4,8 +4,6 @@
 
 ### A podcast app that actually gets personal
 
-*Proprietary. All Rights Reserved. No ads. Ever.*
-
 <br/>
 <br/>
 <div align="center">
