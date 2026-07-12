@@ -38,19 +38,26 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <!-- upcoming-changes:start -->
 <div align="center">
 
-<details open>
+<details>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
 <b>🆕 New features:</b>
 <ul align="left">
-<li>Notification system now supports dry‑run testing, custom sounds, preview, validation, template storage, and UI controls for dispatch. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-2ebbca?style=flat-square" alt="PR #861" height="18"/></a></li>
-<li>In‑app announcements can show a custom category badge label set via the push payload. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-2ebbca?style=flat-square" alt="PR #862" height="18"/></a></li>
-<li>Android Auto lets you browse and control podcasts, plus survey icons and rating bars have better layout and contrast. <a href="https://github.com/ashwkun/boxlore/pull/865"><img src="https://img.shields.io/badge/PR-865-2ebbca?style=flat-square" alt="PR #865" height="18"/></a></li>
+<li>Playback boundary configurations including skip beginning and end playback settings.</li>
+<li>Native RSS feed podcast source support.</li>
 </ul>
-<b>🐛 Fixes:</b>
-<ul align="left">
-<li>Artwork transitions in the player sheet are smoother during drags, and the next‑episode arrow now uses the accent color. <a href="https://github.com/ashwkun/boxlore/pull/864"><img src="https://img.shields.io/badge/PR-864-2ebbca?style=flat-square" alt="PR #864" height="18"/></a></li>
-<li>Survey dark‑mode contrast fixed, subscription topics re‑sync on reinstall, and announcement dialogs now scroll long content. <a href="https://github.com/ashwkun/boxlore/pull/863"><img src="https://img.shields.io/badge/PR-863-2ebbca?style=flat-square" alt="PR #863" height="18"/></a></li>
-</ul>
+</details>
+
+<br/>
+
+<details open>
+<summary><b>🎉 What's New (v0.0.8) - 2026-07-12</b></summary>
+<br/>
+<p align="left">
+<b>Android Auto:</b> Complete overhaul featuring browsable node hierarchy, media action handler, prewarmed composite artwork collages, atomic cache publishing, and raced voice searches. <a href="https://github.com/ashwkun/boxlore/pull/865"><img src="https://img.shields.io/badge/PR-865-2ebbca?style=flat-square" alt="PR #865" height="18"/></a><br/>
+<b>FCM Notifications v2:</b> Extended notification workflows with dry-run support, sound routing (announcement, announcement chime, silent), custom action labels, and template persistence. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-2ebbca?style=flat-square" alt="PR #861" height="18"/></a><br/>
+<b>In-App Category Badges:</b> Configurable category badges for FCM-triggered announcement dialogs. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-2ebbca?style=flat-square" alt="PR #862" height="18"/></a><br/>
+<b>UX Improvements & Bug Fixes:</b> Smoother artwork transitions in the player bottom sheet <a href="https://github.com/ashwkun/boxlore/pull/864"><img src="https://img.shields.io/badge/PR-864-2ebbca?style=flat-square" alt="PR #864" height="18"/></a>, dark-mode contrast corrections in survey prompts, subscription topics auto-resync, and megaphone icon style corrections <a href="https://github.com/ashwkun/boxlore/pull/863"><img src="https://img.shields.io/badge/PR-863-2ebbca?style=flat-square" alt="PR #863" height="18"/></a>.
+</p>
 </details>
 
 <br/>
