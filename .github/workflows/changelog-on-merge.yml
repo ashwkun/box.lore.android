@@ -188,6 +188,7 @@ jobs:
           PY
 
       - name: Commit and push release branch
+        id: push_release
         env:
           BRANCH: ${{ steps.release.outputs.branch }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -238,6 +239,13 @@ jobs:
           - [ ] Only Gradle, CHANGELOG, and README release files changed
           EOF
           )"
+
+      - name: Cleanup orphan release branch on failure
+        if: failure() && steps.push_release.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: python3 .github/scripts/prepare_release.py cleanup-stale --tag "$TAG"
 
   publish-release:
     if: >-

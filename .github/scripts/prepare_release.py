@@ -168,10 +168,17 @@ def github_request(
     path: str,
     *,
     allow_missing: bool = False,
+    method: str = "GET",
+    payload: dict[str, object] | None = None,
 ) -> object | None:
     url = f"https://api.github.com/repos/{repository}/{path.lstrip('/')}"
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         url,
+        data=data,
+        method=method,
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
@@ -181,7 +188,12 @@ def github_request(
     )
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
+            if response.status == 204:
+                return None
+            body = response.read().decode("utf-8")
+            if not body:
+                return None
+            return json.loads(body)
     except urllib.error.HTTPError as exc:
         if allow_missing and exc.code == 404:
             return None
@@ -191,40 +203,121 @@ def github_request(
     return None
 
 
+def github_delete(repository: str, token: str, path: str) -> None:
+    github_request(repository, token, path, method="DELETE")
+
+
+def release_branch_name(target: AppVersion) -> str:
+    return f"release/{target.tag}"
+
+
+def release_target_artifacts(
+    repository: str,
+    token: str,
+    target: AppVersion,
+) -> dict[str, object | None]:
+    encoded_tag = urllib.parse.quote(f"tags/{target.tag}", safe="/")
+    encoded_branch = urllib.parse.quote(
+        f"heads/{release_branch_name(target)}",
+        safe="/",
+    )
+    return {
+        "tag": github_request(
+            repository,
+            token,
+            f"git/ref/{encoded_tag}",
+            allow_missing=True,
+        ),
+        "branch": github_request(
+            repository,
+            token,
+            f"git/ref/{encoded_branch}",
+            allow_missing=True,
+        ),
+        "release": github_request(
+            repository,
+            token,
+            f"releases/tags/{urllib.parse.quote(target.tag, safe='')}",
+            allow_missing=True,
+        ),
+    }
+
+
+def find_open_release_pull_request(
+    repository: str,
+    token: str,
+    branch: str,
+) -> dict[str, object] | None:
+    owner, _repo = repository.split("/", 1)
+    query = urllib.parse.urlencode({"head": f"{owner}:{branch}", "state": "open"})
+    pulls = github_request(repository, token, f"pulls?{query}")
+    if not isinstance(pulls, list) or not pulls:
+        return None
+    pull = pulls[0]
+    return pull if isinstance(pull, dict) else None
+
+
+def cleanup_stale_release_target(
+    repository: str,
+    token: str,
+    target: AppVersion,
+    *,
+    abort_if_open_pr: bool = False,
+) -> list[str]:
+    branch = release_branch_name(target)
+    artifacts = release_target_artifacts(repository, token, target)
+    if artifacts["tag"] is not None or artifacts["release"] is not None:
+        return []
+
+    open_pr = find_open_release_pull_request(repository, token, branch)
+    if open_pr is not None:
+        number = open_pr.get("number")
+        if abort_if_open_pr:
+            fail(
+                f"{target.tag} already has an open release PR "
+                f"(#{number}); close or merge it before preparing again"
+            )
+        return []
+
+    actions: list[str] = []
+    if artifacts["branch"] is not None:
+        encoded_branch = urllib.parse.quote(f"heads/{branch}", safe="/")
+        github_delete(repository, token, f"git/refs/{encoded_branch}")
+        actions.append(f"deleted stale branch {branch}")
+    return actions
+
+
+def ensure_remote_target_is_available(
+    repository: str,
+    token: str,
+    target: AppVersion,
+) -> None:
+    for action in cleanup_stale_release_target(
+        repository,
+        token,
+        target,
+        abort_if_open_pr=True,
+    ):
+        print(action)
+
+    artifacts = release_target_artifacts(repository, token, target)
+    conflicts: list[str] = []
+    if artifacts["tag"] is not None:
+        conflicts.append("tag")
+    if artifacts["branch"] is not None:
+        conflicts.append("release branch")
+    if artifacts["release"] is not None:
+        conflicts.append("GitHub Release")
+    if conflicts:
+        fail(f"{target.tag} already has: {', '.join(conflicts)}")
+
+
 def assert_remote_target_is_free(
     repository: str,
     token: str,
     target: AppVersion,
 ) -> None:
-    encoded_tag = urllib.parse.quote(f"tags/{target.tag}", safe="/")
-    encoded_branch = urllib.parse.quote(f"heads/release/{target.tag}", safe="/")
-    existing_tag = github_request(
-        repository,
-        token,
-        f"git/ref/{encoded_tag}",
-        allow_missing=True,
-    )
-    existing_branch = github_request(
-        repository,
-        token,
-        f"git/ref/{encoded_branch}",
-        allow_missing=True,
-    )
-    existing_release = github_request(
-        repository,
-        token,
-        f"releases/tags/{urllib.parse.quote(target.tag, safe='')}",
-        allow_missing=True,
-    )
-    conflicts: list[str] = []
-    if existing_tag is not None:
-        conflicts.append("tag")
-    if existing_branch is not None:
-        conflicts.append("release branch")
-    if existing_release is not None:
-        conflicts.append("GitHub Release")
-    if conflicts:
-        fail(f"{target.tag} already has: {', '.join(conflicts)}")
+    ensure_remote_target_is_available(repository, token, target)
 
 
 def pull_requests_between(
@@ -718,6 +811,24 @@ def write_notification_outputs() -> None:
     )
 
 
+def cleanup_stale_release(args: argparse.Namespace) -> None:
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not repository or not token:
+        fail("GITHUB_REPOSITORY and GITHUB_TOKEN are required")
+
+    tag = args.tag.strip()
+    if not tag.startswith("v"):
+        fail(f"Release tag must start with v: {tag}")
+    version_name = tag[1:]
+    if not SEMVER_RE.fullmatch(version_name):
+        fail(f"Release tag is not strict semantic versioning: {tag}")
+
+    target = AppVersion(name=version_name, code=0)
+    for action in cleanup_stale_release_target(repository, token, target):
+        print(action)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -752,6 +863,12 @@ def main() -> None:
         help="Create concise in-app release-announcement outputs",
     )
 
+    cleanup_parser = subparsers.add_parser(
+        "cleanup-stale",
+        help="Delete orphan release branch left by a failed prepare-release run",
+    )
+    cleanup_parser.add_argument("--tag", required=True)
+
     args = parser.parse_args()
     try:
         if args.command == "prepare":
@@ -762,6 +879,8 @@ def main() -> None:
             write_release_notes(args)
         elif args.command == "notification":
             write_notification_outputs()
+        elif args.command == "cleanup-stale":
+            cleanup_stale_release(args)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         print(f"Release preparation failed: {exc}", file=sys.stderr)
         sys.exit(1)
