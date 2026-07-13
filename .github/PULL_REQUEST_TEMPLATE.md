@@ -1,6 +1,35 @@
+## Title (required)
+
+Use Conventional Commits. Examples from this repo:
+
+- `feat(scope): short description`
+- `fix(scope): short description`
+- `chore: short description`
+- `release: vX.Y.Z [skip changelog]`
+
+Do **not** use sentence-case titles without a type prefix (e.g. avoid `Polish the announcement dialog`).
+
 ## Summary
 
-<!-- What changed and why (1–3 bullets). Keep it clear — release notes are derived from this. -->
+<!-- What changed and why. Release notes / changelog bullets are derived from this — be specific. -->
+
+-
+
+## Motivation
+
+<!-- Why this change exists. What problem or gap does it address for listeners or maintainers? -->
+
+-
+
+## What changed
+
+<!-- Concrete product / code changes. Prefer bullets over vague summaries. -->
+
+-
+
+## Behavior & compatibility
+
+<!-- User-visible behavior before/after. Call out FCM/API/payload compatibility, defaults, and anything older clients still rely on. -->
 
 -
 
@@ -20,6 +49,15 @@
 - [ ] `user-impact-low`
 - [ ] `no-user-impact`
 
+### Listener impact — **required when** `user-impact-high` or `user-impact-medium`
+
+<!-- Write this for a listener, not an engineer. What is different in their day-to-day use of boxlore after this ships? -->
+<!-- Skip only for `user-impact-low` or `no-user-impact`. -->
+
+**What changes in the user’s life:**
+
+-
+
 ### Backend — optional, **pairable** with any user-impact level
 
 | Label | Use when |
@@ -34,9 +72,12 @@ Add the labels on the PR (`gh pr edit <n> --add-label user-impact-high --add-lab
 
 ## Test plan
 
+<!-- Checklist of concrete verification steps for this PR. Mark items done before merge when possible. -->
+
 - [ ] Built / installed locally (`./gradlew installDebug`) when UI or app behavior changed
 - [ ] Manual checks for the user-visible paths touched by this PR
+- [ ]
 
 ## Notes (optional)
 
-<!-- Screenshots, rollout risks, follow-ups. -->
+<!-- Screenshots, rollout risks, follow-ups, related deploys (e.g. admin hosting), out of scope. -->

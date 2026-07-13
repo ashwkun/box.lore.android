@@ -534,6 +534,54 @@ object AnalyticsHelper {
         )
     }
 
+    fun trackInAppAnnouncementViewed(
+        category: String,
+        hasImage: Boolean,
+        hasAction: Boolean,
+    ) {
+        PostHog.capture(
+            event = "in_app_announcement_viewed",
+            properties =
+                mapOf(
+                    "category" to category,
+                    "has_image" to hasImage,
+                    "has_action" to hasAction,
+                ),
+        )
+    }
+
+    fun trackInAppAnnouncementDismissed(
+        category: String,
+        hasImage: Boolean,
+        hasAction: Boolean,
+    ) {
+        PostHog.capture(
+            event = "in_app_announcement_dismissed",
+            properties =
+                mapOf(
+                    "category" to category,
+                    "has_image" to hasImage,
+                    "has_action" to hasAction,
+                ),
+        )
+    }
+
+    fun trackInAppAnnouncementAction(
+        category: String,
+        hasImage: Boolean,
+        actionLabel: String,
+    ) {
+        PostHog.capture(
+            event = "in_app_announcement_action",
+            properties =
+                mapOf(
+                    "category" to category,
+                    "has_image" to hasImage,
+                    "action_label" to actionLabel,
+                ),
+        )
+    }
+
     // ── 9. Permissions ──────────────────────────────────────────────
 
     fun trackNotificationPermissionRequested() {
