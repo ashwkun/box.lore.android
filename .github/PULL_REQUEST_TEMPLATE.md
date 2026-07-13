@@ -6,19 +6,31 @@
 
 ## Impact (required)
 
-Apply **exactly one** GitHub label before merge. Changelog, README Upcoming, and the post-release in-app notification use this to prioritize:
+### User impact — pick **exactly one**
 
 | Label | Use when |
 |:--|:--|
-| `user-impact` | Listeners will notice (UI, playback, search, downloads, onboarding, etc.) |
-| `backend-fix` | Server / proxy / infra only — CHANGELOG yes; usually skip README & notification |
-| `non-user-impact` | CI, docs, tooling, internal refactors with no user-facing change |
+| `user-impact-high` | Listeners clearly notice (player, search, downloads, onboarding, major UX) |
+| `user-impact-medium` | Noticeable but not headline (polish, secondary flows) |
+| `user-impact-low` | Minor user-facing tweak |
+| `no-user-impact` | CI, docs, tooling, internal-only — no listener-facing change |
 
-Check the matching box **and** add the label on the PR (`gh pr edit --add-label user-impact`, etc.):
+- [ ] `user-impact-high`
+- [ ] `user-impact-medium`
+- [ ] `user-impact-low`
+- [ ] `no-user-impact`
 
-- [ ] `user-impact`
-- [ ] `backend-fix`
-- [ ] `non-user-impact`
+### Backend — optional, **pairable** with any user-impact level
+
+| Label | Use when |
+|:--|:--|
+| `backend-change` | Touches server / proxy / infra (can combine with high/medium/low/none) |
+
+- [ ] `backend-change`
+
+Examples: `user-impact-high` + `backend-change`, or `no-user-impact` + `backend-change`, or just `user-impact-medium`.
+
+Add the labels on the PR (`gh pr edit <n> --add-label user-impact-high --add-label backend-change`).
 
 ## Test plan
 

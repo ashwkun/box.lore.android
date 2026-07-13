@@ -37,24 +37,44 @@ README_GROUP_EMOJI = {
 }
 DEFAULT_GITHUB_REPOSITORY = "ashwkun/boxlore"
 
-# Required on every PR. Drives CHANGELOG / README / notification priority.
-IMPACT_LABELS = ("user-impact", "backend-fix", "non-user-impact")
-IMPACT_SCORE = {
-    "user-impact": 95,
-    "backend-fix": 35,
-    "non-user-impact": 12,
+# Required: exactly one user-impact level. Optional: backend-change (pairable).
+USER_IMPACT_LABELS = (
+    "user-impact-high",
+    "user-impact-medium",
+    "user-impact-low",
+    "no-user-impact",
+)
+BACKEND_CHANGE_LABEL = "backend-change"
+USER_IMPACT_SCORE = {
+    "user-impact-high": 95,
+    "user-impact-medium": 70,
+    "user-impact-low": 45,
+    "no-user-impact": 12,
 }
-IMPACT_ALIASES = {
-    "user-impact": "user-impact",
-    "user impact": "user-impact",
-    "backend-fix": "backend-fix",
-    "backend fix": "backend-fix",
-    "non-user-impact": "non-user-impact",
-    "non user impact": "non-user-impact",
-    "non-user impact": "non-user-impact",
+# Legacy labels still recognized when reading older CHANGELOG markers / open PRs.
+USER_IMPACT_ALIASES = {
+    "user-impact-high": "user-impact-high",
+    "user impact high": "user-impact-high",
+    "user-impact": "user-impact-high",
+    "user impact": "user-impact-high",
+    "user-impact-medium": "user-impact-medium",
+    "user impact medium": "user-impact-medium",
+    "user-impact-low": "user-impact-low",
+    "user impact low": "user-impact-low",
+    "no-user-impact": "no-user-impact",
+    "no user impact": "no-user-impact",
+    "non-user-impact": "no-user-impact",
+    "non user impact": "no-user-impact",
+    "backend-fix": "no-user-impact",  # old exclusive label → no user + treat via backend flag
+}
+BACKEND_ALIASES = {
+    "backend-change",
+    "backend change",
+    "backend-fix",
+    "backend fix",
 }
 IMPACT_MARKER_RE = re.compile(
-    r"<!--\s*impact:(user-impact|backend-fix|non-user-impact)\s*-->",
+    r"<!--\s*impact:([a-z0-9\-]+)(?:\+(backend-change))?\s*-->",
     re.IGNORECASE,
 )
 
@@ -63,60 +83,107 @@ def _github_repository() -> str:
     return os.environ.get("GITHUB_REPOSITORY", DEFAULT_GITHUB_REPOSITORY).strip() or DEFAULT_GITHUB_REPOSITORY
 
 
-def _normalize_impact_token(raw: str) -> str | None:
+def _normalize_token(raw: str) -> str:
     key = re.sub(r"[\s_]+", "-", raw.strip().lower())
-    key = re.sub(r"-+", "-", key).strip("-")
-    if key in IMPACT_LABELS:
+    return re.sub(r"-+", "-", key).strip("-")
+
+
+def _normalize_user_impact(raw: str) -> str | None:
+    key = _normalize_token(raw)
+    if key in USER_IMPACT_LABELS:
         return key
     spaced = key.replace("-", " ")
-    return IMPACT_ALIASES.get(key) or IMPACT_ALIASES.get(spaced)
+    return USER_IMPACT_ALIASES.get(key) or USER_IMPACT_ALIASES.get(spaced)
 
 
-def _resolve_impact(
+def _is_backend_label(raw: str) -> bool:
+    key = _normalize_token(raw)
+    spaced = key.replace("-", " ")
+    return key in BACKEND_ALIASES or spaced in BACKEND_ALIASES
+
+
+def _resolve_pr_tags(
     labels: list[str] | None = None,
     title: str = "",
     body: str = "",
-) -> str | None:
-    """Pick exactly one impact label from PR labels, then title/body fallbacks."""
-    found: list[str] = []
+) -> tuple[str | None, bool]:
+    """Return (user_impact_label, backend_change)."""
+    found_impact: list[str] = []
+    backend = False
     for label in labels or []:
-        impact = _normalize_impact_token(label)
-        if impact and impact not in found:
-            found.append(impact)
-    if len(found) == 1:
-        return found[0]
-    if len(found) > 1:
-        # Prefer the highest-priority impact when multiple are present.
-        return max(found, key=lambda name: IMPACT_SCORE[name])
+        if _is_backend_label(label):
+            backend = True
+        impact = _normalize_user_impact(label)
+        # backend-change is not a user-impact level; backend-fix legacy maps to no-user-impact.
+        if impact and impact not in found_impact:
+            if _normalize_token(label) == "backend-change":
+                continue
+            found_impact.append(impact)
 
-    blob = f"{title}\n{body}"
-    for alias, impact in IMPACT_ALIASES.items():
-        pattern = rf"(?i)(?:^|[\s\[\(,;]){re.escape(alias)}(?:$|[\s\]\),;:])"
-        if re.search(pattern, blob):
-            return impact
-    return None
+    user_impact: str | None = None
+    if len(found_impact) == 1:
+        user_impact = found_impact[0]
+    elif len(found_impact) > 1:
+        user_impact = max(found_impact, key=lambda name: USER_IMPACT_SCORE[name])
+
+    if user_impact is None or not backend:
+        blob = f"{title}\n{body}"
+        if user_impact is None:
+            # Prefer explicit level phrases before legacy aliases.
+            for alias in (
+                "user-impact-high",
+                "user impact high",
+                "user-impact-medium",
+                "user impact medium",
+                "user-impact-low",
+                "user impact low",
+                "no-user-impact",
+                "no user impact",
+            ):
+                pattern = rf"(?i)(?:^|[\s\[\(,;]){re.escape(alias)}(?:$|[\s\]\),;:])"
+                if re.search(pattern, blob):
+                    user_impact = USER_IMPACT_ALIASES.get(alias) or _normalize_user_impact(alias)
+                    break
+        if not backend:
+            for alias in ("backend-change", "backend change"):
+                pattern = rf"(?i)(?:^|[\s\[\(,;]){re.escape(alias)}(?:$|[\s\]\),;:])"
+                if re.search(pattern, blob):
+                    backend = True
+                    break
+
+    return user_impact, backend
 
 
-def _impact_marker(impact: str) -> str:
-    return f"<!-- impact:{impact} -->"
+def _impact_marker(impact: str, backend_change: bool = False) -> str:
+    suffix = "+backend-change" if backend_change else ""
+    return f"<!-- impact:{impact}{suffix} -->"
 
 
-def _extract_impact(text: str) -> str | None:
+def _extract_impact_tags(text: str) -> tuple[str | None, bool]:
     match = IMPACT_MARKER_RE.search(text)
     if not match:
-        return None
-    return _normalize_impact_token(match.group(1))
+        return None, False
+    impact = _normalize_user_impact(match.group(1))
+    backend = bool(match.group(2)) or "backend-change" in match.group(0).lower()
+    # Support legacy markers without levels.
+    if impact is None and match.group(1):
+        impact = _normalize_user_impact(match.group(1))
+    return impact, backend
 
 
 def _strip_impact_marker(text: str) -> str:
     return IMPACT_MARKER_RE.sub("", text).strip()
 
 
-def _attach_impact(text: str, impact: str | None) -> str:
+def _attach_impact(
+    text: str,
+    impact: str | None,
+    backend_change: bool = False,
+) -> str:
     cleaned = _strip_impact_marker(text).strip()
     if not cleaned or not impact:
         return cleaned
-    return f"{cleaned} {_impact_marker(impact)}"
+    return f"{cleaned} {_impact_marker(impact, backend_change)}"
 
 
 def _labels_from_env_or_payload(payload: dict | None = None) -> list[str]:
@@ -236,6 +303,7 @@ class ChangelogCluster:
     importance: int = 50
     theme: str = "general"
     impact: str | None = None
+    backend_change: bool = False
 
     def text_blob(self) -> str:
         return " ".join(text for _, text in self.items).lower()
@@ -261,8 +329,8 @@ def _cluster_importance(
     categories: set[str],
     impact: str | None = None,
 ) -> int:
-    if impact in IMPACT_SCORE:
-        return IMPACT_SCORE[impact]
+    if impact in USER_IMPACT_SCORE:
+        return USER_IMPACT_SCORE[impact]
     if theme == "developer tooling" or theme == "analytics":
         return 10
     if theme == "queue & playback":
@@ -284,13 +352,14 @@ def _cluster_sections_by_pr(sections: dict[str, list[str]]) -> list[ChangelogClu
             if not bullet.strip():
                 continue
             pr_number = _extract_pr_number(bullet)
-            impact = _extract_impact(bullet)
+            impact, backend = _extract_impact_tags(bullet)
             cleaned = _strip_impact_marker(_strip_pr_links(bullet))
             cluster = grouped.setdefault(pr_number, ChangelogCluster(pr_number=pr_number))
             cluster.items.append((category, cleaned))
+            if backend:
+                cluster.backend_change = True
             if impact:
-                # Prefer the highest-priority impact seen on this PR's bullets.
-                if cluster.impact is None or IMPACT_SCORE[impact] > IMPACT_SCORE.get(
+                if cluster.impact is None or USER_IMPACT_SCORE[impact] > USER_IMPACT_SCORE.get(
                     cluster.impact, 0
                 ):
                     cluster.impact = impact
@@ -314,8 +383,9 @@ def _render_clustered_changelog(clusters: list[ChangelogCluster]) -> str:
     for cluster in clusters:
         label = f"PR #{cluster.pr_number}" if cluster.pr_number is not None else "Unlinked"
         impact = cluster.impact or "unlabeled"
+        backend = " backend-change" if cluster.backend_change else ""
         lines.append(
-            f"## {label} | impact {impact} | importance {cluster.importance} | theme: {cluster.theme}"
+            f"## {label} | impact {impact}{backend} | importance {cluster.importance} | theme: {cluster.theme}"
         )
         by_category: dict[str, list[str]] = defaultdict(list)
         for category, text in cluster.items:
@@ -372,8 +442,13 @@ def _format_changelog_bullet(
     text: str,
     pr_number: int | None,
     impact: str | None = None,
+    backend_change: bool = False,
 ) -> str:
-    return _attach_impact(_format_readme_bullet(text, pr_number), impact)
+    return _attach_impact(
+        _format_readme_bullet(text, pr_number),
+        impact,
+        backend_change=backend_change,
+    )
 
 
 def _parse_changelog_bullet(entry: object) -> tuple[str, int | None]:
@@ -387,6 +462,9 @@ def _sections_from_cluster_bullets(
     """Sort bullets within each Keep a Changelog category by cluster importance."""
     pr_importance = {c.pr_number: c.importance for c in clusters if c.pr_number is not None}
     pr_impact = {c.pr_number: c.impact for c in clusters if c.pr_number is not None}
+    pr_backend = {
+        c.pr_number: c.backend_change for c in clusters if c.pr_number is not None
+    }
 
     def sort_key(item: tuple[str, int | None]) -> tuple[int, str]:
         _, pr_number = item
@@ -399,7 +477,12 @@ def _sections_from_cluster_bullets(
             continue
         sorted_items = sorted(items, key=sort_key)
         bullets = [
-            _format_changelog_bullet(text, pr, pr_impact.get(pr) if pr is not None else None)
+            _format_changelog_bullet(
+                text,
+                pr,
+                pr_impact.get(pr) if pr is not None else None,
+                pr_backend.get(pr, False) if pr is not None else False,
+            )
             for text, pr in sorted_items
             if text.strip()
         ]
@@ -443,7 +526,8 @@ Audience: developers — use technical, precise language (class names, tiers, mo
 This is NOT the user-facing README; do not simplify away useful implementation detail.
 
 Input is grouped by PR/theme with impact tags and importance scores. Each ## block is one merged feature area.
-Impact: user-impact (~95, prioritize), backend-fix (~35, keep concise), non-user-impact (~12, collapse last).
+Impact levels: user-impact-high (~95), user-impact-medium (~70), user-impact-low (~45), no-user-impact (~12).
+Optional flag backend-change may appear with any impact level (pairable).
 
 Return ONLY valid JSON:
 {"Added": [{"text": "...", "pr": 853}, ...], "Changed": [...], "Fixed": [...], "Removed": [...], ...}
@@ -451,8 +535,8 @@ Return ONLY valid JSON:
 Rules:
 1. ONE bullet object per ## block per category. Merge all [Added] lines in a block into one Added bullet; same for Changed/Fixed/Removed.
 2. Include "pr" from the ## PR #NNN header on every bullet.
-3. Preserve every ## block so release reconciliation can prove each merged PR is represented. Put non-user-impact / tooling last and collapse it to one concise Changed bullet.
-4. Within each category array, order bullets by importance (user-impact first, then theme scores, non-user-impact last).
+3. Preserve every ## block so release reconciliation can prove each merged PR is represented. Put no-user-impact / tooling last and collapse it to one concise Changed bullet.
+4. Within each category array, order bullets by importance (user-impact-high first, no-user-impact last). backend-change does not by itself lower priority when paired with a user-impact level.
 5. Keep a Changelog category names exactly: Added, Changed, Fixed, Deprecated, Removed, Security.
 6. No PR numbers inside "text" (appended separately). No markdown headers in output.
 7. Prefer 2–4 bullets per PR cluster total across categories, not one line per commit.
@@ -555,16 +639,28 @@ def _dominant_readme_heading(cluster: ChangelogCluster) -> str:
     return "Other"
 
 
+def _readme_eligible(cluster: ChangelogCluster) -> bool:
+    """Whether a cluster should appear in README Upcoming / release highlights."""
+    if not cluster.items:
+        return False
+    if cluster.impact == "no-user-impact":
+        return False
+    if cluster.impact == "user-impact-high":
+        return True
+    if cluster.impact == "user-impact-medium":
+        return True
+    if cluster.impact == "user-impact-low":
+        # Include low user impact unless it's also backend-only noise; still allow.
+        return True
+    # Unlabeled: keep legacy importance threshold.
+    return cluster.importance >= 40
+
+
 def _fallback_readme_from_clusters(clusters: list[ChangelogCluster]) -> list[dict[str, list[str]]]:
     """Deterministic grouped README when Groq grouping fails."""
     grouped: dict[str, list[str]] = defaultdict(list)
     for cluster in clusters:
-        if not cluster.items:
-            continue
-        # Prefer explicit impact labels; otherwise keep legacy importance threshold.
-        if cluster.impact in ("backend-fix", "non-user-impact"):
-            continue
-        if cluster.impact != "user-impact" and cluster.importance < 40:
+        if not _readme_eligible(cluster):
             continue
         heading = _dominant_readme_heading(cluster)
         preview = cluster.items[0][1]
@@ -610,16 +706,16 @@ MANDATORY clustering rules:
 1. ONE README bullet per input ## block in most cases. Never split a single PR/theme across multiple bullets.
 2. For importance 90+ themes (queue, playback, discovery): allow at most TWO bullets if they describe clearly distinct user wins; prefer ONE strong sentence.
 3. For importance 40–55 themes (NPS, surveys, review prompts): exactly ONE bullet, never lead the list.
-4. Drop clusters with importance below 40 entirely (analytics, gitignore, CI, internal plumbing). Also drop impact backend-fix and non-user-impact from README — only user-impact (or unlabeled importance 40+) belongs here.
+4. Drop clusters with importance below 40 / no-user-impact entirely from README. Include user-impact-high and user-impact-medium always; user-impact-low when space allows. backend-change may be paired with any user-impact level and does not exclude README by itself.
 5. Merge all bullets inside a ## block before writing — e.g. four queue bullets → one: "Smart queue auto-refills, shows why items appear, supports drag reorder, and undo remove."
-6. Sort bullets within each group by the cluster importance score (highest first). user-impact / queue/playback MUST appear before NPS/survey lines.
+6. Sort bullets within each group by the cluster importance score (highest first). user-impact-high MUST appear before medium/low.
 7. Cap at 8 bullets total across all groups.
 
 Importance guidance (respect the scores in input):
-- 90–100: core listening (queue, player, search, discovery) — headline features
-- 70–89: home/browse performance — Improvements section
-- 40–55: optional feedback surveys — one merged line, never prioritized over queue
-- below 40: omit from README
+- user-impact-high / 90–100: headline features
+- user-impact-medium / 70–89: solid README entries
+- user-impact-low / 40–55: optional shorter lines
+- no-user-impact / below 40: omit from README (CHANGELOG only)
 
 Rewrite in plain English; no PR numbers inside "text", no Compose/modules jargon. Under 120 chars in "text" (PR link is appended separately)."""
 
@@ -732,6 +828,7 @@ def _merge_entries(
     incoming: dict[str, list[str]],
     pr_number: int,
     impact: str | None = None,
+    backend_change: bool = False,
 ) -> dict[str, list[str]]:
     merged = {key: list(values) for key, values in existing.items()}
     suffix = _pr_suffix(pr_number)
@@ -741,7 +838,7 @@ def _merge_entries(
         seen = set(merged[category])
         for bullet in bullets:
             tagged = bullet if _pr_already_present(bullet, pr_number) else f"{bullet} {suffix}".strip()
-            tagged = _attach_impact(tagged, impact)
+            tagged = _attach_impact(tagged, impact, backend_change=backend_change)
             if tagged not in seen:
                 merged[category].append(tagged)
                 seen.add(tagged)
@@ -863,6 +960,7 @@ def _update_changelog(
     entries: dict[str, list[str]],
     pr_number: int,
     impact: str | None = None,
+    backend_change: bool = False,
 ) -> tuple[str, bool]:
     if _pr_already_present(content, pr_number):
         print(f"CHANGELOG already contains entry for PR #{pr_number}; skipping merge.")
@@ -878,7 +976,13 @@ def _update_changelog(
 
     unreleased_block = content[start:end]
     existing = _parse_unreleased_sections(unreleased_block)
-    merged = _merge_entries(existing, entries, pr_number, impact=impact)
+    merged = _merge_entries(
+        existing,
+        entries,
+        pr_number,
+        impact=impact,
+        backend_change=backend_change,
+    )
     rendered = _render_unreleased(merged)
 
     if rendered:
@@ -903,14 +1007,21 @@ def append_changelog(
         print("CHANGELOG.md not found", file=sys.stderr)
         sys.exit(1)
 
-    impact = _resolve_impact(labels=labels, title=pr_title, body=pr_body)
+    impact, backend_change = _resolve_pr_tags(
+        labels=labels, title=pr_title, body=pr_body
+    )
     if impact:
-        print(f"PR #{pr_number} impact label: {impact}")
+        backend_note = " + backend-change" if backend_change else ""
+        print(f"PR #{pr_number} tags: {impact}{backend_note}")
     else:
         print(
-            f"::warning::PR #{pr_number} is missing a required impact label "
-            f"({', '.join(IMPACT_LABELS)}). Prioritization will use theme heuristics only."
+            f"::warning::PR #{pr_number} is missing a required user-impact label "
+            f"({', '.join(USER_IMPACT_LABELS)}). "
+            f"Optional pairable label: {BACKEND_CHANGE_LABEL}. "
+            "Prioritization will use theme heuristics only."
         )
+        if backend_change:
+            print(f"PR #{pr_number} also has backend-change")
 
     changelog_original = CHANGELOG_PATH.read_text(encoding="utf-8")
     entries = _groq_entries(api_key, pr_number, pr_title, pr_body)
@@ -919,7 +1030,11 @@ def append_changelog(
         return False
 
     changelog_updated, changelog_changed = _update_changelog(
-        changelog_original, entries, pr_number, impact=impact
+        changelog_original,
+        entries,
+        pr_number,
+        impact=impact,
+        backend_change=backend_change,
     )
     if changelog_changed:
         CHANGELOG_PATH.write_text(changelog_updated, encoding="utf-8")
