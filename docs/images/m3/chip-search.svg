@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="300" height="72" viewBox="0 0 300 72" role="img" aria-label="Semantic search">
-  <rect width="300" height="72" rx="36" fill="#211F26" stroke="#49454F" stroke-width="1"/>
-  <rect x="12" y="12" width="48" height="48" rx="16" fill="#4F378B"/>
-  <g transform="translate(24,24)">
-    <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#EADDFF"/>
-  </g>
-  <text x="76" y="43" font-family="Roboto,'Google Sans','Segoe UI',system-ui,sans-serif" font-size="18" font-weight="600" fill="#E6E1E5">Semantic search</text>
-</svg>

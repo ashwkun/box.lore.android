@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="64" viewBox="0 0 400 64" role="img" aria-label="New to podcasts?">
+  <rect width="400" height="64" rx="16" fill="#211F26" stroke="#49454F" stroke-width="1"/>
+  <rect x="12" y="12" width="40" height="40" rx="12" fill="#4F378B"/>
+  <g transform="translate(20,20)">
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" fill="#EADDFF" transform="scale(0.95)"/>
+  </g>
+  <text x="68" y="38" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="18" font-weight="600" fill="#E6E1E5">New to podcasts?</text>
+</svg>

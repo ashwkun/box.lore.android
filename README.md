@@ -1,19 +1,20 @@
 <div align="center" id="top">
 
-<img src="docs/images/featured_image.png" width="820" alt="boxlore Android podcast app and podcast player feature banner"/>
+<img src="docs/images/featured_image.png" width="880" alt="boxlore Android podcast app and podcast player feature banner"/>
 
 # boxlore
 
-**Free Android podcast app & player** — semantic search, offline downloads, no ads
+**Free Android podcast app & player**  
+Semantic search · offline downloads · For You picks · no ads
 
 <br/>
 
 <a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.8.apk">
-  <img src="docs/images/card_github_v5.svg" height="70" alt="Download boxlore podcast app APK on GitHub"/>
+  <img src="docs/images/m3/btn-github.svg" height="72" alt="Download boxlore podcast app APK on GitHub"/>
 </a>
 &nbsp;&nbsp;
 <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-  <img src="docs/images/card_playstore_v5.svg" height="70" alt="Get boxlore podcast player on Google Play"/>
+  <img src="docs/images/m3/btn-play.svg" height="72" alt="Get boxlore podcast player on Google Play"/>
 </a>
 
 <br/><br/>
@@ -26,32 +27,50 @@
 <br/><br/>
 
 **[About](#about)** ·
-**[Features](#features)** ·
-**[First launch](#first-launch)** ·
-**[Screenshots](#screenshots)** ·
-**[Install](#install--build)** ·
-**[Developers](#for-developers)**
+**[Updates](#updates)** ·
+**[Highlights](#highlights)** ·
+**[Get started](#get-started)** ·
+**[Gallery](#gallery)** ·
+**[Install](#install)** ·
+**[Developers](#developers)**
 
-<img src="docs/images/m3/divider.svg" width="820" alt=""/>
+<img src="docs/images/m3/divider.svg" width="880" alt=""/>
 
 </div>
 
-<p align="center">
-  <img src="docs/images/m3/header-about.svg" width="820" alt="About"/>
-</p>
-
+<!-- ========== 01 ABOUT ========== -->
+<p align="center"><img src="docs/images/m3/header-about.svg" width="880" alt="01 About"/></p>
 <a id="about"></a>
 
-Every podcast app I've used feels the same. They call an open API, do word-for-word search, let you subscribe, and show Apple charts. None of them really recommend things or get personal.
+<table>
+<tr>
+<td>
 
-Spotify and Pocket Casts do personalize, but you're paying with ads or a subscription — and Spotify's podcast UI is rough.
+Most podcast apps feel the same: open API, keyword search, subscribe, Apple charts. Little personalization — unless you pay with ads or a subscription.
 
-**boxlore** is a free Android podcast player that learns as you listen: natural-language search, personalized picks, podcast discovery beyond typing a show title, stream or download episodes for offline listening, and a queue you can actually manage. No ads, no paywall for the stuff that matters.
+**boxlore** is a free Android podcast player that learns as you listen.
 
-The smart layer runs on a search index that is rebuilt daily and covers popular chart podcasts — not every podcast on earth yet. It evolves every day and gets bigger. Recommendations and semantic search work best within that catalog; everything else still works as a normal podcast client (subscribe, play, download, OPML import/export).
+| | |
+|:--|:--|
+| **Find** | Natural-language / semantic search — describe what you want |
+| **Play** | Stream or download episodes for offline listening |
+| **Discover** | For You picks, curiosity cards, charts beyond title typing |
+| **Own it** | Queue, OPML import/export, no ads, no paywall for the smart layer |
+
+The smart index rebuilds daily and covers popular chart podcasts (growing over time). Outside that catalog, boxlore still works as a normal podcast client.
+
+</td>
+</tr>
+</table>
+
+<!-- ========== 02 RELEASE NOTES ========== -->
+<p align="center"><img src="docs/images/m3/header-updates.svg" width="880" alt="02 Release notes"/></p>
+<a id="updates"></a>
 
 <!-- upcoming-changes:start -->
 <div align="center">
+
+<img src="docs/images/m3/bar-upcoming.svg" width="880" alt="Upcoming"/>
 
 <details>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
@@ -63,215 +82,205 @@ New features and improvements for the next release are currently in development.
 
 <br/>
 
+<img src="docs/images/m3/bar-whatsnew.svg" width="880" alt="What's New"/>
+
 <details open>
 <summary><b>🎉 What's New (v0.0.8) - 2026-07-12</b></summary>
-<b>🆕 New features:</b>
+<p align="left">
+
+<b>New features</b>
 <ul align="left">
-<li>Enhanced notifications with dry‑run mode, admin UI, custom sounds, HTML preview, live validation, and saved templates. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-2ebbca?style=flat-square" alt="PR #861" height="18"/></a></li>
-<li>Added option to set a custom label on category badges in announcements. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-2ebbca?style=flat-square" alt="PR #862" height="18"/></a></li>
-<li>Added Android Auto support for browsing and actions, and fixed survey icons and low‑contrast text issues. <a href="https://github.com/ashwkun/boxlore/pull/865"><img src="https://img.shields.io/badge/PR-865-2ebbca?style=flat-square" alt="PR #865" height="18"/></a></li>
+<li>Enhanced notifications with dry-run mode, admin UI, custom sounds, HTML preview, live validation, and saved templates. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-6750A4?style=flat-square" alt="PR #861" height="18"/></a></li>
+<li>Added option to set a custom label on category badges in announcements. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-6750A4?style=flat-square" alt="PR #862" height="18"/></a></li>
+<li>Added Android Auto support for browsing and actions, and fixed survey icons and low-contrast text issues. <a href="https://github.com/ashwkun/boxlore/pull/865"><img src="https://img.shields.io/badge/PR-865-6750A4?style=flat-square" alt="PR #865" height="18"/></a></li>
 </ul>
-<b>⚡ Improvements:</b>
+
+<b>Improvements</b>
 <ul align="left">
-<li>Improved survey and announcement dialogs: scrolling for tall content, fixed contrast, corrected markdown lists. <a href="https://github.com/ashwkun/boxlore/pull/863"><img src="https://img.shields.io/badge/PR-863-2ebbca?style=flat-square" alt="PR #863" height="18"/></a></li>
+<li>Improved survey and announcement dialogs: scrolling for tall content, fixed contrast, corrected markdown lists. <a href="https://github.com/ashwkun/boxlore/pull/863"><img src="https://img.shields.io/badge/PR-863-6750A4?style=flat-square" alt="PR #863" height="18"/></a></li>
 </ul>
-<b>🐛 Fixes:</b>
+
+<b>Fixes</b>
 <ul align="left">
-<li>Fixed artwork flicker while dragging the player sheet and refreshed next‑episode arrow colors to Material 3. <a href="https://github.com/ashwkun/boxlore/pull/864"><img src="https://img.shields.io/badge/PR-864-2ebbca?style=flat-square" alt="PR #864" height="18"/></a></li>
+<li>Fixed artwork flicker while dragging the player sheet and refreshed next-episode arrow colors to Material 3. <a href="https://github.com/ashwkun/boxlore/pull/864"><img src="https://img.shields.io/badge/PR-864-6750A4?style=flat-square" alt="PR #864" height="18"/></a></li>
 </ul>
+
+</p>
 <p align="left"><sub>AI-generated summary; may contain mistakes. Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></p>
 </details>
 
 </div>
 <!-- upcoming-changes:end -->
 
-<p align="center">
-  <img src="docs/images/m3/header-features.svg" width="820" alt="What makes it different"/>
-</p>
-
+<!-- ========== 03 HIGHLIGHTS ========== -->
+<p align="center"><img src="docs/images/m3/header-features.svg" width="880" alt="03 Highlights"/></p>
+<a id="highlights"></a>
 <a id="features"></a>
 
 <table>
-<tr>
-<td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-search.svg" width="280" alt="Semantic search"/><br/><br/>
-Search episodes by <em>meaning</em>, not exact keywords.<br/>
-<em>"stories about startup failure"</em> → relevant episodes, not title matches.
-</td>
-<td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-foryou.svg" width="280" alt="For You"/><br/><br/>
-Personalized picks on Home and Explore from your listening, genres, and subs.<br/>
-<strong>Because You Like</strong> rows tied to a favorite show.
-</td>
-</tr>
-<tr>
-<td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-cards.svg" width="280" alt="Curiosity cards"/><br/><br/>
-Swipe question cards on Learn that point you at episodes you'd never search for.<br/>
-Right to queue · left to dismiss · tap to play.
-</td>
-<td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-noads.svg" width="280" alt="No ads, forever"/><br/><br/>
-No banners, no sponsored inserts, no premium tier to unlock search or recommendations.
-</td>
-</tr>
-</table>
-
-<br/>
-
-<div align="center">
-<table>
   <tr>
-    <td align="center">
-      <b>Home</b><br/><sub>For You &amp; your queue</sub><br/><br/>
-      <img src="docs/images/homescreen.png" width="200" alt="Home screen" style="border-radius: 16px;"/>
+    <td width="50%" valign="top" align="center">
+      <img src="docs/images/m3/card-search.svg" width="380" alt="Semantic search"/><br/>
+      <p align="left">Search episodes by <em>meaning</em>, not exact keywords.<br/>
+      <em>"stories about startup failure"</em> → relevant episodes.</p>
     </td>
-    <td align="center">
-      <b>Semantic Search</b><br/><sub>Natural-language discovery</sub><br/><br/>
-      <img src="docs/images/semantic_search.png" width="200" alt="Semantic search" style="border-radius: 16px;"/>
+    <td width="50%" valign="top" align="center">
+      <img src="docs/images/m3/card-foryou.svg" width="380" alt="For You"/><br/>
+      <p align="left">Personalized picks on Home and Explore from listening, genres, and subs.<br/>
+      <strong>Because You Like</strong> rows tied to a favorite show.</p>
     </td>
-    <td align="center">
-      <b>Curiosity Cards</b><br/><sub>Swipe to discover</sub><br/><br/>
-      <img src="docs/images/curiosity_cards.png" width="200" alt="Curiosity cards" style="border-radius: 16px;"/>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" align="center">
+      <img src="docs/images/m3/card-cards.svg" width="380" alt="Curiosity cards"/><br/>
+      <p align="left">Swipe question cards on Learn to find episodes you would not search for.<br/>
+      Right to queue · left to dismiss · tap to play.</p>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <img src="docs/images/m3/card-noads.svg" width="380" alt="No ads"/><br/>
+      <p align="left">No banners, no sponsored inserts, no premium tier to unlock search or recommendations.</p>
     </td>
   </tr>
 </table>
-</div>
 
-<p align="center">
-  <img src="docs/images/m3/header-first-launch.svg" width="820" alt="First launch"/>
-</p>
-
+<!-- ========== 04 GET STARTED ========== -->
+<p align="center"><img src="docs/images/m3/header-first-launch.svg" width="880" alt="04 Get started"/></p>
+<a id="get-started"></a>
 <a id="first-launch"></a>
 
-First launch gives you a few ways in — pick what fits how you already listen.
+<p align="center">Pick the path that matches how you already listen.</p>
 
 <table>
-<tr>
-<td width="33%" valign="top" align="center">
-<img src="docs/images/m3/chip-onboard.svg" width="260" alt="New to podcasts?"/><br/><br/>
-<p align="left"><strong>AI onboarding</strong> is the default path. A short chat about your preferences — natural language or suggested options — turns into semantic search queries, matching shows from the index, and a personalized feed to subscribe to before you enter the app.</p>
-</td>
-<td width="33%" valign="top" align="center">
-<img src="docs/images/m3/chip-import.svg" width="260" alt="Switching apps?"/><br/><br/>
-<p align="left">Import from Pocket Casts, Apple Podcasts, AntennaPod, or any app that exports <strong>OPML</strong>. Tap <strong>Import library</strong>, pick your file, and get similar-show recommendations based on what you brought over.</p>
-<p align="left"><sub>Export anytime via <strong>Profile → Backup & Restore</strong> (OPML or full JSON).</sub></p>
-</td>
-<td width="33%" valign="top" align="center">
-<img src="docs/images/m3/chip-know.svg" width="260" alt="Know your shows?"/><br/><br/>
-<p align="left"><strong>I know my shows</strong> opens search during setup — subscribe manually, grab similar-show suggestions if you want, or <strong>Skip Setup</strong> and explore on your own.</p>
-</td>
-</tr>
+  <tr>
+    <td width="33%" valign="top" align="center">
+      <img src="docs/images/m3/card-onboard.svg" width="280" alt="New to podcasts?"/><br/>
+      <p align="left"><strong>AI onboarding</strong> (default) — short chat about preferences → semantic matches → personalized feed to subscribe before you enter the app.</p>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <img src="docs/images/m3/card-import.svg" width="280" alt="Switching apps?"/><br/>
+      <p align="left"><strong>Import library</strong> — Pocket Casts, Apple Podcasts, AntennaPod, or any <strong>OPML</strong> export, plus similar-show recommendations.</p>
+      <p align="left"><sub>Export anytime: Profile → Backup &amp; Restore.</sub></p>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <img src="docs/images/m3/card-know.svg" width="280" alt="Know your shows?"/><br/>
+      <p align="left"><strong>I know my shows</strong> — search during setup, subscribe manually, optional similar-show suggestions, or <strong>Skip Setup</strong>.</p>
+    </td>
+  </tr>
 </table>
 
-<p align="center">
-  <img src="docs/images/m3/header-more.svg" width="820" alt="More features"/>
-</p>
+<!-- ========== 05 MORE FEATURES ========== -->
+<p align="center"><img src="docs/images/m3/header-more.svg" width="880" alt="05 More features"/></p>
+
+<table>
+<tr><td>
 
 <details>
-<summary><b>Listening &amp; playback</b></summary>
+<summary><img src="docs/images/m3/chip-listen.svg" height="32" alt="Listening & playback"/> <b>Listening &amp; playback</b></summary>
 <br/>
 
-**Mixtapes** — Your home queue: up to 15 episodes from subscriptions (in-progress + unplayed new drops), scored so you can press play and keep going.
-
-**Player** — Mini and full player, queue, 0.5×–1.5× speed, sleep timer, skip controls, synced transcripts, chapters, video podcasts, Android Auto.
-
-**Podcasting 2.0** — Native chapters and transcripts when publishers provide them; AI-generated fallback when they don't (beta, daily limit). Video in 16:9.
+| Feature | What you get |
+|:--|:--|
+| **Mixtapes** | Home queue of up to 15 scored episodes from subscriptions |
+| **Player** | Mini + full player, queue, 0.5×–1.5× speed, sleep timer, transcripts, chapters, video, Android Auto |
+| **Podcasting 2.0** | Native chapters/transcripts when provided; AI fallback (beta, daily limit) |
 
 </details>
 
 <details>
-<summary><b>Library &amp; offline</b></summary>
+<summary><img src="docs/images/m3/chip-library.svg" height="32" alt="Library & offline"/> <b>Library &amp; offline</b></summary>
 <br/>
 
-Subscriptions, downloads, history, and liked episodes in one place. Launch offline → land on your downloads.
-
-**Profile → Backup & Restore:** OPML (any podcast app) or JSON (full boxlore backup — subs, history, likes, settings).
+| Feature | What you get |
+|:--|:--|
+| **Library** | Subscriptions, downloads, history, likes — offline opens downloads |
+| **Backup** | OPML (any podcast app) or full JSON (boxlore state) |
 
 </details>
 
 <details>
-<summary><b>Smart automation</b></summary>
+<summary><img src="docs/images/m3/chip-auto.svg" height="32" alt="Smart automation"/> <b>Smart automation</b></summary>
 <br/>
 
-**Daily briefing** — Optional region-specific AI news audio with script, sources, and chapter stories.
-
-**Smart Downloads** *(app-wide, off by default)* — Curated offline pool from subs, recommendations, and trending, within limits you set.
-
-**Auto-download** *(per podcast, off by default)* — New episode drops → downloads automatically (notifications required).
-
-**New episode notifications** — Per-podcast bell. Off by default.
-
-**Design** — Material 3 / Material You, shimmer skeletons, stable lists, smooth transitions, fast image loading.
+| Feature | What you get |
+|:--|:--|
+| **Daily briefing** | Optional region AI news audio + script |
+| **Smart Downloads** | App-wide curated offline pool (off by default) |
+| **Auto-download** | Per-podcast new-episode downloads (off by default) |
+| **Notifications** | Per-podcast bell (off by default) |
+| **Design** | Material 3 / Material You, shimmer, fast artwork |
 
 </details>
 
-<p align="center">
-  <img src="docs/images/m3/header-screenshots.svg" width="820" alt="Screenshots"/>
-</p>
+</td></tr>
+</table>
 
+<!-- ========== 06 GALLERY ========== -->
+<p align="center"><img src="docs/images/m3/header-screenshots.svg" width="880" alt="06 Gallery"/></p>
+<a id="gallery"></a>
 <a id="screenshots"></a>
 
 <div align="center">
 <table>
   <tr>
     <td align="center" width="25%">
-      <b>Onboarding</b><br/><sub>AI · OPML · search</sub><br/><br/>
-      <img src="docs/images/onboarding.png" width="180" alt="Onboarding" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-onboarding.svg" width="180" alt="Onboarding"/><br/><br/>
+      <img src="docs/images/onboarding.png" width="180" alt="Onboarding screenshot" style="border-radius: 16px;"/>
     </td>
     <td align="center" width="25%">
-      <b>Home</b><br/><sub>Mixtape · For You</sub><br/><br/>
-      <img src="docs/images/homescreen.png" width="180" alt="Home" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-home.svg" width="180" alt="Home"/><br/><br/>
+      <img src="docs/images/homescreen.png" width="180" alt="Home screenshot" style="border-radius: 16px;"/>
     </td>
     <td align="center" width="25%">
-      <b>Daily Briefing</b><br/><sub>AI news audio</sub><br/><br/>
-      <img src="docs/images/daily_brief.png" width="180" alt="Daily briefing" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-brief.svg" width="180" alt="Daily Briefing"/><br/><br/>
+      <img src="docs/images/daily_brief.png" width="180" alt="Daily briefing screenshot" style="border-radius: 16px;"/>
     </td>
     <td align="center" width="25%">
-      <b>Curiosity Cards</b><br/><sub>Swipe to discover</sub><br/><br/>
-      <img src="docs/images/curiosity_cards.png" width="180" alt="Curiosity cards" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-cards.svg" width="180" alt="Curiosity Cards"/><br/><br/>
+      <img src="docs/images/curiosity_cards.png" width="180" alt="Curiosity cards screenshot" style="border-radius: 16px;"/>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <b>Semantic Search</b><br/><sub>Meaning, not keywords</sub><br/><br/>
-      <img src="docs/images/semantic_search.png" width="180" alt="Semantic search" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-search.svg" width="180" alt="Semantic Search"/><br/><br/>
+      <img src="docs/images/semantic_search.png" width="180" alt="Semantic search screenshot" style="border-radius: 16px;"/>
     </td>
     <td align="center">
-      <b>For You</b><br/><sub>Personalized picks</sub><br/><br/>
-      <img src="docs/images/recommendation_engine.png" width="180" alt="For You" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-foryou.svg" width="180" alt="For You"/><br/><br/>
+      <img src="docs/images/recommendation_engine.png" width="180" alt="For You screenshot" style="border-radius: 16px;"/>
     </td>
     <td align="center">
-      <b>Library</b><br/><sub>Subs · downloads</sub><br/><br/>
-      <img src="docs/images/library.png" width="180" alt="Library" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-library.svg" width="180" alt="Library"/><br/><br/>
+      <img src="docs/images/library.png" width="180" alt="Library screenshot" style="border-radius: 16px;"/>
     </td>
     <td align="center">
-      <b>Player</b><br/><sub>Artwork-matched · expressive</sub><br/><br/>
-      <img src="docs/images/player.png" width="180" alt="Artwork-matched expressive podcast player" style="border-radius: 14px;"/>
+      <img src="docs/images/m3/label-player.svg" width="180" alt="Player"/><br/><br/>
+      <img src="docs/images/player.png" width="180" alt="Player screenshot" style="border-radius: 16px;"/>
     </td>
   </tr>
 </table>
 </div>
 
-<p align="center">
-  <img src="docs/images/m3/header-install.svg" width="820" alt="Install and build"/>
-</p>
-
+<!-- ========== 07 INSTALL ========== -->
+<p align="center"><img src="docs/images/m3/header-install.svg" width="880" alt="07 Install and build"/></p>
+<a id="install"></a>
 <a id="install--build"></a>
 
 <div align="center">
   <a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.8.apk">
-    <img src="docs/images/card_github_v5.svg" height="70" alt="Download boxlore podcast app APK on GitHub"/>
+    <img src="docs/images/m3/btn-github.svg" height="72" alt="Download boxlore podcast app APK on GitHub"/>
   </a>
   &nbsp;&nbsp;
   <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-    <img src="docs/images/card_playstore_v5.svg" height="70" alt="Get boxlore podcast player on Google Play"/>
+    <img src="docs/images/m3/btn-play.svg" height="72" alt="Get boxlore podcast player on Google Play"/>
   </a>
 </div>
 
 <br/>
 
-Enable *Install from unknown sources* in Android settings for sideloading.
+<table>
+<tr><td>
+
+**Sideload** — enable *Install from unknown sources*, then install the APK.
 
 **Build from source**
 
@@ -282,20 +291,28 @@ cd boxlore
 ./gradlew installDebug
 ```
 
-**Requirements:** Android Studio Ladybug+ · Android SDK 35+ · JDK 17 · Kotlin 1.9+
+| Requirement | Version |
+|:--|:--|
+| Android Studio | Ladybug+ |
+| Android SDK | 35+ |
+| JDK | 17 |
+| Kotlin | 1.9+ |
 
-<p align="center">
-  <img src="docs/images/m3/header-developers.svg" width="820" alt="For developers"/>
-</p>
+</td></tr>
+</table>
+
+<!-- ========== 08 DEVELOPERS ========== -->
+<p align="center"><img src="docs/images/m3/header-developers.svg" width="880" alt="08 For developers"/></p>
+<a id="developers"></a>
 
 <details id="for-developers">
-<summary><b>Codebase &amp; stack</b></summary>
+<summary><img src="docs/images/m3/chip-code.svg" height="32" alt="Codebase & stack"/> <b>Codebase &amp; stack</b></summary>
 <br/>
 
-**Codebase structure**
+**Modules**
 
 | Module | Role |
-|--------|------|
+|:--|:--|
 | `:core:data` | Repositories, mappers |
 | `:core:designsystem` | Themes, shared composables |
 | `:core:model` | Domain models |
@@ -307,61 +324,68 @@ cd boxlore
 | `:feature:library` | Downloads, subs, history |
 | `:feature:info` | Podcast & episode detail |
 
-**Tech stack**
+**Stack**
 
 | Technology | Purpose |
-|-----------|---------|
-| **Kotlin** | 100% Kotlin codebase |
-| **Jetpack Compose** | UI with Material 3 |
-| **Coroutines & Flow** | Async and reactive state |
-| **Retrofit 2** | REST API client |
-| **Room** | Local database |
-| **ExoPlayer (Media3)** | Audio and video playback |
-| **Coil** | Image loading |
-| **Cloudflare Workers** | Edge proxy for search & recommendations |
-| **bge-m3** | Embeddings for semantic search (1024-dim) |
+|:--|:--|
+| Kotlin | App language |
+| Jetpack Compose | UI (Material 3) |
+| Coroutines & Flow | Async / state |
+| Retrofit 2 | REST |
+| Room | Local DB |
+| ExoPlayer (Media3) | Audio / video |
+| Coil | Images |
+| Cloudflare Workers | Search & recommendations edge |
+| bge-m3 | Semantic embeddings (1024-dim) |
 
-**Data sources**
+**Data**
 
 | Source | Data |
-|--------|------|
-| **Podcast Index API** | Catalog, keyword search |
-| **Apple Podcast Charts** | Daily trending (US, IN, GB, FR) |
+|:--|:--|
+| Podcast Index API | Catalog, keyword search |
+| Apple Podcast Charts | Daily trending (US, IN, GB, FR) |
 
 </details>
 
-<p align="center">
-  <img src="docs/images/m3/header-contributing.svg" width="820" alt="Contributing"/>
-</p>
+<!-- ========== 09 COMMUNITY ========== -->
+<p align="center"><img src="docs/images/m3/header-community.svg" width="880" alt="09 Community"/></p>
 
-Contributions welcome.
+<table>
+  <tr>
+    <td width="50%" valign="top">
 
-1. **Report bugs** — [Open an issue](https://github.com/ashwkun/boxlore/issues) with steps to reproduce
-2. **Suggest features** — [Discussions](https://github.com/ashwkun/boxlore/discussions)
-3. **Submit PRs** — Fork, code, open a pull request
+**Contributing**
 
-<p align="center">
-  <img src="docs/images/m3/header-license.svg" width="820" alt="License"/>
-</p>
+1. [Report a bug](https://github.com/ashwkun/boxlore/issues)
+2. [Suggest a feature](https://github.com/ashwkun/boxlore/discussions)
+3. Fork → PR
 
-boxlore is proprietary. All Rights Reserved. See [LICENSE](LICENSE) for details.
+**License**
 
-## Contributors
+Proprietary — All Rights Reserved.  
+See [LICENSE](LICENSE).
 
-<div align="center">
-  <a href="https://github.com/ashwkun/boxlore/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=ashwkun/boxlore" alt="Contributors"/>
-  </a>
-</div>
+    </td>
+    <td width="50%" valign="top" align="center">
+
+**Contributors**
+
+<a href="https://github.com/ashwkun/boxlore/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ashwkun/boxlore" alt="Contributors"/>
+</a>
+
+    </td>
+  </tr>
+</table>
 
 <br/>
 
 <div align="center">
 
-<img src="docs/images/m3/divider.svg" width="820" alt=""/>
+<img src="docs/images/m3/divider.svg" width="880" alt=""/>
 
 Built by someone who listens to too many podcasts.
 
-**[⬆ Back to top](#top)**
+**[Back to top](#top)**
 
 </div>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="262" height="36" viewBox="0 0 262 36" role="img" aria-label="Codebase & stack">
+  <rect width="262" height="36" rx="18" fill="#4A4458"/>
+  <g transform="translate(10,6) scale(0.85)">
+    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" fill="#E8DEF8"/>
+  </g>
+  <text x="42" y="23" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="13" font-weight="600" fill="#E8DEF8">Codebase & stack</text>
+</svg>

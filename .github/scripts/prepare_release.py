@@ -35,9 +35,10 @@ CHANGELOG_VERSION_RE = re.compile(
     re.MULTILINE,
 )
 README_VERSION_RE = re.compile(
-    r"<summary><b>🎉 What's New \(v"
+    r"<summary>.*?<b>🎉 What's New \(v"
     r"((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))\)"
-    r"\s*-\s*(\d{4}-\d{2}-\d{2})</b></summary>"
+    r"\s*-\s*(\d{4}-\d{2}-\d{2})</b></summary>",
+    re.DOTALL,
 )
 README_APK_URL_RE = re.compile(
     r"https://github\.com/[^/\"'\s]+/[^/\"'\s]+/"
@@ -45,7 +46,7 @@ README_APK_URL_RE = re.compile(
 )
 UPCOMING_DETAILS_RE = re.compile(
     r"<details(?:\s+open)?>\s*"
-    r"<summary><b>🔮 Upcoming in the Next Release</b></summary>"
+    r"<summary>.*?<b>🔮 Upcoming in the Next Release</b></summary>"
     r"(.*?)</details>",
     re.DOTALL,
 )
@@ -538,12 +539,14 @@ def promote_readme(content: str, target: AppVersion, release_date: str) -> str:
 
     # Drop older What's New blocks; CHANGELOG.md is the long-term history.
     new_release = (
+        f"{update_changelog.README_BAR_WHATS_NEW}\n\n"
         "<details open>\n"
         f"<summary><b>🎉 What's New ({target.tag}) - {release_date}</b></summary>\n"
         f"{release_body}\n"
         "</details>"
     )
     empty_upcoming = (
+        f"{update_changelog.README_BAR_UPCOMING}\n\n"
         "<details>\n"
         "<summary><b>🔮 Upcoming in the Next Release</b></summary>\n"
         '<p align="left">\n'
@@ -852,7 +855,7 @@ def shorten_notification_line(text: str, limit: int = 180) -> str:
 def notification_bullets(content: str, version: AppVersion) -> list[str]:
     release_match = re.search(
         r"<details(?:\s+open)?>\s*"
-        rf"<summary><b>🎉 What's New \({re.escape(version.tag)}\)"
+        rf"<summary>.*?<b>🎉 What's New \({re.escape(version.tag)}\)"
         r"\s*-\s*\d{4}-\d{2}-\d{2}</b></summary>"
         r"(.*?)</details>",
         content,

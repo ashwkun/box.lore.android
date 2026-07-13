@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="48" viewBox="0 0 880 48" role="img" aria-label="WHAT'S NEW">
+  <rect width="880" height="48" rx="24" fill="#4F378B"/>
+  <circle cx="28" cy="24" r="14" fill="#EADDFF" fill-opacity="0.18"/>
+  <g transform="translate(18,14) scale(0.75)">
+    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z" fill="#EADDFF"/>
+  </g>
+  <text x="54" y="22" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="11" font-weight="700" letter-spacing="1.4" fill="#EADDFF">WHAT'S NEW</text>
+  <text x="54" y="38" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="13" font-weight="500" fill="#E6E1E5">Latest release notes</text>
+</svg>

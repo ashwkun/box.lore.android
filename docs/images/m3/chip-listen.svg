@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="36" viewBox="0 0 310 36" role="img" aria-label="Listening & playback">
+  <rect width="310" height="36" rx="18" fill="#4A4458"/>
+  <g transform="translate(10,6) scale(0.85)">
+    <path d="M12 1a9 9 0 00-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 00-9-9z" fill="#E8DEF8"/>
+  </g>
+  <text x="42" y="23" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="13" font-weight="600" fill="#E8DEF8">Listening & playback</text>
+</svg>

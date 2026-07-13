@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="56" viewBox="0 0 880 56" role="img" aria-label="02  ·  Release notes">
+  <defs>
+    <linearGradient id="sgupdates" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#633B48"/>
+      <stop offset="38%" stop-color="#211F26"/>
+      <stop offset="100%" stop-color="#141218"/>
+    </linearGradient>
+  </defs>
+  <rect width="880" height="56" rx="14" fill="url(#sgupdates)" stroke="#49454F" stroke-width="1"/>
+  <rect x="14" y="10" width="36" height="36" rx="10" fill="#D0BCFF"/>
+  <g transform="translate(20,16) scale(1)">
+    <path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.74 2.71-2.74 7.08 0 9.79s7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58s9.14-3.47 12.65 0L21 3v7.12zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8h1.5z" fill="#381E72" transform="scale(0.9)"/>
+  </g>
+  <text x="66" y="35" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="20" font-weight="600" letter-spacing="0.2" fill="#E6E1E5">02  ·  Release notes</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="64" viewBox="0 0 400 64" role="img" aria-label="No ads, forever">
+  <rect width="400" height="64" rx="16" fill="#211F26" stroke="#49454F" stroke-width="1"/>
+  <rect x="12" y="12" width="40" height="40" rx="12" fill="#4F378B"/>
+  <g transform="translate(20,20)">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9A7.902 7.902 0 014 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1A7.902 7.902 0 0120 12c0 4.42-3.58 8-8 8z" fill="#EADDFF" transform="scale(0.95)"/>
+  </g>
+  <text x="68" y="38" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="18" font-weight="600" fill="#E6E1E5">No ads, forever</text>
+</svg>

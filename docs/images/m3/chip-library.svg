@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="274" height="36" viewBox="0 0 274 36" role="img" aria-label="Library & offline">
+  <rect width="274" height="36" rx="18" fill="#4A4458"/>
+  <g transform="translate(10,6) scale(0.85)">
+    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" fill="#E8DEF8"/>
+  </g>
+  <text x="42" y="23" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="13" font-weight="600" fill="#E8DEF8">Library & offline</text>
+</svg>

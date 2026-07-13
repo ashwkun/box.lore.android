@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="64" viewBox="0 0 880 64" role="img" aria-label="Install & build">
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="56" viewBox="0 0 880 56" role="img" aria-label="07  ·  Install & build">
   <defs>
-    <linearGradient id="gheaderinstall" x1="0%" y1="50%" x2="100%" y2="50%">
+    <linearGradient id="sginstall" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="#4F378B"/>
-      <stop offset="42%" stop-color="#211F26"/>
+      <stop offset="38%" stop-color="#211F26"/>
       <stop offset="100%" stop-color="#141218"/>
     </linearGradient>
   </defs>
-  <rect width="880" height="64" rx="16" fill="url(#gheaderinstall)" stroke="#49454F" stroke-width="1"/>
-  <rect x="16" y="12" width="40" height="40" rx="12" fill="#D0BCFF"/>
-  <g transform="translate(24,20)">
-    <path d="M18 15v3H6v-3H4v3c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-3h-2zm-1-4l-1.41-1.41L13 12.17V4h-2v8.17L8.41 9.59 7 11l5 5 5-5z" fill="#381E72"/>
+  <rect width="880" height="56" rx="14" fill="url(#sginstall)" stroke="#49454F" stroke-width="1"/>
+  <rect x="14" y="10" width="36" height="36" rx="10" fill="#D0BCFF"/>
+  <g transform="translate(20,16) scale(1)">
+    <path d="M18 15v3H6v-3H4v3c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-3h-2zm-1-4l-1.41-1.41L13 12.17V4h-2v8.17L8.41 9.59 7 11l5 5 5-5z" fill="#381E72" transform="scale(0.9)"/>
   </g>
-  <text x="72" y="40" font-family="Roboto,'Google Sans','Segoe UI',system-ui,sans-serif" font-size="22" font-weight="600" letter-spacing="0.2" fill="#E6E1E5">Install & build</text>
+  <text x="66" y="35" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="20" font-weight="600" letter-spacing="0.2" fill="#E6E1E5">07  ·  Install & build</text>
 </svg>

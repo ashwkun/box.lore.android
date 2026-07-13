@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="262" height="36" viewBox="0 0 262 36" role="img" aria-label="Smart automation">
+  <rect width="262" height="36" rx="18" fill="#4A4458"/>
+  <g transform="translate(10,6) scale(0.85)">
+    <path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C10.85 6.98 12.18 4.32 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11.82 19.96 11 21z" fill="#E8DEF8"/>
+  </g>
+  <text x="42" y="23" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="13" font-weight="600" fill="#E8DEF8">Smart automation</text>
+</svg>

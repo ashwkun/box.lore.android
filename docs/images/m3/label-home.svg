@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40" role="img" aria-label="Home">
+  <rect width="200" height="40" rx="12" fill="#211F26"/>
+  <text x="100" y="17" text-anchor="middle" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="13" font-weight="600" fill="#E6E1E5">Home</text>
+  <text x="100" y="32" text-anchor="middle" font-family="Roboto,'Google Sans',system-ui,sans-serif" font-size="10" font-weight="500" fill="#CAC4D0">Mixtape · For You</text>
+</svg>
