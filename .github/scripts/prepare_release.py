@@ -49,11 +49,6 @@ UPCOMING_DETAILS_RE = re.compile(
     r"(.*?)</details>",
     re.DOTALL,
 )
-WHATS_NEW_BLOCK_RE = re.compile(
-    r"(<details(?:\s+open)?>\s*"
-    r"<summary><b>🎉 What's New.*?</details>)",
-    re.DOTALL,
-)
 EXPECTED_FILES = {
     "CHANGELOG.md",
     "README.md",
@@ -526,10 +521,6 @@ def promote_changelog(content: str, target: AppVersion, release_date: str) -> st
     return updated
 
 
-def collapse_details(block: str) -> str:
-    return re.sub(r"^<details\s+open>", "<details>", block, count=1)
-
-
 def promote_readme(content: str, target: AppVersion, release_date: str) -> str:
     start = content.find(update_changelog.UPCOMING_CHANGES_START)
     end = content.find(update_changelog.UPCOMING_CHANGES_END)
@@ -545,10 +536,7 @@ def promote_readme(content: str, target: AppVersion, release_date: str) -> str:
     if "currently in development" in release_body:
         fail("README Upcoming section is empty")
 
-    historical = [
-        update_changelog._ensure_readme_ai_notice(collapse_details(block))
-        for block in WHATS_NEW_BLOCK_RE.findall(current_block)
-    ]
+    # Drop older What's New blocks; CHANGELOG.md is the long-term history.
     new_release = (
         "<details open>\n"
         f"<summary><b>🎉 What's New ({target.tag}) - {release_date}</b></summary>\n"
@@ -564,14 +552,12 @@ def promote_readme(content: str, target: AppVersion, release_date: str) -> str:
         f"{update_changelog.README_AI_NOTICE}\n"
         "</details>"
     )
-    release_blocks = [new_release, *historical]
-    history = "\n\n<br/>\n\n".join(release_blocks)
     replacement = (
         f"{update_changelog.UPCOMING_CHANGES_START}\n"
         '<div align="center">\n\n'
         f"{empty_upcoming}\n\n"
         "<br/>\n\n"
-        f"{history}\n\n"
+        f"{new_release}\n\n"
         "</div>\n"
         f"{update_changelog.UPCOMING_CHANGES_END}"
     )

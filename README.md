@@ -1,18 +1,20 @@
 <div align="center" id="top">
 
-<img src="docs/images/featured_image.png" width="800" alt="boxlore Feature Banner"/>
+<img src="docs/images/featured_image.png" width="800" alt="boxlore Android podcast app and podcast player feature banner"/>
 
-### A podcast app that actually gets personal
+# boxlore
+
+### Free Android podcast app & player — semantic search, offline downloads, no ads
 
 <br/>
 <br/>
 <div align="center">
   <a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.8.apk">
-    <img src="docs/images/card_github_v5.svg" height="70" alt="Download APK on GitHub"/>
+    <img src="docs/images/card_github_v5.svg" height="70" alt="Download boxlore podcast app APK on GitHub"/>
   </a>
   &nbsp;&nbsp;
   <a href="https://play.google.com/store/apps/details?id=cx.aswin.boxlore">
-    <img src="docs/images/card_playstore_v5.svg" height="70" alt="Coming soon on Google Play"/>
+    <img src="docs/images/card_playstore_v5.svg" height="70" alt="Get boxlore podcast player on Google Play"/>
   </a>
 </div>
 <br/>
@@ -31,9 +33,9 @@ Every podcast app I've used feels the same. They call an open API, do word-for-w
 
 Spotify and Pocket Casts do personalize, but you're paying with ads or a subscription — and Spotify's podcast UI is rough.
 
-**boxlore** is my attempt at a smarter podcast app. It learns as you listen: natural-language search, personalized picks, and discovery that goes beyond typing a show title. No ads, no paywall for the stuff that matters.
+**boxlore** is a free Android podcast player that learns as you listen: natural-language search, personalized picks, podcast discovery beyond typing a show title, stream or download episodes for offline listening, and a queue you can actually manage. No ads, no paywall for the stuff that matters.
 
-The smart layer runs on a search index that is rebuilt daily and covers popular chart podcasts — not every podcast on earth yet. It evolves every day and gets bigger. Recommendations and semantic search work best within that catalog; everything else still works as a normal podcast client.
+The smart layer runs on a search index that is rebuilt daily and covers popular chart podcasts — not every podcast on earth yet. It evolves every day and gets bigger. Recommendations and semantic search work best within that catalog; everything else still works as a normal podcast client (subscribe, play, download, OPML import/export).
 
 <!-- upcoming-changes:start -->
 <div align="center">
@@ -64,20 +66,6 @@ New features and improvements for the next release are currently in development.
 <ul align="left">
 <li>Fixed artwork flicker while dragging the player sheet and refreshed next‑episode arrow colors to Material 3. <a href="https://github.com/ashwkun/boxlore/pull/864"><img src="https://img.shields.io/badge/PR-864-2ebbca?style=flat-square" alt="PR #864" height="18"/></a></li>
 </ul>
-<p align="left"><sub>AI-generated summary; may contain mistakes. Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></p>
-</details>
-
-<br/>
-
-<details>
-<summary><b>🎉 What's New (v0.0.7) - 2026-07-12</b></summary>
-<br/>
-<p align="left">
-<b>Smart Queue v2:</b> Tiered refill engine, drag-reorder queue sheet, conflict alerts, and region-aware recommendations.<br/>
-<b>Material 3 Player:</b> Consolidated design system elements, saved playback speed, and interactive inline transcript support.<br/>
-<b>Redesigned Lore & Sharing:</b> Visual overhaul, palette-driven halo art, dynamic card decks, and direct Instagram Story exports.<br/>
-<b>Performance Tuning:</b> Streamlined grid layouts and cached shimmer draw paths on the Home screen to reduce recomposition lag.
-</p>
 <p align="left"><sub>AI-generated summary; may contain mistakes. Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></p>
 </details>
 

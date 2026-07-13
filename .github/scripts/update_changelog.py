@@ -661,17 +661,17 @@ def _ensure_readme_ai_notice(block: str) -> str:
 def _render_readme_upcoming_block(content: str, groups: list[dict[str, list[str]]] | None = None, bullets: list[str] | None = None) -> str:
     body = _render_readme_upcoming_body(groups=groups, bullets=bullets)
 
-    # Preserve every historical "What's New" block, including the currently
-    # expanded one. Release preparation makes only the newest block expanded.
+    # Keep only the latest released What's New block. Older releases live in
+    # CHANGELOG.md — stacking history here made the README grow forever.
     whats_new_blocks = re.findall(
         r"(<details(?:\s+open)?>\s*<summary><b>🎉 What's New.*?</details>)",
         content,
         flags=re.DOTALL
     )
-    whats_new_formatted = "".join(
-        f"\n\n<br/>\n\n{_ensure_readme_ai_notice(block)}"
-        for block in whats_new_blocks
-    )
+    whats_new_formatted = ""
+    if whats_new_blocks:
+        latest = _ensure_readme_ai_notice(whats_new_blocks[0])
+        whats_new_formatted = f"\n\n<br/>\n\n{latest}"
 
     # If body is the plain text fallback, wrap it in <p align="left">
     if not body.startswith("<ul") and not body.startswith("<b>"):
