@@ -231,8 +231,20 @@ def github_request(
     return None
 
 
-def github_delete(repository: str, token: str, path: str) -> None:
-    github_request(repository, token, path, method="DELETE")
+def github_delete(
+    repository: str,
+    token: str,
+    path: str,
+    *,
+    allow_missing: bool = False,
+) -> None:
+    github_request(
+        repository,
+        token,
+        path,
+        method="DELETE",
+        allow_missing=allow_missing,
+    )
 
 
 def release_branch_name(target: AppVersion) -> str:
@@ -939,21 +951,63 @@ def verify_merged_commit() -> None:
     write_release_verify_outputs(current, merge_sha=merge_sha)
 
 
+def _parse_release_tag(tag: str) -> AppVersion:
+    tag = tag.strip()
+    if not tag.startswith("v"):
+        fail(f"Release tag must start with v: {tag}")
+    version_name = tag[1:]
+    if not SEMVER_RE.fullmatch(version_name):
+        fail(f"Release tag is not strict semantic versioning: {tag}")
+    return AppVersion(name=version_name, code=0)
+
+
 def cleanup_stale_release(args: argparse.Namespace) -> None:
     repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
     token = os.environ.get("GITHUB_TOKEN", "").strip()
     if not repository or not token:
         fail("GITHUB_REPOSITORY and GITHUB_TOKEN are required")
 
-    tag = args.tag.strip()
-    if not tag.startswith("v"):
-        fail(f"Release tag must start with v: {tag}")
-    version_name = tag[1:]
-    if not SEMVER_RE.fullmatch(version_name):
-        fail(f"Release tag is not strict semantic versioning: {tag}")
-
-    target = AppVersion(name=version_name, code=0)
+    target = _parse_release_tag(args.tag)
     for action in cleanup_stale_release_target(repository, token, target):
+        print(action)
+
+
+def delete_published_release_branch(
+    repository: str,
+    token: str,
+    target: AppVersion,
+) -> list[str]:
+    """Remove release/v* after a successful publish (tag/release may already exist)."""
+    branch = release_branch_name(target)
+    artifacts = release_target_artifacts(repository, token, target)
+    if artifacts["branch"] is None:
+        print(f"{branch} already absent")
+        return []
+
+    open_pr = find_open_release_pull_request(repository, token, branch)
+    if open_pr is not None:
+        number = open_pr.get("number")
+        print(f"keeping {branch}; open release PR #{number} still exists")
+        return []
+
+    encoded_branch = urllib.parse.quote(f"heads/{branch}", safe="/")
+    github_delete(
+        repository,
+        token,
+        f"git/refs/{encoded_branch}",
+        allow_missing=True,
+    )
+    return [f"deleted release branch {branch}"]
+
+
+def delete_release_branch_after_publish(args: argparse.Namespace) -> None:
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not repository or not token:
+        fail("GITHUB_REPOSITORY and GITHUB_TOKEN are required")
+
+    target = _parse_release_tag(args.tag)
+    for action in delete_published_release_branch(repository, token, target):
         print(action)
 
 
@@ -1002,6 +1056,12 @@ def main() -> None:
     )
     cleanup_parser.add_argument("--tag", required=True)
 
+    delete_branch_parser = subparsers.add_parser(
+        "delete-release-branch",
+        help="Delete release/v* after a successful publish (idempotent)",
+    )
+    delete_branch_parser.add_argument("--tag", required=True)
+
     args = parser.parse_args()
     try:
         if args.command == "prepare":
@@ -1016,6 +1076,8 @@ def main() -> None:
             write_notification_outputs()
         elif args.command == "cleanup-stale":
             cleanup_stale_release(args)
+        elif args.command == "delete-release-branch":
+            delete_release_branch_after_publish(args)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         print(f"Release preparation failed: {exc}", file=sys.stderr)
         sys.exit(1)

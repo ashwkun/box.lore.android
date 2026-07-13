@@ -671,6 +671,12 @@ jobs:
           echo "::error::README latest-download URL does not serve the ${TAG} APK"
           exit 1
 
+      - name: Delete release branch after publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: python3 .github/scripts/prepare_release.py delete-release-branch --tag "$TAG"
+
       - name: Remove protected build inputs
         if: always()
         run: |
