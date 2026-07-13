@@ -94,24 +94,24 @@ New features and improvements for the next release are currently in development.
 <table>
 <tr>
 <td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-search.svg" width="280" alt="Semantic search"/><br/><br/>
+<h3>Semantic search</h3>
 Search episodes by <em>meaning</em>, not exact keywords.<br/>
 <em>"stories about startup failure"</em> → relevant episodes, not title matches.
 </td>
 <td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-foryou.svg" width="280" alt="For You"/><br/><br/>
+<h3>For You</h3>
 Personalized picks on Home and Explore from your listening, genres, and subs.<br/>
 <strong>Because You Like</strong> rows tied to a favorite show.
 </td>
 </tr>
 <tr>
 <td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-cards.svg" width="280" alt="Curiosity cards"/><br/><br/>
+<h3>Curiosity cards</h3>
 Swipe question cards on Learn that point you at episodes you'd never search for.<br/>
 Right to queue · left to dismiss · tap to play.
 </td>
 <td align="center" width="50%" valign="top">
-<img src="docs/images/m3/chip-noads.svg" width="280" alt="No ads, forever"/><br/><br/>
+<h3>No ads, forever</h3>
 No banners, no sponsored inserts, no premium tier to unlock search or recommendations.
 </td>
 </tr>
@@ -148,18 +148,18 @@ First launch gives you a few ways in — pick what fits how you already listen.
 
 <table>
 <tr>
-<td width="33%" valign="top" align="center">
-<img src="docs/images/m3/chip-onboard.svg" width="260" alt="New to podcasts?"/><br/><br/>
-<p align="left"><strong>AI onboarding</strong> is the default path. A short chat about your preferences — natural language or suggested options — turns into semantic search queries, matching shows from the index, and a personalized feed to subscribe to before you enter the app.</p>
+<td width="33%" valign="top">
+<h3>New to podcasts?</h3>
+<p><strong>AI onboarding</strong> is the default path. A short chat about your preferences — natural language or suggested options — turns into semantic search queries, matching shows from the index, and a personalized feed to subscribe to before you enter the app.</p>
 </td>
-<td width="33%" valign="top" align="center">
-<img src="docs/images/m3/chip-import.svg" width="260" alt="Switching apps?"/><br/><br/>
-<p align="left">Import from Pocket Casts, Apple Podcasts, AntennaPod, or any app that exports <strong>OPML</strong>. Tap <strong>Import library</strong>, pick your file, and get similar-show recommendations based on what you brought over.</p>
-<p align="left"><sub>Export anytime via <strong>Profile → Backup & Restore</strong> (OPML or full JSON).</sub></p>
+<td width="33%" valign="top">
+<h3>Switching apps?</h3>
+<p>Import from Pocket Casts, Apple Podcasts, AntennaPod, or any app that exports <strong>OPML</strong>. Tap <strong>Import library</strong>, pick your file, and get similar-show recommendations based on what you brought over.</p>
+<p><sub>Export anytime via <strong>Profile → Backup & Restore</strong> (OPML or full JSON).</sub></p>
 </td>
-<td width="33%" valign="top" align="center">
-<img src="docs/images/m3/chip-know.svg" width="260" alt="Know your shows?"/><br/><br/>
-<p align="left"><strong>I know my shows</strong> opens search during setup — subscribe manually, grab similar-show suggestions if you want, or <strong>Skip Setup</strong> and explore on your own.</p>
+<td width="33%" valign="top">
+<h3>Know your shows?</h3>
+<p><strong>I know my shows</strong> opens search during setup — subscribe manually, grab similar-show suggestions if you want, or <strong>Skip Setup</strong> and explore on your own.</p>
 </td>
 </tr>
 </table>
