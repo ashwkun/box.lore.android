@@ -1,3 +1,14 @@
+## Title (required)
+
+Use Conventional Commits. Examples from this repo:
+
+- `feat(scope): short description`
+- `fix(scope): short description`
+- `chore: short description`
+- `release: vX.Y.Z [skip changelog]`
+
+Do **not** use sentence-case titles without a type prefix (e.g. avoid `Polish the announcement dialog`).
+
 ## Summary
 
 <!-- What changed and why. Release notes / changelog bullets are derived from this — be specific. -->
