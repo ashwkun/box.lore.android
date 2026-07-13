@@ -360,7 +360,7 @@ boxlore is proprietary. All Rights Reserved. See [LICENSE](LICENSE) for details.
 
 <img src="docs/images/m3/divider.svg" width="820" alt=""/>
 
-Built by someone who listens to too many podcasts.
+because antigravity is free and i love podcasts.
 
 **[⬆ Back to top](#top)**
 
