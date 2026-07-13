@@ -55,11 +55,11 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 <details open>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
-<p align="left">
-New features and improvements for the next release are currently in development.
-</p>
-<p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>
-Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
+<b>⚡ Improvements:</b>
+<ul align="left">
+<li>Announcements stay until you close them, can list up to five points, and won’t trigger extra install prompts. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
+</ul>
+<p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
 </details>
 
 <br/>
