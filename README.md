@@ -53,11 +53,12 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <!-- upcoming-changes:start -->
 <div align="center">
 
-<details>
+<details open>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
-<p align="left">
-New features and improvements for the next release are currently in development.
-</p>
+<b>🆕 New features:</b>
+<ul align="left">
+<li>New in‑app announcement dialog (Material 3) shows up to five points, logs views/actions, and dismisses only via X or CTA. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
+</ul>
 <p align="left"><sub>AI-generated summary; may contain mistakes. Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></p>
 </details>
 

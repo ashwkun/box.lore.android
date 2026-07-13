@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- InAppAnnouncementDialog composable (ui/announcement) with AnnouncementBodyParser and AnnouncementLayout, Material 3 styling and category‑based presets; Context.isInstalledFromPlayStore() gating suppresses Whats New/NEW RELEASE announcements on Play Store installs; release announcement payload now supports up to five bullet points and emits PostHog events in_app_announcement_viewed, in_app_announcement_dismissed, in_app_announcement_action with category and content metadata ([#870](https://github.com/ashwkun/boxlore/pull/870)) <!-- impact:user-impact-medium -->
+### Changed
+- Dialog dismissal behavior updated: outside taps and system back no longer close the announcement; only the top‑right X or explicit Dismiss button clears it, and the primary CTA also clears after navigation ([#870](https://github.com/ashwkun/boxlore/pull/870)) <!-- impact:user-impact-medium -->
 ## [v0.0.8] - 2026-07-12
 
 ### Added
