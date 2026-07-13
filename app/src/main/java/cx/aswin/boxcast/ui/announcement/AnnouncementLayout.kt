@@ -1,5 +1,6 @@
 package cx.aswin.boxcast.ui.announcement
 
+import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import cx.aswin.boxcast.util.isInstalledFromPlayStore
 
 /**
  * Visual layout for the in-app announcement dialog, resolved from the FCM `category` badge.
@@ -97,3 +99,10 @@ fun announcementLayoutStyle(category: String): AnnouncementLayoutStyle {
             )
     }
 }
+
+/**
+ * GitHub APK "What's New" / release download CTAs are meaningless on Play installs.
+ * Tip / Important / other categories are not gated.
+ */
+fun Context.shouldSuppressWhatsNewOnPlay(category: String): Boolean =
+    isInstalledFromPlayStore() && resolveAnnouncementLayout(category) == AnnouncementLayout.WhatsNew

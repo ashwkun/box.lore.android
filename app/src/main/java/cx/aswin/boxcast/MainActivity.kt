@@ -105,7 +105,7 @@ import cx.aswin.boxcast.core.designsystem.component.ExpressiveAnimatedBackground
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
-import cx.aswin.boxcast.util.isInstalledFromPlayStore
+import cx.aswin.boxcast.ui.announcement.shouldSuppressWhatsNewOnPlay
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
@@ -878,9 +878,9 @@ class MainActivity : ComponentActivity() {
                     val announcement = activeAnnouncement!!
                     val announcementContext = LocalContext.current
                     val suppressWhatsNewOnPlay =
-                        announcementContext.isInstalledFromPlayStore() &&
-                            cx.aswin.boxcast.ui.announcement.resolveAnnouncementLayout(announcement.category) ==
-                            cx.aswin.boxcast.ui.announcement.AnnouncementLayout.WhatsNew
+                        remember(announcement.category) {
+                            announcementContext.shouldSuppressWhatsNewOnPlay(announcement.category)
+                        }
 
                     if (suppressWhatsNewOnPlay) {
                         LaunchedEffect(announcement.timestamp, announcement.category) {

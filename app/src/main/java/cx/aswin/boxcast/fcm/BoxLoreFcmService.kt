@@ -20,9 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.google.firebase.messaging.FirebaseMessaging
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
-import cx.aswin.boxcast.ui.announcement.AnnouncementLayout
-import cx.aswin.boxcast.ui.announcement.resolveAnnouncementLayout
-import cx.aswin.boxcast.util.isInstalledFromPlayStore
+import cx.aswin.boxcast.ui.announcement.shouldSuppressWhatsNewOnPlay
 
 class BoxLoreFcmService : FirebaseMessagingService() {
 
@@ -69,15 +67,22 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             }
 
             if (parsed.type == "push" || parsed.type == "both") {
-                showPushNotification(
-                    parsed.title,
-                    parsed.body,
-                    parsed.route,
-                    parsed.imageUrl,
-                    parsed.sound,
-                    parsed.actionLabel,
-                    parsed.showActionInPush
-                )
+                if (applicationContext.shouldSuppressWhatsNewOnPlay(parsed.category)) {
+                    android.util.Log.d(
+                        "BoxLoreFcmService",
+                        "Skipping Whats New push on Play Store install (category=${parsed.category})",
+                    )
+                } else {
+                    showPushNotification(
+                        parsed.title,
+                        parsed.body,
+                        parsed.route,
+                        parsed.imageUrl,
+                        parsed.sound,
+                        parsed.actionLabel,
+                        parsed.showActionInPush
+                    )
+                }
             }
         }
     }
@@ -224,10 +229,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         category: String
     ) {
         // GitHub APK "What's New" / release download CTA is meaningless on Play installs.
-        if (
-            applicationContext.isInstalledFromPlayStore() &&
-            resolveAnnouncementLayout(category) == AnnouncementLayout.WhatsNew
-        ) {
+        if (applicationContext.shouldSuppressWhatsNewOnPlay(category)) {
             android.util.Log.d(
                 "BoxLoreFcmService",
                 "Skipping Whats New in-app announcement on Play Store install (category=$category)",
