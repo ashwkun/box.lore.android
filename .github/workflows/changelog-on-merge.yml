@@ -548,7 +548,9 @@ jobs:
           apk_cert="$(normalize_sha256 "$apk_cert")"
 
           # AABs still carry a JAR signature that keytool can read.
-          jarsigner -verify -strict "$aab" >/dev/null
+          # Do not use jarsigner -strict here: modern JDKs often exit 4 on
+          # non-fatal algorithm/chain warnings even when the signature is valid.
+          jarsigner -verify "$aab" >/dev/null
           aab_cert="$(
             keytool -printcert -jarfile "$aab" 2>/dev/null |
               awk '/SHA256:/{print $2; exit}'
