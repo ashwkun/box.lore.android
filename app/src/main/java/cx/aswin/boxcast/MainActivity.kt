@@ -105,6 +105,7 @@ import cx.aswin.boxcast.core.designsystem.component.ExpressiveAnimatedBackground
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
+import cx.aswin.boxcast.util.isInstalledFromPlayStore
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
@@ -875,218 +876,34 @@ class MainActivity : ComponentActivity() {
                 // Show Announcement Dialog if onboarding is completed
                 if (onboardingCompleted && activeAnnouncement != null) {
                     val announcement = activeAnnouncement!!
-                    val context = LocalContext.current
+                    val announcementContext = LocalContext.current
+                    val suppressWhatsNewOnPlay =
+                        announcementContext.isInstalledFromPlayStore() &&
+                            cx.aswin.boxcast.ui.announcement.resolveAnnouncementLayout(announcement.category) ==
+                            cx.aswin.boxcast.ui.announcement.AnnouncementLayout.WhatsNew
 
-                    // Structured Block Type
-                    data class BodyBlock(val text: androidx.compose.ui.text.AnnotatedString, val isBullet: Boolean)
-
-                    // Inline markdown parsing (bold/italic)
-                    fun parseSimpleMarkdownInline(text: String): androidx.compose.ui.text.AnnotatedString {
-                        return androidx.compose.ui.text.buildAnnotatedString {
-                            var currentIndex = 0
-                            val regex = Regex("\\*\\*(.*?)\\*\\*|\\*(.*?)\\*")
-                            val matches = regex.findAll(text)
-                            for (match in matches) {
-                                append(text.substring(currentIndex, match.range.first))
-                                if (match.groups[1] != null) {
-                                    withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)) {
-                                        append(match.groupValues[1])
-                                    }
-                                } else if (match.groups[2] != null) {
-                                    withStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) {
-                                        append(match.groupValues[2])
-                                    }
-                                }
-                                currentIndex = match.range.last + 1
-                            }
-                            append(text.substring(currentIndex))
+                    if (suppressWhatsNewOnPlay) {
+                        LaunchedEffect(announcement.timestamp, announcement.category) {
+                            userPrefs.clearAnnouncement()
                         }
-                    }
-
-                    // Parse body text into structured paragraphs and bullet list items
-                    fun parseBodyToBlocks(body: String): List<BodyBlock> {
-                        val lines = body.split("\n")
-                        val blocks = mutableListOf<BodyBlock>()
-                        for (line in lines) {
-                            val trimmed = line.trim()
-                            if (trimmed.isEmpty()) continue
-                            
-                            // Match bullets like "- item", "* item", or "• item"
-                            val bulletMatch = Regex("^(?:-|\\*|•)\\s+(.*)$").matchEntire(trimmed)
-                            if (bulletMatch != null) {
-                                val content = bulletMatch.groupValues[1]
-                                blocks.add(BodyBlock(parseSimpleMarkdownInline(content), isBullet = true))
-                            } else {
-                                blocks.add(BodyBlock(parseSimpleMarkdownInline(line), isBullet = false))
-                            }
-                        }
-                        return blocks
-                    }
-
-                    androidx.compose.ui.window.Dialog(
-                        onDismissRequest = { 
-                            scope.launch { userPrefs.clearAnnouncement() }
-                        }
-                    ) {
-                        androidx.compose.material3.Surface(
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-                            color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh,
-                            tonalElevation = 6.dp,
-                            modifier = androidx.compose.ui.Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 520.dp)
-                                .padding(16.dp)
-                        ) {
-                            androidx.compose.foundation.layout.Column(
-                                modifier = androidx.compose.ui.Modifier.padding(20.dp)
-                            ) {
-                                // 1. Header (Category Chip)
-                                androidx.compose.foundation.layout.Row(
-                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                    modifier = androidx.compose.ui.Modifier.padding(bottom = 12.dp)
-                                ) {
-                                    androidx.compose.material3.Surface(
-                                        color = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer,
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                        modifier = androidx.compose.ui.Modifier.padding(end = 8.dp)
-                                    ) {
-                                        androidx.compose.foundation.layout.Row(
-                                            modifier = androidx.compose.ui.Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                                        ) {
-                                            androidx.compose.material3.Icon(
-                                                imageVector = androidx.compose.material.icons.Icons.Rounded.NotificationsActive,
-                                                contentDescription = null,
-                                                tint = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer,
-                                                modifier = androidx.compose.ui.Modifier.size(12.dp)
-                                             )
-                                             androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(4.dp))
-                                             androidx.compose.material3.Text(
-                                                  text = announcement.category.uppercase(),
-                                                  style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
-                                                      fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
-                                                      letterSpacing = 1.2.sp
-                                                  ),
-                                                  color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer
-                                              )
-                                        }
-                                    }
-                                }
-
-                                // 2. Scrollable Middle Area (Image, Title, and Parsed Body Blocks)
-                                androidx.compose.foundation.layout.Column(
-                                    modifier = androidx.compose.ui.Modifier
-                                        .weight(1f, fill = false)
-                                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
-                                ) {
-                                    // Image
-                                    if (!announcement.imageUrl.isNullOrBlank()) {
-                                        coil.compose.AsyncImage(
-                                            model = announcement.imageUrl,
-                                            contentDescription = "Announcement Image",
-                                            modifier = androidx.compose.ui.Modifier
-                                                .fillMaxWidth()
-                                                .height(160.dp)
-                                                .padding(bottom = 16.dp)
-                                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    } else {
+                        cx.aswin.boxcast.ui.announcement.InAppAnnouncementDialog(
+                            announcement = announcement,
+                            onDismiss = { scope.launch { userPrefs.clearAnnouncement() } },
+                            onAction = { route ->
+                                scope.launch { userPrefs.clearAnnouncement() }
+                                try {
+                                    val intent =
+                                        android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse(route),
                                         )
-                                    }
-
-                                    // Title
-                                    androidx.compose.material3.Text(
-                                        text = announcement.title,
-                                        style = androidx.compose.material3.MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                        ),
-                                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
-                                        modifier = androidx.compose.ui.Modifier.padding(bottom = 12.dp)
-                                    )
-
-                                    // Body Blocks
-                                    val blocks = remember(announcement.body) { parseBodyToBlocks(announcement.body) }
-                                    androidx.compose.foundation.layout.Column(
-                                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        blocks.forEach { block ->
-                                            if (block.isBullet) {
-                                                androidx.compose.foundation.layout.Row(
-                                                    modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Start,
-                                                    verticalAlignment = androidx.compose.ui.Alignment.Top
-                                                ) {
-                                                    androidx.compose.material3.Text(
-                                                        text = "•",
-                                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
-                                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                                        ),
-                                                        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                                                        modifier = androidx.compose.ui.Modifier.padding(start = 8.dp, end = 8.dp)
-                                                    )
-                                                    androidx.compose.material3.Text(
-                                                        text = block.text,
-                                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = androidx.compose.ui.Modifier.weight(1f)
-                                                    )
-                                                }
-                                            } else {
-                                                androidx.compose.material3.Text(
-                                                    text = block.text,
-                                                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-                                                )
-                                            }
-                                        }
-                                    }
+                                    announcementContext.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("Announcement", "Failed to open route", e)
                                 }
-
-
-                                androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(20.dp))
-
-                                // 3. Action Buttons (Pinned to bottom)
-                                androidx.compose.foundation.layout.Row(
-                                    modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
-                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
-                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                                ) {
-                                    // Dismiss Button
-                                    androidx.compose.material3.OutlinedButton(
-                                        onClick = { scope.launch { userPrefs.clearAnnouncement() } },
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                                        modifier = androidx.compose.ui.Modifier.padding(end = 8.dp)
-                                    ) {
-                                        androidx.compose.material3.Text(text = "Dismiss")
-                                    }
-
-                                    // Action Button
-                                    if (announcement.showActionInApp && !announcement.route.isNullOrBlank()) {
-                                        val buttonText = announcement.actionLabel ?: "View"
-                                        androidx.compose.material3.Button(
-                                            onClick = {
-                                                scope.launch { userPrefs.clearAnnouncement() }
-                                                try {
-                                                    val intent = android.content.Intent(
-                                                        android.content.Intent.ACTION_VIEW,
-                                                        android.net.Uri.parse(announcement.route)
-                                                    )
-                                                    context.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    android.util.Log.e("Announcement", "Failed to open route", e)
-                                                }
-                                            },
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                                containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
-                                            )
-                                        ) {
-                                            androidx.compose.material3.Text(text = buttonText)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                            },
+                        )
                     }
                 }
 

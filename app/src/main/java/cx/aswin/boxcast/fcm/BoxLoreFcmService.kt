@@ -20,6 +20,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.google.firebase.messaging.FirebaseMessaging
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
+import cx.aswin.boxcast.ui.announcement.AnnouncementLayout
+import cx.aswin.boxcast.ui.announcement.resolveAnnouncementLayout
+import cx.aswin.boxcast.util.isInstalledFromPlayStore
 
 class BoxLoreFcmService : FirebaseMessagingService() {
 
@@ -220,6 +223,18 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         showActionInApp: Boolean,
         category: String
     ) {
+        // GitHub APK "What's New" / release download CTA is meaningless on Play installs.
+        if (
+            applicationContext.isInstalledFromPlayStore() &&
+            resolveAnnouncementLayout(category) == AnnouncementLayout.WhatsNew
+        ) {
+            android.util.Log.d(
+                "BoxLoreFcmService",
+                "Skipping Whats New in-app announcement on Play Store install (category=$category)",
+            )
+            return
+        }
+
         val prefs = UserPreferencesRepository(applicationContext)
         CoroutineScope(Dispatchers.IO).launch {
             val announcement = UserPreferencesRepository.Announcement(

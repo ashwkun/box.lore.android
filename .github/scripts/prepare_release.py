@@ -900,7 +900,7 @@ def notification_bullets(content: str, version: AppVersion) -> list[str]:
         ):
             continue
         bullets.append(shorten_notification_line(candidate))
-        if len(bullets) == 3:
+        if len(bullets) == 5:
             break
     if not bullets:
         fail(f"README What's New block for {version.tag} has no notification text")
