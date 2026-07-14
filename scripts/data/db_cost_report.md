@@ -6,7 +6,7 @@ Daily totals accumulated across all runs of the sync pipeline.
 
 | | Reads | Writes |
 | :--- | ---: | ---: |
-| Month total | 6,366,062 | 637,009 |
+| Month total | 6,455,301 | 638,521 |
 | Free-tier budget | 500,000,000 | 10,000,000 |
 | **% used** | **1.3%** | **6.4%** |
 
@@ -14,12 +14,12 @@ Daily totals accumulated across all runs of the sync pipeline.
 
 | Scope | Step | Runs | DB Reads | DB Writes |
 | :--- | :--- | ---: | ---: | ---: |
-| `global` | `import-podcasts` | 3 | 112,401 | 3,965 |
+| `global` | `import-podcasts` | 4 | 149,868 | 3,965 |
 |  | `refresh-charts` | 2 | 81,734 | 57,570 |
-|  | `sync-episodes` | 3 | 49,953 | 3,244 |
-|  | `vectorize-episodes` | 3 | 109,954 | 2,110 |
-|  | `vectorize-shows` | 2 | 42,057 | 923 |
-| | **Day total** | | **396,099** | **67,812** |
+|  | `sync-episodes` | 4 | 50,580 | 4,498 |
+|  | `vectorize-episodes` | 4 | 142,378 | 2,368 |
+|  | `vectorize-shows` | 3 | 60,778 | 923 |
+| | **Day total** | | **485,338** | **69,324** |
 
 ## 2026-07-13
 
