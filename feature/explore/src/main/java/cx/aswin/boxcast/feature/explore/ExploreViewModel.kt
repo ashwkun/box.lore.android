@@ -148,12 +148,9 @@ class ExploreViewModel(
     private var maxScrollDepth = 0
     private var hasTrackedExit = false
 
-    // Explore Region Nudge State flows (must be before init)
+    // Active charts region (shown as a chip on the Trending header)
     private val _activeRegionCode = MutableStateFlow("us")
     val activeRegionCode: StateFlow<String> = _activeRegionCode.asStateFlow()
-
-    private val _showRegionNudge = MutableStateFlow(false)
-    val showRegionNudge: StateFlow<Boolean> = _showRegionNudge.asStateFlow()
 
 
     init {
@@ -270,30 +267,10 @@ class ExploreViewModel(
             }
         }
         
-        // Observe explore region nudge preference and active region stream
-        // Only show for non-mismatch users (mismatch users already get the Home nudge)
+        // Keep active region label in sync for the charts header chip.
         viewModelScope.launch {
-            val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                if (it == "us" || it == "in" || it == "gb" || it == "uk" || it == "fr") it else "us"
-            }
-            
-            // Persist the initial match check to survive VM recreation
-            val wasMatch = userPrefs.wasInitialRegionMatchStream.first() ?: run {
-                val currentReg = userPrefs.regionStream.first()
-                val isMatch = (systemCountry == currentReg)
-                userPrefs.setWasInitialRegionMatch(isMatch)
-                isMatch
-            }
-
-            combine(
-                userPrefs.regionStream,
-                userPrefs.hasDismissedExploreRegionNudgeStream
-            ) { region, hasDismissed ->
-                region to hasDismissed
-            }.collect { (region, hasDismissed) ->
+            userPrefs.regionStream.collect { region ->
                 _activeRegionCode.value = region
-                // Show only when no initial mismatch and not already dismissed
-                _showRegionNudge.value = !hasDismissed && wasMatch
             }
         }
     }
@@ -617,21 +594,6 @@ class ExploreViewModel(
             finalVibeState = _currentVibe.value,
             finalSearchQuery = _searchQuery.value.takeIf { it.isNotBlank() }
         )
-    }
-
-    // Explore Region Nudge controllers
-
-    fun dismissExploreRegionNudge() {
-        viewModelScope.launch {
-            userPrefs.dismissExploreRegionNudge()
-            userPrefs.dismissRegionNudge()
-        }
-    }
-
-    fun switchRegion(region: String) {
-        viewModelScope.launch {
-            userPrefs.setRegion(region)
-        }
     }
 
     fun onTabSelected(tabIndex: Int) {

@@ -38,7 +38,7 @@ data class GlobalPreferencesBackup(
 )
 
 data class BoxCastBackup(
-    val version: Int = 2,
+    val version: Int = 3,
     val subscriptions: List<PodcastEntity>,
     val history: List<ListeningHistoryEntity>,
     val globalPreferences: GlobalPreferencesBackup? = null
@@ -91,7 +91,7 @@ class LibraryBackupManager(
         } else null
 
         val backup = BoxCastBackup(
-            version = 2,
+            version = 3,
             subscriptions = subscriptions,
             history = allHistory,
             globalPreferences = globalPrefs
@@ -111,7 +111,9 @@ class LibraryBackupManager(
         sb.append("    <outline text=\"Subscriptions\" title=\"Subscriptions\">\n")
         for (entity in subscriptions) {
             val title = escapeXml(entity.title)
-            val feedUrl = escapeXml("https://api.aswin.cx/episodes?id=${entity.podcastId}")
+            val feedUrl = escapeXml(
+                entity.feedUrl ?: "https://api.aswin.cx/episodes?id=${entity.podcastId}"
+            )
             sb.append("      <outline type=\"rss\" text=\"$title\" title=\"$title\" xmlUrl=\"$feedUrl\" />\n")
         }
         sb.append("    </outline>\n")
@@ -175,6 +177,35 @@ class LibraryBackupManager(
             
             // 1. Restore subscriptions
             for (entity in backup.subscriptions) {
+                if (entity.sourceType == PodcastEntity.SOURCE_RSS) {
+                    val feedUrl = entity.feedUrl
+                    val appContext = context
+                    val rssPodcast = if (appContext != null && !feedUrl.isNullOrBlank()) {
+                        runCatching {
+                            cx.aswin.boxcast.core.data.RssPodcastRepository
+                                .getInstance(appContext)
+                                .addSubscription(feedUrl)
+                                .podcast
+                        }.onFailure { error ->
+                            Log.e(
+                                "JSON_IMPORT",
+                                "RSS restore failed for ${entity.title}; feed must be re-added",
+                                error,
+                            )
+                        }.getOrNull()
+                    } else {
+                        null
+                    }
+                    if (rssPodcast == null) continue
+                    subscriptionRepository.subscribe(
+                        rssPodcast.copy(
+                            preferredSort = entity.preferredSort,
+                            linkedPodcastIndexId = entity.linkedPodcastIndexId,
+                        ),
+                    )
+                    importedIds.add(rssPodcast.id)
+                    continue
+                }
                 // Assuming we have a way to save entity directly or we re-map to model
                 // Since SubscriptionRepository expects a Podcast model to subscribe,
                 // let's construct a domain Podcast model and pass it.
@@ -186,7 +217,26 @@ class LibraryBackupManager(
                     description = entity.description,
                     genre = entity.genre ?: "Podcast",
                     type = (entity.type as String?) ?: "episodic",
-                    updateFrequency = entity.updateFrequency
+                    latestEpisode = entity.latestEpisode,
+                    subscribedAt = entity.subscribedAt,
+                    podcastGuid = entity.podcastGuid,
+                    fundingUrl = entity.fundingUrl,
+                    fundingMessage = entity.fundingMessage,
+                    medium = entity.medium,
+                    hasValue = entity.hasValue,
+                    updateFrequency = entity.updateFrequency,
+                    location = entity.location,
+                    license = entity.license,
+                    isLocked = entity.isLocked,
+                    preferredSort = entity.preferredSort,
+                    sourceType = (entity.sourceType as String?)
+                        ?: PodcastEntity.SOURCE_PODCAST_INDEX,
+                    feedUrl = entity.feedUrl,
+                    rssRefreshCapability = (entity.rssRefreshCapability as String?)
+                        ?: PodcastEntity.RSS_REFRESH_MANUAL,
+                    rssCatalogStale = entity.rssCatalogStale,
+                    rssHasNewEpisodes = entity.rssHasNewEpisodes,
+                    linkedPodcastIndexId = entity.linkedPodcastIndexId,
                 )
                 subscriptionRepository.subscribe(podcast)
                 
@@ -202,6 +252,9 @@ class LibraryBackupManager(
             
             // 2. Restore playback histories (liked episodes)
             for (entity in backup.history) {
+                if (entity.podcastId.startsWith("rss:") && entity.podcastId !in importedIds) {
+                    continue
+                }
                 // Reconstruct safe entity to prevent null crashes on non-nullable String fields
                 // Primitives (Long, Boolean) are safe as Gson initializes them to 0/false if missing
                 val safeEntity = cx.aswin.boxcast.core.data.database.ListeningHistoryEntity(
@@ -238,7 +291,7 @@ class LibraryBackupManager(
             }
             
             val hasNotificationsEnabled = backup.subscriptions.any { it.notificationsEnabled || it.autoDownloadEnabled }
-            Pair(backup.subscriptions.size, hasNotificationsEnabled)
+            Pair(importedIds.size, hasNotificationsEnabled)
         } catch (e: Exception) {
             e.printStackTrace()
             Pair(-1, false)
@@ -246,65 +299,14 @@ class LibraryBackupManager(
     }
 
     suspend fun importFromOpml(inputStream: InputStream): Int {
-        var importedCount = 0
-        try {
-            val factory = XmlPullParserFactory.newInstance()
-            factory.isNamespaceAware = true
-            val parser = factory.newPullParser()
-            parser.setInput(inputStream, null)
-
-            var eventType = parser.eventType
-            val queries = mutableListOf<String>()
-
-            while (eventType != XmlPullParser.END_DOCUMENT) {
-                if (eventType == XmlPullParser.START_TAG && parser.name == "outline") {
-                    val xmlUrl = parser.getAttributeValue(null, "xmlUrl")
-                    val title = parser.getAttributeValue(null, "text") ?: parser.getAttributeValue(null, "title")
-                    
-                    if (xmlUrl != null && title != null) {
-                        queries.add(title)
-                    }
-                }
-                eventType = parser.next()
-            }
-
-            val importedIds = mutableListOf<String>()
-            
-            // Fallback: search BoxCast API for each query silently to resolve
-            for (query in queries) {
-                try {
-                    // Try to search by title
-                    val results = podcastRepository.searchPodcasts(query)
-                    if (results.isNotEmpty()) {
-                        val match = results.first()
-                        subscriptionRepository.subscribe(match)
-                        importedIds.add(match.id)
-                        importedCount++
-                    }
-                } catch (e: Exception) {
-                    Log.e("OPML_IMPORT", "Failed to resolve: $query", e)
-                }
-            }
-            
-            // Trigger check for new episodes
-            if (importedIds.isNotEmpty()) {
-                try {
-                    // Break into chunks if OPML is huge to prevent request timeouts
-                    importedIds.chunked(50).forEach { chunk ->
-                        val syncedMap = podcastRepository.syncSubscriptions(chunk)
-                        for ((id, ep) in syncedMap) {
-                            subscriptionRepository.updateLatestEpisode(id, ep)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("OPML_IMPORT", "Failed to sync episodes", e)
-                }
+        return try {
+            parseOpmlFeeds(inputStream).count { feed ->
+                importSingleOpmlFeed(feed) != null
             }
         } catch (e: Exception) {
-            e.printStackTrace()
-            return -1
+            Log.e("OPML_IMPORT", "Failed to import OPML", e)
+            -1
         }
-        return importedCount
     }
 
     fun parseOpmlFeeds(inputStream: InputStream): List<OpmlFeed> {
@@ -335,6 +337,22 @@ class LibraryBackupManager(
 
     suspend fun importSingleOpmlFeed(feed: OpmlFeed): cx.aswin.boxcast.core.model.Podcast? {
         try {
+            val appContext = context
+            if (appContext != null) {
+                runCatching {
+                    cx.aswin.boxcast.core.data.RssPodcastRepository
+                        .getInstance(appContext)
+                        .addSubscription(feed.xmlUrl)
+                        .podcast
+                }.onFailure { error ->
+                    Log.w(
+                        "OPML_IMPORT",
+                        "Direct RSS import failed for ${feed.title}; trying Podcast Index",
+                        error,
+                    )
+                }.getOrNull()?.let { return it }
+            }
+
             var matchedPodcast: cx.aswin.boxcast.core.model.Podcast? = null
             
             // 1. Try URL lookup since it is exact and fast

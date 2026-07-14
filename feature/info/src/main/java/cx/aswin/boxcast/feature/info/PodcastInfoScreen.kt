@@ -107,6 +107,9 @@ import androidx.compose.material3.SearchBar
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.rounded.Search
@@ -552,19 +555,24 @@ fun PodcastInfoScreen(
                     )
                 }
                 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures(onTap = { focusManager.clearFocus() })
-                        },
-                    contentPadding = PaddingValues(
-                        top = collapsedHeaderHeight + 16.dp,
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomContentPadding + 16.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+                val pullToRefreshState = rememberPullToRefreshState()
+                val episodeListModifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = { focusManager.clearFocus() })
+                    }
+
+                @Composable
+                fun EpisodeLazyColumn() {
+                    LazyColumn(
+                        state = listState,
+                        modifier = episodeListModifier,
+                        contentPadding = PaddingValues(
+                            top = collapsedHeaderHeight + 16.dp,
+                            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomContentPadding + 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
                     // HERO SECTION: Centered Layout
                     item {
                         Column(
@@ -781,6 +789,34 @@ fun PodcastInfoScreen(
                                 contentPadding = PaddingValues(horizontal = 0.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                if (state.podcast.isRss) {
+                                    item {
+                                        Surface(
+                                            shape = ExpressiveShapes.Pill,
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.RssFeed,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                )
+                                                Text(
+                                                    text = "RSS",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
                                 // 4. Update Frequency
                                 if (frequencyData != null) {
                                     item {
@@ -1130,6 +1166,7 @@ fun PodcastInfoScreen(
                             isSubscribed = state.isSubscribed,
                             onSubscribeClick = { viewModel.toggleSubscription() },
                             accentColor = accentColor,
+                            supportsReleaseAutomation = !state.podcast.isRss,
                             notificationsEnabled = state.podcast.notificationsEnabled,
                             onNotificationsToggle = {
                                 if (!state.podcast.notificationsEnabled) {
@@ -1374,7 +1411,7 @@ fun PodcastInfoScreen(
                         }
                     }
                     
-                    if (state.isLoadingMore) {
+                    if (state.isLoadingMore && !state.isRssRefreshing) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -1403,6 +1440,29 @@ fun PodcastInfoScreen(
                             }
                         }
                     }
+                }
+                }
+
+                if (state.podcast.isRss) {
+                    PullToRefreshBox(
+                        isRefreshing = state.isRssRefreshing,
+                        onRefresh = viewModel::refreshRssFeed,
+                        state = pullToRefreshState,
+                        modifier = Modifier.fillMaxSize(),
+                        indicator = {
+                            PullToRefreshDefaults.LoadingIndicator(
+                                state = pullToRefreshState,
+                                isRefreshing = state.isRssRefreshing,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = collapsedHeaderHeight),
+                            )
+                        },
+                    ) {
+                        EpisodeLazyColumn()
+                    }
+                } else {
+                    EpisodeLazyColumn()
                 }
                 
                 // FIXED HEADER
@@ -2115,6 +2175,7 @@ private fun EpisodeToolbar(
     isSubscribed: Boolean,
     onSubscribeClick: () -> Unit,
     accentColor: Color,
+    supportsReleaseAutomation: Boolean = true,
     notificationsEnabled: Boolean = false,
     onNotificationsToggle: () -> Unit = {},
     autoDownloadEnabled: Boolean = false,
@@ -2336,7 +2397,7 @@ private fun EpisodeToolbar(
         }
 
         AnimatedContent(
-            targetState = celebrationPhase == 2,
+            targetState = celebrationPhase == 2 && supportsReleaseAutomation,
             transitionSpec = {
                 (fadeIn(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)) +
                         scaleIn(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), initialScale = 0.85f))

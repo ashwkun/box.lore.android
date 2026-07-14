@@ -7,13 +7,12 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.LoadingIndicatorDefaults
-import androidx.graphics.shapes.RoundedPolygon
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LoadingIndicatorDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +22,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.graphics.shapes.RoundedPolygon
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
 
 /**
@@ -33,7 +33,7 @@ object BoxLoreLoader {
 
     /**
      * Expressive Morphing Loader.
-     * Uses Material 3 `LoadingIndicator` (Expressive).
+     * Uses Material 3 [ContainedLoadingIndicator] (morphing shapes in a container).
      *
      * @param modifier Modifier for layout.
      * @param size Size of the loader.
@@ -45,12 +45,12 @@ object BoxLoreLoader {
     fun Expressive(
         modifier: Modifier = Modifier,
         size: Dp = 64.dp,
-        polygons: List<RoundedPolygon> = LoadingIndicatorDefaults.IndeterminateIndicatorPolygons
+        polygons: List<RoundedPolygon> = LoadingIndicatorDefaults.IndeterminateIndicatorPolygons,
     ) {
-         LoadingIndicator(
+        ContainedLoadingIndicator(
             modifier = modifier.size(size),
-            polygons = polygons
-         )
+            polygons = polygons,
+        )
     }
 
     /**

@@ -111,7 +111,11 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Podcast
-import cx.aswin.boxcast.core.designsystem.components.RegionNudgeBanner
+import cx.aswin.boxcast.core.designsystem.components.regionDisplayLabel
+import cx.aswin.boxcast.core.designsystem.component.AppNavigationBarHeight
+import cx.aswin.boxcast.core.designsystem.component.AppMiniPlayerHeight
+import cx.aswin.boxcast.core.designsystem.component.AppMiniPlayerNavGap
+import cx.aswin.boxcast.core.designsystem.component.ExploreTabSelectorFabHeight
 import cx.aswin.boxcast.core.designsystem.theme.TrackScreenSession
 
 import cx.aswin.boxcast.core.model.Episode
@@ -125,10 +129,10 @@ fun ExploreScreen(
     viewModel: ExploreViewModel,
     entryPoint: String = "bottom_nav",
     onPodcastClick: (String, String, String?, Int?) -> Unit,
-    onEpisodeClick: (Episode, Podcast) -> Unit
+    onEpisodeClick: (Episode, Podcast) -> Unit,
+    onNavigateToRegionSettings: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val showRegionNudge by viewModel.showRegionNudge.collectAsStateWithLifecycle()
     val activeRegionCode by viewModel.activeRegionCode.collectAsStateWithLifecycle()
     val isPlayerVisible by remember(viewModel) {
         viewModel.playerState.map { it.currentEpisode != null }.distinctUntilChanged()
@@ -145,7 +149,6 @@ fun ExploreScreen(
 
     ExploreContent(
         uiState = uiState,
-        showRegionNudge = showRegionNudge,
         activeRegionCode = activeRegionCode,
         isPlayerVisible = isPlayerVisible,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
@@ -160,8 +163,7 @@ fun ExploreScreen(
         onTabSelected = viewModel::onTabSelected,
         onVibeSelected = viewModel::onVibeSelected,
         onClearVibe = viewModel::clearVibe,
-        onSwitchRegion = viewModel::switchRegion,
-        onDismissNudge = viewModel::dismissExploreRegionNudge,
+        onRegionClick = onNavigateToRegionSettings,
         onLoadMore = { viewModel.loadMoreTrending() }
     )
 }
@@ -170,7 +172,6 @@ fun ExploreScreen(
 @Composable
 fun ExploreContent(
     uiState: ExploreUiState,
-    showRegionNudge: Boolean = false,
     activeRegionCode: String = "us",
     isPlayerVisible: Boolean = false,
     onSearchQueryChanged: (String) -> Unit,
@@ -182,8 +183,7 @@ fun ExploreContent(
     onTabSelected: (Int) -> Unit,
     onVibeSelected: (String, String) -> Unit,
     onClearVibe: () -> Unit,
-    onSwitchRegion: (String) -> Unit = {},
-    onDismissNudge: () -> Unit = {},
+    onRegionClick: () -> Unit = {},
     onLoadMore: () -> Unit = {}
 ) {
     // Handle error/loading states
@@ -244,6 +244,21 @@ fun ExploreContent(
     val isSearchModeActive = searchActive || state.searchQuery.isNotEmpty() || state.currentVibe != null
     val isPrompting = isSearchModeActive && state.searchQuery.isEmpty() && state.currentVibe == null
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    val systemNavBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomChromeHeight = if (isPlayerVisible) {
+        AppNavigationBarHeight + AppMiniPlayerHeight + AppMiniPlayerNavGap + systemNavBarHeight
+    } else {
+        AppNavigationBarHeight + systemNavBarHeight
+    }
+    // Clearance above navbar/mini-player for the tab FAB.
+    val tabFabBottomPadding = bottomChromeHeight + 16.dp
+    // Extra FAB height so list content can scroll fully past the overlay.
+    val listBottomPadding = if (!isSearchModeActive) {
+        tabFabBottomPadding + ExploreTabSelectorFabHeight + 16.dp
+    } else {
+        bottomChromeHeight + 24.dp
+    }
 
     // Box layout to hold everything
     Box(
@@ -374,25 +389,13 @@ fun ExploreContent(
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
-                top = 16.dp,
-                bottom = 180.dp
+                top = 4.dp,
+                bottom = listBottomPadding
             ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalItemSpacing = 16.dp,
             modifier = Modifier.weight(1f)
         ) {
-            if (showRegionNudge && !state.isSearching && state.currentVibe == null && !isPrompting) {
-                item(span = StaggeredGridItemSpan.FullLine) {
-                    RegionNudgeBanner(
-                        systemRegion = "",
-                        activeRegion = activeRegionCode,
-                        onSwitchRegion = onSwitchRegion,
-                        onDismiss = onDismissNudge,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-            }
-
             if (isSearchModeActive) {
                 if (state.searchTab == SearchTab.EPISODES) {
                     if (state.searchQuery.isEmpty()) {
@@ -589,7 +592,11 @@ fun ExploreContent(
                         } else {
                             "Top in ${state.currentCategory}"
                         }
-                        ExploreSectionHeader(title = headerTitle)
+                        ExploreSectionHeader(
+                            title = headerTitle,
+                            regionLabel = regionDisplayLabel(activeRegionCode),
+                            onRegionClick = onRegionClick,
+                        )
                     }
                 }
 
@@ -729,15 +736,8 @@ fun ExploreContent(
 
     // Centered Bottom FAB for switching between For You and Top (Material 3 Segmented Control FAB)
     if (!isSearchModeActive) {
-        val systemNavBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        val bottomOffset = if (isPlayerVisible) {
-            62.dp + 64.dp + 8.dp + 16.dp + systemNavBarHeight
-        } else {
-            62.dp + 16.dp + systemNavBarHeight
-        }
-
         val animatedBottomOffset by animateDpAsState(
-            targetValue = bottomOffset,
+            targetValue = tabFabBottomPadding,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioLowBouncy,
                 stiffness = Spring.StiffnessMediumLow
@@ -1052,18 +1052,26 @@ private fun ExploreHeroCard(
 }
 
 /**
- * Section header matching HomeScreen's DiscoverSection header
+ * Section header matching HomeScreen's DiscoverSection header.
+ * Optional [regionLabel] chip opens Settings → Library content region.
  */
 @Composable
-private fun ExploreSectionHeader(title: String) {
+private fun ExploreSectionHeader(
+    title: String,
+    regionLabel: String? = null,
+    onRegionClick: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(top = 0.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.weight(1f, fill = false),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
                 contentDescription = null,
@@ -1076,8 +1084,37 @@ private fun ExploreSectionHeader(title: String) {
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontFamily = SectionHeaderFontFamily
                 ),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+        }
+
+        if (regionLabel != null && onRegionClick != null) {
+            Surface(
+                onClick = onRegionClick,
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = regionLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Icon(
+                        imageVector = Icons.Rounded.ChevronRight,
+                        contentDescription = "Change content region",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
         }
     }
 }

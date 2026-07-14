@@ -45,13 +45,13 @@ object SurfaceStyles {
 
     /** Display labels for the settings UI. */
     val entries = listOf(
-        Entry(CLASSIC_DYNAMIC, "Default", "Swaps dynamically between comfortable blackish in dark mode and whitish in light mode."),
-        Entry(STANDARD, "Material You", "Dynamic theme that adapts to your system wallpaper, or matches your selected custom accent color if dynamic color is disabled."),
-        Entry(CLASSIC_DARK, "Blackish", "Comfortable, non-pitch black dark gray background."),
-        Entry(CLASSIC_LIGHT, "Whitish", "Soft, comfortable off-white gray background."),
-        Entry(DYNAMIC_OLED_WHITE, "Dynamic", "Swaps dynamically between Pitch Black in dark mode and Pure White in light mode."),
-        Entry(AMOLED, "Pitch Black", "Forces pure battery-saving OLED pitch-black background."),
-        Entry(PURE_WHITE, "Pure White", "Forces clean, maximum-brightness white background."),
+        Entry(CLASSIC_DYNAMIC, "boxlore classic", "Gentle gray when dark, warm cream when light."),
+        Entry(STANDARD, "Material You Soft", "Colored surfaces from your wallpaper or accent."),
+        Entry(CLASSIC_DARK, "Blackish", "Soft dark gray · stays dark."),
+        Entry(CLASSIC_LIGHT, "Whitish", "Soft cream · stays light."),
+        Entry(DYNAMIC_OLED_WHITE, "Pure", "True black when dark, pure white when light."),
+        Entry(AMOLED, "Pitch black", "True black · stays dark · good for OLED."),
+        Entry(PURE_WHITE, "Pure white", "Bright white · stays light."),
         Entry(HIGH_CONTRAST, "High Contrast", "Enhanced readability · bolder colors")
     )
 
@@ -91,7 +91,7 @@ fun BoxCastTheme(
             applySurfaceStyle(baseScheme, effectiveDarkTheme, surfaceStyle)
         }
         else -> {
-            val seedColor = BrandSeeds[themeBrand]?.second ?: BrandSeeds["violet"]!!.second
+            val seedColor = resolveThemeSeedColor(themeBrand)
             generateBrandColorScheme(seedColor, effectiveDarkTheme, surfaceStyle)
         }
     }

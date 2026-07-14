@@ -42,22 +42,41 @@ class SubscriptionRepository(
                     isLocked = entity.isLocked,
                     preferredSort = entity.preferredSort,
                     notificationsEnabled = entity.notificationsEnabled,
-                    autoDownloadEnabled = entity.autoDownloadEnabled
+                    autoDownloadEnabled = entity.autoDownloadEnabled,
+                    sourceType = entity.sourceType,
+                    feedUrl = entity.feedUrl,
+                    rssRefreshCapability = entity.rssRefreshCapability,
+                    rssCatalogStale = entity.rssCatalogStale,
+                    rssHasNewEpisodes = entity.rssHasNewEpisodes,
+                    linkedPodcastIndexId = entity.linkedPodcastIndexId,
                 )
             }
         }
 
     suspend fun toggleSubscription(podcast: Podcast) {
         val existing = podcastDao.getPodcast(podcast.id)
-        val isCurrentlySubscribed = existing?.isSubscribed == true
+        val linkedRss = if (!podcast.isRss) {
+            podcastDao.getRssPodcastLinkedTo(podcast.id)
+        } else {
+            null
+        }
+        val activeEntity = linkedRss?.takeIf { it.isSubscribed } ?: existing
+        val isCurrentlySubscribed = activeEntity?.isSubscribed == true
 
         if (isCurrentlySubscribed) {
             // Unsubscribe
-            existing?.let {
-                val updated = it.copy(isSubscribed = false, subscribedAt = 0L, notificationsEnabled = false, autoDownloadEnabled = false)
-                podcastDao.upsert(updated)
-            } ?: podcastDao.setSubscribed(podcast.id, false)
-            updateFirebaseSubscription(podcast.id, podcast.title, podcast.imageUrl, false)
+            val target = checkNotNull(activeEntity)
+            val updated = target.copy(
+                isSubscribed = false,
+                subscribedAt = 0L,
+                notificationsEnabled = false,
+                autoDownloadEnabled = false,
+            )
+            podcastDao.upsert(updated)
+            if (target.isRss) podcastDao.deleteRssEpisodes(target.podcastId)
+            if (!podcast.isRss) {
+                updateFirebaseSubscription(podcast.id, podcast.title, podcast.imageUrl, false)
+            }
         } else {
             // Subscribe (Upsert to ensure we have data for offline/Jump Back In)
             val entity = PodcastEntity(
@@ -88,17 +107,27 @@ class SubscriptionRepository(
                 isLocked = podcast.isLocked,
                 preferredSort = existing?.preferredSort, // Preserve existing sort preference
                 notificationsEnabled = false, // Off by default
-                autoDownloadEnabled = false
+                autoDownloadEnabled = false,
+                sourceType = podcast.sourceType,
+                feedUrl = podcast.feedUrl,
+                rssRefreshCapability = podcast.rssRefreshCapability,
+                rssCatalogStale = podcast.rssCatalogStale,
+                rssHasNewEpisodes = podcast.rssHasNewEpisodes,
+                linkedPodcastIndexId = podcast.linkedPodcastIndexId,
             )
             podcastDao.upsert(entity)
         }
     }
 
     suspend fun isSubscribed(podcastId: String): Boolean {
-        return podcastDao.getPodcast(podcastId)?.isSubscribed == true
+        if (podcastDao.getPodcast(podcastId)?.isSubscribed == true) return true
+        return podcastDao.getRssPodcastLinkedTo(podcastId)?.isSubscribed == true
     }
 
     suspend fun subscribe(podcast: Podcast) {
+        if (!podcast.isRss && podcastDao.getRssPodcastLinkedTo(podcast.id)?.isSubscribed == true) {
+            return
+        }
         val existing = podcastDao.getPodcast(podcast.id)
         val preferredSortVal = existing?.preferredSort ?: if (podcast.type == "serial") "oldest" else "newest"
         val typeVal = if (preferredSortVal == "oldest" || podcast.type == "serial") "serial" else "episodic"
@@ -130,12 +159,29 @@ class SubscriptionRepository(
             isLocked = existing?.isLocked ?: podcast.isLocked,
             preferredSort = preferredSortVal,
             notificationsEnabled = false, // Off by default
-            autoDownloadEnabled = false
+            autoDownloadEnabled = false,
+            sourceType = existing?.sourceType ?: podcast.sourceType,
+            feedUrl = existing?.feedUrl ?: podcast.feedUrl,
+            feedEtag = existing?.feedEtag,
+            feedLastModified = existing?.feedLastModified,
+            feedDeclaredUpdatedAt = existing?.feedDeclaredUpdatedAt,
+            rssRefreshCapability = existing?.rssRefreshCapability
+                ?: podcast.rssRefreshCapability,
+            lastRssSyncAt = existing?.lastRssSyncAt ?: 0L,
+            rssCatalogStale = existing?.rssCatalogStale ?: podcast.rssCatalogStale,
+            rssHasNewEpisodes = existing?.rssHasNewEpisodes ?: podcast.rssHasNewEpisodes,
+            linkedPodcastIndexId = existing?.linkedPodcastIndexId
+                ?: podcast.linkedPodcastIndexId,
         )
         podcastDao.upsert(entity)
     }
 
     suspend fun setNotificationsEnabled(podcast: Podcast, enabled: Boolean) {
+        if (podcast.isRss) {
+            podcastDao.setNotificationsEnabled(podcast.id, false)
+            podcastDao.setAutoDownloadEnabled(podcast.id, false)
+            return
+        }
         podcastDao.setNotificationsEnabled(podcast.id, enabled)
         updateFirebaseSubscription(podcast.id, podcast.title, podcast.imageUrl, enabled)
     }
@@ -200,6 +246,10 @@ class SubscriptionRepository(
     }
 
     suspend fun setAutoDownloadEnabled(podcastId: String, enabled: Boolean) {
+        if (podcastDao.getPodcast(podcastId)?.isRss == true) {
+            podcastDao.setAutoDownloadEnabled(podcastId, false)
+            return
+        }
         podcastDao.setAutoDownloadEnabled(podcastId, enabled)
     }
 

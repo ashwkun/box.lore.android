@@ -7,7 +7,7 @@
     <title>Privacy Policy — boxlore Podcast App</title>
     <meta
       name="description"
-      content="Privacy policy for boxlore, a free Android podcast app and podcast player. How we handle listening data, downloads, and account-free podcast use."
+      content="Privacy policy for boxlore, a free Android podcast app. What we collect, why, third parties, and how to reset or delete analytics data."
     />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://aswin.cx/boxlore/privacy/" />
@@ -17,9 +17,10 @@
     <meta property="og:title" content="Privacy Policy — boxlore Podcast App" />
     <meta
       property="og:description"
-      content="How boxlore, the Android podcast player, handles your data when you stream, download, and subscribe to podcasts."
+      content="How boxlore handles analytics, search, AI onboarding, listening data, and on-device library storage."
     />
     <meta property="og:url" content="https://aswin.cx/boxlore/privacy/" />
+    <meta property="og:image" content="https://aswin.cx/boxlore/privacy/boxlore-wordmark.png" />
 
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Privacy Policy — boxlore Podcast App" />
@@ -27,287 +28,560 @@
       name="twitter:description"
       content="Privacy policy for the boxlore Android podcast app and player."
     />
+    <meta name="twitter:image" content="https://aswin.cx/boxlore/privacy/boxlore-wordmark.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --md-sys-color-surface: #111318;
-            --md-sys-color-on-surface: #E2E2E9;
-            --md-sys-color-surface-container: #1F2129;
-            --md-sys-color-primary: #A8C7FA;
-            --md-sys-color-on-primary: #002F65;
-            --md-sys-color-error: #FFB4AB;
-            --md-sys-color-tertiary: #81D4C2;
-            --radius-large: 24px;
+            --bg: #f7f5f1;
+            --paper: #ffffff;
+            --ink: #1c1b19;
+            --muted: #5c5a55;
+            --line: #ddd8cf;
+            --accent: #3d3a36;
+            --accent-soft: #f0ebe3;
+            --commit: #1f5c4a;
+            --warn: #8a2f2f;
+            --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+            --font-sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--md-sys-color-surface);
-            color: var(--md-sys-color-on-surface);
-            margin: 0;
-            padding: 24px;
-            line-height: 1.6;
+            font-family: var(--font-serif);
+            background: var(--bg);
+            color: var(--ink);
+            line-height: 1.7;
             -webkit-font-smoothing: antialiased;
         }
 
-        .container {
-            max-width: 680px;
+        .page {
+            max-width: 720px;
             margin: 0 auto;
+            padding: 48px 24px 96px;
         }
 
-        header {
-            padding: 64px 0 32px;
+        .brand-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding-bottom: 28px;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--line);
         }
 
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 400;
-            margin: 0 0 8px 0;
-            color: var(--md-sys-color-on-surface);
-        }
-
-        .last-updated {
-            font-size: 0.875rem;
-            color: #C4C6D0;
-        }
-
-        section {
-            margin-bottom: 48px;
-        }
-
-        h2 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            color: var(--md-sys-color-primary);
-            margin: 0 0 16px 0;
-        }
-
-        h3 {
-            font-size: 1.125rem;
-            font-weight: 500;
-            margin: 24px 0 8px 0;
-            color: var(--md-sys-color-on-surface);
-        }
-
-        p,
-        li {
-            font-size: 1rem;
-            color: #E2E2E9;
-            opacity: 0.9;
-            margin-bottom: 12px;
-        }
-
-        ul {
-            padding-left: 20px;
-        }
-
-        li {
-            margin-bottom: 8px;
-        }
-
-        strong {
-            color: #FFF;
-            font-weight: 700;
-        }
-
-        /* Highlight Card */
-        .highlight-box {
-            background-color: var(--md-sys-color-surface-container);
-            padding: 32px;
-            border-radius: var(--radius-large);
-            margin: 24px 0;
-        }
-
-        .highlight-title {
-            display: block;
-            color: var(--md-sys-color-primary);
-            font-size: 0.75rem;
-            font-weight: 500;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-bottom: 16px;
-        }
-
-        .highlight-title.warning {
-            color: var(--md-sys-color-error);
-        }
-
-        .highlight-title.open-source {
-            color: var(--md-sys-color-tertiary);
-        }
-
-        a {
-            color: var(--md-sys-color-primary);
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
             text-decoration: none;
         }
 
-        a:hover {
-            text-decoration: underline;
+        .brand-logo {
+            height: 28px;
+            width: auto;
+            display: block;
         }
 
-        /* Custom List for "Never" */
-        .never-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        .brand-meta {
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
         }
 
-        .never-list li {
+        header.doc-header {
+            margin-bottom: 36px;
+        }
+
+        header.doc-header h1 {
+            font-size: clamp(2rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: 8px;
+        }
+
+        .last-updated {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 18px;
+        }
+
+        .hero-lead {
+            color: var(--muted);
+            font-size: 1.05rem;
+            max-width: 60ch;
+        }
+
+        .hero-lead strong { color: var(--ink); font-weight: 600; }
+
+        .pill-row {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--md-sys-color-error);
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 20px;
+            font-family: var(--font-sans);
         }
+
+        .pill {
+            display: inline-flex;
+            padding: 5px 10px;
+            border: 1px solid var(--line);
+            background: var(--paper);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .toc {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 22px 24px;
+            margin-bottom: 40px;
+        }
+
+        .toc-title {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .toc ol {
+            list-style: none;
+            display: grid;
+            gap: 4px;
+            counter-reset: toc;
+        }
+
+        @media (min-width: 640px) {
+            .toc ol { grid-template-columns: 1fr 1fr; }
+        }
+
+        .toc a {
+            display: flex;
+            gap: 10px;
+            align-items: baseline;
+            text-decoration: none;
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-size: 0.92rem;
+            padding: 6px 0;
+            border-bottom: none;
+        }
+
+        .toc a:hover { text-decoration: underline; }
+
+        .toc a::before {
+            counter-increment: toc;
+            content: counter(toc, decimal-leading-zero);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--muted);
+            min-width: 1.5rem;
+        }
+
+        section {
+            margin-bottom: 40px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--line);
+            scroll-margin-top: 24px;
+        }
+
+        section:last-of-type { border-bottom: none; }
+
+        h2 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            font-family: var(--font-sans);
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin: 24px 0 8px;
+        }
+
+        h4 {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin: 16px 0 6px;
+        }
+
+        p, li {
+            color: var(--ink);
+            font-size: 1.02rem;
+            margin-bottom: 12px;
+        }
+
+        li { color: var(--muted); }
+        li strong { color: var(--ink); }
+
+        ul, ol { padding-left: 1.25rem; margin-bottom: 12px; }
+
+        strong { font-weight: 650; }
+
+        a {
+            color: #1a4d8c;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        a:hover { color: #0f3260; }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.88em;
+            background: var(--accent-soft);
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+
+        .split {
+            display: grid;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .split { grid-template-columns: 1fr 1fr; }
+        }
+
+        .card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 16px 18px;
+        }
+
+        .card-label {
+            display: block;
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .card-label.commit { color: var(--commit); }
+        .card-label.warn { color: var(--warn); }
+
+        .card ul { list-style: disc; padding-left: 1.1rem; margin: 0; }
+        .card li { margin-bottom: 8px; }
+
+        .note {
+            margin: 16px 0 4px;
+            padding: 14px 16px;
+            border-left: 3px solid var(--accent);
+            background: var(--accent-soft);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .note p { margin: 0; color: var(--ink); }
 
         .tech-stack {
-            font-family: 'Roboto Mono', monospace;
-            font-size: 0.875rem;
-            background-color: rgba(168, 199, 250, 0.08);
-            padding: 16px;
-            border-radius: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.84rem;
+            line-height: 1.55;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 14px 16px;
             margin: 16px 0;
-            color: #C4C6D0;
+            color: var(--muted);
         }
 
         .tech-stack strong {
-            color: var(--md-sys-color-primary);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-weight: 700;
         }
 
-        footer {
-            margin-top: 80px;
+        .source-card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+        }
+
+        .source-card .card-label {
+            color: var(--commit);
+            font-family: var(--font-sans);
+        }
+
+        footer.site-footer {
+            margin-top: 48px;
             padding-top: 24px;
-            border-top: 1px solid #44474F;
+            border-top: 1px solid var(--line);
             text-align: center;
-            font-size: 0.75rem;
-            color: #939094;
+            font-family: var(--font-sans);
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        footer.site-footer .mini-logo {
+            height: 20px;
+            width: auto;
+            opacity: 0.7;
+            margin: 0 auto 12px;
+            display: block;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <header>
+    <div class="page">
+        <div class="brand-bar">
+            <a class="brand-link" href="https://github.com/ashwkun/boxlore" aria-label="boxlore">
+                <img
+                    class="brand-logo"
+                    src="/boxlore/privacy/boxlore-wordmark.png"
+                    width="180"
+                    height="25"
+                    alt="boxlore"
+                />
+            </a>
+            <div class="brand-meta">Privacy Policy</div>
+        </div>
+
+        <header class="doc-header">
             <h1>Privacy Policy</h1>
-            <div class="last-updated">Last Updated: May 4, 2026</div>
+            <div class="last-updated">Last updated: July 14, 2026</div>
+            <p class="hero-lead">
+                This policy describes how the <strong>boxlore</strong> Android app handles information.
+                It is meant to be accurate and complete — including uncomfortable details —
+                not a marketing brochure. If something here conflicts with an older screen or blog post,
+                <strong>this page and the in-app Settings → Privacy screen</strong> should be treated as current.
+            </p>
+            <div class="pill-row">
+                <span class="pill">Never sold</span>
+                <span class="pill">Never for ads</span>
+                <span class="pill">No ads in boxlore</span>
+                <span class="pill">No in-app opt-out today</span>
+            </div>
         </header>
 
-        <section>
-            <h2>1. Our Core Promise</h2>
-            <p>boxlore is a <strong>zero-monetary-gain, exploratory pet project</strong>. We built it to learn and to share something useful with podcast listeners — not to monetize your attention or your data.</p>
 
-            <div class="highlight-box">
-                <span class="highlight-title">ANONYMITY FIRST</span>
-                <p>We do not know who you are. We do not collect names, emails, phone numbers, or precise GPS
-                    locations. Your app generates a random, anonymous device ID (via PostHog) that is never linked to your real identity.</p>
-
-                <div style="height: 1px; background: #44474F; margin: 24px 0;"></div>
-
-                <span class="highlight-title warning">WE NEVER</span>
-                <ul class="never-list">
-                    <li>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                        </svg>
-                        Use data for advertising — 0 ads, forever
-                    </li>
-                    <li>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                        </svg>
-                        Sell data to third parties
-                    </li>
-                    <li>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                        </svg>
-                        Profile or track you across apps
-                    </li>
-                    <li>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                        </svg>
-                        Use advertising SDKs like Google Analytics or Facebook
-                    </li>
-                </ul>
-            </div>
-        </section>
-
-        <section>
-            <h2>2. Data We Collect</h2>
-            <p>We use <strong>PostHog</strong> for product analytics to understand how the app is used. While we rely on a third-party service, we collect absolutely no personally identifiable information.</p>
-
-            <div class="tech-stack">
-                <strong>Our Stack:</strong> PostHog (Telemetry)<br>
-                All data collected is strictly anonymous device-level usage data.
-            </div>
-
-            <h3>Daily Heartbeats</h3>
-            <p>A random, app-generated anonymous ID and the date you last opened the app. This helps us understand how many people use boxlore — nothing more.</p>
-
-            <h3>Usage Metrics</h3>
-            <p>Interaction events like "feature used" or "search performed". These are tied to your anonymous ID to help us identify bugs and improve the user experience.</p>
-
-            <h3>Library & Podcast Intelligence</h3>
-            <p>We log your podcast library interactions — such as which podcasts you subscribe to and which episodes are played — to eventually build native, community-driven charts. This data is <strong>tied to an anonymous device ID</strong>, meaning we can analyze listenership and subscription trends without ever knowing who you actually are.</p>
-        </section>
-
-        <section>
-            <h2>3. What We Don't Collect</h2>
-            <ul>
-                <li><strong>No PII:</strong> No names, emails, phone numbers, or accounts.</li>
-                <li><strong>No Device Identifiers:</strong> No IMEI, Android ID, or advertising ID. Your anonymous PostHog ID is randomly generated and can be reset at any time.</li>
-                <li><strong>No Precise Location Data:</strong> We do not track your GPS. We only receive approximate, region-level data (like city/country) derived from your IP address via PostHog.</li>
-            </ul>
-        </section>
-
-        <section>
-            <h2>4. Control & Deletion</h2>
-
-            <h3>Reset Your Identity</h3>
-            <p>You can regenerate your anonymous ID at any time from <strong>Settings → Data & Privacy → Data Management</strong>. This acts as a "Forget Me" — your old ID becomes orphaned data.</p>
-
-            <h3>Request Full Deletion</h3>
-            <p>Email us your PostHog ID and we will permanently delete all associated data.</p>
+<nav class="toc" aria-label="Table of contents">
+            <div class="toc-title">Contents</div>
             <ol>
-                <li>Go to <strong>Settings</strong> → <strong>Data & Privacy</strong></li>
-                <li>Expand <strong>Data Management</strong> → <strong>Request Deletion</strong></li>
-                <li>Email your <strong>ID</strong> to <a href="mailto:privacy@aswin.cx">privacy@aswin.cx</a></li>
+                <li><a href="#promise">Our promise</a></li>
+                <li><a href="#how-it-works">How boxlore handles data</a></li>
+                <li><a href="#collect">What we collect</a></li>
+                <li><a href="#parties">Where it goes</a></li>
+                <li><a href="#controls">Your controls</a></li>
+                <li><a href="#other">Other notes</a></li>
+                <li><a href="#contact">Contact</a></li>
             </ol>
+        </nav>
 
-            <h3>Retention Policy</h3>
-            <ul>
-                <li><strong>Auto-Deletion:</strong> User-level data (heartbeats) is automatically deleted after <strong>14 months of
-                        inactivity</strong>.</li>
-                <li><strong>Aggregated Data:</strong> Daily aggregates and podcast intelligence are anonymized counters and do not contain any user-identifiable information.</li>
-            </ul>
+        <section id="promise">
+            <h2>1. Our promise</h2>
+            <p>
+                boxlore isn’t meant for monetary gain. It’s a few friends finishing a childhood dream —
+                watching code turn into magic on screens — and sharing a useful podcast app along the way.
+                We collect product analytics so we can see how the app is used and which features work or don’t.
+            </p>
+
+            <div class="split">
+                <div class="card commit">
+                    <span class="card-label commit">We commit</span>
+                    <ul>
+                        <li>Never sell your data</li>
+                        <li>Never use it to push ads</li>
+                        <li>boxlore will never have ads</li>
+                        <li>No AdMob / Meta ads SDKs in the app</li>
+                    </ul>
+                </div>
+                <div class="card warn">
+                    <span class="card-label warn">We do not claim</span>
+                    <ul>
+                        <li>That nothing can ever be linked to a person</li>
+                        <li>That nothing leaves your phone</li>
+                        <li>That analytics can be fully switched off in-app today</li>
+                    </ul>
+                </div>
+            </div>
         </section>
 
-        <section>
-            <h2>5. Source Available & Verification</h2>
-            <div class="highlight-box">
-                <span class="highlight-title open-source">100% SOURCE AVAILABLE</span>
-                <p>The <strong>entire</strong> boxlore application — including this privacy page — is fully source-available. You don't have to take our word for it.</p>
-                <p style="margin-bottom: 0;">
-                    <a href="https://github.com/ashwkun/boxlore">→ View the full source code on GitHub</a>
+        <section id="how-it-works">
+            <h2>2. How boxlore handles data</h2>
+            <p>
+                There is <strong>no account</strong>. Your library (subscriptions, downloads, progress, likes)
+                stays on your device. Analytics and some features still send data off-device — details below.
+            </p>
+            <p>
+                Analytics can suggest a rough sketch of a listener (for example rough place, device, podcast taste) —
+                not age, gender, or a precise identity. We don’t ask for name or email to use the app.
+                The only way those show up is if you type them into search or AI chat. <strong>Please don’t.</strong>
+            </p>
+            <div class="note">
+                <p>
+                    <strong>Two IDs:</strong> a PostHog distinct ID for analytics (resettable in Settings → Privacy),
+                    and a separate on-device device UUID for some backend features (recommendations / auto-transcripts).
+                    Resetting PostHog does not rotate the device UUID.
                 </p>
             </div>
+            <p>
+                Analytics starts with the app. There is <strong>no in-app opt-out</strong> for PostHog capture.
+                See section 5 for reset and deletion.
+            </p>
         </section>
 
-        <section>
-            <h2>6. Contact</h2>
-            <p>Privacy Inquiries: <a href="mailto:privacy@aswin.cx">privacy@aswin.cx</a></p>
-            <p>Project Source: <a href="https://github.com/ashwkun/boxlore">GitHub</a></p>
+        <section id="collect">
+            <h2>3. What we collect</h2>
+
+            <div class="tech-stack">
+                <strong>Main analytics:</strong> PostHog<br>
+                <strong>Also, depending on features:</strong> our API (api.aswin.cx), LLM providers via that backend
+                for AI onboarding (currently described in-app as Groq; model may change), Google Firebase
+                (Messaging, App Check, Crashlytics dependency), publisher CDNs, and RSS hosts for custom feeds.
+            </div>
+
+            <h3>App use</h3>
+            <p>
+                Screens, feature taps, settings, rough time spent, lifecycle events, and occasional PostHog surveys
+                (for example NPS). Used to understand adoption and drop dead features
+                (example: Radio was removed after almost nobody used it).
+            </p>
+
+            <h3>Search and AI onboarding text</h3>
+            <p>
+                Search queries/results and AI onboarding chat (your messages and replies) go to our backend and PostHog.
+                We use this to improve search (catalog APIs lean on exact-word match) and keep AI onboarding relevant
+                (including detecting when someone types a podcast name like a search query).
+                Don’t type personal identifiers here.
+            </p>
+
+            <h3>Listening</h3>
+            <p>
+                Episode/podcast ids and titles, playback progress, likes, subscriptions, downloads, and related signals —
+                to PostHog and, when requesting recommendations, to our backend. Used for product insight and
+                community charts.
+            </p>
+
+            <h3>App and device</h3>
+            <p>
+                App version, OS/device details PostHog attaches by default, local hour, analytics ID.
+                PostHog may also derive approximate geo from IP. No GPS tracking in the app.
+            </p>
+
+            <h3>Crashes</h3>
+            <p>
+                Error events to PostHog; Firebase Crashlytics may also receive crash diagnostics.
+                An older crash-consent toggle is not an effective gate today.
+            </p>
+
+            <h3>Recommendations, transcripts, briefings</h3>
+            <p>
+                Recommendations can send country, subscriptions, interests, and listening history plus the device UUID.
+                Auto transcript/chapters may send episode ids and audio URLs to our backend (and related PostHog events).
+                Publisher chapters/transcripts are fetched from publisher URLs. Briefings may load from our backend.
+            </p>
+
+            <h3>Custom RSS, push, install</h3>
+            <p>
+                Custom RSS feeds are fetched directly from the feed host (they see your request).
+                Firebase Cloud Messaging handles push; App Check tokens may protect APIs;
+                Play Install Referrer may be read once for install context.
+                Optional feedback email is only sent if you provide one.
+            </p>
+
+            <h3>What we don’t collect by design</h3>
+            <p>
+                No required account, name, email, phone, age, gender, or GPS.
+                No ad-targeting SDK stack. Exception: free-text you type into search or AI chat.
+            </p>
         </section>
 
-        <footer>
-            &copy; 2026 boxlore — Source Available.
+        <section id="parties">
+            <h2>4. Where it goes</h2>
+            <ul>
+                <li><strong>PostHog</strong> — product analytics and surveys</li>
+                <li><strong>Our backend (api.aswin.cx)</strong> — search, AI onboarding, recommendations, auto transcripts/chapters, briefings</li>
+                <li><strong>Google Firebase / Play</strong> — messaging, App Check, Crashlytics</li>
+                <li><strong>Publishers / CDNs / RSS hosts / catalog providers</strong> — when you stream, fetch publisher assets, add a feed, or search the catalog</li>
+            </ul>
+            <p>
+                We don’t control every publisher or RSS host you contact through the app.
+            </p>
+        </section>
+
+        <section id="controls">
+            <h2>5. Your controls</h2>
+            <p>
+                No in-app switch disables PostHog today. Older consent UI is not the live gate.
+            </p>
+
+            <h3>Reset analytics ID</h3>
+            <p>
+                Settings → Privacy → Start a new analytics ID.
+                Future PostHog events use a new ID; past events stay unless you request deletion.
+                Does not wipe your library or rotate the device UUID.
+            </p>
+
+            <h3>Request deletion</h3>
+            <p>
+                Settings → Privacy → Request deletion → send the email draft with your PostHog ID to
+                <a href="mailto:support@aswin.cx">support@aswin.cx</a>
+                (or <a href="mailto:privacy@aswin.cx">privacy@aswin.cx</a>).
+                That deletes PostHog data for that ID when we process the request — not your on-device library,
+                and not every log held by other processors you contacted.
+            </p>
+
+            <h3>Retention</h3>
+            <p>
+                PostHog retention follows our project configuration. On-device library data stays until you clear it
+                or uninstall. Aggregated metrics may outlive individual events. Email us for a specific retention question.
+            </p>
+        </section>
+
+        <section id="other">
+            <h2>6. Other notes</h2>
+            <p>
+                boxlore is general-audience. We don’t offer accounts for children or anyone else.
+                If you think a child typed personal details into search or AI chat, contact us and we’ll take
+                reasonable steps to delete related analytics we control.
+            </p>
+            <p>
+                We’ll update this page when practices change (see the date above) and reflect major changes in
+                Settings → Privacy where practical.
+            </p>
+            <p>
+                The Android app is source-available:
+                <a href="https://github.com/ashwkun/boxlore">github.com/ashwkun/boxlore</a>.
+            </p>
+        </section>
+
+        <section id="contact">
+            <h2>7. Contact</h2>
+            <p>Privacy: <a href="mailto:privacy@aswin.cx">privacy@aswin.cx</a></p>
+            <p>Support / deletion drafts: <a href="mailto:support@aswin.cx">support@aswin.cx</a></p>
+        </section>
+
+        
+<footer class="site-footer">
+            <img class="mini-logo" src="/boxlore/privacy/boxlore-wordmark.png" alt="" width="140" height="19" />
+            <div>&copy; 2026 boxlore — Source available. Not for ads. Not for sale.</div>
         </footer>
     </div>
 </body>

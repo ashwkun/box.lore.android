@@ -18,6 +18,17 @@ import kotlinx.coroutines.flow.first
  */
 interface SmartQueueSources {
     suspend fun getEpisodes(podcastId: String): List<Episode>
+
+    /**
+     * Returns a bounded newest-first slice for cross-show queue fallback.
+     *
+     * Unlike same-show continuation, Tier 2 needs only one usable episode. Keeping
+     * this separate prevents a large local RSS catalog from being materialized and
+     * sorted during every queue refill.
+     */
+    suspend fun getQueueCandidates(podcastId: String, limit: Int): List<Episode> =
+        getEpisodes(podcastId).take(limit)
+
     suspend fun getPodcastDetails(podcastId: String): Podcast?
     suspend fun getSubscribedPodcasts(): List<Podcast>
     suspend fun getCompletedEpisodeIds(): Set<String>
@@ -63,6 +74,14 @@ class DefaultSmartQueueSources(
 
     override suspend fun getEpisodes(podcastId: String): List<Episode> =
         podcastRepository.getEpisodes(podcastId)
+
+    override suspend fun getQueueCandidates(podcastId: String, limit: Int): List<Episode> =
+        podcastRepository.getEpisodesPaginated(
+            feedId = podcastId,
+            limit = limit,
+            offset = 0,
+            sort = "newest",
+        ).episodes
 
     override suspend fun getPodcastDetails(podcastId: String): Podcast? =
         podcastRepository.getPodcastDetails(podcastId)

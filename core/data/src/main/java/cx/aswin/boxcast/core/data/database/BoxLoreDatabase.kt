@@ -9,14 +9,21 @@ import cx.aswin.boxcast.core.data.database.entities.QueueItem
 import cx.aswin.boxcast.core.data.database.dao.QueueDao
 
 @Database(
-    entities = [ListeningHistoryEntity::class, PodcastEntity::class, DownloadedEpisodeEntity::class, QueueItem::class],
-    version = 26, // Add autoDownloadEnabled to podcasts table
+    entities = [
+        ListeningHistoryEntity::class,
+        PodcastEntity::class,
+        DownloadedEpisodeEntity::class,
+        QueueItem::class,
+        RssEpisodeEntity::class,
+    ],
+    version = 28,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class BoxLoreDatabase : RoomDatabase() {
     abstract fun listeningHistoryDao(): ListeningHistoryDao
     abstract fun podcastDao(): PodcastDao
+    abstract fun rssEpisodeDao(): RssEpisodeDao
     abstract fun downloadedEpisodeDao(): DownloadedEpisodeDao
     abstract fun queueDao(): QueueDao
 
@@ -114,6 +121,60 @@ abstract class BoxLoreDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'podcast_index'")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedUrl TEXT")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedEtag TEXT")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedLastModified TEXT")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedDeclaredUpdatedAt INTEGER")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN rssRefreshCapability TEXT NOT NULL DEFAULT 'manual'")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN lastRssSyncAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN rssCatalogStale INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN rssHasNewEpisodes INTEGER NOT NULL DEFAULT 0")
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS rss_episodes (
+                        episodeId TEXT NOT NULL PRIMARY KEY CHECK(CAST(episodeId AS INTEGER) < 0),
+                        podcastId TEXT NOT NULL,
+                        guid TEXT,
+                        title TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        audioUrl TEXT NOT NULL,
+                        imageUrl TEXT,
+                        duration INTEGER NOT NULL,
+                        publishedDate INTEGER NOT NULL,
+                        chaptersUrl TEXT,
+                        transcriptUrl TEXT,
+                        transcripts TEXT,
+                        persons TEXT,
+                        seasonNumber INTEGER,
+                        episodeNumber INTEGER,
+                        episodeType TEXT,
+                        enclosureType TEXT,
+                        FOREIGN KEY(podcastId) REFERENCES podcasts(podcastId) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_rss_episodes_podcastId ON rss_episodes(podcastId)",
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_rss_episodes_podcastId_publishedDate ON rss_episodes(podcastId, publishedDate)",
+                )
+            }
+        }
+
+        private val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE podcasts ADD COLUMN linkedPodcastIndexId TEXT")
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_podcasts_linkedPodcastIndexId " +
+                        "ON podcasts(linkedPodcastIndexId)",
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: BoxLoreDatabase? = null
 
@@ -155,7 +216,24 @@ abstract class BoxLoreDatabase : RoomDatabase() {
                     BoxLoreDatabase::class.java,
                     "boxlore_database"
                 )
-                .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
+                .addMigrations(
+                    MIGRATION_12_13,
+                    MIGRATION_13_14,
+                    MIGRATION_14_15,
+                    MIGRATION_15_16,
+                    MIGRATION_16_17,
+                    MIGRATION_17_18,
+                    MIGRATION_18_19,
+                    MIGRATION_19_20,
+                    MIGRATION_20_21,
+                    MIGRATION_21_22,
+                    MIGRATION_22_23,
+                    MIGRATION_23_24,
+                    MIGRATION_24_25,
+                    MIGRATION_25_26,
+                    MIGRATION_26_27,
+                    MIGRATION_27_28,
+                )
                 .fallbackToDestructiveMigration() // For development simplicity on older versions
                 .build()
                 INSTANCE = instance

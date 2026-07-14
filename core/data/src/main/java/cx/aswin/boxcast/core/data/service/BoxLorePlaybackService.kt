@@ -562,6 +562,11 @@ class BoxLorePlaybackService : MediaLibraryService() {
             preferredSort = preferredSort,
             notificationsEnabled = notificationsEnabled,
             autoDownloadEnabled = autoDownloadEnabled,
+            sourceType = sourceType,
+            feedUrl = feedUrl,
+            rssRefreshCapability = rssRefreshCapability,
+            rssCatalogStale = rssCatalogStale,
+            rssHasNewEpisodes = rssHasNewEpisodes,
         )
     
     private fun getTimeBasedGenres(hour: Int): List<Pair<String, String>> {
@@ -1015,18 +1020,26 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 "preferredSort=${podcastEntity?.preferredSort ?: podcast.preferredSort}, genre=${podcast.genre}"
         )
         val currentContextSourceId = database.queueDao().getQueueItemByEpisodeId(episodeId)?.contextSourceId
-        val nextEntries = smartQueueEngine.getNextEpisodes(
-            currentEpisode = currentEpisodeItem,
-            podcast = podcast,
-            preferredSort = podcastEntity?.preferredSort,
-            excludeEpisodeIds = existingIds,
-            currentContextSourceId = currentContextSourceId
-        )
+        val nextEntries = kotlinx.coroutines.withContext(ioDispatcher) {
+            smartQueueEngine.getNextEpisodes(
+                currentEpisode = currentEpisodeItem,
+                podcast = podcast,
+                preferredSort = podcastEntity?.preferredSort,
+                excludeEpisodeIds = existingIds,
+                currentContextSourceId = currentContextSourceId,
+            )
+        }
         android.util.Log.d(
             "AutoQueue",
             "SmartQueue returned ${nextEntries.size} episodes: ${nextEntries.groupingBy { it.source }.eachCount()}"
         )
-        if (nextEntries.isEmpty()) return
+        if (nextEntries.isEmpty()) {
+            android.util.Log.w(
+                "AutoQueue",
+                "SmartQueue returned no candidates for podcastId=${podcast.id}, episodeId=$episodeId",
+            )
+            return
+        }
 
         // Respect the queue cap when appending the batch.
         val room = (QUEUE_MAX_SIZE - player.mediaItemCount).coerceAtLeast(0)

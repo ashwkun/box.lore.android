@@ -95,7 +95,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import cx.aswin.boxcast.core.designsystem.component.BoxLoreNavigationBar
-import cx.aswin.boxcast.core.designsystem.component.bottomNavDestinations
+import cx.aswin.boxcast.core.designsystem.component.AppNavigationBarHeight
+import cx.aswin.boxcast.core.designsystem.component.AppMiniPlayerHeight
+import cx.aswin.boxcast.core.designsystem.component.AppMiniPlayerNavGap
 import cx.aswin.boxcast.core.designsystem.theme.BoxCastTheme
 import cx.aswin.boxcast.core.designsystem.component.PredictiveBackWrapper
 import cx.aswin.boxcast.feature.home.HomeRoute
@@ -143,7 +145,51 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 private const val TRANSITION_DURATION = 350
 private val TRANSITION_EASING = FastOutSlowInEasing
 
+/** Nav graph route pattern for the Explore tab root. */
+private const val ExploreTabRoutePattern =
+    "explore?category={category}&entryPoint={entryPoint}&tab={tab}"
 
+private fun bottomNavTabRoutePattern(tab: String): String? = when (tab) {
+    "home" -> "home"
+    "learn" -> "learn"
+    "explore" -> ExploreTabRoutePattern
+    "library" -> "library"
+    else -> null
+}
+
+/**
+ * Resolves which bottom-nav tab owns the current screen.
+ * Overlays like settings/debug/podcast detail inherit the tab beneath them.
+ */
+private fun resolveBottomNavTab(
+    currentRoute: String?,
+    backStack: List<androidx.navigation.NavBackStackEntry>
+): String {
+    val route = currentRoute ?: return "home"
+    when {
+        route == "home" -> return "home"
+        route.startsWith("learn") -> return "learn"
+        route.startsWith("explore") -> return "explore"
+        route.startsWith("library") -> return "library"
+        route.startsWith("settings") ||
+            route.startsWith("debug") ||
+            route.startsWith("podcast") ||
+            route.startsWith("episode") ||
+            route.startsWith("briefing") -> {
+            for (i in backStack.size - 2 downTo 0) {
+                val prior = backStack.getOrNull(i)?.destination?.route ?: continue
+                when {
+                    prior.startsWith("learn") -> return "learn"
+                    prior.startsWith("explore") -> return "explore"
+                    prior.startsWith("library") -> return "library"
+                    prior == "home" -> return "home"
+                }
+            }
+            return "home"
+        }
+        else -> return "home"
+    }
+}
 
 class MainActivity : ComponentActivity() {
     // Reactive intent state to track incoming intents for deep linking skips
@@ -608,7 +654,11 @@ class MainActivity : ComponentActivity() {
             
             // Shared bottom padding calculation for Mini Player + NavBar clearance
             val miniPlayerPadding = remember(currentEpisode) {
-                if (currentEpisode != null) (62 + 64 + 8).dp else 62.dp
+                if (currentEpisode != null) {
+                    AppNavigationBarHeight + AppMiniPlayerHeight + AppMiniPlayerNavGap
+                } else {
+                    AppNavigationBarHeight
+                }
             }
             
             val darkTheme = when(themeConfig) {
@@ -1299,7 +1349,7 @@ class MainActivity : ComponentActivity() {
                                                 "?entryPoint=$entryPointStr&carouselPosition=$carouselPos"
                                             )
                                         } else {
-                                            navController.navigate("podcast/${heroItem.podcast.id}")
+                                            navController.navigate("podcast/${android.net.Uri.encode(heroItem.podcast.id)}")
                                         }
                                     },
                                     onEpisodeClick = { episode, podcast, entryPointStr ->
@@ -1350,7 +1400,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onNavigateToSettings = {
-                                        navController.navigate("settings")
+                                        navController.navigate("settings?page=hub")
                                     },
                                     onNavigateToPlayStoreReview = {
                                         // Launch Google Play In-App Review API
@@ -1432,7 +1482,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onPodcastClick = { feedId, itunesId, feedUrl, title ->
                                         val pId = feedId?.toString() ?: ""
-                                        navController.navigate("podcast/$pId?entryPoint=learn")
+                                        navController.navigate("podcast/${android.net.Uri.encode(pId)}?entryPoint=learn")
                                     }
                                 )
                             }
@@ -1501,21 +1551,28 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             
-                            composable("settings") {
-                                cx.aswin.boxcast.feature.home.ProfileScreen(
+                            composable(
+                                route = "settings?page={page}",
+                                arguments = listOf(
+                                    navArgument("page") {
+                                        type = NavType.StringType
+                                        nullable = true
+                                        defaultValue = null
+                                    }
+                                )
+                            ) { backStackEntry ->
+                                val settingsPage = backStackEntry.arguments?.getString("page")
+                                cx.aswin.boxcast.feature.home.settings.SettingsScreen(
                                     currentRegion = currentRegion,
                                     onSetRegion = { region -> 
                                         scope.launch { userPrefs.setRegion(region) }
                                     },
                                     onBack = { navController.popBackStack() },
                                     onResetAnalytics = {
-                                        scope.launch {
-                                            try {
-                                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.resetIdentity()
-                                                consentManager.clearConsent()
-                                            } catch (e: Exception) {
-                                                android.util.Log.e("Settings", "Failed to reset analytics", e)
-                                            }
+                                        try {
+                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.resetIdentity()
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("Settings", "Failed to reset analytics", e)
                                         }
                                     },
                                     appInstanceId = appInstanceId,
@@ -1570,7 +1627,8 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToAutoDownloads = {
                                         navController.navigate("library/auto_downloads/settings")
-                                    }
+                                    },
+                                    initialPage = settingsPage,
                                 )
                             }
 
@@ -1651,7 +1709,10 @@ class MainActivity : ComponentActivity() {
                                             "${encode(podcast.title)}" +
                                             "?entryPoint=explore_for_you"
                                         )
-                                    }
+                                    },
+                                    onNavigateToRegionSettings = {
+                                        navController.navigate("settings?page=library")
+                                    },
                                 )
                             }
                             composable("library") { 
@@ -1791,7 +1852,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel = viewModel,
                                     onBack = { navController.popBackStack() },
                                     onPodcastClick = { podcastId ->
-                                        navController.navigate("podcast/$podcastId?entryPoint=library_subscriptions")
+                                        navController.navigate(
+                                            "podcast/${android.net.Uri.encode(podcastId)}?entryPoint=library_subscriptions"
+                                        )
                                     },
                                     onExploreClick = {
                                         navController.navigate("explore?entryPoint=library_subscriptions_empty_state") {
@@ -2001,7 +2064,11 @@ class MainActivity : ComponentActivity() {
                                       }.collectAsState(initial = false)
                                       
                                       // Base: NavBar clearance (62dp) + optional MiniPlayer (64dp) + MiniPlayer bottom margin (8dp)
-                                      val miniPlayerPadding = if (isPlayerVisible) (62 + 64 + 8).dp else 62.dp
+                                      val miniPlayerPadding = if (isPlayerVisible) {
+                                          AppNavigationBarHeight + 64.dp + 2.dp
+                                      } else {
+                                          AppNavigationBarHeight
+                                      }
                                      
                                      cx.aswin.boxcast.feature.info.PodcastInfoScreen(
                                         podcastId = podcastId,
@@ -2009,7 +2076,9 @@ class MainActivity : ComponentActivity() {
                                         onBack = { navController.popBackStack() },
                                         bottomContentPadding = miniPlayerPadding,
                                         onPodcastClick = { pId ->
-                                            navController.navigate("podcast/$pId?entryPoint=podroll")
+                                            navController.navigate(
+                                                "podcast/${android.net.Uri.encode(pId)}?entryPoint=podroll"
+                                            )
                                         },
                                         onEpisodeClick = { episode, entryPointStr, index ->
                                             fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
@@ -2102,7 +2171,11 @@ class MainActivity : ComponentActivity() {
                                     podcastTitle = podcastTitle,
                                     viewModel = viewModel,
                                     onBack = { navController.popBackStack() },
-                                    onPodcastClick = { pId -> navController.navigate("podcast/$pId?entryPoint=episode_info") },
+                                    onPodcastClick = { pId ->
+                                        navController.navigate(
+                                            "podcast/${android.net.Uri.encode(pId)}?entryPoint=episode_info"
+                                        )
+                                    },
                                     onEpisodeClick = { ep ->
                                         // Navigate to the clicked episode
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
@@ -2259,7 +2332,11 @@ class MainActivity : ComponentActivity() {
                                 val isPlayerVisible by remember(playbackRepository) {
                                     playbackRepository.playerState.map { it.currentEpisode != null }.distinctUntilChanged()
                                 }.collectAsState(initial = false)
-                                val miniPlayerPadding = if (isPlayerVisible) (62 + 64 + 8).dp else 62.dp
+                                val miniPlayerPadding = if (isPlayerVisible) {
+                                    AppNavigationBarHeight + 64.dp + 2.dp
+                                } else {
+                                    AppNavigationBarHeight
+                                }
 
                                 val successState = state as? cx.aswin.boxcast.feature.info.EpisodeInfoUiState.Success
 
@@ -2274,7 +2351,11 @@ class MainActivity : ComponentActivity() {
                                     podcastTitle = successState?.podcastTitle ?: "Podcast",
                                     viewModel = viewModel,
                                     onBack = { navController.popBackStack() },
-                                    onPodcastClick = { pId -> navController.navigate("podcast/$pId?entryPoint=episode_info") },
+                                    onPodcastClick = { pId ->
+                                        navController.navigate(
+                                            "podcast/${android.net.Uri.encode(pId)}?entryPoint=episode_info"
+                                        )
+                                    },
                                     onEpisodeClick = { ep ->
                                         fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                                         val targetPodcastId = ep.podcastId?.takeIf { it.isNotEmpty() } ?: (successState?.podcastId ?: "")
@@ -2320,14 +2401,14 @@ class MainActivity : ComponentActivity() {
                     // Get system nav bar height for full-screen expanded player
                     val systemNavBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     
-                    // Only app navbar height - matches BoxLoreNavigationBar content height
-                    val appNavBarHeight = 62.dp 
+                    // Only app navbar height - matches ShortNavigationBar container height
+                    val appNavBarHeight = AppNavigationBarHeight 
                     
                     // Container height = full screen + system nav bar + extra buffer to ensure full coverage
                     val containerHeight = screenHeightDp + systemNavBarHeight + 50.dp
                     
-                    // Collapsed position: mini player sits above app navbar with a small margin
-                    val miniPlayerBottomMargin = 8.dp
+                    // Collapsed position: mini player sits just above the app navbar
+                    val miniPlayerBottomMargin = 2.dp
                     val collapsedTargetY = with(density) {
                         (screenHeightDp - cx.aswin.boxcast.feature.player.v2.MiniPlayerHeight - appNavBarHeight - systemNavBarHeight - miniPlayerBottomMargin).toPx()
                     }
@@ -2335,40 +2416,10 @@ class MainActivity : ComponentActivity() {
 
                     // Navigation Bar
                     if (showBottomNav) {
-                        val activeTab = when {
-                            currentRoute == "home" -> "home"
-                            currentRoute?.startsWith("learn") == true -> "learn"
-                            currentRoute?.startsWith("explore") == true -> "explore"
-                            currentRoute?.startsWith("library") == true -> "library"
-                            currentRoute?.startsWith("podcast") == true || currentRoute?.startsWith("episode") == true -> {
-                                val backStack = navController.currentBackStack.value
-                                var foundTab = "home"
-                                for (i in backStack.size - 2 downTo 0) {
-                                    val entry = backStack.getOrNull(i)
-                                    val route = entry?.destination?.route ?: continue
-                                    when {
-                                        route.startsWith("learn") -> {
-                                            foundTab = "learn"
-                                            break
-                                        }
-                                        route.startsWith("explore") -> {
-                                            foundTab = "explore"
-                                            break
-                                        }
-                                        route.startsWith("library") -> {
-                                            foundTab = "library"
-                                            break
-                                        }
-                                        route == "home" -> {
-                                            foundTab = "home"
-                                            break
-                                        }
-                                    }
-                                }
-                                foundTab
-                            }
-                            else -> "home"
-                        }
+                        val activeTab = resolveBottomNavTab(
+                            currentRoute = currentRoute,
+                            backStack = navController.currentBackStack.value
+                        )
 
                         BoxLoreNavigationBar(
                             currentRoute = activeTab,
@@ -2391,7 +2442,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         } else if (route == "explore") {
-                                            val popped = navController.popBackStack("explore?category={category}&entryPoint={entryPoint}", inclusive = false)
+                                            val popped = navController.popBackStack(ExploreTabRoutePattern, inclusive = false)
                                             if (!popped) {
                                                 navController.navigate("explore?entryPoint=bottom_nav") {
                                                     popUpTo("home") { saveState = false }
@@ -2420,16 +2471,21 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                     
-                                    // Default: Navigate to the new tab
+                                    // Prefer popping to an existing tab under overlays (settings, etc.)
                                     else -> {
-                                        navController.navigate(
-                                            if (route == "explore") "explore?entryPoint=bottom_nav" else route
-                                        ) {
-                                            popUpTo("home") {
-                                                saveState = true
+                                        val tabPattern = bottomNavTabRoutePattern(route)
+                                        val popped = tabPattern != null &&
+                                            navController.popBackStack(tabPattern, inclusive = false)
+                                        if (!popped) {
+                                            navController.navigate(
+                                                if (route == "explore") "explore?entryPoint=bottom_nav" else route
+                                            ) {
+                                                popUpTo("home") {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
                                     }
                                 }
@@ -2513,7 +2569,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                     } else {
                                         // Navigate to podcast info
-                                        navController.navigate("podcast/${podcast.id}?entryPoint=player_ui") {
+                                        navController.navigate(
+                                            "podcast/${android.net.Uri.encode(podcast.id)}?entryPoint=player_ui"
+                                        ) {
                                             launchSingleTop = true
                                         }
                                     }

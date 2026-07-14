@@ -81,11 +81,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -105,9 +108,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.lerp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,6 +162,7 @@ private fun formatSize(bytes: Long): String {
     return String.format(java.util.Locale.US, "%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadedEpisodesScreen(
     viewModel: LibraryViewModel,
@@ -172,6 +178,12 @@ fun DownloadedEpisodesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val titleStyle = lerp(
+        start = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+        stop = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        fraction = scrollBehavior.state.collapsedFraction,
+    )
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -237,77 +249,94 @@ fun DownloadedEpisodesScreen(
     }
 
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isSelectionMode) {
-                        IconButton(onClick = {
-                            isSelectionMode = false
-                            selectedPodcastIds.clear()
-                        }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Cancel selection")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "${selectedPodcastIds.size} Selected",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = {
-                            if (selectedPodcastIds.size == sortedGroups.size) {
-                                selectedPodcastIds.clear()
-                            } else {
-                                selectedPodcastIds.clear()
-                                selectedPodcastIds.addAll(sortedGroups.map { it.podcastId })
-                            }
-                        }) {
-                            Icon(Icons.Rounded.SelectAll, contentDescription = "Select All")
-                        }
-                        IconButton(
-                            onClick = { deleteConfirmSelectedDialog = true },
-                            enabled = selectedPodcastIds.isNotEmpty()
-                        ) {
-                            Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = "Delete Selected",
-                                tint = if (selectedPodcastIds.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isSelectionMode) {
+                    TopAppBar(
+                        title = {
                             Text(
-                                text = "Downloads",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold
+                                text = "${selectedPodcastIds.size} Selected",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
                             )
-                            if (downloads.isNotEmpty()) {
-                                Text(
-                                    text = "${downloads.size} ${if (downloads.size == 1) "episode" else "episodes"} • ${formatSize(totalSizeBytes)} used",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                isSelectionMode = false
+                                selectedPodcastIds.clear()
+                            }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Cancel selection")
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = {
+                                if (selectedPodcastIds.size == sortedGroups.size) {
+                                    selectedPodcastIds.clear()
+                                } else {
+                                    selectedPodcastIds.clear()
+                                    selectedPodcastIds.addAll(sortedGroups.map { it.podcastId })
+                                }
+                            }) {
+                                Icon(Icons.Rounded.SelectAll, contentDescription = "Select All")
+                            }
+                            IconButton(
+                                onClick = { deleteConfirmSelectedDialog = true },
+                                enabled = selectedPodcastIds.isNotEmpty()
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = "Delete Selected",
+                                    tint = if (selectedPodcastIds.isNotEmpty()) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    }
                                 )
                             }
-                        }
-                        if (sortedGroups.isNotEmpty()) {
-                            IconButton(onClick = { isSelectionMode = true }) {
-                                Icon(Icons.Rounded.Checklist, contentDescription = "Select podcasts")
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        ),
+                    )
+                } else {
+                    LargeTopAppBar(
+                        title = {
+                            Column {
+                                Text(
+                                    text = "Downloads",
+                                    style = titleStyle,
+                                )
+                                if (downloads.isNotEmpty() && scrollBehavior.state.collapsedFraction < 0.4f) {
+                                    Text(
+                                        text = "${downloads.size} ${if (downloads.size == 1) "episode" else "episodes"} • ${formatSize(totalSizeBytes)} used",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
-                        }
-                    }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        actions = {
+                            if (sortedGroups.isNotEmpty()) {
+                                IconButton(onClick = { isSelectionMode = true }) {
+                                    Icon(Icons.Rounded.Checklist, contentDescription = "Select podcasts")
+                                }
+                            }
+                        },
+                        scrollBehavior = scrollBehavior,
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        ),
+                    )
                 }
 
                 if (isOffline) {

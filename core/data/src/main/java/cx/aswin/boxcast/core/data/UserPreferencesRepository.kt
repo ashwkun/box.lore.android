@@ -90,7 +90,12 @@ class UserPreferencesRepository(context: Context) {
                 normalizeRegionCode(stored)
             } else {
                 val localeCountry = java.util.Locale.getDefault().country.lowercase()
-                if (localeCountry == "in" || localeCountry == "gb" || localeCountry == "uk") {
+                if (
+                    localeCountry == "in" ||
+                    localeCountry == "gb" ||
+                    localeCountry == "uk" ||
+                    localeCountry == "fr"
+                ) {
                     normalizeRegionCode(localeCountry)
                 } else {
                     "us"

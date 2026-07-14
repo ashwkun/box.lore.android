@@ -34,10 +34,28 @@ data class Podcast(
     // User listening style: "newest" / "oldest" / null (default by type)
     val preferredSort: String? = null,
     val notificationsEnabled: Boolean = false,
-    val autoDownloadEnabled: Boolean = false
-)
+    val autoDownloadEnabled: Boolean = false,
+    val sourceType: String = SOURCE_PODCAST_INDEX,
+    val feedUrl: String? = null,
+    val rssRefreshCapability: String = RSS_REFRESH_MANUAL,
+    val rssCatalogStale: Boolean = false,
+    val rssHasNewEpisodes: Boolean = false,
+    /** Podcast Index row represented by this local RSS subscription, when known. */
+    val linkedPodcastIndexId: String? = null,
+) {
+    val isRss: Boolean
+        get() = sourceType == SOURCE_RSS
+
+    companion object {
+        const val SOURCE_PODCAST_INDEX = "podcast_index"
+        const val SOURCE_RSS = "rss"
+        const val RSS_REFRESH_HEAD_VALIDATORS = "head_validators"
+        const val RSS_REFRESH_MANUAL = "manual"
+    }
+}
 
 fun Podcast.isLatestEpisodeNew(lastSeenId: String?): Boolean {
+    if (isRss && rssHasNewEpisodes) return true
     if (episodeStatus != EpisodeStatus.UNPLAYED) return false
     val ep = latestEpisode ?: return false
     if (subscribedAt <= 0L) return false

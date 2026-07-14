@@ -2,7 +2,6 @@ package cx.aswin.boxcast.feature.player.v2
 
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.exponentialDecay
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,6 +51,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cx.aswin.boxcast.core.data.PlaybackRepository
 import cx.aswin.boxcast.core.data.UserPreferencesRepository
+import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.LocalEffectiveDarkTheme
 import cx.aswin.boxcast.feature.player.v2.logic.calculatePlayerSheetGeometry
 import kotlin.coroutines.cancellation.CancellationException
@@ -127,10 +127,9 @@ fun PlayerSheetScaffold(
             initialValue = PlayerSheetValue.Collapsed,
             positionalThreshold = { distance: Float -> distance * 0.5f },
             velocityThreshold = { with(density) { 180.dp.toPx() } },
-            snapAnimationSpec = spring(
-                dampingRatio = 1f,
-                stiffness = 75f
-            ),
+            // Soft expressive settle — gesture gates below keep mini controls tappable
+            // while this runs (don't stiffen the spring to "fix" dead taps).
+            snapAnimationSpec = ExpressiveMotion.SpatialLargeSpring,
             decayAnimationSpec = exponentialDecay()
         )
     }
@@ -268,7 +267,8 @@ private fun requestSheetExpansion(
     sheetOffset: Float,
     scope: kotlinx.coroutines.CoroutineScope
 ) {
-    if (sheetState.isAnimationRunning || sheetOffset <= 0.5f) return
+    // Allow interrupting an in-flight soft settle so taps aren't ignored for ~1–2s.
+    if (sheetOffset <= 0.5f) return
     scope.launch { sheetState.animateTo(PlayerSheetValue.Expanded) }
 }
 
@@ -278,7 +278,7 @@ private fun requestSheetCollapse(
     collapsedTargetY: Float,
     scope: kotlinx.coroutines.CoroutineScope
 ) {
-    if (sheetState.isAnimationRunning || sheetOffset >= collapsedTargetY - 0.5f) return
+    if (sheetOffset >= collapsedTargetY - 0.5f) return
     scope.launch { sheetState.animateTo(PlayerSheetValue.Collapsed) }
 }
 
@@ -316,10 +316,14 @@ private fun PlayerSheetSurface(
                 .anchoredDraggable(
                     state = sheetState,
                     orientation = Orientation.Vertical,
-                    enabled = !content.isFullscreenVideo
+                    enabled = !content.isFullscreenVideo,
+                    // Never steal taps while settling: default true-during-animation
+                    // ate mini controls for ~1–2s. Touch-slop still allows swipe-up
+                    // expand from the collapsed mini player.
+                    startDragImmediately = false,
                 )
                 .clickable(
-                    enabled = sheetState.currentValue != PlayerSheetValue.Expanded &&
+                    enabled = geometry.expansionFraction < 0.5f &&
                         !content.isFullscreenVideo,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -565,7 +569,7 @@ private fun PlayerSheetExternalExpansion(
     expandTrigger: Long
 ) {
     LaunchedEffect(expandTrigger) {
-        if (expandTrigger > 0L && !sheetState.isAnimationRunning) {
+        if (expandTrigger > 0L) {
             sheetState.animateTo(PlayerSheetValue.Expanded)
         }
     }
@@ -646,7 +650,10 @@ private suspend fun settlePlayerSheetPreFling(
     available: Velocity
 ): Velocity {
     if (available.y >= 0 || sheetState.requireOffset() <= 0f) return Velocity.Zero
-    sheetState.settle(available.y)
+    // animateTo (not settle-with-velocity): fling kick + underdamped spring overshoots
+    // past the mini anchor, then the visual clamp makes the rebound look like a
+    // disconnected bounce against travel direction.
+    sheetState.animateTo(resolvePlayerSheetSettleTarget(sheetState, available.y))
     return available
 }
 
@@ -654,7 +661,31 @@ private suspend fun settlePlayerSheetPostFling(
     sheetState: AnchoredDraggableState<PlayerSheetValue>,
     available: Velocity
 ): Velocity {
-    if (available.y == 0f || sheetState.isAnimationRunning) return Velocity.Zero
-    sheetState.settle(available.y)
+    // Always snap to an anchor after nested-scroll user input — including
+    // zero-velocity releases from slow taps/drags. Skipping settle left the sheet
+    // mid-anchor with currentValue still Expanded while UI already looked collapsed.
+    if (sheetState.isAnimationRunning) return Velocity.Zero
+    sheetState.animateTo(resolvePlayerSheetSettleTarget(sheetState, available.y))
     return available
+}
+
+/**
+ * Pick the settle anchor from fling direction when decisive, otherwise nearest.
+ * Motion itself is critically damped [ExpressiveMotion.SpatialLargeSpring] via animateTo.
+ */
+private fun resolvePlayerSheetSettleTarget(
+    sheetState: AnchoredDraggableState<PlayerSheetValue>,
+    velocityY: Float
+): PlayerSheetValue {
+    // Decisive fling (~velocity threshold used by AnchoredDraggableState).
+    val decisiveFling = 1200f
+    when {
+        velocityY > decisiveFling -> return PlayerSheetValue.Collapsed
+        velocityY < -decisiveFling -> return PlayerSheetValue.Expanded
+    }
+    val offset = sheetState.requireOffset()
+    val collapsed = sheetState.anchors.positionOf(PlayerSheetValue.Collapsed)
+    val expanded = sheetState.anchors.positionOf(PlayerSheetValue.Expanded)
+    val midpoint = (collapsed + expanded) * 0.5f
+    return if (offset >= midpoint) PlayerSheetValue.Collapsed else PlayerSheetValue.Expanded
 }

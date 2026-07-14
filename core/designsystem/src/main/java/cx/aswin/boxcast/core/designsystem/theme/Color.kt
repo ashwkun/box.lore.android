@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 // Brand Colors - Material 3 Baseline Purple
 // These act as the seed colors for Material Dynamic Theme
@@ -32,6 +33,31 @@ val BrandSeeds: LinkedHashMap<String, Pair<String, Color>> = linkedMapOf(
     "cobalt" to ("Cobalt" to Color(0xFF0047AB)),
     "rust" to ("Rust" to Color(0xFF8B3A2F))
 )
+
+/** True when [themeBrand] is a custom hex seed (e.g. `#5B5BD6`). */
+fun isCustomThemeBrand(themeBrand: String): Boolean =
+    themeBrand.startsWith("#") && themeBrand.length in 7..9
+
+/**
+ * Resolves a theme brand key or custom hex into a seed [Color] for scheme generation.
+ */
+fun resolveThemeSeedColor(themeBrand: String): Color {
+    BrandSeeds[themeBrand]?.second?.let { return it }
+    if (isCustomThemeBrand(themeBrand)) {
+        return runCatching {
+            Color(android.graphics.Color.parseColor(themeBrand))
+        }.getOrElse {
+            BrandSeeds["violet"]!!.second
+        }
+    }
+    return BrandSeeds["violet"]!!.second
+}
+
+/** Stores a custom accent as `#RRGGBB` in the theme-brand preference. */
+fun Color.toThemeBrandHex(): String {
+    val rgb = toArgb() and 0xFFFFFF
+    return String.format("#%06X", rgb)
+}
 
 // Light Theme Fallbacks (Generated from #6750A4 seed)
 val md_theme_light_primary = Color(0xFF6750A4)

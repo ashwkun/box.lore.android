@@ -1,5 +1,6 @@
 package cx.aswin.boxcast.core.data
 
+import cx.aswin.boxcast.core.data.database.PodcastEntity
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Person
 import cx.aswin.boxcast.core.model.Podcast
@@ -34,6 +35,37 @@ private fun String?.toHttps(): String {
     }
 }
 
+private fun PodcastEntity.toPodcast(): Podcast = Podcast(
+    id = podcastId,
+    title = title,
+    artist = author,
+    imageUrl = imageUrl,
+    type = type,
+    description = description,
+    genre = genre ?: "Podcast",
+    fallbackImageUrl = latestEpisode?.imageUrl,
+    latestEpisode = latestEpisode,
+    subscribedAt = subscribedAt,
+    fundingUrl = fundingUrl,
+    fundingMessage = fundingMessage,
+    podcastGuid = podcastGuid,
+    medium = medium,
+    hasValue = hasValue,
+    updateFrequency = updateFrequency,
+    location = location,
+    license = license,
+    isLocked = isLocked,
+    preferredSort = preferredSort,
+    notificationsEnabled = notificationsEnabled,
+    autoDownloadEnabled = autoDownloadEnabled,
+    sourceType = sourceType,
+    feedUrl = feedUrl,
+    rssRefreshCapability = rssRefreshCapability,
+    rssCatalogStale = rssCatalogStale,
+    rssHasNewEpisodes = rssHasNewEpisodes,
+    linkedPodcastIndexId = linkedPodcastIndexId,
+)
+
 fun mapRegionForBriefing(region: String): String {
     return when (region.lowercase().trim()) {
         "us" -> "us"
@@ -58,6 +90,7 @@ class PodcastRepository(
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO
 ) {
     val api: BoxLoreApi = NetworkModule.createBoxLoreApi(baseUrl, context)
+    private val rssRepository = RssPodcastRepository.getInstance(context)
 
     suspend fun getTrendingPodcasts(country: String = "us", limit: Int = 50, category: String? = null, offset: Int = 0): List<Podcast> = withContext(Dispatchers.IO) {
         // Fallback or non-streaming implementation
@@ -235,7 +268,8 @@ class PodcastRepository(
                         imageUrl = (feed.artwork ?: feed.image).toHttps(),
                         description = feed.description,
                         genre = resolvePrimaryGenre(feed.categories),
-                        medium = feed.medium
+                        medium = feed.medium,
+                        feedUrl = feed.url,
                     )
                 }
                 SearchResult(podcasts, null)
@@ -265,6 +299,9 @@ class PodcastRepository(
     }
 
     suspend fun searchEpisodes(feedId: String, query: String): List<Episode> = withContext(Dispatchers.IO) {
+        if (feedId.startsWith("rss:")) {
+            return@withContext rssRepository.searchEpisodes(feedId, query)
+        }
         try {
             val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
                 getPodcastDetails(feedId)?.id ?: feedId
@@ -284,6 +321,9 @@ class PodcastRepository(
     }
 
     suspend fun getEpisodes(feedId: String): List<Episode> = withContext(Dispatchers.IO) {
+        if (feedId.startsWith("rss:")) {
+            return@withContext rssRepository.getAllEpisodes(feedId)
+        }
         try {
             val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
                 getPodcastDetails(feedId)?.id ?: feedId
@@ -304,6 +344,9 @@ class PodcastRepository(
     }
 
     suspend fun getEpisode(episodeId: String): Episode? = withContext(Dispatchers.IO) {
+        if (episodeId.toLongOrNull()?.let { it < 0L } == true) {
+            return@withContext rssRepository.getEpisode(episodeId)
+        }
         try {
             val response = api.getEpisode(publicKey, episodeId).execute()
             if (response.isSuccessful && response.body() != null) {
@@ -339,6 +382,14 @@ class PodcastRepository(
         offset: Int = 0,
         sort: String = "newest"
     ): EpisodePage = withContext(Dispatchers.IO) {
+        if (feedId.startsWith("rss:")) {
+            val episodes = rssRepository.getEpisodes(feedId, limit, offset, sort)
+            val total = rssRepository.episodeCount(feedId)
+            return@withContext EpisodePage(
+                episodes = episodes,
+                hasMore = offset + episodes.size < total,
+            )
+        }
         val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
             getPodcastDetails(feedId)?.id ?: feedId
         } else {
@@ -370,6 +421,9 @@ class PodcastRepository(
     }
 
     suspend fun getPodcastDetails(feedId: String): Podcast? = withContext(Dispatchers.IO) {
+        if (feedId.startsWith("rss:")) {
+            return@withContext rssRepository.getPodcast(feedId)?.toPodcast()
+        }
         try {
             val response = if (feedId.startsWith("url:")) {
                 val encodedUrl = feedId.substringAfter("url:")
@@ -404,7 +458,8 @@ class PodcastRepository(
                     updateFrequency = feed.updateFrequency,
                     location = feed.location,
                     license = feed.license,
-                    isLocked = feed.locked == 1
+                    isLocked = feed.locked == 1,
+                    feedUrl = feed.url,
                 )
             } else {
                 null
@@ -416,9 +471,10 @@ class PodcastRepository(
 
     suspend fun syncSubscriptions(feedIds: List<String>): Map<String, Episode> = withContext(Dispatchers.IO) {
         try {
-            if (feedIds.isEmpty()) return@withContext emptyMap()
+            val podcastIndexIds = feedIds.filterNot { it.startsWith("rss:") }
+            if (podcastIndexIds.isEmpty()) return@withContext emptyMap()
             
-            val request = cx.aswin.boxcast.core.network.model.SyncRequest(feedIds)
+            val request = cx.aswin.boxcast.core.network.model.SyncRequest(podcastIndexIds)
             val response = api.syncSubscriptions(publicKey, request).execute()
             
             if (response.isSuccessful && response.body() != null) {
@@ -443,16 +499,21 @@ class PodcastRepository(
         subscribedPodcastIds: List<String> = emptyList(),
         subscribedGenres: List<String> = emptyList()
     ): List<Episode> = withContext(Dispatchers.IO) {
+        val podcastIndexHistory = history.filter { item ->
+            item.podcastId?.startsWith("rss:") != true &&
+                item.episodeId?.toLongOrNull()?.let { it > 0L } != false
+        }
+        val podcastIndexSubscriptionIds = subscribedPodcastIds.filterNot { it.startsWith("rss:") }
         val cacheKey = buildString {
             append(country ?: "")
             append("|")
             append(interests.sorted().joinToString(","))
             append("|")
-            append(subscribedPodcastIds.sorted().joinToString(","))
+            append(podcastIndexSubscriptionIds.sorted().joinToString(","))
             append("|")
             append(subscribedGenres.sorted().joinToString(","))
             append("|")
-            append(history.joinToString(",") { "${it.episodeId}:${it.progressMs}" })
+            append(podcastIndexHistory.joinToString(",") { "${it.episodeId}:${it.progressMs}" })
         }
         
         val now = System.currentTimeMillis()
@@ -465,10 +526,10 @@ class PodcastRepository(
 
         try {
             val request = cx.aswin.boxcast.core.network.model.RecommendationsRequest(
-                history = history,
+                history = podcastIndexHistory,
                 interests = interests,
                 country = country,
-                subscribedPodcastIds = subscribedPodcastIds,
+                subscribedPodcastIds = podcastIndexSubscriptionIds,
                 subscribedGenres = subscribedGenres
             )
             val response = api.getPersonalizedRecommendations(publicKey, getOrCreateDeviceUuid(), request).execute()
@@ -536,8 +597,9 @@ class PodcastRepository(
     ): List<Episode> = withContext(Dispatchers.IO) {
         try {
             val request = cx.aswin.boxcast.core.network.model.SimilarEpisodesRequest(
-                id = episodeId,
-                podcastId = podcastId,
+                id = episodeId.takeUnless { it.toLongOrNull()?.let { value -> value < 0L } == true }
+                    ?: "0",
+                podcastId = podcastId.takeUnless { it.startsWith("rss:") } ?: "0",
                 title = title,
                 description = description,
                 podcastTitle = podcastTitle,
@@ -707,12 +769,23 @@ class PodcastRepository(
         subscribedGenres: List<String> = emptyList()
     ): HomeBootstrapData = withContext(Dispatchers.IO) {
         try {
-            val recsReq = if (history.isNotEmpty() || interests.isNotEmpty() || subscribedPodcastIds.isNotEmpty()) {
+            val podcastIndexHistory = history.filter { item ->
+                item.podcastId?.startsWith("rss:") != true &&
+                    item.episodeId?.toLongOrNull()?.let { it > 0L } != false
+            }
+            val podcastIndexSubscriptionIds = subscribedPodcastIds.filterNot {
+                it.startsWith("rss:")
+            }
+            val recsReq = if (
+                podcastIndexHistory.isNotEmpty() ||
+                interests.isNotEmpty() ||
+                podcastIndexSubscriptionIds.isNotEmpty()
+            ) {
                 cx.aswin.boxcast.core.network.model.RecommendationsRequest(
-                    history = history,
+                    history = podcastIndexHistory,
                     interests = interests,
                     country = country,
-                    subscribedPodcastIds = subscribedPodcastIds,
+                    subscribedPodcastIds = podcastIndexSubscriptionIds,
                     subscribedGenres = subscribedGenres
                 )
             } else {

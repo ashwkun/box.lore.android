@@ -646,10 +646,18 @@ private fun FullPlayerScrollableContent(
     ui: FullPlayerUiState,
     resources: FullPlayerScrollResources
 ) {
+    val scrollState = rememberScrollState()
+    // Reset scroll when collapsing so reopen always starts at the top.
+    LaunchedEffect(display.isExpanded) {
+        if (!display.isExpanded && scrollState.value > 0) {
+            scrollState.scrollTo(0)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

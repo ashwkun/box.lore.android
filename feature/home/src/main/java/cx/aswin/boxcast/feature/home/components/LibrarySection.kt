@@ -128,6 +128,7 @@ fun YourShowsSection(
     selectedPodcastId: String?,
     selectedPodcastEpisodes: StableEpisodeList,
     isSelectedPodcastLoading: Boolean,
+    isSelectedRssRefreshing: Boolean,
     episodePlaybackState: StablePlaybackStateMap,
     currentPlayingEpisodeId: String? = null,
     isPlaying: Boolean = false,
@@ -699,21 +700,46 @@ fun YourShowsSection(
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = selectedPodcast.title,
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.ExtraBold,
-                                                letterSpacing = (-0.4).sp,
-                                                fontSize = 17.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            Text(
+                                                text = selectedPodcast.title,
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = (-0.4).sp,
+                                                    fontSize = 17.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false),
+                                            )
+                                            if (selectedPodcast.isRss) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                ) {
+                                                    Text(
+                                                        text = "RSS",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        modifier = Modifier.padding(
+                                                            horizontal = 6.dp,
+                                                            vertical = 2.dp,
+                                                        ),
+                                                    )
+                                                }
+                                            }
+                                        }
                                         Spacer(modifier = Modifier.height(2.dp))
                                         val isOldest = (selectedPodcast.preferredSort ?: "newest") == "oldest"
                                         Text(
-                                            text = "Tap for show info • ${if (isOldest) "Next Up" else "Latest Drops"}",
+                                            text = buildString {
+                                                append("Tap for show info • ")
+                                                append(if (isOldest) "Next Up" else "Latest Drops")
+                                            },
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 fontSize = 11.5.sp,
                                                 fontWeight = FontWeight.Medium
@@ -751,7 +777,9 @@ fun YourShowsSection(
                             
                             Spacer(modifier = Modifier.height(14.dp))
                             
-                            if (isSelectedPodcastLoading) {
+                            if ((isSelectedPodcastLoading || isSelectedRssRefreshing) &&
+                                selectedPodcastEpisodes.list.isEmpty()
+                            ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -782,6 +810,14 @@ fun YourShowsSection(
                                         .verticalScroll(filteredScrollState),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    if (selectedPodcast.isRss && isSelectedRssRefreshing) {
+                                        Text(
+                                            text = "Refreshing RSS episodes…",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                    }
                                     val latestTwoIds = remember(selectedPodcastEpisodes) {
                                         selectedPodcastEpisodes.list.sortedByDescending { it.publishedDate }.take(2).map { it.id }.toSet()
                                     }

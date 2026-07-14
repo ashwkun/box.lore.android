@@ -20,6 +20,9 @@ interface DownloadedEpisodeDao {
     @Query("SELECT * FROM downloaded_episodes WHERE episodeId = :episodeId")
     suspend fun getDownload(episodeId: String): DownloadedEpisodeEntity?
 
+    @Query("SELECT * FROM downloaded_episodes WHERE podcastId = :podcastId")
+    suspend fun getDownloadsForPodcast(podcastId: String): List<DownloadedEpisodeEntity>
+
     @Query("SELECT COUNT(*) FROM downloaded_episodes WHERE episodeId = :episodeId AND status = 2")
     fun isDownloadedFlow(episodeId: String): Flow<Int>
 

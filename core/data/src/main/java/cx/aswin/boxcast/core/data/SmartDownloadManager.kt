@@ -41,7 +41,12 @@ private fun PodcastEntity.toPodcast(): Podcast {
         isLocked = this.isLocked,
         preferredSort = this.preferredSort,
         notificationsEnabled = this.notificationsEnabled,
-        autoDownloadEnabled = this.autoDownloadEnabled
+        autoDownloadEnabled = this.autoDownloadEnabled,
+        sourceType = this.sourceType,
+        feedUrl = this.feedUrl,
+        rssRefreshCapability = this.rssRefreshCapability,
+        rssCatalogStale = this.rssCatalogStale,
+        rssHasNewEpisodes = this.rssHasNewEpisodes,
     )
 }
 

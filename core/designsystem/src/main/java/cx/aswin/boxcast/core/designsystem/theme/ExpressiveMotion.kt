@@ -70,6 +70,19 @@ object ExpressiveMotion {
         stiffness = 400f // Slightly faster for a punchy reveal
     )
 
+    /**
+     * Large spatial morphs (player sheet expand/collapse).
+     *
+     * Matches M3 Expressive *slow spatial* stiffness (200), but critically damped:
+     * a full-screen sheet must ease into the anchor in one continuous motion —
+     * underdamped bounce reads as a second animation fighting travel direction
+     * (especially collapse: past mini, then jumps back up).
+     */
+    val SpatialLargeSpring = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = 200f
+    )
+
     // Sleek Fade Spec (App Store style)
     val SleekFadeSpec = tween<Float>(
         durationMillis = 500,

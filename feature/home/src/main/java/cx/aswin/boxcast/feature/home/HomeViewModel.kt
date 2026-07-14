@@ -89,12 +89,10 @@ data class HomeUiState(
     val isLoading: Boolean = false, // Initial full-screen loader
     val isFilterLoading: Boolean = false, // Inline loader when switching genres
     val isError: Boolean = false,
-    val showRegionNudge: Boolean = false,
-    val systemRegionCode: String = "",
-    val activeRegionCode: String = "",
     val selectedPodcastId: String? = null,
     val selectedPodcastEpisodes: List<Episode> = emptyList(),
     val isSelectedPodcastLoading: Boolean = false,
+    val isSelectedRssRefreshing: Boolean = false,
     val episodePlaybackState: Map<String, Pair<EpisodeStatus, Float>> = emptyMap(),
     val showImportBanner: Boolean = false,
     val briefing: Briefing? = null,
@@ -106,6 +104,13 @@ data class HomeUiState(
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
     val isBecauseYouLikeLoading: Boolean = false,
     val isRecommendationsFallback: Boolean = true
+)
+
+private data class SelectedPodcastSignal(
+    val podcastId: String,
+    val lastPlayedEpisodeId: String?,
+    val sort: String,
+    val rssRefreshVersion: Long,
 )
 
 data class HomeDataWrapper(
@@ -124,7 +129,6 @@ data class HomeDataWrapper(
     val briefingChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
     val briefingDismissedDate: String = "",
     val briefingDismissedForever: Boolean = false,
-    val hasDismissedRegionNudge: Boolean = false,
     val seemsToLikePodcast: Podcast? = null,
     val becauseYouLikeRecommendations: List<Episode> = emptyList(),
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
@@ -157,6 +161,8 @@ class HomeViewModel(
     val podcastRepository = PodcastRepository(baseUrl = apiBaseUrl, publicKey = publicKey, context = application)
     private val database = cx.aswin.boxcast.core.data.database.BoxLoreDatabase.getDatabase(application)
     private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
+    private val rssRepository =
+        cx.aswin.boxcast.core.data.RssPodcastRepository.getInstance(application)
     private val downloadRepository = cx.aswin.boxcast.core.data.DownloadRepository(application, database)
     val downloadedEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads
         .map { list -> list.map { it.episodeId }.toSet() }
@@ -212,6 +218,13 @@ class HomeViewModel(
     private var stableMixtapePodcasts: List<Podcast>? = null
     private var stableMixtapeCount: Int? = null
     private var stableCurrentUnplayedEpisodes: List<Episode>? = null
+    // Signature of the subscription set the cached mixtape was built from. The mixtape is
+    // intentionally NOT rebuilt on history/playback ticks (too churny), only when a show is
+    // subscribed/unsubscribed so new shows appear promptly.
+    private var stableMixtapeSubSignature: Set<String>? = null
+    // Subscription IDs we've already eagerly warmed episodes for (once per session).
+    private val eagerlyLoadedSubIds =
+        java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
 
@@ -339,6 +352,11 @@ class HomeViewModel(
             }
         }
 
+        // Lightweight RSS freshness checks never download or parse feed bodies.
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            rssRepository.checkSubscribedFeedFreshness()
+        }
+
         // Start oldest-sort serial episode resolution after a delay
         startOldestSortResolution()
 
@@ -384,21 +402,86 @@ class HomeViewModel(
     private val _selectedPodcastId = MutableStateFlow<String?>(null)
     private val _selectedPodcastEpisodes = MutableStateFlow<List<Episode>>(emptyList())
     private val _isSelectedPodcastLoading = MutableStateFlow(false)
+    private val _isSelectedRssRefreshing = MutableStateFlow(false)
+    private val _rssRefreshVersion = MutableStateFlow(0L)
+    private val rssFeedsRefreshedThisSession =
+        java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private var currentUnplayedEpisodes: List<Episode> = emptyList()
     private val _resolvedSerialEpisodes = MutableStateFlow<Map<String, Episode>>(emptyMap())
     private val inFlightResolutions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
+    // True when the current filter selection was applied automatically (single-show state)
+    // rather than by an explicit user tap. Used to decide whether to fall back to the mix
+    // when the subscription set grows past one show.
+    private var filterSelectionIsAuto = false
+
     fun selectPodcast(podcastId: String?) {
+        applySelection(podcastId, isAuto = false)
+    }
+
+    private fun applySelection(podcastId: String?, isAuto: Boolean) {
+        filterSelectionIsAuto = isAuto && podcastId != null
         _selectedPodcastId.value = podcastId
-        if (podcastId != null) {
-            val podcast = uiState.value.subscribedPodcasts.find { it.id == podcastId }
+        if (podcastId == null) return
+
+        val podcast = uiState.value.subscribedPodcasts.find { it.id == podcastId }
+        // Auto-selection (single show) shouldn't be reported as a user-driven filter.
+        if (!isAuto) {
             val title = podcast?.title ?: ""
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomePodcastFiltered(podcastId, title)
-            
-            // Mark as seen when filtered in "Your Shows"
-            podcast?.latestEpisode?.id?.let { episodeId ->
-                markPodcastEpisodeAsSeen(podcastId, episodeId)
+        }
+
+        // Mark as seen when filtered in "Your Shows"
+        podcast?.latestEpisode?.id?.let { episodeId ->
+            markPodcastEpisodeAsSeen(podcastId, episodeId)
+        }
+        if (podcast?.isRss == true) {
+            val manualRefreshDue =
+                podcast.rssRefreshCapability == Podcast.RSS_REFRESH_MANUAL &&
+                    rssFeedsRefreshedThisSession.add(podcastId)
+            if (podcast.rssCatalogStale || manualRefreshDue) {
+                refreshSelectedRssPodcast(podcastId)
             }
+        }
+    }
+
+    /**
+     * Keeps the Home filter selection consistent as the subscription set changes:
+     * - 0 shows → clear to the mix (nothing to show anyway).
+     * - exactly 1 show → auto-select it; there is no mix to choose from.
+     * - more than 1 show → default to the mix. Only clear an existing selection when it became
+     *   invalid (the show was unsubscribed) or when it was auto-selected back when it was the
+     *   sole show. Explicit user filters on a multi-show library are preserved.
+     */
+    private fun manageFilterSelectionOnSubscriptionChange() {
+        viewModelScope.launch {
+            subscriptionRepository.subscribedPodcasts
+                .map { subs -> subs.map { it.id }.toSet() }
+                .distinctUntilChanged()
+                .collect { subIds ->
+                    val current = _selectedPodcastId.value
+                    when {
+                        subIds.isEmpty() -> {
+                            if (current != null) applySelection(null, isAuto = false)
+                        }
+                        subIds.size == 1 -> {
+                            val only = subIds.first()
+                            if (current != only) applySelection(only, isAuto = true)
+                        }
+                        else -> {
+                            if (current != null && (current !in subIds || filterSelectionIsAuto)) {
+                                applySelection(null, isAuto = false)
+                            }
+                        }
+                    }
+                }
+        }
+    }
+
+    private fun refreshSelectedRssPodcast(podcastId: String) {
+        viewModelScope.launch {
+            rssRepository.refreshCatalog(podcastId)
+            _rssRefreshVersion.value += 1L
         }
     }
 
@@ -558,8 +641,9 @@ class HomeViewModel(
             val historySignal = combine(
                 _selectedPodcastId,
                 playbackRepository.getAllHistory(),
-                subscriptionRepository.subscribedPodcasts
-            ) { podcastId, allHistory, subs ->
+                subscriptionRepository.subscribedPodcasts,
+                _rssRefreshVersion,
+            ) { podcastId, allHistory, subs, rssRefreshVersion ->
                 if (podcastId == null) {
                     null
                 } else {
@@ -568,21 +652,32 @@ class HomeViewModel(
                         .maxByOrNull { it.lastPlayedAt }
                     val podcast = subs.find { it.id == podcastId }
                     val preferredSort = podcast?.preferredSort ?: "newest"
-                    Triple(podcastId, lastPlayed?.episodeId, preferredSort)
+                    SelectedPodcastSignal(
+                        podcastId = podcastId,
+                        lastPlayedEpisodeId = lastPlayed?.episodeId,
+                        sort = preferredSort,
+                        rssRefreshVersion = rssRefreshVersion,
+                    )
                 }
             }.distinctUntilChanged()
 
+            var previouslyLoadedPodcastId: String? = null
             historySignal.collectLatest { info ->
                 if (info == null) {
                     android.util.Log.d("HomeViewModelFilteredView", "historySignal collected: null (clearing selected podcast episodes)")
                     _selectedPodcastEpisodes.value = emptyList()
                     _isSelectedPodcastLoading.value = false
+                    previouslyLoadedPodcastId = null
                 } else {
                     val (podcastId, lastPlayedEpisodeId, sort) = info
                     android.util.Log.d(
                         "HomeViewModelFilteredView",
                         "historySignal collected: podcastId=$podcastId, lastPlayedEpisodeId=$lastPlayedEpisodeId, sort=$sort"
                     )
+                    if (podcastId != previouslyLoadedPodcastId) {
+                        _selectedPodcastEpisodes.value = emptyList()
+                        previouslyLoadedPodcastId = podcastId
+                    }
                     _isSelectedPodcastLoading.value = true
                     try {
                         if (sort == "oldest") {
@@ -643,6 +738,18 @@ class HomeViewModel(
         viewModelScope.launch {
             combine(
                 _selectedPodcastId,
+                rssRepository.refreshingPodcastIds,
+            ) { selectedId, refreshingIds ->
+                selectedId != null && selectedId in refreshingIds
+            }.distinctUntilChanged().collect { refreshing ->
+                _isSelectedRssRefreshing.value = refreshing
+                _uiState.update { it.copy(isSelectedRssRefreshing = refreshing) }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                _selectedPodcastId,
                 _selectedPodcastEpisodes,
                 _isSelectedPodcastLoading,
                 userPrefs.hideCompletedInHomeStream,
@@ -686,8 +793,10 @@ class HomeViewModel(
 
     init {
         observeSelectedPodcast()
+        manageFilterSelectionOnSubscriptionChange()
         loadData()
         startBackgroundSync()
+        eagerlyLoadNewSubscriptions()
     }
 
     private fun fetchPersonalizedRecommendations(region: String) {
@@ -735,16 +844,6 @@ class HomeViewModel(
 
     private fun loadData() {
         viewModelScope.launch {
-            // Seed the WAS_INITIAL_REGION_MATCH if not set yet
-            val systemCountry = java.util.Locale.getDefault().country.lowercase().let {
-                if (it == "us" || it == "in" || it == "gb" || it == "uk" || it == "fr") it else "us"
-            }
-            userPrefs.wasInitialRegionMatchStream.first() ?: run {
-                val currentReg = userPrefs.regionStream.first()
-                val isMatch = (systemCountry == currentReg)
-                userPrefs.setWasInitialRegionMatch(isMatch)
-            }
-
             // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
             userPrefs.regionStream
                 .distinctUntilChanged()
@@ -894,7 +993,6 @@ class HomeViewModel(
                     _briefingDismissedDate,
                     _briefingChaptersState,
                     _briefingDismissedForever,
-                    userPrefs.hasDismissedRegionNudgeStream,
                     _seemsToLikePodcast,
                     _becauseYouLikeRecommendations,
                     _becauseYouLikePodcasts,
@@ -919,12 +1017,11 @@ class HomeViewModel(
                         briefingChapters = array[14] as List<cx.aswin.boxcast.core.model.Chapter>,
                         briefingDismissedDate = dismissedDate,
                         briefingDismissedForever = dismissedForever,
-                        hasDismissedRegionNudge = array[16] as Boolean,
-                        seemsToLikePodcast = array[17] as Podcast?,
-                        becauseYouLikeRecommendations = array[18] as List<Episode>,
-                        becauseYouLikePodcasts = array[19] as List<Podcast>,
-                        isBecauseYouLikeLoading = array[20] as Boolean,
-                        isRecommendationsFallback = array[21] as Boolean
+                        seemsToLikePodcast = array[16] as Podcast?,
+                        becauseYouLikeRecommendations = array[17] as List<Episode>,
+                        becauseYouLikePodcasts = array[18] as List<Podcast>,
+                        isBecauseYouLikeLoading = array[19] as Boolean,
+                        isRecommendationsFallback = array[20] as Boolean
                     )
                 }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1201,6 +1298,18 @@ class HomeViewModel(
 
                         val sortedSubs = orderToUse.mapNotNull { subsMap[it] }
 
+                        // Rebuild the mixtape only when the subscription set changes (new sub /
+                        // unsub), not on playback/history ticks. This keeps freshly subscribed
+                        // shows appearing promptly without churning the mix during playback.
+                        val currentMixtapeSignature = currentSubIds
+                        if (stableMixtapeSubSignature != null &&
+                            stableMixtapeSubSignature != currentMixtapeSignature
+                        ) {
+                            stableMixtapePodcasts = null
+                            stableMixtapeCount = null
+                            stableCurrentUnplayedEpisodes = null
+                        }
+
                         val cachedMix = stableMixtapePodcasts
                         val cachedCount = stableMixtapeCount
                         val cachedUnplayed = stableCurrentUnplayedEpisodes
@@ -1228,13 +1337,10 @@ class HomeViewModel(
                             stableMixtapePodcasts = mixtapePodcasts
                             stableMixtapeCount = mixtapeCount
                             stableCurrentUnplayedEpisodes = currentUnplayedEpisodes
+                            stableMixtapeSubSignature = currentMixtapeSignature
                         }
-                        if (subs.size == 1 && _selectedPodcastId.value == null) {
-                            viewModelScope.launch {
-                                kotlinx.coroutines.delay(500)
-                                selectPodcast(subs.first().id)
-                            }
-                        }
+                        // Filter selection (single-show auto-select, mix defaulting, ghost
+                        // clearing) is handled centrally by manageFilterSelectionOnSubscriptionChange().
 
                         // B. New Episodes — Same Progressive Density
                         // 1 unplayed → 1 full card
@@ -1364,8 +1470,6 @@ class HomeViewModel(
                             }
                         }
 
-                        val shouldShowNudge = !wrapper.hasDismissedRegionNudge && (systemCountry != region)
-
                         val initialLoading = !wrapper.isTrendingLoaded
 
                         // Daily Briefing visibility filter logic
@@ -1404,12 +1508,10 @@ class HomeViewModel(
                             isLoading = initialLoading,
                             isFilterLoading = trendingList.isEmpty(),
                             isError = false,
-                            showRegionNudge = shouldShowNudge,
-                            systemRegionCode = systemCountry,
-                            activeRegionCode = region,
                             selectedPodcastId = _selectedPodcastId.value,
                             selectedPodcastEpisodes = _selectedPodcastEpisodes.value,
                             isSelectedPodcastLoading = _isSelectedPodcastLoading.value,
+                            isSelectedRssRefreshing = _isSelectedRssRefreshing.value,
                             episodePlaybackState = episodePlaybackState,
                             showImportBanner = sortedSubs.isEmpty() && !wrapper.hasDismissedImportBanner,
                             briefing = if (showBriefing) rawBriefing else null,
@@ -1594,6 +1696,48 @@ class HomeViewModel(
     data class TimeBlockConfig(val title: String, val subtitle: String, val icon: ImageVector, val genres: List<GenreConfig>)
     data class GenreConfig(val id: String, val title: String)
 
+    /**
+     * Warms episode data for shows subscribed *during* this session so a freshly added show has
+     * content ready for the mixtape and the Home filter view immediately — without waiting for the
+     * periodic background sync. Existing subs (present on first emission) are handled by
+     * [startBackgroundSync]; this only reacts to genuinely new additions.
+     */
+    private fun eagerlyLoadNewSubscriptions() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            var seenFirstEmission = false
+            subscriptionRepository.subscribedPodcasts.collect { subs ->
+                if (!seenFirstEmission) {
+                    seenFirstEmission = true
+                    subs.forEach { eagerlyLoadedSubIds.add(it.id) }
+                    return@collect
+                }
+                val newlyAdded = subs.filter { eagerlyLoadedSubIds.add(it.id) }
+                if (newlyAdded.isEmpty()) return@collect
+
+                for (pod in newlyAdded) {
+                    try {
+                        if (pod.isRss) {
+                            // RSS catalogs are stored at subscribe time; this tops up latest
+                            // episodes cheaply (HEAD-gated) so the filter view is fresh.
+                            rssRepository.refreshCatalogIfNeeded(pod.id)
+                        } else if (pod.latestEpisode == null) {
+                            val synced = podcastRepository.syncSubscriptions(listOf(pod.id))
+                            for ((podId, episode) in synced) {
+                                subscriptionRepository.updateLatestEpisode(podId, episode)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e(
+                            "HomeViewModel",
+                            "Eager load for new sub ${pod.id} failed",
+                            e,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private fun startBackgroundSync() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             // Wait slightly so the app completely loads up the UI before choking up network requests
@@ -1676,12 +1820,6 @@ class HomeViewModel(
         }
     }
     
-    fun dismissRegionNudge() {
-        viewModelScope.launch {
-            userPrefs.dismissRegionNudge()
-        }
-    }
-
     fun dismissHomeImportBanner() {
         viewModelScope.launch {
             userPrefs.dismissHomeImportBanner()

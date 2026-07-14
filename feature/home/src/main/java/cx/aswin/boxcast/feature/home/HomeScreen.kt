@@ -164,8 +164,6 @@ data class HomeFeedCallbacks(
     val onToggleSubscription: (String) -> Unit,
     val onTogglePlayback: (android.os.Bundle?) -> Unit,
     val onSelectCategory: (String?) -> Unit,
-    val onSwitchRegion: (String) -> Unit,
-    val onDismissNudge: () -> Unit,
     val onPodcastSelected: (String?) -> Unit,
     val onPlayMix: () -> Unit,
     val onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit,
@@ -310,8 +308,6 @@ fun HomeRoute(
                 onToggleSubscription = viewModel::toggleSubscription,
                 onTogglePlayback = viewModel::togglePlayback,
                 onSelectCategory = viewModel::selectCategory,
-                onSwitchRegion = viewModel::setRegion,
-                onDismissNudge = viewModel::dismissRegionNudge,
                 onPodcastSelected = viewModel::selectPodcast,
                 onPlayMix = viewModel::playUnplayedMix,
                 onPlayEpisode = viewModel::playEpisode,
@@ -410,6 +406,7 @@ private fun HomeScreenFeedContent(
         selectedPodcastId = uiState.selectedPodcastId,
         selectedPodcastEpisodes = StableEpisodeList(uiState.selectedPodcastEpisodes),
         isSelectedPodcastLoading = uiState.isSelectedPodcastLoading,
+        isSelectedRssRefreshing = uiState.isSelectedRssRefreshing,
         episodePlaybackState = StablePlaybackStateMap(uiState.episodePlaybackState),
         isLoading = uiState.isLoading,
         isRecommendationsLoading = uiState.isRecommendationsLoading,
@@ -433,11 +430,6 @@ private fun HomeScreenFeedContent(
         onToggleSubscription = callbacks.onToggleSubscription,
         onTogglePlayback = callbacks.onTogglePlayback,
         onSelectCategory = callbacks.onSelectCategory,
-        showRegionNudge = uiState.showRegionNudge,
-        systemRegionCode = uiState.systemRegionCode,
-        activeRegionCode = uiState.activeRegionCode,
-        onSwitchRegion = callbacks.onSwitchRegion,
-        onDismissNudge = callbacks.onDismissNudge,
         showImportBanner = uiState.showImportBanner,
         onImportClick = callbacks.onImportClick,
         onAiOnboardingClick = callbacks.onAiOnboardingClick,
@@ -598,6 +590,7 @@ private fun PodcastFeed(
     selectedPodcastId: String? = null,
     selectedPodcastEpisodes: StableEpisodeList,
     isSelectedPodcastLoading: Boolean = false,
+    isSelectedRssRefreshing: Boolean = false,
     episodePlaybackState: StablePlaybackStateMap,
     isLoading: Boolean,
     isRecommendationsLoading: Boolean = true,
@@ -607,11 +600,6 @@ private fun PodcastFeed(
     onPlayMix: () -> Unit = {},
     onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit = { _, _, _ -> },
     downloadedEpisodeIds: Set<String> = emptySet(),
-    showRegionNudge: Boolean = false,
-    systemRegionCode: String = "",
-    activeRegionCode: String = "",
-    onSwitchRegion: (String) -> Unit = {},
-    onDismissNudge: () -> Unit = {},
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
@@ -710,20 +698,6 @@ private fun PodcastFeed(
         }
         }
 
-        // Region nudge: emitted only when visible so a hidden banner doesn't leave a
-        // phantom gap from the grid's item spacing.
-        if (showRegionNudge) {
-        item(span = StaggeredGridItemSpan.FullLine, key = "region_nudge", contentType = "region_nudge") {
-            cx.aswin.boxcast.feature.home.components.RegionMismatchNudgeBanner(
-                systemRegion = systemRegionCode,
-                activeRegion = activeRegionCode,
-                onSwitchRegion = onSwitchRegion,
-                onDismiss = onDismissNudge,
-                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
-            )
-        }
-        }
-
         // 2. "Your Shows" (Interactive selector grid & filtered stack)
         // Crossfades with the hero on the same viewportReady signal.
         if (isLoading || subscribedItems.list.isNotEmpty() || showImportBanner) {
@@ -749,6 +723,7 @@ private fun PodcastFeed(
                     selectedPodcastId = selectedPodcastId,
                     selectedPodcastEpisodes = selectedPodcastEpisodes,
                     isSelectedPodcastLoading = isSelectedPodcastLoading,
+                    isSelectedRssRefreshing = isSelectedRssRefreshing,
                     episodePlaybackState = episodePlaybackState,
                     currentPlayingEpisodeId = currentPlayingEpisodeId,
                     isPlaying = isPlaying,

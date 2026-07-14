@@ -1,9 +1,13 @@
 package cx.aswin.boxcast.core.data.database
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "podcasts")
+@Entity(
+    tableName = "podcasts",
+    indices = [Index(value = ["linkedPodcastIndexId"])],
+)
 data class PodcastEntity(
     @PrimaryKey
     val podcastId: String,
@@ -39,5 +43,27 @@ data class PodcastEntity(
     // User listening style preference: "newest" / "oldest" / null (use type-based default)
     val preferredSort: String? = null,
     val notificationsEnabled: Boolean = false,
-    val autoDownloadEnabled: Boolean = false
-)
+    val autoDownloadEnabled: Boolean = false,
+
+    // Catalog source. Podcast Index remains the default for existing rows.
+    val sourceType: String = SOURCE_PODCAST_INDEX,
+    val feedUrl: String? = null,
+    val feedEtag: String? = null,
+    val feedLastModified: String? = null,
+    val feedDeclaredUpdatedAt: Long? = null,
+    val rssRefreshCapability: String = RSS_REFRESH_MANUAL,
+    val lastRssSyncAt: Long = 0L,
+    val rssCatalogStale: Boolean = false,
+    val rssHasNewEpisodes: Boolean = false,
+    val linkedPodcastIndexId: String? = null,
+) {
+    val isRss: Boolean
+        get() = sourceType == SOURCE_RSS
+
+    companion object {
+        const val SOURCE_PODCAST_INDEX = "podcast_index"
+        const val SOURCE_RSS = "rss"
+        const val RSS_REFRESH_HEAD_VALIDATORS = "head_validators"
+        const val RSS_REFRESH_MANUAL = "manual"
+    }
+}

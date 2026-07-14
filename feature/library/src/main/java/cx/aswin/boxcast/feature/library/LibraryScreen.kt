@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -40,11 +37,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -53,8 +54,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.lerp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -120,6 +123,7 @@ fun LibraryScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryContent(
     uiState: LibraryUiState,
@@ -128,118 +132,143 @@ fun LibraryContent(
     onNavigateToDownloads: () -> Unit,
     onNavigateToHistory: () -> Unit
 ) {
-    // Background gradient for subtle depth
-    Box(
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val titleStyle = lerp(
+        start = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+        stop = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        fraction = scrollBehavior.state.collapsedFraction,
+    )
+
+    Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-        ) {
-            // === MAIN LIBRARY PAGE ===
-            Text(
-                text = "Library",
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 48.dp, bottom = 24.dp)
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surface,
+        topBar = {
+            LargeTopAppBar(
+                title = {
+                    Text(
+                        text = "Library",
+                        style = titleStyle,
+                    )
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
             )
-
-            // CONTENT
-            when (uiState) {
-                is LibraryUiState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+        },
+    ) { innerPadding ->
+        when (uiState) {
+            is LibraryUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
                 }
-                is LibraryUiState.Error -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Error loading library")
-                    }
+            }
+            is LibraryUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Error loading library")
                 }
-                is LibraryUiState.Success -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 180.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    ) {
-                        item {
-                            val subscriptionImages = (uiState as LibraryUiState.Success).subscribedPodcasts.take(3).map { it.imageUrl }
-                            val subShapes = listOf(
-                                ExpressiveShapes.Circle,
-                                ExpressiveShapes.Puffy,
-                                ExpressiveShapes.Diamond // Fallback to Circle/Diamond if Squircle missing or use Diamond
-                            ).map { if (it == ExpressiveShapes.Circle) ExpressiveShapes.Circle else it } // Just logic placeholder
-                            // Using: Circle, Puffy, Diamond (as Squircle replacement)
-                            val specificSubShapes = listOf(
-                                ExpressiveShapes.Circle,
-                                ExpressiveShapes.Puffy,
-                                ExpressiveShapes.Diamond
-                            )
-                            
-                            LibraryMenuCard(
-                                title = "Subscriptions",
-                                icon = Icons.Rounded.Add,
-                                onClick = onNavigateToSubscriptions,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                images = subscriptionImages,
-                                shapes = specificSubShapes
-                            )
-                        }
+            }
+            is LibraryUiState.Success -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 180.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                ) {
+                    item {
+                        val subscriptionImages = uiState.subscribedPodcasts.take(3).map { it.imageUrl }
+                        val specificSubShapes = listOf(
+                            ExpressiveShapes.Circle,
+                            ExpressiveShapes.Puffy,
+                            ExpressiveShapes.Diamond,
+                        )
 
-                        item {
-                            val likedImages = (uiState as LibraryUiState.Success).likedEpisodes.take(3).map { it.episodeImageUrl ?: it.podcastImageUrl ?: "" }
-                            val likedShapes = listOf(
-                                ExpressiveShapes.Heart,
-                                ExpressiveShapes.Star,
-                                ExpressiveShapes.SoftBurst
-                            )
-                            
-                            LibraryMenuCard(
-                                title = "Liked Episodes",
-                                icon = Icons.Rounded.Favorite,
-                                onClick = onNavigateToLiked,
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                images = likedImages,
-                                shapes = likedShapes
-                            )
-                        }
+                        LibraryMenuCard(
+                            title = "Subscriptions",
+                            icon = Icons.Rounded.Add,
+                            onClick = onNavigateToSubscriptions,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            images = subscriptionImages,
+                            shapes = specificSubShapes,
+                        )
+                    }
 
-                        item {
-                            val downloadImages = (uiState as LibraryUiState.Success).downloadedEpisodes.take(3).map { it.episodeImageUrl ?: it.podcastImageUrl ?: "" }
-                            val downloadShapes = listOf(
-                                ExpressiveShapes.Hexagon,
-                                ExpressiveShapes.Gem,
-                                ExpressiveShapes.Cookie4
-                            )
-                            
-                            LibraryMenuCard(
-                                title = "Downloads",
-                                icon = Icons.Rounded.DownloadDone,
-                                onClick = onNavigateToDownloads,
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                images = downloadImages,
-                                shapes = downloadShapes
-                            )
+                    item {
+                        val likedImages = uiState.likedEpisodes.take(3).map {
+                            it.episodeImageUrl ?: it.podcastImageUrl ?: ""
                         }
-                        item {
-                            val historyImages = (uiState as LibraryUiState.Success).recentHistory.take(3).map { it.episodeImageUrl ?: it.podcastImageUrl ?: "" }
-                            val historyShapes = listOf(
-                                ExpressiveShapes.Circle,
-                                ExpressiveShapes.Burst,
-                                ExpressiveShapes.Sunny
-                            )
-                            LibraryMenuCard(
-                                title = "Listening History",
-                                icon = Icons.Rounded.History,
-                                onClick = onNavigateToHistory,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                images = historyImages,
-                                shapes = historyShapes
-                            )
+                        val likedShapes = listOf(
+                            ExpressiveShapes.Heart,
+                            ExpressiveShapes.Star,
+                            ExpressiveShapes.SoftBurst,
+                        )
+
+                        LibraryMenuCard(
+                            title = "Liked Episodes",
+                            icon = Icons.Rounded.Favorite,
+                            onClick = onNavigateToLiked,
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            images = likedImages,
+                            shapes = likedShapes,
+                        )
+                    }
+
+                    item {
+                        val downloadImages = uiState.downloadedEpisodes.take(3).map {
+                            it.episodeImageUrl ?: it.podcastImageUrl ?: ""
                         }
+                        val downloadShapes = listOf(
+                            ExpressiveShapes.Hexagon,
+                            ExpressiveShapes.Gem,
+                            ExpressiveShapes.Cookie4,
+                        )
+
+                        LibraryMenuCard(
+                            title = "Downloads",
+                            icon = Icons.Rounded.DownloadDone,
+                            onClick = onNavigateToDownloads,
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            images = downloadImages,
+                            shapes = downloadShapes,
+                        )
+                    }
+
+                    item {
+                        val historyImages = uiState.recentHistory.take(3).map {
+                            it.episodeImageUrl ?: it.podcastImageUrl ?: ""
+                        }
+                        val historyShapes = listOf(
+                            ExpressiveShapes.Circle,
+                            ExpressiveShapes.Burst,
+                            ExpressiveShapes.Sunny,
+                        )
+                        LibraryMenuCard(
+                            title = "Listening History",
+                            icon = Icons.Rounded.History,
+                            onClick = onNavigateToHistory,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            images = historyImages,
+                            shapes = historyShapes,
+                        )
                     }
                 }
             }

@@ -11,6 +11,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
+import cx.aswin.boxcast.core.designsystem.component.AppNavigationBarHeight
+import cx.aswin.boxcast.core.designsystem.component.AppMiniPlayerHeight
+import cx.aswin.boxcast.core.designsystem.component.AppMiniPlayerNavGap
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -58,6 +61,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.lerp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -82,6 +86,11 @@ fun HistoryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showClearDialog by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val titleStyle = lerp(
+        start = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+        stop = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        fraction = scrollBehavior.state.collapsedFraction,
+    )
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
@@ -108,8 +117,11 @@ fun HistoryScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { 
-                    Text("Listening History", fontWeight = FontWeight.Bold) 
+                title = {
+                    Text(
+                        text = "Listening History",
+                        style = titleStyle,
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -146,7 +158,11 @@ fun HistoryScreen(
                         }
                     }
                 },
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
             )
         }
     ) { paddingValues ->
@@ -172,8 +188,23 @@ fun HistoryScreen(
                 }
                 is HistoryUiState.Success -> {
                     val pagerState = rememberPagerState(initialPage = 0) { 3 }
+                    val systemNavBarHeight = WindowInsets.navigationBars
+                        .asPaddingValues()
+                        .calculateBottomPadding()
+                    // Clear navbar + mini-player chrome so the last items can scroll past.
+                    val listBottomPadding =
+                        AppNavigationBarHeight +
+                            AppMiniPlayerHeight +
+                            AppMiniPlayerNavGap +
+                            systemNavBarHeight +
+                            24.dp
                     LazyColumn(
-                        contentPadding = PaddingValues(bottom = 120.dp, start = 16.dp, end = 16.dp, top = 8.dp),
+                        contentPadding = PaddingValues(
+                            bottom = listBottomPadding,
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                        ),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {

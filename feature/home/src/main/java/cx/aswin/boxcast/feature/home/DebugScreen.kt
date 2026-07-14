@@ -1,7 +1,9 @@
 package cx.aswin.boxcast.feature.home
 
 import android.app.Application
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,11 +24,14 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -122,7 +128,7 @@ fun DebugScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {
-                SectionCard("Sleep Prompt Testing", Icons.Rounded.Bedtime, isCollapsible = false) {
+                DebugSectionCard("Sleep Prompt Testing", Icons.Rounded.Bedtime, isCollapsible = false) {
                     SleepTestingSection(
                         state = SleepTestingState(
                             skipSleepWindow = skipSleepWindow,
@@ -142,7 +148,7 @@ fun DebugScreen(
             }
 
             item {
-                SectionCard("Playback State", Icons.Rounded.PlayCircle, isCollapsible = false) {
+                DebugSectionCard("Playback State", Icons.Rounded.PlayCircle, isCollapsible = false) {
                     PlaybackStateSection(
                         episodeTitle = playerState.currentEpisode?.title,
                         podcastTitle = playerState.currentPodcast?.title,
@@ -155,7 +161,7 @@ fun DebugScreen(
             }
 
             item {
-                SectionCard("DB Inspector", Icons.Rounded.Storage, isCollapsible = true, initiallyExpanded = false) {
+                DebugSectionCard("DB Inspector", Icons.Rounded.Storage, isCollapsible = true, initiallyExpanded = false) {
                     DbInspectorSection(
                         history = history,
                         podcasts = podcasts,
@@ -165,11 +171,77 @@ fun DebugScreen(
             }
 
             item {
-                SectionCard("Flags & Cache", Icons.Rounded.CleaningServices, isCollapsible = true, initiallyExpanded = false) {
+                DebugSectionCard("Flags & Cache", Icons.Rounded.CleaningServices, isCollapsible = true, initiallyExpanded = false) {
                     FlagsCacheSection(
                         onResetFeatureFlag = viewModel::resetFeatureFlag,
                         onClearDismissedCuriosities = viewModel::clearDismissedCuriosities
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebugSectionCard(
+    title: String,
+    icon: ImageVector,
+    isCollapsible: Boolean,
+    initiallyExpanded: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (isCollapsible) {
+                        Modifier.clickable { expanded = !expanded }
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(20.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp),
+                )
+                Spacer(Modifier.size(12.dp))
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (isCollapsible) {
+                    Icon(
+                        imageVector = if (expanded) {
+                            Icons.Rounded.KeyboardArrowUp
+                        } else {
+                            Icons.Rounded.KeyboardArrowDown
+                        },
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                    )
+                }
+            }
+            AnimatedVisibility(visible = !isCollapsible || expanded) {
+                Column(modifier = Modifier.padding(top = 20.dp)) {
+                    content()
                 }
             }
         }

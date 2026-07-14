@@ -123,6 +123,7 @@ class DefaultSmartQueueEngine(
 
         /** Bound network cost: max feed fetches while hunting for fallback episodes. */
         const val MAX_SUBSCRIPTION_FEED_FETCHES = 6
+        const val SUBSCRIPTION_CANDIDATE_LIMIT = 40
         const val MAX_TRENDING_FEED_FETCHES = 5
 
         private const val LOG_TAG = "SmartQueue"
@@ -412,9 +413,19 @@ class DefaultSmartQueueEngine(
         if (subs.isEmpty()) return emptyList()
 
         val history = runSuspendCatching { sources.getRecentHistory(300) }.getOrDefault(emptyList())
-        val scores = PodcastScoring.calculateScores(subs.map { it.toScorable() }, history)
+        val validSubs = subs.filter { sub ->
+            runCatching {
+                sub.id.isNotBlank() && sub.title.isNotBlank()
+            }.getOrDefault(false)
+        }
+        val scores = runCatching {
+            PodcastScoring.calculateScores(validSubs.map { it.toScorable() }, history)
+        }.getOrElse {
+            android.util.Log.e(LOG_TAG, "Tier 2 subscription scoring failed", it)
+            emptyMap()
+        }
 
-        val ranked = subs.asSequence()
+        val ranked = validSubs.asSequence()
             .filter { it.id != currentPodcast.id }
             .filter { !it.title.equals(currentPodcast.title, ignoreCase = true) }
             .filter { it.id !in recentPodcasts }
@@ -433,19 +444,31 @@ class DefaultSmartQueueEngine(
             if (results.size >= needed) break
 
             // Cheap path: the cached latest episode avoids a feed fetch entirely.
-            val cached = sub.latestEpisode
-            if (cached != null && cached.id !in exclude && cached.episodeType != "trailer" &&
-                cached.audioUrl.isNotBlank() && cached.id.toLongOrNull() != null
-            ) {
-                results += cached.toQueueEntry(sub, SmartQueueEngine.SOURCE_SUBSCRIPTION)
-                exclude.add(cached.id)
+            val cachedEntry = runCatching {
+                val cached = sub.latestEpisode
+                if (cached != null && cached.id !in exclude && cached.episodeType != "trailer" &&
+                    cached.audioUrl.isNotBlank() && cached.id.toLongOrNull() != null
+                ) {
+                    cached.toQueueEntry(sub, SmartQueueEngine.SOURCE_SUBSCRIPTION)
+                } else {
+                    null
+                }
+            }.onFailure {
+                android.util.Log.e(LOG_TAG, "Skipping malformed cached episode for ${sub.id}", it)
+            }.getOrNull()
+            if (cachedEntry != null) {
+                results += cachedEntry
+                exclude.add(cachedEntry.episode.id.toString())
                 continue
             }
 
             if (feedFetches >= MAX_SUBSCRIPTION_FEED_FETCHES) continue
             feedFetches++
-            val next = runSuspendCatching { sources.getEpisodes(sub.id) }.getOrDefault(emptyList())
-                .sortedByDescending { it.publishedDate }
+            val next = runSuspendCatching {
+                sources.getQueueCandidates(sub.id, SUBSCRIPTION_CANDIDATE_LIMIT)
+            }.onFailure {
+                android.util.Log.e(LOG_TAG, "Tier 2 candidates failed for ${sub.id}", it)
+            }.getOrDefault(emptyList())
                 .firstOrNull {
                     it.id !in exclude && it.episodeType != "trailer" &&
                         it.audioUrl.isNotBlank() && it.id.toLongOrNull() != null

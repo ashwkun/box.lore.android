@@ -58,6 +58,9 @@ interface ListeningHistoryDao {
     @Query("SELECT * FROM listening_history WHERE episodeId = :episodeId LIMIT 1")
     suspend fun getHistoryItem(episodeId: String): ListeningHistoryEntity?
 
+    @Query("SELECT * FROM listening_history WHERE podcastId = :podcastId")
+    suspend fun getHistoryForPodcast(podcastId: String): List<ListeningHistoryEntity>
+
     @Query("SELECT * FROM listening_history WHERE episodeId = :episodeId LIMIT 1")
     fun getHistoryItemFlow(episodeId: String): Flow<ListeningHistoryEntity?>
     
