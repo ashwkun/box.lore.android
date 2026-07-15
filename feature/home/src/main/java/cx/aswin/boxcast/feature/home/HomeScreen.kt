@@ -82,6 +82,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Briefing
+import cx.aswin.boxcast.core.data.content.ContentCandidate
 import cx.aswin.boxcast.core.data.content.ContentSection
 import cx.aswin.boxcast.feature.home.components.DailyBriefingCard
 
@@ -1091,92 +1092,136 @@ private fun LazyStaggeredGridScope.adaptiveSectionItem(
         key = "adaptive_${section.stableId}",
         contentType = "adaptive_section",
     ) {
-        val rowState = rememberLazyListState()
-        val sectionKey = "adaptive_${section.stableId}"
-        LaunchedEffect(section, gridState, rowState) {
-            snapshotFlow {
-                val sectionVisible = gridState.layoutInfo.visibleItemsInfo.any {
-                    it.key == sectionKey
-                }
-                if (sectionVisible) {
-                    rowState.layoutInfo.visibleItemsInfo
-                        .mapNotNull { it.key as? String }
-                        .toSet()
-                } else {
-                    emptySet()
-                }
-            }.distinctUntilChanged().collect { visibleCandidateIds ->
-                if (visibleCandidateIds.isNotEmpty()) {
-                    onAdaptiveSectionVisible(section, visibleCandidateIds)
-                }
-            }
+        AdaptiveSectionContent(
+            section = section,
+            gridState = gridState,
+            showHeader = showHeader,
+            onAdaptiveSectionVisible = onAdaptiveSectionVisible,
+            onPodcastClick = onPodcastClick,
+            onEpisodeClick = onEpisodeClick,
+        )
+    }
+}
+
+@Composable
+private fun AdaptiveSectionContent(
+    section: ContentSection,
+    gridState: LazyStaggeredGridState,
+    showHeader: Boolean,
+    onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
+    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
+) {
+    val rowState = rememberLazyListState()
+    AdaptiveSectionVisibilityEffect(
+        section = section,
+        gridState = gridState,
+        rowState = rowState,
+        onAdaptiveSectionVisible = onAdaptiveSectionVisible,
+    )
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.padding(bottom = 12.dp),
+    ) {
+        if (showHeader) {
+            AdaptiveSectionHeader(section)
         }
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(bottom = 12.dp),
+        LazyRow(
+            state = rowState,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (showHeader) {
-                Column {
-                    Text(
-                        text = section.intent.title,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontFamily = SectionHeaderFontFamily,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    )
-                    section.intent.subtitle?.let { subtitle ->
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            LazyRow(
-                state = rowState,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                lazyRowItems(
-                    items = section.items,
-                    key = { candidate -> candidate.id },
-                ) { candidate ->
-                    val episode = candidate.episode
-                    val onCandidateClick: () -> Unit = {
-                        if (episode == null) {
-                            onPodcastClick(
-                                candidate.podcast,
-                                "home_adaptive_${section.intent.id}",
-                                null,
-                                null,
-                            )
-                        } else {
-                            onEpisodeClick?.invoke(
-                                episode,
-                                candidate.podcast,
-                                "home_adaptive_${section.intent.id}",
-                            )
-                        }
-                        Unit
-                    }
-                    if (episode == null) {
-                        PodcastCard(
-                            podcast = candidate.podcast,
-                            onClick = onCandidateClick,
-                            modifier = Modifier.width(156.dp),
-                            showGenreChip = false,
-                        )
-                    } else {
-                        CuratedEpisodeCard(
-                            podcast = candidate.podcast,
-                            episode = episode,
-                            onClick = onCandidateClick,
-                            modifier = Modifier.width(156.dp),
-                        )
-                    }
-                }
+            lazyRowItems(
+                items = section.items,
+                key = ContentCandidate::id,
+            ) { candidate ->
+                AdaptiveCandidateCard(
+                    candidate = candidate,
+                    source = "home_adaptive_${section.intent.id}",
+                    onPodcastClick = onPodcastClick,
+                    onEpisodeClick = onEpisodeClick,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun AdaptiveSectionVisibilityEffect(
+    section: ContentSection,
+    gridState: LazyStaggeredGridState,
+    rowState: androidx.compose.foundation.lazy.LazyListState,
+    onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
+) {
+    val sectionKey = "adaptive_${section.stableId}"
+    LaunchedEffect(section, gridState, rowState) {
+        snapshotFlow {
+            val sectionVisible = gridState.layoutInfo.visibleItemsInfo.any {
+                it.key == sectionKey
+            }
+            if (sectionVisible) {
+                rowState.layoutInfo.visibleItemsInfo
+                    .mapNotNull { it.key as? String }
+                    .toSet()
+            } else {
+                emptySet()
+            }
+        }.distinctUntilChanged().collect { visibleCandidateIds ->
+            if (visibleCandidateIds.isNotEmpty()) {
+                onAdaptiveSectionVisible(section, visibleCandidateIds)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdaptiveSectionHeader(section: ContentSection) {
+    Column {
+        Text(
+            text = section.intent.title,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = SectionHeaderFontFamily,
+                fontWeight = FontWeight.Bold,
+            ),
+        )
+        section.intent.subtitle?.let { subtitle ->
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdaptiveCandidateCard(
+    candidate: ContentCandidate,
+    source: String,
+    onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
+    onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
+) {
+    val episode = candidate.episode
+    val onCandidateClick: () -> Unit = {
+        if (episode == null) {
+            onPodcastClick(candidate.podcast, source, null, null)
+        } else {
+            onEpisodeClick?.invoke(episode, candidate.podcast, source)
+        }
+    }
+    if (episode == null) {
+        PodcastCard(
+            podcast = candidate.podcast,
+            onClick = onCandidateClick,
+            modifier = Modifier.width(156.dp),
+            showGenreChip = false,
+        )
+    } else {
+        CuratedEpisodeCard(
+            podcast = candidate.podcast,
+            episode = episode,
+            onClick = onCandidateClick,
+            modifier = Modifier.width(156.dp),
+        )
     }
 }
 

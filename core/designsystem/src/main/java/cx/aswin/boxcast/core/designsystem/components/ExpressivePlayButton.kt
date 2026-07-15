@@ -17,16 +17,20 @@ import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.contrastColor
 
+data class ExpressivePlayButtonState(
+    val isPlaying: Boolean,
+    val isResume: Boolean,
+    val isLoading: Boolean = false,
+    val progress: Float = 0f,
+    val timeText: String? = null,
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExpressivePlayButton(
     onClick: () -> Unit,
-    isPlaying: Boolean,
-    isResume: Boolean,
+    state: ExpressivePlayButtonState,
     accentColor: Color,
-    isLoading: Boolean = false,
-    progress: Float = 0f,
-    timeText: String? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -35,32 +39,36 @@ fun ExpressivePlayButton(
         shape = CircleShape,
         modifier = modifier
             .widthIn(min = 160.dp)
-            .expressiveClickable(enabled = !isLoading, isolate = true, onClick = onClick)
+            .expressiveClickable(enabled = !state.isLoading, isolate = true, onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            PlayButtonProgressStrip(isResume = isResume, progress = progress, accentColor = accentColor)
+            PlayButtonProgressStrip(
+                isResume = state.isResume,
+                progress = state.progress,
+                accentColor = accentColor,
+            )
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.padding(horizontal = 14.dp)
             ) {
-                if (isLoading) {
+                if (state.isLoading) {
                     BoxLoreLoader.CircularWavy(
                         size = 24.dp,
                         color = accentColor.contrastColor(),
                     )
                 } else {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Pause" else "Play",
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 
                 Text(
-                    text = getPlayButtonDisplayText(isLoading, isPlaying, isResume, timeText),
+                    text = getPlayButtonDisplayText(state),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -99,16 +107,13 @@ private fun PlayButtonProgressStrip(
 }
 
 private fun getPlayButtonDisplayText(
-    isLoading: Boolean,
-    isPlaying: Boolean,
-    isResume: Boolean,
-    timeText: String?
+    state: ExpressivePlayButtonState,
 ): String {
     return when {
-        isLoading -> "Loading"
-        isPlaying -> "Pause"
-        isResume && timeText != null -> "Resume • $timeText"
-        isResume -> "Resume"
+        state.isLoading -> "Loading"
+        state.isPlaying -> "Pause"
+        state.isResume && state.timeText != null -> "Resume • ${state.timeText}"
+        state.isResume -> "Resume"
         else -> "Play"
     }
 }

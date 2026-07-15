@@ -2471,11 +2471,13 @@ fun EpisodeListItem(
                 // Play Button
                 cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
                     onClick = onPlayClick,
-                    isPlaying = isPlaying, 
-                    isResume = isResume,
+                    state = cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButtonState(
+                        isPlaying = isPlaying,
+                        isResume = isResume,
+                        progress = progress,
+                        timeText = timeLeft,
+                    ),
                     accentColor = accentColor,
-                    progress = progress,
-                    timeText = timeLeft,
                     modifier = Modifier
                         .height(44.dp)
                         .padding(start = 16.dp)

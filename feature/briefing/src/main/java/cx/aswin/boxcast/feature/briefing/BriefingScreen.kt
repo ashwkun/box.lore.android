@@ -104,6 +104,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton
+import cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButtonState
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
@@ -765,11 +766,13 @@ fun BriefingContent(
             // Prominent Play Briefing Button
             ExpressivePlayButton(
                 onClick = { onPlayPauseClick(null) },
-                isPlaying = isPlaying,
-                isResume = isResume,
+                state = ExpressivePlayButtonState(
+                    isPlaying = isPlaying,
+                    isResume = isResume,
+                    progress = progress,
+                    timeText = timeText,
+                ),
                 accentColor = accentColor,
-                progress = progress,
-                timeText = timeText,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)

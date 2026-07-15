@@ -45,17 +45,21 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
 import cx.aswin.boxcast.core.model.Episode
 
+internal data class EpisodeRecommendationState(
+    val title: String,
+    val icon: ImageVector,
+    val episodes: List<Episode>,
+    val loading: Boolean,
+    val accentColor: Color,
+    val fallbackImageUrl: String?,
+    val emptyMessage: String? = null,
+)
+
 @Composable
 internal fun EpisodeRecommendationSection(
-    title: String,
-    icon: ImageVector,
-    episodes: List<Episode>,
-    loading: Boolean,
-    accentColor: Color,
-    fallbackImageUrl: String?,
+    state: EpisodeRecommendationState,
     onEpisodeClick: (Episode) -> Unit,
     modifier: Modifier = Modifier,
-    emptyMessage: String? = null,
     onHeaderClick: (() -> Unit)? = null,
     onScrollStarted: (() -> Unit)? = null,
 ) {
@@ -90,14 +94,14 @@ internal fun EpisodeRecommendationSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = icon,
+                    imageVector = state.icon,
                     contentDescription = null,
-                    tint = accentColor,
+                    tint = state.accentColor,
                     modifier = Modifier.size(22.dp),
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = title,
+                    text = state.title,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Black,
@@ -108,7 +112,7 @@ internal fun EpisodeRecommendationSection(
                 if (onHeaderClick != null) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                        contentDescription = "Open $title",
+                        contentDescription = "Open ${state.title}",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -120,19 +124,18 @@ internal fun EpisodeRecommendationSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 when {
-                    loading -> items(4) { RecommendationSkeleton() }
-                    episodes.isNotEmpty() -> items(episodes, key = { it.id }) { episode ->
+                    state.loading -> items(4) { RecommendationSkeleton() }
+                    state.episodes.isNotEmpty() -> items(state.episodes, key = { it.id }) { episode ->
                         ExpressiveEpisodeCard(
                             episode = episode,
                             imageUrl = episode.imageUrl?.ifBlank { episode.podcastImageUrl }
-                                ?: fallbackImageUrl,
-                            accentColor = accentColor,
+                                ?: state.fallbackImageUrl,
                             onClick = { onEpisodeClick(episode) },
                         )
                     }
-                    emptyMessage != null -> item {
+                    state.emptyMessage != null -> item {
                         Text(
-                            text = emptyMessage,
+                            text = state.emptyMessage,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 24.dp, horizontal = 4.dp),
@@ -148,7 +151,6 @@ internal fun EpisodeRecommendationSection(
 private fun ExpressiveEpisodeCard(
     episode: Episode,
     imageUrl: String?,
-    accentColor: Color,
     onClick: () -> Unit,
 ) {
     OutlinedCard(

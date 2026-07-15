@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton
+import cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButtonState
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
@@ -101,12 +102,14 @@ internal fun EpisodeActionRail(
     ) {
         ExpressivePlayButton(
             onClick = callbacks.onMainActionClick,
-            isPlaying = state.isPlaying,
-            isLoading = state.isPlaybackLoading,
-            isResume = state.isResume,
+            state = ExpressivePlayButtonState(
+                isPlaying = state.isPlaying,
+                isLoading = state.isPlaybackLoading,
+                isResume = state.isResume,
+                progress = state.progress,
+                timeText = state.remainingTimeText,
+            ),
             accentColor = accentColor,
-            progress = state.progress,
-            timeText = state.remainingTimeText,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp),

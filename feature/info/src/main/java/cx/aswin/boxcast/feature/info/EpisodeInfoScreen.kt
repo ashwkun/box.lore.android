@@ -77,9 +77,25 @@ import cx.aswin.boxcast.feature.info.components.EpisodeActionRailState
 import cx.aswin.boxcast.feature.info.components.EpisodeArtworkBackdrop
 import cx.aswin.boxcast.feature.info.components.EpisodeInfoHero
 import cx.aswin.boxcast.feature.info.components.EpisodeRecommendationSection
+import cx.aswin.boxcast.feature.info.components.EpisodeRecommendationState
 
 private const val HERO_ITEM_KEY = "episode_hero"
 private const val ACTION_RAIL_ITEM_KEY = "episode_action_rail"
+
+private data class EpisodeInfoSuccessFlags(
+    val liked: Boolean,
+    val completed: Boolean,
+    val queued: Boolean,
+    val downloaded: Boolean,
+    val downloading: Boolean,
+    val showMarkPlayedTip: Boolean,
+)
+
+private data class EpisodeInfoSuccessActions(
+    val onPodcastClick: (String) -> Unit,
+    val onEpisodeClick: (Episode) -> Unit,
+    val onMarkPlayedTipDismissed: () -> Unit,
+)
 
 @Composable
 fun EpisodeInfoScreen(
@@ -144,17 +160,21 @@ fun EpisodeInfoScreen(
         EpisodeInfoUiState.Error -> EpisodeInfoError(modifier)
         is EpisodeInfoUiState.Success -> EpisodeInfoSuccess(
             state = state,
-            liked = state.episode.id in likedEpisodeIds,
-            completed = state.episode.id in completedEpisodeIds,
-            queued = state.episode.id in queuedEpisodeIds,
-            downloaded = isDownloaded,
-            downloading = isDownloading,
+            flags = EpisodeInfoSuccessFlags(
+                liked = state.episode.id in likedEpisodeIds,
+                completed = state.episode.id in completedEpisodeIds,
+                queued = state.episode.id in queuedEpisodeIds,
+                downloaded = isDownloaded,
+                downloading = isDownloading,
+                showMarkPlayedTip = showMarkPlayedTip,
+            ),
             viewModel = viewModel,
             entryPointContext = entryPointContext,
-            onPodcastClick = onPodcastClick,
-            onEpisodeClick = onEpisodeClick,
-            showMarkPlayedTip = showMarkPlayedTip,
-            onMarkPlayedTipDismissed = onMarkPlayedTipDismissed,
+            actions = EpisodeInfoSuccessActions(
+                onPodcastClick = onPodcastClick,
+                onEpisodeClick = onEpisodeClick,
+                onMarkPlayedTipDismissed = onMarkPlayedTipDismissed,
+            ),
             bottomContentPadding = bottomContentPadding,
             modifier = modifier,
         )
@@ -164,51 +184,21 @@ fun EpisodeInfoScreen(
 @Composable
 private fun EpisodeInfoSuccess(
     state: EpisodeInfoUiState.Success,
-    liked: Boolean,
-    completed: Boolean,
-    queued: Boolean,
-    downloaded: Boolean,
-    downloading: Boolean,
+    flags: EpisodeInfoSuccessFlags,
     viewModel: EpisodeInfoViewModel,
     entryPointContext: Bundle?,
-    onPodcastClick: (String) -> Unit,
-    onEpisodeClick: (Episode) -> Unit,
-    showMarkPlayedTip: Boolean,
-    onMarkPlayedTipDismissed: () -> Unit,
+    actions: EpisodeInfoSuccessActions,
     bottomContentPadding: Dp,
     modifier: Modifier,
 ) {
-    val context = LocalContext.current
     val density = LocalDensity.current
     val listState = rememberLazyListState()
     var showShareSheet by remember { mutableStateOf(false) }
-    var extractedColor by remember(state.episode.id) { mutableStateOf(Color.Unspecified) }
     val artworkUrl = state.episode.imageUrl?.ifBlank { state.episode.podcastImageUrl }
     val podcastArtworkUrl = state.episode.podcastImageUrl?.ifBlank { state.episode.imageUrl }
-    val palettePainter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(context)
-            .data(podcastArtworkUrl)
-            .allowHardware(false)
-            .build(),
-    )
-
-    LaunchedEffect(palettePainter.state) {
-        val painterState = palettePainter.state
-        if (painterState is AsyncImagePainter.State.Success) {
-            val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
-            if (bitmap != null) extractedColor = extractArtworkColor(bitmap)
-        }
-    }
-
-    val paletteColor = if (extractedColor == Color.Unspecified) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        extractedColor
-    }
-    val accentColor by animateColorAsState(
-        targetValue = lerp(paletteColor, MaterialTheme.colorScheme.primary, 0.14f),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "episode_accent",
+    val accentColor = rememberEpisodeAccentColor(
+        episodeId = state.episode.id,
+        artworkUrl = podcastArtworkUrl,
     )
     val collapseThresholdPx = with(density) { 320.dp.toPx() }
     val scrollOffset by remember {
@@ -240,11 +230,11 @@ private fun EpisodeInfoSuccess(
         isPlaying = state.isPlaying,
         isPlaybackLoading = state.isPlaybackLoading,
         isResume = state.resumePositionMs > 0L,
-        isLiked = liked,
-        isDownloaded = downloaded,
-        isDownloading = downloading,
-        isQueued = queued,
-        isCompleted = completed,
+        isLiked = flags.liked,
+        isDownloaded = flags.downloaded,
+        isDownloading = flags.downloading,
+        isQueued = flags.queued,
+        isCompleted = flags.completed,
         progress = progress,
         remainingTimeText = formatRemainingTime(state.durationMs - state.resumePositionMs),
     )
@@ -291,7 +281,7 @@ private fun EpisodeInfoSuccess(
                     collapseFraction = collapseFraction,
                     onPodcastClick = {
                         viewModel.onPodcastLinkClicked()
-                        onPodcastClick(state.podcastId)
+                        actions.onPodcastClick(state.podcastId)
                     },
                 )
             }
@@ -300,8 +290,8 @@ private fun EpisodeInfoSuccess(
                     state = actionState,
                     callbacks = callbacks,
                     accentColor = accentColor,
-                    showMarkPlayedTip = showMarkPlayedTip,
-                    onMarkPlayedTipDismissed = onMarkPlayedTipDismissed,
+                    showMarkPlayedTip = flags.showMarkPlayedTip,
+                    onMarkPlayedTipDismissed = actions.onMarkPlayedTipDismissed,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -309,7 +299,7 @@ private fun EpisodeInfoSuccess(
                 item(key = "cross_promotion") {
                     CrossPromotionCard(
                         crossPromotion = crossPromotion,
-                        onPodcastClick = onPodcastClick,
+                        onPodcastClick = actions.onPodcastClick,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
@@ -329,33 +319,37 @@ private fun EpisodeInfoSuccess(
             if (state.similarEpisodesLoading || state.similarEpisodes.isNotEmpty()) {
                 item(key = "similar_episodes") {
                     EpisodeRecommendationSection(
-                        title = "More Like This",
-                        icon = Icons.Rounded.AutoAwesome,
-                        episodes = state.similarEpisodes,
-                        loading = state.similarEpisodesLoading,
-                        accentColor = accentColor,
-                        fallbackImageUrl = state.episode.podcastImageUrl,
-                        onEpisodeClick = onEpisodeClick,
+                        state = EpisodeRecommendationState(
+                            title = "More Like This",
+                            icon = Icons.Rounded.AutoAwesome,
+                            episodes = state.similarEpisodes,
+                            loading = state.similarEpisodesLoading,
+                            accentColor = accentColor,
+                            fallbackImageUrl = state.episode.podcastImageUrl,
+                        ),
+                        onEpisodeClick = actions.onEpisodeClick,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
             }
             item(key = "related_episodes") {
                 EpisodeRecommendationSection(
-                    title = "More from ${state.podcastTitle}",
-                    icon = Icons.Rounded.Subscriptions,
-                    episodes = state.relatedEpisodes,
-                    loading = state.relatedEpisodesLoading,
-                    accentColor = accentColor,
-                    fallbackImageUrl = state.episode.podcastImageUrl,
-                    emptyMessage = "No other episodes available",
+                    state = EpisodeRecommendationState(
+                        title = "More from ${state.podcastTitle}",
+                        icon = Icons.Rounded.Subscriptions,
+                        episodes = state.relatedEpisodes,
+                        loading = state.relatedEpisodesLoading,
+                        accentColor = accentColor,
+                        fallbackImageUrl = state.episode.podcastImageUrl,
+                        emptyMessage = "No other episodes available",
+                    ),
                     onHeaderClick = {
                         viewModel.onPodcastLinkClicked()
-                        onPodcastClick(state.podcastId)
+                        actions.onPodcastClick(state.podcastId)
                     },
                     onEpisodeClick = { episode ->
                         viewModel.onRelatedEpisodeClicked()
-                        onEpisodeClick(episode)
+                        actions.onEpisodeClick(episode)
                     },
                     onScrollStarted = viewModel::onRelatedEpisodesScrolled,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -381,28 +375,79 @@ private fun EpisodeInfoSuccess(
         )
     }
 
-    if (showShareSheet) {
-        ShareBottomSheet(
-            id = state.episode.id,
-            type = "episode",
-            title = state.episode.title,
-            subtitle = state.podcastTitle,
-            imageUrl = artworkUrl,
-            onDismissRequest = { showShareSheet = false },
-            durationMs = state.episode.duration * 1_000L,
-            currentPositionMs = state.resumePositionMs,
-            showTimestampOption = false,
-            onShare = { _, _, timestamp, target ->
-                ShareManager.shareEpisode(
-                    context = context,
-                    episode = state.episode,
-                    podcastTitle = state.podcastTitle,
-                    timestampMs = timestamp,
-                    target = target,
-                )
-            },
-        )
+    EpisodeShareSheet(
+        visible = showShareSheet,
+        state = state,
+        artworkUrl = artworkUrl,
+        onDismiss = { showShareSheet = false },
+    )
+}
+
+@Composable
+private fun rememberEpisodeAccentColor(
+    episodeId: String,
+    artworkUrl: String?,
+): Color {
+    val context = LocalContext.current
+    var extractedColor by remember(episodeId) { mutableStateOf(Color.Unspecified) }
+    val palettePainter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(artworkUrl)
+            .allowHardware(false)
+            .build(),
+    )
+
+    LaunchedEffect(palettePainter.state) {
+        val painterState = palettePainter.state
+        if (painterState is AsyncImagePainter.State.Success) {
+            val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
+            if (bitmap != null) extractedColor = extractArtworkColor(bitmap)
+        }
     }
+
+    val paletteColor = if (extractedColor == Color.Unspecified) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        extractedColor
+    }
+    val accentColor by animateColorAsState(
+        targetValue = lerp(paletteColor, MaterialTheme.colorScheme.primary, 0.14f),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "episode_accent",
+    )
+    return accentColor
+}
+
+@Composable
+private fun EpisodeShareSheet(
+    visible: Boolean,
+    state: EpisodeInfoUiState.Success,
+    artworkUrl: String?,
+    onDismiss: () -> Unit,
+) {
+    if (!visible) return
+
+    val context = LocalContext.current
+    ShareBottomSheet(
+        id = state.episode.id,
+        type = "episode",
+        title = state.episode.title,
+        subtitle = state.podcastTitle,
+        imageUrl = artworkUrl,
+        onDismissRequest = onDismiss,
+        durationMs = state.episode.duration * 1_000L,
+        currentPositionMs = state.resumePositionMs,
+        showTimestampOption = false,
+        onShare = { _, _, timestamp, target ->
+            ShareManager.shareEpisode(
+                context = context,
+                episode = state.episode,
+                podcastTitle = state.podcastTitle,
+                timestampMs = timestamp,
+                target = target,
+            )
+        },
+    )
 }
 
 @Composable
