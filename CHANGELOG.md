@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- In-app announcement dialog extracted to InAppAnnouncementDialog with category layout presets; Play Store installs suppress What’s New / NEW RELEASE GitHub-download prompts; release announce payloads support up to five changelog bullets; PostHog viewed/dismissed/action events for announcements ([#870](https://github.com/ashwkun/boxlore/pull/870)) <!-- impact:user-impact-medium -->
+- RSS feed subscription (on‑device HTTPS fetch, 25 MB cap) with Podcasting 2.0 parsing, new `rss_episodes` table and deterministic `rss:` IDs; Settings hub replacing Profile screen with six sub‑pages (Appearance, Playback, Downloads, Library, Privacy, About); custom HSV accent colour and three named background styles; privacy disclosures page, public website, reset‑analytics‑ID and deletion‑request flows; backup format v3 and OPML import/export that restores RSS feeds via URL re‑fetch. ([#874](https://github.com/ashwkun/boxlore/pull/874)) <!-- impact:user-impact-high -->
+- In‑app announcement dialog extracted to InAppAnnouncementDialog with category layout presets; Play Store install suppression of What’s New / NEW RELEASE GitHub‑download prompts; release announce payloads now support up to five changelog bullets; PostHog events (viewed, dismissed, action) emitted for announcements. ([#870](https://github.com/ashwkun/boxlore/pull/870)) <!-- impact:user-impact-medium -->
 ### Changed
-- Announcement dialog no longer dismisses on outside tap or system back; only the top‑right X or Dismiss clears it (primary CTA still clears after opening the route) ([#870](https://github.com/ashwkun/boxlore/pull/870)) <!-- impact:user-impact-medium -->
-### Fixed
-- Orphan release/v* branches are now automatically deleted after a successful publish by enabling delete_branch_on_merge and invoking prepare_release.py delete-release-branch in the CI pipeline ([#871](https://github.com/ashwkun/boxlore/pull/871)) <!-- impact:no-user-impact -->
+- Navigation, library and player UI migrated to Material 3 components (ShortNavigationBar, collapsing large titles, revised player sheet settle to eliminate overshoot and keep mini‑player controls responsive); region controls redesign – removal of nudge banners, addition of segmented selector in Settings and region chip on Explore charts header; toolchain and dependencies upgraded to AGP 8.10.1, Kotlin 2.4.0, KSP 2.3.10, Room 2.8.4, and rss‑parser 6.1.7. ([#874](https://github.com/ashwkun/boxlore/pull/874)) <!-- impact:user-impact-high -->
+- Announcement dialog no longer dismisses on outside tap or system back; only top‑right X or Dismiss button clears it (primary CTA still clears after opening the route). ([#870](https://github.com/ashwkun/boxlore/pull/870)) <!-- impact:user-impact-medium -->
+- CI pipeline now automatically deletes orphan release/v* branches after successful publish by enabling `delete_branch_on_merge` and invoking `prepare_release.py delete‑release‑branch`. ([#871](https://github.com/ashwkun/boxlore/pull/871)) <!-- impact:no-user-impact -->
 ## [v0.0.8] - 2026-07-12
 
 ### Added

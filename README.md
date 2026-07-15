@@ -55,9 +55,13 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 <details open>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
+<b>🆕 New features:</b>
+<ul align="left">
+<li>Add RSS feed subscriptions, a new multi‑page Settings hub, accent colors, privacy page, backup/OPML import, and updated navigation UI. <a href="https://github.com/ashwkun/boxlore/pull/874"><img src="https://img.shields.io/badge/PR-874-6750A4?style=flat-square" alt="PR #874" height="18"/></a></li>
+</ul>
 <b>⚡ Improvements:</b>
 <ul align="left">
-<li>Announcements stay on screen until you tap the X or Dismiss, and Play Store installs no longer show extra “What’s New” prompts. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
+<li>Announcement dialogs stay until you tap X or Dismiss, and extra install prompts are hidden, giving clearer release notes. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
 </ul>
 <p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
 </details>
