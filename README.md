@@ -57,12 +57,13 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
 <b>🆕 New features:</b>
 <ul align="left">
-<li>Add RSS feed subscriptions with on‑device fetch, a new Settings hub, backup/restore of feeds, and a refreshed navigation and player UI. <a href="https://github.com/ashwkun/boxlore/pull/874"><img src="https://img.shields.io/badge/PR-874-6750A4?style=flat-square" alt="PR #874" height="18"/></a></li>
-<li>Set intro/outro trim lengths globally or per podcast, and customize seek forward/backward steps in the player and Android Auto. <a href="https://github.com/ashwkun/boxlore/pull/875"><img src="https://img.shields.io/badge/PR-875-6750A4?style=flat-square" alt="PR #875" height="18"/></a></li>
+<li>Subscribe to RSS feeds, import/export OPML, and enjoy a new Settings hub with custom accent colors and privacy controls. <a href="https://github.com/ashwkun/boxlore/pull/874"><img src="https://img.shields.io/badge/PR-874-6750A4?style=flat-square" alt="PR #874" height="18"/></a></li>
+<li>Set intro/outro trim lengths and adjust seek steps for faster forward/backward jumps. <a href="https://github.com/ashwkun/boxlore/pull/875"><img src="https://img.shields.io/badge/PR-875-6750A4?style=flat-square" alt="PR #875" height="18"/></a></li>
+<li>Experience smarter episode suggestions with adaptive ranking across Home, Discovery, Queue and Downloads. <a href="https://github.com/ashwkun/boxlore/pull/876"><img src="https://img.shields.io/badge/PR-876-6750A4?style=flat-square" alt="PR #876" height="18"/></a></li>
 </ul>
 <b>⚡ Improvements:</b>
 <ul align="left">
-<li>Announcement dialogs now stay until you tap X or Dismiss, and Play Store installs no longer show extra “What’s New” prompts. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
+<li>Announcement dialogs stay until you tap X or Dismiss, and Play Store prompts are no longer shown. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
 </ul>
 <p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
 </details>
