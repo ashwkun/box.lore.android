@@ -51,6 +51,7 @@ import cx.aswin.boxcast.feature.home.settings.pages.PlaybackActions
 import cx.aswin.boxcast.feature.home.settings.pages.PlaybackSettingsPage
 import cx.aswin.boxcast.feature.home.settings.pages.PlaybackUiState
 import cx.aswin.boxcast.feature.home.settings.pages.PrivacySettingsPage
+import cx.aswin.boxcast.feature.home.settings.pages.PrivacySettingsActions
 import cx.aswin.boxcast.feature.home.settings.pages.SettingsHub
 
 /** Where to send the user for the two Downloads settings sub-screens. */
@@ -235,11 +236,15 @@ fun SettingsScreen(
             ProfileSettingsDestination.Privacy -> PrivacySettingsPage(
                 deletionId = deletionId,
                 isDeletionExpanded = isDeletionExpanded,
-                onDeletionExpandedChange = { isDeletionExpanded = it },
-                onResetIdentityClick = { showResetDialog = true },
-                onResetRecommendationsClick = settingsViewModel::resetRecommendations,
-                onCopyDeletionId = { copyDeletionId(context, deletionId) },
-                onEmailDeletionRequest = { requestAnalyticsDeletionByEmail(context, deletionId) },
+                actions = PrivacySettingsActions(
+                    onDeletionExpandedChange = { isDeletionExpanded = it },
+                    onResetIdentityClick = { showResetDialog = true },
+                    onResetRecommendationsClick = settingsViewModel::resetRecommendations,
+                    onCopyDeletionId = { copyDeletionId(context, deletionId) },
+                    onEmailDeletionRequest = {
+                        requestAnalyticsDeletionByEmail(context, deletionId)
+                    },
+                ),
                 onBack = returnToHub,
             )
 

@@ -50,15 +50,19 @@ import cx.aswin.boxcast.feature.home.settings.components.SettingsScaffold
 
 private const val GroqOnboardingModel = "openai/gpt-oss-120b"
 
+internal data class PrivacySettingsActions(
+    val onDeletionExpandedChange: (Boolean) -> Unit,
+    val onResetIdentityClick: () -> Unit,
+    val onResetRecommendationsClick: () -> Unit,
+    val onCopyDeletionId: () -> Unit,
+    val onEmailDeletionRequest: () -> Unit,
+)
+
 @Composable
 internal fun PrivacySettingsPage(
     deletionId: String,
     isDeletionExpanded: Boolean,
-    onDeletionExpandedChange: (Boolean) -> Unit,
-    onResetIdentityClick: () -> Unit,
-    onResetRecommendationsClick: () -> Unit,
-    onCopyDeletionId: () -> Unit,
-    onEmailDeletionRequest: () -> Unit,
+    actions: PrivacySettingsActions,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(
@@ -170,7 +174,7 @@ internal fun PrivacySettingsPage(
                     icon = Icons.Rounded.Refresh,
                     destructive = false,
                     actionLabel = "Reset",
-                    onAction = onResetRecommendationsClick,
+                    onAction = actions.onResetRecommendationsClick,
                     expansion = null,
                 )
             }
@@ -190,7 +194,7 @@ internal fun PrivacySettingsPage(
                         icon = Icons.Rounded.Refresh,
                         destructive = false,
                         actionLabel = "Reset ID",
-                        onAction = onResetIdentityClick,
+                        onAction = actions.onResetIdentityClick,
                         expansion = null,
                     )
 
@@ -200,15 +204,19 @@ internal fun PrivacySettingsPage(
                         icon = Icons.Rounded.DeleteForever,
                         destructive = true,
                         actionLabel = if (isDeletionExpanded) "Hide" else "Show ID",
-                        onAction = { onDeletionExpandedChange(!isDeletionExpanded) },
+                        onAction = {
+                            actions.onDeletionExpandedChange(!isDeletionExpanded)
+                        },
                         expansion = AnalyticsCardExpansion(
                             expanded = isDeletionExpanded,
-                            onToggleExpand = { onDeletionExpandedChange(!isDeletionExpanded) },
+                            onToggleExpand = {
+                                actions.onDeletionExpandedChange(!isDeletionExpanded)
+                            },
                             content = {
                                 DeletionRequestPanel(
                                     deletionId = deletionId,
-                                    onCopyDeletionId = onCopyDeletionId,
-                                    onEmailDeletionRequest = onEmailDeletionRequest,
+                                    onCopyDeletionId = actions.onCopyDeletionId,
+                                    onEmailDeletionRequest = actions.onEmailDeletionRequest,
                                 )
                             },
                         ),
