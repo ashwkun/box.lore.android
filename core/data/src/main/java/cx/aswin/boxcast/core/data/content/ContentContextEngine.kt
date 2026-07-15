@@ -52,37 +52,39 @@ data class ContentCatalogSnapshot(
 class ContentContextEngine(
     private val clock: Clock = Clock.systemDefaultZone(),
 ) {
-    fun create(
-        surface: RankingSurface,
-        region: String,
-        isDriving: Boolean,
-        isOnline: Boolean,
-        availableMinutes: Int?,
-        currentEpisodeId: String?,
-        currentPodcastId: String?,
-        historyMaturity: Int,
-        subscriptionCount: Int,
-        sessionId: String,
-    ): ContentContext {
+    fun create(input: ContentContextInput): ContentContext {
         val local = ZonedDateTime.now(clock)
         val minuteOfDay = local.hour * 60 + local.minute
         return ContentContext(
-            surface = surface,
+            surface = input.surface,
             localMinuteOfDay = minuteOfDay,
             weekday = local.dayOfWeek.value,
             daypart = minuteOfDay.toDaypart(),
-            region = region.ifBlank { "us" },
-            isDriving = isDriving,
-            isOnline = isOnline,
-            availableMinutes = availableMinutes?.coerceAtLeast(0),
-            currentEpisodeId = currentEpisodeId,
-            currentPodcastId = currentPodcastId,
-            historyMaturity = historyMaturity,
-            subscriptionCount = subscriptionCount,
-            sessionId = sessionId,
+            region = input.region.ifBlank { "us" },
+            isDriving = input.isDriving,
+            isOnline = input.isOnline,
+            availableMinutes = input.availableMinutes?.coerceAtLeast(0),
+            currentEpisodeId = input.currentEpisodeId,
+            currentPodcastId = input.currentPodcastId,
+            historyMaturity = input.historyMaturity,
+            subscriptionCount = input.subscriptionCount,
+            sessionId = input.sessionId,
         )
     }
 }
+
+data class ContentContextInput(
+    val surface: RankingSurface,
+    val region: String,
+    val isDriving: Boolean,
+    val isOnline: Boolean,
+    val availableMinutes: Int?,
+    val currentEpisodeId: String?,
+    val currentPodcastId: String?,
+    val historyMaturity: Int,
+    val subscriptionCount: Int,
+    val sessionId: String,
+)
 
 class ContentIntentResolver {
     fun resolve(

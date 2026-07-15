@@ -233,11 +233,13 @@ class SmartDownloadManager(
         historyByEpisode: Map<String, ListeningHistoryEntity>
     ): Pair<PodcastEntity, Episode>? {
         val sort = pod.preferredSort ?: "newest"
-        val ep = if (sort == "oldest") {
+        val resolvedEpisode = if (sort == "oldest") {
             resolvedSerial[pod.podcastId] ?: pod.latestEpisode
         } else {
             pod.latestEpisode
-        } ?: return null
+        }
+        if (resolvedEpisode == null) return null
+        val ep = resolvedEpisode
 
         val history = historyByEpisode[ep.id]
         val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)

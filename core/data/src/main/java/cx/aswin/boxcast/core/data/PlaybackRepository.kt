@@ -2457,7 +2457,9 @@ class PlaybackRepository(
                 episodeImageUrl = episode.imageUrl,
                 podcastImageUrl = episode.podcastImageUrl ?: podcast?.imageUrl,
                 episodeAudioUrl = episode.audioUrl,
-                podcastName = episode.podcastTitle ?: podcast?.title ?: "Unknown Podcast",
+                podcastName = episode.podcastTitle.orEmpty().ifBlank {
+                    podcast?.title ?: "Unknown Podcast"
+                },
                 progressMs = 0L, // Reset progress on completion
                 durationMs = episode.duration * 1000L,
                 isCompleted = true,

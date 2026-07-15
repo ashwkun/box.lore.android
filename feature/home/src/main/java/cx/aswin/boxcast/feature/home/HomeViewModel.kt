@@ -15,6 +15,7 @@ import cx.aswin.boxcast.core.data.HomeBootstrapData
 import cx.aswin.boxcast.core.data.toScorable
 import cx.aswin.boxcast.core.data.content.AdaptiveContentCandidateRanker
 import cx.aswin.boxcast.core.data.content.ContentContextEngine
+import cx.aswin.boxcast.core.data.content.ContentContextInput
 import cx.aswin.boxcast.core.data.content.ContentOrchestrator
 import cx.aswin.boxcast.core.data.content.ContentSection
 import cx.aswin.boxcast.core.data.content.PodcastCandidateProvider
@@ -859,16 +860,18 @@ class HomeViewModel(
                 val history = playbackRepository.getAllHistory().first()
                 val latestHistory = history.maxByOrNull(ListeningHistoryEntity::lastPlayedAt)
                 val context = contentContextEngine.create(
-                    surface = RankingSurface.HOME,
-                    region = region,
-                    isDriving = false,
-                    isOnline = true,
-                    availableMinutes = null,
-                    currentEpisodeId = latestHistory?.episodeId,
-                    currentPodcastId = latestHistory?.podcastId,
-                    historyMaturity = history.size,
-                    subscriptionCount = subscriptions.size,
-                    sessionId = adaptiveContentSessionId,
+                    ContentContextInput(
+                        surface = RankingSurface.HOME,
+                        region = region,
+                        isDriving = false,
+                        isOnline = true,
+                        availableMinutes = null,
+                        currentEpisodeId = latestHistory?.episodeId,
+                        currentPodcastId = latestHistory?.podcastId,
+                        historyMaturity = history.size,
+                        subscriptionCount = subscriptions.size,
+                        sessionId = adaptiveContentSessionId,
+                    ),
                 )
                 contentOrchestrator.compose(
                     context = context,
