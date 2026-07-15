@@ -437,15 +437,16 @@ class HomeViewModel(
         // waiting for uiState to catch up. Manual selections keep resolving from uiState as before.
         val podcast = autoResolvedPodcast
             ?: uiState.value.subscribedPodcasts.find { it.id == podcastId }
-            ?: return
+        if (podcast == null) return
         // Auto-selection (single show) shouldn't be reported as a user-driven filter.
         if (!isAuto) {
             cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomePodcastFiltered(podcastId, podcast.title)
         }
 
         // Mark as seen when filtered in "Your Shows"
-        podcast.latestEpisode?.id?.let { episodeId ->
-            markPodcastEpisodeAsSeen(podcastId, episodeId)
+        val latestEpisodeId = podcast.latestEpisode?.id
+        if (latestEpisodeId != null) {
+            markPodcastEpisodeAsSeen(podcastId, latestEpisodeId)
         }
         if (podcast.isRss) {
             val manualRefreshDue =

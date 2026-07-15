@@ -311,89 +311,101 @@ class PodcastRepository(
 
     suspend fun searchEpisodes(feedId: String, query: String): List<Episode> = withContext(Dispatchers.IO) {
         if (feedId.startsWith("rss:")) {
-            return@withContext try {
-                rssRepository.searchEpisodes(feedId, query)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("PodcastRepository", "RSS searchEpisodes failed for $feedId", e)
-                emptyList()
-            }
+            return@withContext searchRssEpisodes(feedId, query)
         }
-        try {
-            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
-                getPodcastDetails(feedId)?.id ?: feedId
-            } else {
-                feedId
-            }
-            // Use Proxy-side search (Server fetches 1000 items and filters)
-            val response = api.searchEpisodes(publicKey, resolvedId, query).execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.items.mapNotNull { mapToEpisode(it) }
-            } else {
-                emptyList()
-            }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
+        searchNetworkEpisodes(feedId, query)
+    }
+
+    private suspend fun searchRssEpisodes(feedId: String, query: String): List<Episode> = try {
+        rssRepository.searchEpisodes(feedId, query)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.e("PodcastRepository", "RSS searchEpisodes failed for $feedId", e)
+        emptyList()
+    }
+
+    private suspend fun searchNetworkEpisodes(feedId: String, query: String): List<Episode> = try {
+        val resolvedId = resolvePodcastIndexFeedId(feedId)
+        val response = api.searchEpisodes(publicKey, resolvedId, query).execute()
+        if (response.isSuccessful && response.body() != null) {
+            response.body()!!.items.mapNotNull { mapToEpisode(it) }
+        } else {
             emptyList()
         }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyList()
     }
 
     suspend fun getEpisodes(feedId: String): List<Episode> = withContext(Dispatchers.IO) {
         if (feedId.startsWith("rss:")) {
-            return@withContext try {
-                rssRepository.getAllEpisodes(feedId)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("PodcastRepository", "RSS getAllEpisodes failed for $feedId", e)
-                emptyList()
-            }
+            return@withContext getAllRssEpisodes(feedId)
         }
-        try {
-            val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
-                getPodcastDetails(feedId)?.id ?: feedId
-            } else {
-                feedId
-            }
-            // Use paginated endpoint with high limit to get "all" (max 1000 per proxy)
-            // This avoids the parsing issue with EpisodesResponse vs EpisodesPaginatedResponse
-            val response = api.getEpisodesPaginated(publicKey, resolvedId, limit = 1000).execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.items.mapNotNull { mapToEpisode(it) }
-            } else {
-                emptyList()
-            }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
+        getAllNetworkEpisodes(feedId)
+    }
+
+    private suspend fun getAllRssEpisodes(feedId: String): List<Episode> = try {
+        rssRepository.getAllEpisodes(feedId)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.e("PodcastRepository", "RSS getAllEpisodes failed for $feedId", e)
+        emptyList()
+    }
+
+    private suspend fun getAllNetworkEpisodes(feedId: String): List<Episode> = try {
+        val resolvedId = resolvePodcastIndexFeedId(feedId)
+        // Use paginated endpoint with high limit to get "all" (max 1000 per proxy)
+        // This avoids the parsing issue with EpisodesResponse vs EpisodesPaginatedResponse
+        val response = api.getEpisodesPaginated(publicKey, resolvedId, limit = 1000).execute()
+        if (response.isSuccessful && response.body() != null) {
+            response.body()!!.items.mapNotNull { mapToEpisode(it) }
+        } else {
             emptyList()
         }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyList()
     }
 
     suspend fun getEpisode(episodeId: String): Episode? = withContext(Dispatchers.IO) {
         if (episodeId.toLongOrNull()?.let { it < 0L } == true) {
-            return@withContext try {
-                rssRepository.getEpisode(episodeId)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("PodcastRepository", "RSS getEpisode failed for $episodeId", e)
-                null
-            }
+            return@withContext getRssEpisode(episodeId)
         }
-        try {
-            val response = api.getEpisode(publicKey, episodeId).execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.episode?.let { mapToEpisode(it) }
-            } else {
-                null
-            }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
+        getNetworkEpisode(episodeId)
+    }
+
+    private suspend fun getRssEpisode(episodeId: String): Episode? = try {
+        rssRepository.getEpisode(episodeId)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.e("PodcastRepository", "RSS getEpisode failed for $episodeId", e)
+        null
+    }
+
+    private suspend fun getNetworkEpisode(episodeId: String): Episode? = try {
+        val response = api.getEpisode(publicKey, episodeId).execute()
+        if (response.isSuccessful && response.body() != null) {
+            response.body()!!.episode?.let { mapToEpisode(it) }
+        } else {
             null
+        }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Resolves url:/guid:/itunes: identifiers to a Podcast Index feed id when needed. */
+    private suspend fun resolvePodcastIndexFeedId(feedId: String): String {
+        return if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
+            getPodcastDetails(feedId)?.id ?: feedId
+        } else {
+            feedId
         }
     }
 
@@ -451,11 +463,7 @@ class PodcastRepository(
         offset: Int,
         sort: String,
     ): EpisodePage {
-        val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
-            getPodcastDetails(feedId)?.id ?: feedId
-        } else {
-            feedId
-        }
+        val resolvedId = resolvePodcastIndexFeedId(feedId)
         val cacheKey = "$resolvedId|$limit|$offset|$sort"
         val cached = episodesCache[cacheKey]
         val now = System.currentTimeMillis()

@@ -1540,34 +1540,51 @@ private fun PodcastInfoDescriptionSection(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.large
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            if (strippedDesc.isNotEmpty()) {
-                Text(
-                    text = strippedDesc,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 20.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+        PodcastInfoDescriptionBody(
+            strippedDesc = strippedDesc,
+            isLocked = isLocked,
+            podroll = podroll,
+            hasPodroll = hasPodroll,
+            isDescExpanded = isDescExpanded,
+            onPodcastClick = onPodcastClick,
+        )
+    }
+}
 
-            // With no description there's nothing to "expand" — always show the lock notice and
-            // podroll in that case instead of hiding them behind a collapsed, empty description.
-            val showMetadataRegardless = isDescExpanded || strippedDesc.isEmpty()
+@Composable
+private fun PodcastInfoDescriptionBody(
+    strippedDesc: String,
+    isLocked: Boolean,
+    podroll: List<PodrollItem>?,
+    hasPodroll: Boolean,
+    isDescExpanded: Boolean,
+    onPodcastClick: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        if (strippedDesc.isNotEmpty()) {
+            Text(
+                text = strippedDesc,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-            if (showMetadataRegardless && isLocked) {
-                LockedFeedNotice()
-            }
-
-            if (showMetadataRegardless && hasPodroll) {
-                PodrollRecommendations(podroll = podroll.orEmpty(), onPodcastClick = onPodcastClick)
-            }
+        // With no description there's nothing to "expand" — always show the lock notice and
+        // podroll in that case instead of hiding them behind a collapsed, empty description.
+        val showMetadataRegardless = isDescExpanded || strippedDesc.isEmpty()
+        if (showMetadataRegardless && isLocked) {
+            LockedFeedNotice()
+        }
+        if (showMetadataRegardless && hasPodroll) {
+            PodrollRecommendations(podroll = podroll.orEmpty(), onPodcastClick = onPodcastClick)
         }
     }
 }
