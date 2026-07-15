@@ -12,8 +12,11 @@ import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.MixtapeEngine
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.HomeBootstrapData
-import cx.aswin.boxcast.core.data.PodcastScoring
 import cx.aswin.boxcast.core.data.toScorable
+import cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxcast.core.data.ranking.CandidateSource
+import cx.aswin.boxcast.core.data.ranking.EpisodeRankingInput
+import cx.aswin.boxcast.core.data.ranking.RankingObjective
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import kotlinx.coroutines.CancellationException
@@ -161,6 +164,7 @@ class HomeViewModel(
     
     val podcastRepository = PodcastRepository(baseUrl = apiBaseUrl, publicKey = publicKey, context = application)
     private val database = cx.aswin.boxcast.core.data.database.BoxLoreDatabase.getDatabase(application)
+    private val adaptiveScorer = AdaptiveCandidateScorer.getInstance(application)
     private val subscriptionRepository = cx.aswin.boxcast.core.data.SubscriptionRepository(database.podcastDao())
     private val rssRepository =
         cx.aswin.boxcast.core.data.RssPodcastRepository.getInstance(application)
@@ -1285,9 +1289,10 @@ class HomeViewModel(
 
                         // Calculate score map for all subscribed podcasts using the shared utility (only on first calculation)
                         val podScoresMap = if (stablePodcastOrder == null || stableMixtapePodcasts == null) {
-                            PodcastScoring.calculateScores(
+                            adaptiveScorer.scorePodcasts(
                                 podcasts = subs.map { it.toScorable() },
-                                allHistory = allHistory
+                                history = allHistory,
+                                objective = RankingObjective.YOUR_SHOWS,
                             )
                         } else {
                             emptyMap()
@@ -1357,6 +1362,7 @@ class HomeViewModel(
                                 resolvedSerialEpisodes = _resolvedSerialEpisodes.value,
                                 recommendations = wrapper.recommendations,
                                 podcastScores = podScoresMap,
+                                adaptiveScorer = adaptiveScorer,
                             )
                             mixtapePodcasts = result.podcasts
                             mixtapeCount = result.unplayedCount
@@ -2045,17 +2051,18 @@ class HomeViewModel(
                 val distinctEpisodes = data.episodes
                     .distinctBy { it.id }
                     .distinctBy { it.title.lowercase().trim() }
+                val ranked = rankBecauseYouLike(distinctPodcasts, distinctEpisodes)
                 
                 android.util.Log.d("HomeViewModel", "Fetched because-you-like: podcasts count = ${distinctPodcasts.size}, episodes count = ${distinctEpisodes.size}")
                 
-                _becauseYouLikePodcasts.value = distinctPodcasts
-                _becauseYouLikeRecommendations.value = distinctEpisodes
+                _becauseYouLikePodcasts.value = ranked.first
+                _becauseYouLikeRecommendations.value = ranked.second
                 
                 try {
                     val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
                     val json = Json { ignoreUnknownKeys = true }
-                    val serializedEpisodes = json.encodeToString(distinctEpisodes)
-                    val serializedPodcasts = json.encodeToString(distinctPodcasts)
+                    val serializedEpisodes = json.encodeToString(ranked.second)
+                    val serializedPodcasts = json.encodeToString(ranked.first)
                     prefs.edit()
                         .putString("cached_byl_recommendations", serializedEpisodes)
                         .putString("cached_byl_podcasts", serializedPodcasts)
@@ -2071,6 +2078,54 @@ class HomeViewModel(
             }
         }
     }
+
+    private suspend fun rankBecauseYouLike(
+        podcasts: List<Podcast>,
+        episodes: List<Episode>,
+    ): Pair<List<Podcast>, List<Episode>> {
+        val history = database.listeningHistoryDao().getRecentHistoryList(300)
+        val podcastById = podcasts.associateBy(Podcast::id)
+        val podcastInputs = podcasts.mapIndexedNotNull { index, candidate ->
+            candidate.latestEpisode?.let { episode ->
+                EpisodeRankingInput(
+                    episode = episode,
+                    podcast = candidate,
+                    priorScore = (podcasts.size - index).toDouble(),
+                    source = CandidateSource.SERVER_RECOMMENDATION,
+                    isNovel = true,
+                )
+            }
+        }
+        val episodeInputs = episodes.mapIndexed { index, episode ->
+            EpisodeRankingInput(
+                episode = episode,
+                podcast = podcastById[episode.podcastId] ?: episode.toRecommendationPodcast(),
+                priorScore = (episodes.size - index).toDouble(),
+                source = CandidateSource.SERVER_RECOMMENDATION,
+                isNovel = episode.podcastId !in podcastById,
+            )
+        }
+        val podcastScores = adaptiveScorer.scoreEpisodes(
+            podcastInputs,
+            history,
+            RankingObjective.DISCOVERY,
+        )
+        val episodeScores = adaptiveScorer.scoreEpisodes(
+            episodeInputs,
+            history,
+            RankingObjective.DISCOVERY,
+        )
+        return podcasts.sortedByDescending { podcastScores[it.latestEpisode?.id] ?: 0.0 } to
+            episodes.sortedByDescending { episodeScores[it.id] ?: 0.0 }
+    }
+
+    private fun Episode.toRecommendationPodcast(): Podcast = Podcast(
+        id = podcastId.orEmpty(),
+        title = podcastTitle.orEmpty(),
+        artist = podcastArtist.orEmpty(),
+        imageUrl = podcastImageUrl ?: imageUrl.orEmpty(),
+        latestEpisode = this,
+    )
 
     override fun onCleared() {
         super.onCleared()

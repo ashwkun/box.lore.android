@@ -1797,7 +1797,9 @@ class MainActivity : ComponentActivity() {
                                                 subscriptionRepository, 
                                                 playbackRepository,
                                                 downloadRepository,
-                                                userPrefs
+                                                userPrefs,
+                                                cx.aswin.boxcast.core.data.ranking
+                                                    .AdaptiveCandidateScorer.getInstance(application),
                                             ) as T
                                         }
                                     }
@@ -1860,7 +1862,9 @@ class MainActivity : ComponentActivity() {
                                                 subscriptionRepository, 
                                                 playbackRepository,
                                                 downloadRepository,
-                                                userPrefs
+                                                userPrefs,
+                                                cx.aswin.boxcast.core.data.ranking
+                                                    .AdaptiveCandidateScorer.getInstance(application),
                                             ) as T
                                         }
                                     }
@@ -1911,7 +1915,9 @@ class MainActivity : ComponentActivity() {
                                                 subscriptionRepository,
                                                 playbackRepository,
                                                 downloadRepository,
-                                                userPrefs
+                                                userPrefs,
+                                                cx.aswin.boxcast.core.data.ranking
+                                                    .AdaptiveCandidateScorer.getInstance(application),
                                             ) as T
                                         }
                                     }
@@ -1967,7 +1973,9 @@ class MainActivity : ComponentActivity() {
                                                 subscriptionRepository,
                                                 playbackRepository,
                                                 downloadRepository,
-                                                userPrefs
+                                                userPrefs,
+                                                cx.aswin.boxcast.core.data.ranking
+                                                    .AdaptiveCandidateScorer.getInstance(application),
                                             ) as T
                                         }
                                     }
@@ -2044,7 +2052,9 @@ class MainActivity : ComponentActivity() {
                                                 subscriptionRepository,
                                                 playbackRepository,
                                                 downloadRepository,
-                                                userPrefs
+                                                userPrefs,
+                                                cx.aswin.boxcast.core.data.ranking
+                                                    .AdaptiveCandidateScorer.getInstance(application),
                                             ) as T
                                         }
                                     }

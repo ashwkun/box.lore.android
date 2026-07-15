@@ -3,9 +3,6 @@ package cx.aswin.boxcast.feature.library
 import cx.aswin.boxcast.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.components.NewEpisodeBadge
-import cx.aswin.boxcast.core.data.PodcastScoring
-import cx.aswin.boxcast.core.data.toScorable
-
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -74,6 +71,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -472,6 +470,7 @@ fun SubscriptionsScreen(
                                     podcasts = latestPodcasts,
                                     allHistory = (uiState as LibraryUiState.Success).allHistory,
                                     useSmartRank = useSmartRank,
+                                    scoreEpisodes = viewModel::scoreLatestEpisodes,
                                     onExploreClick = onExploreClick,
                                     onEpisodeClick = { ep, pod, entry ->
                                         viewModel.subEpisodesClickedCount++
@@ -831,6 +830,10 @@ private fun LatestTabContent(
     podcasts: List<Podcast>,
     allHistory: List<ListeningHistoryEntity>,
     useSmartRank: Boolean,
+    scoreEpisodes: suspend (
+        List<Podcast>,
+        List<ListeningHistoryEntity>,
+    ) -> Map<String, Double>,
     onExploreClick: () -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
     onPlayEpisode: ((Episode, Podcast) -> Unit)?,
@@ -874,27 +877,19 @@ private fun LatestTabContent(
             }
         }
 
-        val episodeScores = remember(filteredEpisodePodcasts, allHistory) {
-            val podScoresMap = PodcastScoring.calculateScores(
-                podcasts = filteredEpisodePodcasts.map { it.toScorable() },
-                allHistory = allHistory
-            )
-            filteredEpisodePodcasts.associate { pod ->
-                val latestEp = pod.latestEpisode
-                val episodeRecencyBoost = if (latestEp != null) {
-                    val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - latestEp.publishedDate) / 3600.0
-                    500.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)
-                } else {
-                    0.0
-                }
-                val podScore = podScoresMap[pod.id] ?: 0.0
-                pod.id to (podScore + episodeRecencyBoost)
-            }
+        val episodeScores by produceState<Map<String, Double>>(
+            initialValue = emptyMap(),
+            filteredEpisodePodcasts,
+            allHistory,
+        ) {
+            value = scoreEpisodes(filteredEpisodePodcasts, allHistory)
         }
 
         val displayPodcasts = remember(filteredEpisodePodcasts, useSmartRank, episodeScores) {
             if (useSmartRank) {
-                filteredEpisodePodcasts.sortedByDescending { episodeScores[it.id] ?: 0.0 }
+                filteredEpisodePodcasts.sortedByDescending {
+                    episodeScores[it.latestEpisode?.id] ?: 0.0
+                }
             } else {
                 filteredEpisodePodcasts.sortedByDescending { it.latestEpisode!!.publishedDate }
             }

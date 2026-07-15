@@ -8,8 +8,11 @@ import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.Episode
-import cx.aswin.boxcast.core.data.PodcastScoring
 import cx.aswin.boxcast.core.data.toScorable
+import cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxcast.core.data.ranking.CandidateSource
+import cx.aswin.boxcast.core.data.ranking.EpisodeRankingInput
+import cx.aswin.boxcast.core.data.ranking.RankingObjective
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,7 +44,8 @@ class LibraryViewModel(
     private val subscriptionRepository: SubscriptionRepository,
     private val playbackRepository: PlaybackRepository,
     private val downloadRepository: cx.aswin.boxcast.core.data.DownloadRepository,
-    private val userPreferencesRepository: cx.aswin.boxcast.core.data.UserPreferencesRepository
+    private val userPreferencesRepository: cx.aswin.boxcast.core.data.UserPreferencesRepository,
+    private val adaptiveScorer: AdaptiveCandidateScorer,
 ) : ViewModel() {
 
     val lastSeenEpisodes: StateFlow<Map<String, String>> = userPreferencesRepository.lastSeenEpisodesStream
@@ -91,6 +95,27 @@ class LibraryViewModel(
         viewModelScope.launch {
             userPreferencesRepository.setLatestEpisodesSortUseSmart(useSmart)
         }
+    }
+
+    suspend fun scoreLatestEpisodes(
+        podcasts: List<Podcast>,
+        history: List<ListeningHistoryEntity>,
+    ): Map<String, Double> {
+        val inputs = podcasts.mapNotNull { podcast ->
+            podcast.latestEpisode?.let { episode ->
+                EpisodeRankingInput(
+                    episode = episode,
+                    podcast = podcast,
+                    priorScore = episode.publishedDate.toDouble().coerceAtLeast(0.0),
+                    source = CandidateSource.SUBSCRIPTION,
+                )
+            }
+        }
+        return adaptiveScorer.scoreEpisodes(
+            inputs = inputs,
+            history = history,
+            objective = RankingObjective.YOUR_SHOWS,
+        )
     }
 
     val hideCompletedInSubs: StateFlow<Boolean> = userPreferencesRepository.hideCompletedInSubsStream
@@ -143,9 +168,10 @@ class LibraryViewModel(
         // Apply sorting
         val sortedPodcasts = when (sort) {
             SubscriptionSort.SmartRank -> {
-                val podScoresMap = PodcastScoring.calculateScores(
+                val podScoresMap = adaptiveScorer.scorePodcasts(
                     podcasts = enrichedPodcasts.map { it.toScorable() },
-                    allHistory = allHistory
+                    history = allHistory,
+                    objective = RankingObjective.YOUR_SHOWS,
                 )
 
                 enrichedPodcasts.map { pod ->

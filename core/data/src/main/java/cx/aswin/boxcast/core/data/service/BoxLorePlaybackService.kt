@@ -78,6 +78,9 @@ class BoxLorePlaybackService : MediaLibraryService() {
     private val rankingFeedbackRepository by lazy {
         cx.aswin.boxcast.core.data.ranking.RankingFeedbackRepository.getInstance(this)
     }
+    private val adaptiveCandidateScorer by lazy {
+        cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer.getInstance(this)
+    }
     private val smartQueueSources by lazy {
         cx.aswin.boxcast.core.data.DefaultSmartQueueSources(
             context = this,
@@ -91,6 +94,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         cx.aswin.boxcast.core.data.DefaultSmartQueueEngine(
             sources = smartQueueSources,
             skipMemory = queueSkipMemory,
+            adaptiveScorer = adaptiveCandidateScorer,
         )
     }
     private val queueRepository by lazy {
@@ -1150,6 +1154,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                 var mixtape = cx.aswin.boxcast.core.data.MixtapeEngine.build(
                     subscriptions = subscriptions.map { it.toAutoPodcast() },
                     history = history,
+                    adaptiveScorer = adaptiveCandidateScorer,
                 )
                 if (mixtape.episodes.size < 3) {
                     val recommendations = runCatching {
@@ -1167,6 +1172,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                         subscriptions = subscriptions.map { it.toAutoPodcast() },
                         history = history,
                         recommendations = recommendations,
+                        adaptiveScorer = adaptiveCandidateScorer,
                     )
                 }
                 val mixtapeImages = mixtape.podcasts.mapNotNull { podcast ->
@@ -3553,6 +3559,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
             var result = cx.aswin.boxcast.core.data.MixtapeEngine.build(
                 subscriptions = subscriptions,
                 history = history,
+                adaptiveScorer = adaptiveCandidateScorer,
             )
             if (result.episodes.size < 3) {
                 val recommendations = runCatching {
@@ -3572,6 +3579,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     subscriptions = subscriptions,
                     history = history,
                     recommendations = recommendations,
+                    adaptiveScorer = adaptiveCandidateScorer,
                 )
             }
             val episodes = result.podcasts.mapNotNull { podcast ->

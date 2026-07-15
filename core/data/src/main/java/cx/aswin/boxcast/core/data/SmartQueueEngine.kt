@@ -4,6 +4,8 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.network.model.EpisodeItem
 import cx.aswin.boxcast.core.network.model.HistoryItem
+import cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxcast.core.data.ranking.RankingObjective
 import kotlinx.coroutines.CancellationException
 
 private suspend inline fun <T> runSuspendCatching(crossinline block: suspend () -> T): Result<T> =
@@ -101,7 +103,8 @@ interface SmartQueueEngine {
 class DefaultSmartQueueEngine(
     private val sources: SmartQueueSources,
     private val skipMemory: QueueSkipMemory? = null,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val adaptiveScorer: AdaptiveCandidateScorer? = null,
 ) : SmartQueueEngine {
 
     companion object {
@@ -452,8 +455,12 @@ class DefaultSmartQueueEngine(
                 sub.id.isNotBlank() && sub.title.isNotBlank()
             }.getOrDefault(false)
         }
-        val scores = runCatching {
-            PodcastScoring.calculateScores(validSubs.map { it.toScorable() }, history)
+        val scores = runSuspendCatching {
+            adaptiveScorer?.scorePodcasts(
+                podcasts = validSubs.map { it.toScorable() },
+                history = history,
+                objective = RankingObjective.CONTINUATION,
+            ) ?: PodcastScoring.calculateScores(validSubs.map { it.toScorable() }, history)
         }.getOrElse {
             android.util.Log.e(LOG_TAG, "Tier 2 subscription scoring failed", it)
             emptyMap()
