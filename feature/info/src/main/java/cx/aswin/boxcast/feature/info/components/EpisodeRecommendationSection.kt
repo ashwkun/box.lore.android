@@ -191,7 +191,7 @@ private fun ExpressiveEpisodeCard(
                         contentColor = Color.White,
                     ) {
                         Text(
-                            text = formatCardDuration(episode.duration),
+                            text = formatEpisodeDuration(episode.duration),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -227,13 +227,6 @@ private fun ExpressiveEpisodeCard(
             }
         }
     }
-}
-
-private fun formatCardDuration(seconds: Int): String {
-    if (seconds <= 0) return ""
-    val hours = seconds / 3_600
-    val minutes = (seconds % 3_600) / 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 @Composable

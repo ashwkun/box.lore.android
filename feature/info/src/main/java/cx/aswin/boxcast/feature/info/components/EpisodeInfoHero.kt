@@ -117,7 +117,8 @@ internal fun EpisodeInfoHero(
                     shadowElevation = 6.dp,
                 ) {
                     OptimizedImage(
-                        url = episode.imageUrl?.ifBlank { episode.podcastImageUrl },
+                        url = episode.imageUrl?.takeIf(String::isNotBlank)
+                            ?: episode.podcastImageUrl,
                         proxyWidth = 640,
                         contentDescription = episode.title,
                         modifier = Modifier.fillMaxSize(),
@@ -194,7 +195,9 @@ private fun EpisodeMetadataChipsRow(episode: Episode) {
         if (episode.enclosureType?.startsWith("video/") == true) {
             add(EpisodeMetadataChip("Video", Icons.Rounded.Videocam))
         }
-        add(EpisodeMetadataChip(formatDuration(episode.duration), Icons.Rounded.Schedule))
+        formatEpisodeDuration(episode.duration)
+            .takeIf(String::isNotBlank)
+            ?.let { add(EpisodeMetadataChip(it, Icons.Rounded.Schedule)) }
         formatRelativeDate(episode.publishedDate)?.let {
             add(EpisodeMetadataChip(it, Icons.Rounded.CalendarToday))
         }
@@ -244,13 +247,6 @@ private fun EpisodeMetadataChipsRow(episode: Episode) {
             }
         }
     }
-}
-
-private fun formatDuration(seconds: Int): String {
-    val safeSeconds = seconds.coerceAtLeast(0)
-    val hours = safeSeconds / 3600
-    val minutes = (safeSeconds % 3600) / 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 private fun formatRelativeDate(timestampSeconds: Long): String? {
