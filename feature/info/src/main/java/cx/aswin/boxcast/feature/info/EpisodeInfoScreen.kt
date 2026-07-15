@@ -1,21 +1,21 @@
 package cx.aswin.boxcast.feature.info
 
+import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
+import android.os.Bundle
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,46 +26,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.animation.animateContentSize
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.rounded.Podcasts
-import androidx.compose.material.icons.rounded.Subscriptions
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.ui.res.painterResource
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.Label
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.CalendarToday
-import androidx.compose.material.icons.rounded.Tag
-import androidx.compose.material.icons.rounded.Label
-import androidx.compose.material.icons.rounded.Videocam
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Subscriptions
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,11 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -92,35 +57,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.palette.graphics.Palette
 import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import cx.aswin.boxcast.core.designsystem.component.HtmlText
-import cx.aswin.boxcast.core.designsystem.components.AnimatedShapesFallback
+import cx.aswin.boxcast.core.data.ShareManager
 import cx.aswin.boxcast.core.designsystem.components.BoxLoreLoader
-import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
+import cx.aswin.boxcast.core.designsystem.components.ShareBottomSheet
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
-import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
-import cx.aswin.boxcast.core.designsystem.components.ControlStyle
-import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
-import kotlinx.coroutines.delay
-import androidx.compose.ui.layout.layout
+import cx.aswin.boxcast.core.model.Episode
+import cx.aswin.boxcast.feature.info.components.CompactEpisodeActionRail
+import cx.aswin.boxcast.feature.info.components.EpisodeActionRail
+import cx.aswin.boxcast.feature.info.components.EpisodeActionRailCallbacks
+import cx.aswin.boxcast.feature.info.components.EpisodeActionRailState
+import cx.aswin.boxcast.feature.info.components.EpisodeArtworkBackdrop
+import cx.aswin.boxcast.feature.info.components.EpisodeInfoHero
+import cx.aswin.boxcast.feature.info.components.EpisodeRecommendationSection
 
-// Color extraction helper
-private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
-    val palette = Palette.from(bitmap).generate()
-    val vibrant = palette.vibrantSwatch?.rgb
-    val muted = palette.mutedSwatch?.rgb
-    val dominant = palette.dominantSwatch?.rgb
-    val colorInt = vibrant ?: muted ?: dominant ?: 0xFF6200EE.toInt()
-    return Color(colorInt)
-}
+private const val HERO_ITEM_KEY = "episode_hero"
+private const val ACTION_RAIL_ITEM_KEY = "episode_action_rail"
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun EpisodeInfoScreen(
     episodeId: String,
@@ -132,45 +92,36 @@ fun EpisodeInfoScreen(
     podcastId: String,
     podcastTitle: String,
     viewModel: EpisodeInfoViewModel,
-    onBack: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") onBack: () -> Unit,
     onPodcastClick: (String) -> Unit,
-    onEpisodeClick: (cx.aswin.boxcast.core.model.Episode) -> Unit,
-    onPlay: () -> Unit,
-    entryPointContext: android.os.Bundle? = null,
+    onEpisodeClick: (Episode) -> Unit,
+    @Suppress("UNUSED_PARAMETER") onPlay: () -> Unit,
+    entryPointContext: Bundle? = null,
     showMarkPlayedTip: Boolean = false,
     onMarkPlayedTipDismissed: () -> Unit = {},
     bottomContentPadding: Dp = 0.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val likedEpisodeIds by viewModel.likedEpisodeIds.collectAsState()
     val completedEpisodeIds by viewModel.completedEpisodeIds.collectAsState()
     val queuedEpisodeIds by viewModel.queuedEpisodeIds.collectAsState()
-    val listState = rememberLazyListState()
-    val context = LocalContext.current
-    val density = LocalDensity.current
+    val isDownloaded by viewModel.isDownloaded(episodeId).collectAsState(initial = false)
+    val isDownloading by viewModel.isDownloading(episodeId).collectAsState(initial = false)
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Dynamic color extraction
-    var extractedColor by remember { mutableStateOf(Color.Transparent) }
-    val accentColor by animateColorAsState(
-        targetValue = if (extractedColor != Color.Transparent) extractedColor else MaterialTheme.colorScheme.primary,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "accent_color"
-    )
-
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+        val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
-                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
-                else -> {}
+                Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
+                Lifecycle.Event.ON_START -> viewModel.onScreenResume()
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.trackScreenExit() // Fallback if disposed directly
+            viewModel.trackScreenExit()
         }
     }
 
@@ -184,948 +135,406 @@ fun EpisodeInfoScreen(
             episodeDuration = episodeDuration,
             podcastId = podcastId,
             podcastTitle = podcastTitle,
-            entryPointContext = entryPointContext
+            entryPointContext = entryPointContext,
         )
     }
 
-    // Download State
-    val isDownloaded by viewModel.isDownloaded(episodeId).collectAsState(initial = false)
-    val isDownloading by viewModel.isDownloading(episodeId).collectAsState(initial = false)
+    when (val state = uiState) {
+        EpisodeInfoUiState.Loading -> EpisodeInfoLoading(modifier)
+        EpisodeInfoUiState.Error -> EpisodeInfoError(modifier)
+        is EpisodeInfoUiState.Success -> EpisodeInfoSuccess(
+            state = state,
+            liked = state.episode.id in likedEpisodeIds,
+            completed = state.episode.id in completedEpisodeIds,
+            queued = state.episode.id in queuedEpisodeIds,
+            downloaded = isDownloaded,
+            downloading = isDownloading,
+            viewModel = viewModel,
+            entryPointContext = entryPointContext,
+            onPodcastClick = onPodcastClick,
+            onEpisodeClick = onEpisodeClick,
+            showMarkPlayedTip = showMarkPlayedTip,
+            onMarkPlayedTipDismissed = onMarkPlayedTipDismissed,
+            bottomContentPadding = bottomContentPadding,
+            modifier = modifier,
+        )
+    }
+}
 
-    // Scroll-driven animation state
+@Composable
+private fun EpisodeInfoSuccess(
+    state: EpisodeInfoUiState.Success,
+    liked: Boolean,
+    completed: Boolean,
+    queued: Boolean,
+    downloaded: Boolean,
+    downloading: Boolean,
+    viewModel: EpisodeInfoViewModel,
+    entryPointContext: Bundle?,
+    onPodcastClick: (String) -> Unit,
+    onEpisodeClick: (Episode) -> Unit,
+    showMarkPlayedTip: Boolean,
+    onMarkPlayedTipDismissed: () -> Unit,
+    bottomContentPadding: Dp,
+    modifier: Modifier,
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val listState = rememberLazyListState()
+    var showShareSheet by remember { mutableStateOf(false) }
+    var extractedColor by remember(state.episode.id) { mutableStateOf(Color.Unspecified) }
+    val artworkUrl = state.episode.imageUrl?.ifBlank { state.episode.podcastImageUrl }
+    val podcastArtworkUrl = state.episode.podcastImageUrl?.ifBlank { state.episode.imageUrl }
+    val palettePainter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(podcastArtworkUrl)
+            .allowHardware(false)
+            .build(),
+    )
+
+    LaunchedEffect(palettePainter.state) {
+        val painterState = palettePainter.state
+        if (painterState is AsyncImagePainter.State.Success) {
+            val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
+            if (bitmap != null) extractedColor = extractArtworkColor(bitmap)
+        }
+    }
+
+    val paletteColor = if (extractedColor == Color.Unspecified) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        extractedColor
+    }
+    val accentColor by animateColorAsState(
+        targetValue = lerp(paletteColor, MaterialTheme.colorScheme.primary, 0.14f),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "episode_accent",
+    )
+    val collapseThresholdPx = with(density) { 320.dp.toPx() }
     val scrollOffset by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex == 0) {
                 listState.firstVisibleItemScrollOffset.toFloat()
-            } else 1000f // Fully collapsed
+            } else {
+                collapseThresholdPx
+            }
         }
     }
-    
-    val morphThreshold = with(density) { 180.dp.toPx() }
-    val scrollFraction = (scrollOffset / morphThreshold).coerceIn(0f, 1f)
-
-    // Header dimensions
+    val collapseFraction = (scrollOffset / collapseThresholdPx).coerceIn(0f, 1f)
+    val stickyRailVisible by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex >= 2 &&
+                listState.layoutInfo.visibleItemsInfo.none { it.key == ACTION_RAIL_ITEM_KEY }
+        }
+    }
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val collapsedHeaderHeight = 64.dp + statusBarHeight
-
-    // Header background: transparent → surfaceContainer
-    // NOTE: Don't lerp from Color.Transparent - it has RGB=0,0,0 causing black flash
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
-    val headerColor by animateColorAsState(
-        targetValue = surfaceColor.copy(alpha = scrollFraction),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "headerColor"
+    val appBarHeight = statusBarHeight + 64.dp
+    val progress = if (state.durationMs > 0L) {
+        (state.resumePositionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val actionState = EpisodeActionRailState(
+        title = state.episode.title,
+        imageUrl = artworkUrl,
+        isPlaying = state.isPlaying,
+        isPlaybackLoading = state.isPlaybackLoading,
+        isResume = state.resumePositionMs > 0L,
+        isLiked = liked,
+        isDownloaded = downloaded,
+        isDownloading = downloading,
+        isQueued = queued,
+        isCompleted = completed,
+        progress = progress,
+        remainingTimeText = formatRemainingTime(state.durationMs - state.resumePositionMs),
     )
+    val callbacks = remember(viewModel, state.episode, entryPointContext) {
+        EpisodeActionRailCallbacks(
+            onMainActionClick = { viewModel.onMainActionClick(entryPointContext) },
+            onLikeClick = { viewModel.onToggleLike(state.episode) },
+            onDownloadClick = { viewModel.toggleDownload(state.episode) },
+            onQueueClick = viewModel::toggleQueue,
+            onMarkPlayedClick = viewModel::onToggleCompletion,
+        )
+    }
 
-    // Title animation - header only fade-in
-    val titleSizeStart = MaterialTheme.typography.titleLarge.fontSize
-    val titleSizeEnd = MaterialTheme.typography.titleMedium.fontSize
-    val titleFontSize = androidx.compose.ui.unit.lerp(titleSizeStart, titleSizeEnd, scrollFraction)
-    
-    // Y position fixed in header
-    val headerTitleYPx = with(density) { (statusBarHeight + 18.dp).toPx() }
-    val titleTranslationY by animateFloatAsState(
-        targetValue = headerTitleYPx,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.85f),
-        label = "titleY"
-    )
-    
-    // MaxLines: 1 when in header
-    val titleMaxLines = 1
-    // Fade in only when header collapses
-    val titleAlpha = if (scrollFraction > 0.8f) (scrollFraction - 0.8f) / 0.2f else 0f
-    
-    // Horizontal padding in header
-    val titleHorizontalPadding by animateDpAsState(
-        targetValue = 64.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "titlePadding"
-    )
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+    ) {
+        EpisodeArtworkBackdrop(
+            imageUrl = podcastArtworkUrl,
+            scrollOffset = scrollOffset,
+            collapseFraction = collapseFraction,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(appBarHeight + 240.dp),
+        )
 
-    when (val state = uiState) {
-        is EpisodeInfoUiState.Loading -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                BoxLoreLoader.Expressive(size = 80.dp)
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = appBarHeight + 8.dp,
+                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                    bottomContentPadding +
+                    160.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            item(key = HERO_ITEM_KEY) {
+                EpisodeInfoHero(
+                    episode = state.episode,
+                    podcastTitle = state.podcastTitle,
+                    accentColor = accentColor,
+                    collapseFraction = collapseFraction,
+                    onPodcastClick = {
+                        viewModel.onPodcastLinkClicked()
+                        onPodcastClick(state.podcastId)
+                    },
+                )
             }
-        }
-        is EpisodeInfoUiState.Error -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Failed to load episode", color = MaterialTheme.colorScheme.error)
+            item(key = ACTION_RAIL_ITEM_KEY) {
+                EpisodeActionRail(
+                    state = actionState,
+                    callbacks = callbacks,
+                    accentColor = accentColor,
+                    showMarkPlayedTip = showMarkPlayedTip,
+                    onMarkPlayedTipDismissed = onMarkPlayedTipDismissed,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
-        }
-        is EpisodeInfoUiState.Success -> {
-            // Color extraction
-            val painter = rememberAsyncImagePainter(
-                model = ImageRequest.Builder(context)
-                    .data(state.episode.podcastImageUrl?.ifEmpty { state.episode.imageUrl?.ifEmpty { null } })
-                    .allowHardware(false)
-                    .build()
-            )
-            LaunchedEffect(painter.state) {
-                val painterState = painter.state
-                if (painterState is AsyncImagePainter.State.Success) {
-                    val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
-                    if (bitmap != null) {
-                        extractedColor = extractDominantColor(bitmap)
-                    }
-                }
-            }
-
-            Box(modifier = modifier.fillMaxSize()) {
-                // Blurred Background Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(collapsedHeaderHeight + 240.dp)
-                        .graphicsLayer {
-                            translationY = -scrollOffset * 0.5f
-                            alpha = 1f - scrollFraction
-                        }
-                ) {
-                    OptimizedImage(
-                        url = state.episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
-                        proxyWidth = 200,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(0.5f)
-                            .blur(50.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
-                        contentScale = ContentScale.Crop
-                    )
-                    // Gradient overlay to blend into the background
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    colors = listOf(
-                                        androidx.compose.ui.graphics.Color.Transparent,
-                                        MaterialTheme.colorScheme.background
-                                    )
-                                )
-                            )
+            state.crossPromotion?.let { crossPromotion ->
+                item(key = "cross_promotion") {
+                    CrossPromotionCard(
+                        crossPromotion = crossPromotion,
+                        onPodcastClick = onPodcastClick,
+                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
-                // Content List
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        top = collapsedHeaderHeight + 16.dp,
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomContentPadding + 160.dp // Extra for miniplayer
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // HERO SECTION (Artwork + Title + Podcast Link + Metadata)
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Artwork
-                            Box(modifier = Modifier.size(180.dp)) {
-                                Surface(
-                                    modifier = Modifier.fillMaxSize(),
-                                    shape = MaterialTheme.shapes.extraLarge, // Match PodcastInfoScreen
-                                    shadowElevation = 8.dp
-                                ) {
-                                    OptimizedImage(
-                                        url = state.episode.imageUrl?.ifEmpty { null },
-                                        proxyWidth = 600, // 180dp * ~3x density
-                                        contentDescription = state.episode.title,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-
-                                if (state.episode.enclosureType?.startsWith("video/") == true) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color.Black.copy(alpha = 0.55f),
-                                        modifier = Modifier
-                                            .padding(8.dp)
-                                            .align(Alignment.TopEnd)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.padding(6.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Videocam,
-                                                contentDescription = "Video",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
-                            
-                            // Episode Title
-                            Text(
-                                text = state.episode.title,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Podcast Title (clickable)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .expressiveClickable { 
-                                        viewModel.onPodcastLinkClicked()
-                                        onPodcastClick(state.podcastId) 
-                                    }
-                                    .padding(vertical = 4.dp, horizontal = 8.dp)
-                            ) {
-                                Text(
-                                    text = state.podcastTitle,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false) // shrink text, never push > off screen
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                    contentDescription = "Go to podcast",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Metadata Row (Chips matching PodcastInfoScreen)
-                            fun formatDuration(seconds: Int): String {
-                                val hours = seconds / 3600
-                                val minutes = (seconds % 3600) / 60
-                                return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-                            }
-                            
-                            fun formatRelativeDate(timestampSeconds: Long): String {
-                                if (timestampSeconds == 0L) return ""
-                                val now = System.currentTimeMillis() / 1000
-                                val diff = now - timestampSeconds
-                                return when {
-                                    diff < 3600 -> "${diff / 60}m ago"
-                                    diff < 86400 -> "${diff / 3600}h ago"
-                                    diff < 604800 -> "${diff / 86400}d ago"
-                                    diff < 2592000 -> "${diff / 604800}w ago"
-                                    diff < 31536000 -> "${diff / 2592000}mo ago"
-                                    else -> "${diff / 31536000}y ago"
-                                }
-                            }
-
-                            androidx.compose.foundation.lazy.LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                                contentPadding = PaddingValues(horizontal = 0.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                // Video Pill
-                                if (state.episode.enclosureType?.startsWith("video/") == true) {
-                                    item {
-                                        Surface(
-                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ) {
-                                            Box(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Videocam,
-                                                    contentDescription = "Video",
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = accentColor
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Duration Pill
-                                item {
-                                    Surface(
-                                        shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = androidx.compose.material.icons.Icons.Rounded.Schedule,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = formatDuration(episodeDuration),
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Date Pill
-                                val dateText = formatRelativeDate(state.episode.publishedDate)
-                                if (dateText.isNotEmpty()) {
-                                    item {
-                                        Surface(
-                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.CalendarToday,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Text(
-                                                    text = dateText,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Season/Episode Pill
-                                val season = state.episode.seasonNumber
-                                val episode = state.episode.episodeNumber
-                                val seLabel = buildString {
-                                    if (season != null && season > 0) {
-                                        append("S$season ")
-                                    }
-                                    if (episode != null && episode > 0) {
-                                        append("E$episode")
-                                    }
-                                }.trim()
-                                if (seLabel.isNotEmpty()) {
-                                    item {
-                                        Surface(
-                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.Tag,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Text(
-                                                    text = seLabel,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Type Pill
-                                if (state.episode.episodeType != null && state.episode.episodeType != "full") {
-                                    item {
-                                        Surface(
-                                            shape = cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Label,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Text(
-                                                    text = state.episode.episodeType!!.replaceFirstChar { it.uppercase() },
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // ACTION ROW (Play Button + Progress) - Flat design
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                                .padding(top = 16.dp)
-                        ) {
-                            // Prepare Progress Data
-                            val progress = if (state.durationMs > 0) (state.resumePositionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
-                            val remainingSeconds = if (state.durationMs > 0) (state.durationMs - state.resumePositionMs) / 1000 else 0
-                            
-                            fun formatRemaining(totalSeconds: Long): String? {
-                                if (totalSeconds <= 0) return null
-                                val hours = totalSeconds / 3600
-                                val minutes = (totalSeconds % 3600) / 60
-                                return if (hours > 0) "${hours}h ${minutes}m left" else "${minutes}m left"
-                            }
-
-                            val isPlaying = state.isPlaying
-                            val isLiked = likedEpisodeIds.contains(state.episode.id)
-                            val isCompleted = completedEpisodeIds.contains(state.episode.id)
-
-                            // Single Elegant Row Layout (M3 standard: actions left, FAB right)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                            ) {
-                                // Action Buttons Row (Material3 Tonal) on the Left
-                                cx.aswin.boxcast.core.designsystem.components.AdvancedPlayerControls(
-                                    isLiked = isLiked,
-                                    isDownloaded = isDownloaded, 
-                                    isDownloading = isDownloading,
-                                    colorScheme = MaterialTheme.colorScheme,
-                                    onLikeClick = { viewModel.onToggleLike(state.episode) },
-                                    onDownloadClick = { viewModel.toggleDownload(state.episode) },
-                                    onQueueClick = { viewModel.toggleQueue() },
-                                    style = cx.aswin.boxcast.core.designsystem.components.ControlStyle.Material3, // Circular M3
-                                    overrideColor = accentColor, // Enforce accent color for active states
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp), // Tighter spacing
-                                    showAddQueueIcon = true,
-                                    isQueued = queuedEpisodeIds.contains(state.episode.id),
-                                    showShareButton = false,
-                                    isPlayed = isCompleted,
-                                    onMarkPlayedClick = { viewModel.onToggleCompletion() },
-                                    controlSize = 40.dp, // Smaller size to fit all 4 buttons + Play button
-                                    modifier = Modifier.wrapContentWidth(unbounded = true) // Guarantee it won't shrink
-                                )
-                                
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                // Prominent Play Button (Right)
-                                cx.aswin.boxcast.core.designsystem.components.ExpressivePlayButton(
-                                    onClick = { viewModel.onMainActionClick(entryPointContext) },
-                                    isPlaying = isPlaying, 
-                                    isResume = state.resumePositionMs > 0,
-                                    accentColor = accentColor, // Use extracted album art color
-                                    progress = progress,
-                                    timeText = formatRemaining(remainingSeconds),
-                                    modifier = Modifier
-                                        .height(56.dp)
-                                        .weight(1f) // Takes up remaining width (lots of area for Resume text)
-                                )
-                            }
-                        }
-                    }
-
-                    // One-time mark-played tooltip
-                    if (showMarkPlayedTip) {
-                        item {
-                            var tipVisible by remember { mutableStateOf(true) }
-                            
-                            LaunchedEffect(Unit) {
-                                delay(4000)
-                                tipVisible = false
-                                onMarkPlayedTipDismissed()
-                            }
-                            
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = tipVisible,
-                                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) + 
-                                        androidx.compose.animation.slideInVertically(initialOffsetY = { -it/2 }),
-                                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(500))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 24.dp, bottom = 8.dp), // Align with the controls on the left
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Surface(
-                                        shape = MaterialTheme.shapes.small,
-                                        color = MaterialTheme.colorScheme.primaryContainer,
-                                        shadowElevation = 4.dp
-                                    ) {
-                                        Text(
-                                            text = "↑ Tap to mark completed",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // CROSS-PROMOTION CARD
-                    state.crossPromotion?.let { crossPromo ->
-                        item {
-                            CrossPromotionCard(
-                                crossPromotion = crossPromo,
-                                onPodcastClick = onPodcastClick,
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp)
-                            )
-                        }
-                    }
-
-                    // DESCRIPTION CARD with Social Links
-                    if (state.episode.description.isNotEmpty()) {
-                        item {
-                            EpisodeDescriptionCard(
-                                description = state.episode.description,
-                                accentColor = accentColor,
-                                location = state.location,
-                                license = state.license,
-                                persons = state.episode.persons,
-                                onSeekTo = viewModel::seekToPosition
-                            )
-                        }
-                    }
-
-                    // Contextual "MORE LIKE THIS" RECOMMENDATIONS SECTION -> Card
-                    if (state.similarEpisodesLoading || state.similarEpisodes.isNotEmpty()) {
-                        item {
-                            androidx.compose.material3.OutlinedCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
-                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                                shape = MaterialTheme.shapes.extraLarge
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 16.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp)
-                                            .padding(bottom = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.AutoAwesome,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            text = "More Like This",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                letterSpacing = (-0.1).sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.weight(1f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                    
-                                    val similarListState = rememberLazyListState()
-                                    LazyRow(
-                                        state = similarListState,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        contentPadding = PaddingValues(horizontal = 16.dp)
-                                    ) {
-                                        if (state.similarEpisodesLoading) {
-                                            items(4) {
-                                                val baseColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                                                val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                                                
-                                                Column(
-                                                    modifier = Modifier.width(120.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
-                                                ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(120.dp)
-                                                            .clip(MaterialTheme.shapes.medium)
-                                                            .background(baseColor)
-                                                            .m3Shimmer(baseColor, highlightColor)
-                                                    )
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(14.dp)
-                                                            .clip(MaterialTheme.shapes.small)
-                                                            .background(baseColor)
-                                                            .m3Shimmer(baseColor, highlightColor)
-                                                    )
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(0.7f)
-                                                            .height(14.dp)
-                                                            .clip(MaterialTheme.shapes.small)
-                                                            .background(baseColor)
-                                                            .m3Shimmer(baseColor, highlightColor)
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            items(state.similarEpisodes) { episode ->
-                                                androidx.compose.material3.OutlinedCard(
-                                                    shape = RoundedCornerShape(16.dp),
-                                                    colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                                                    ),
-                                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                                                    modifier = Modifier
-                                                        .width(140.dp)
-                                                        .expressiveClickable { 
-                                                            onEpisodeClick(episode) 
-                                                        }
-                                                ) {
-                                                    Column {
-                                                        OptimizedImage(
-                                                            url = episode.imageUrl?.ifEmpty { episode.podcastImageUrl },
-                                                            proxyWidth = 300,
-                                                            contentDescription = episode.title,
-                                                            modifier = Modifier
-                                                                .size(140.dp)
-                                                                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                        Column(
-                                                            modifier = Modifier.padding(10.dp),
-                                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = episode.title,
-                                                                style = MaterialTheme.typography.labelMedium.copy(
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    lineHeight = 14.sp
-                                                                ),
-                                                                color = MaterialTheme.colorScheme.onSurface,
-                                                                minLines = 2,
-                                                                maxLines = 2,
-                                                                overflow = TextOverflow.Ellipsis
-                                                            )
-                                                            val podTitle = episode.podcastTitle
-                                                            if (!podTitle.isNullOrEmpty()) {
-                                                                Text(
-                                                                    text = podTitle,
-                                                                    style = MaterialTheme.typography.bodySmall.copy(
-                                                                        fontSize = 11.sp,
-                                                                        fontWeight = FontWeight.Medium
-                                                                    ),
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                    maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // UNIFIED "MORE FROM PODCAST" SECTION -> Card
-                    item {
-                        androidx.compose.material3.OutlinedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            ),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                            shape = MaterialTheme.shapes.extraLarge
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 16.dp)
-                            ) {
-                                Row(
-                                     modifier = Modifier
-                                         .fillMaxWidth()
-                                         .expressiveClickable { 
-                                             viewModel.onPodcastLinkClicked()
-                                             onPodcastClick(state.podcastId) 
-                                         }
-                                         .padding(horizontal = 20.dp)
-                                         .padding(bottom = 12.dp),
-                                     verticalAlignment = Alignment.CenterVertically
-                                 ) {
-                                     Icon(
-                                         imageVector = Icons.Rounded.Subscriptions,
-                                         contentDescription = null,
-                                         tint = MaterialTheme.colorScheme.primary,
-                                         modifier = Modifier.size(20.dp)
-                                     )
-                                     Spacer(modifier = Modifier.width(10.dp))
-                                     Text(
-                                         text = "More from ${state.podcastTitle}",
-                                         style = MaterialTheme.typography.titleMedium.copy(
-                                             fontWeight = FontWeight.Bold,
-                                             letterSpacing = (-0.1).sp
-                                         ),
-                                         color = MaterialTheme.colorScheme.onSurface,
-                                         modifier = Modifier.weight(1f),
-                                         maxLines = 1,
-                                         overflow = TextOverflow.Ellipsis
-                                     )
-                                     Icon(
-                                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                         contentDescription = "Go to podcast",
-                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                     )
-                                 }
-                                
-                                // Horizontal episodes row
-                                val relatedListState = rememberLazyListState()
-                                LaunchedEffect(relatedListState.isScrollInProgress) {
-                                    if (relatedListState.isScrollInProgress) {
-                                        viewModel.onRelatedEpisodesScrolled()
-                                    }
-                                }
-                                LazyRow(
-                                    state = relatedListState,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 16.dp)
-                                ) {
-                                    if (state.relatedEpisodesLoading) {
-                                        // Skeleton loaders
-                                        items(4) {
-                                            val baseColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                                            val highlightColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                                            
-                                            Column(
-                                                modifier = Modifier.width(120.dp),
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                // Skeleton artwork with shimmer
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(120.dp)
-                                                        .clip(MaterialTheme.shapes.medium)
-                                                        .background(baseColor)
-                                                        .m3Shimmer(baseColor, highlightColor)
-                                                )
-                                                
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                
-                                                // Skeleton text with shimmer
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(14.dp)
-                                                        .clip(MaterialTheme.shapes.small)
-                                                        .background(baseColor)
-                                                        .m3Shimmer(baseColor, highlightColor)
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth(0.7f)
-                                                        .height(14.dp)
-                                                        .clip(MaterialTheme.shapes.small)
-                                                        .background(baseColor)
-                                                        .m3Shimmer(baseColor, highlightColor)
-                                                )
-                                            }
-                                        }
-                                    } else if (state.relatedEpisodes.isNotEmpty()) {
-                                         items(state.relatedEpisodes) { episode ->
-                                             androidx.compose.material3.OutlinedCard(
-                                                 shape = RoundedCornerShape(16.dp),
-                                                 colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                                     containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                                                 ),
-                                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                                                 modifier = Modifier
-                                                     .width(140.dp)
-                                                     .expressiveClickable { 
-                                                         viewModel.onRelatedEpisodeClicked()
-                                                         onEpisodeClick(episode) 
-                                                     }
-                                             ) {
-                                                 Column {
-                                                     // Episode Artwork
-                                                     OptimizedImage(
-                                                         url = episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
-                                                         proxyWidth = 300, // 140dp thumbnails
-                                                         contentDescription = episode.title,
-                                                         modifier = Modifier
-                                                             .size(140.dp)
-                                                             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                                                         contentScale = ContentScale.Crop
-                                                     )
-                                                     
-                                                     // Title in card footer - minLines for even sizing
-                                                     Text(
-                                                         text = episode.title,
-                                                         style = MaterialTheme.typography.labelMedium.copy(
-                                                             fontWeight = FontWeight.SemiBold,
-                                                             lineHeight = 14.sp
-                                                         ),
-                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                         minLines = 3,
-                                                         maxLines = 3,
-                                                         overflow = TextOverflow.Ellipsis,
-                                                         modifier = Modifier.padding(12.dp)
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                    } else {
-                                        // No episodes message
-                                        item {
-                                            Text(
-                                                text = "No other episodes available",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(vertical = 16.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    }
+            }
+            if (state.episode.description.isNotBlank()) {
+                item(key = "description") {
+                    EpisodeDescriptionCard(
+                        description = state.episode.description,
+                        accentColor = accentColor,
+                        location = state.location,
+                        license = state.license,
+                        persons = state.episode.persons,
+                        onSeekTo = viewModel::seekToPosition,
+                    )
                 }
-
-                // HEADER OVERLAY (Back button + animated background)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(collapsedHeaderHeight)
-                        .background(headerColor)
-                        .statusBarsPadding()
-                ) {
-                    // Back Button
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Share Button
-                    var showShareSheet by remember { mutableStateOf(false) }
-                    IconButton(
-                        onClick = { showShareSheet = true },
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Share,
-                            contentDescription = "Share",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    if (showShareSheet) {
-                        val currentSuccessState = uiState as? cx.aswin.boxcast.feature.info.EpisodeInfoUiState.Success
-                        val shareEpisode = currentSuccessState?.episode ?: cx.aswin.boxcast.core.model.Episode(
-                            id = episodeId,
-                            title = episodeTitle,
-                            description = episodeDescription,
-                            audioUrl = episodeAudioUrl,
-                            imageUrl = episodeImageUrl,
-                            duration = episodeDuration
-                        )
-                        cx.aswin.boxcast.core.designsystem.components.ShareBottomSheet(
-                            id = shareEpisode.id,
-                            type = "episode",
-                            title = shareEpisode.title,
-                            subtitle = podcastTitle,
-                            imageUrl = shareEpisode.imageUrl ?: shareEpisode.podcastImageUrl,
-                            onDismissRequest = { showShareSheet = false },
-                            durationMs = shareEpisode.duration * 1000L,
-                            currentPositionMs = currentSuccessState?.resumePositionMs ?: 0L,
-                            showTimestampOption = false,
-                            onShare = { _, _, timestamp, target ->
-                                cx.aswin.boxcast.core.data.ShareManager.shareEpisode(
-                                    context = context,
-                                    episode = shareEpisode,
-                                    podcastTitle = podcastTitle,
-                                    timestampMs = timestamp,
-                                    target = target
-                                )
-                            }
-                        )
-                    }
+            }
+            if (state.similarEpisodesLoading || state.similarEpisodes.isNotEmpty()) {
+                item(key = "similar_episodes") {
+                    EpisodeRecommendationSection(
+                        title = "More Like This",
+                        icon = Icons.Rounded.AutoAwesome,
+                        episodes = state.similarEpisodes,
+                        loading = state.similarEpisodesLoading,
+                        accentColor = accentColor,
+                        fallbackImageUrl = state.episode.podcastImageUrl,
+                        onEpisodeClick = onEpisodeClick,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
                 }
-                
-                // FLOATING TITLE - physically moves from body to header
-                Text(
-                    text = episodeTitle,
-                    fontSize = titleFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = titleMaxLines,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = titleHorizontalPadding)
-                        .graphicsLayer { 
-                            translationY = titleTranslationY
-                            alpha = titleAlpha 
-                        }
+            }
+            item(key = "related_episodes") {
+                EpisodeRecommendationSection(
+                    title = "More from ${state.podcastTitle}",
+                    icon = Icons.Rounded.Subscriptions,
+                    episodes = state.relatedEpisodes,
+                    loading = state.relatedEpisodesLoading,
+                    accentColor = accentColor,
+                    fallbackImageUrl = state.episode.podcastImageUrl,
+                    emptyMessage = "No other episodes available",
+                    onHeaderClick = {
+                        viewModel.onPodcastLinkClicked()
+                        onPodcastClick(state.podcastId)
+                    },
+                    onEpisodeClick = { episode ->
+                        viewModel.onRelatedEpisodeClicked()
+                        onEpisodeClick(episode)
+                    },
+                    onScrollStarted = viewModel::onRelatedEpisodesScrolled,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }
+
+        ExpressiveEpisodeTopBar(
+            title = state.episode.title,
+            collapseFraction = collapseFraction,
+            onShare = { showShareSheet = true },
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
+
+        CompactEpisodeActionRail(
+            state = actionState,
+            callbacks = callbacks,
+            accentColor = accentColor,
+            visible = stickyRailVisible,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = appBarHeight + 8.dp, start = 12.dp, end = 12.dp),
+        )
     }
+
+    if (showShareSheet) {
+        ShareBottomSheet(
+            id = state.episode.id,
+            type = "episode",
+            title = state.episode.title,
+            subtitle = state.podcastTitle,
+            imageUrl = artworkUrl,
+            onDismissRequest = { showShareSheet = false },
+            durationMs = state.episode.duration * 1_000L,
+            currentPositionMs = state.resumePositionMs,
+            showTimestampOption = false,
+            onShare = { _, _, timestamp, target ->
+                ShareManager.shareEpisode(
+                    context = context,
+                    episode = state.episode,
+                    podcastTitle = state.podcastTitle,
+                    timestampMs = timestamp,
+                    target = target,
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun ExpressiveEpisodeTopBar(
+    title: String,
+    collapseFraction: Float,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor by animateColorAsState(
+        targetValue = MaterialTheme.colorScheme.surfaceContainer.copy(
+            alpha = (collapseFraction * 0.98f).coerceIn(0f, 0.98f),
+        ),
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "episode_top_bar_color",
+    )
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(containerColor)
+            .statusBarsPadding()
+            .height(64.dp)
+            .padding(horizontal = 8.dp),
+    ) {
+        AnimatedVisibility(
+            visible = collapseFraction > 0.68f,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 64.dp),
+            enter = fadeIn(ExpressiveMotion.SleekFadeSpec) + slideInVertically { it / 3 },
+            exit = fadeOut(ExpressiveMotion.SleekFadeSpec) + slideOutVertically { it / 3 },
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Start,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        TopBarAction(
+            onClick = onShare,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            Icon(Icons.Outlined.Share, contentDescription = "Share")
+        }
+    }
+}
+
+@Composable
+private fun TopBarAction(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier
+            .size(48.dp)
+            .expressiveClickable(shape = CircleShape, onClick = onClick),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shadowElevation = 2.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) { content() }
+    }
+}
+
+@Composable
+private fun EpisodeInfoLoading(modifier: Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            BoxLoreLoader.Expressive(size = 84.dp)
+            Text(
+                text = "Tuning this episode…",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EpisodeInfoError(modifier: Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ) {
+            Text(
+                text = "This episode could not be loaded",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(36.dp),
+            )
+        }
+    }
+}
+
+private fun extractArtworkColor(bitmap: Bitmap): Color {
+    val palette = Palette.from(bitmap).generate()
+    return Color(
+        palette.vibrantSwatch?.rgb
+            ?: palette.mutedSwatch?.rgb
+            ?: palette.dominantSwatch?.rgb
+            ?: 0xFF6750A4.toInt(),
+    )
+}
+
+private fun formatRemainingTime(remainingMs: Long): String? {
+    val totalSeconds = remainingMs.coerceAtLeast(0L) / 1_000L
+    if (totalSeconds <= 0L) return null
+    val hours = totalSeconds / 3_600L
+    val minutes = (totalSeconds % 3_600L) / 60L
+    return if (hours > 0L) "${hours}h ${minutes}m left" else "${minutes}m left"
+}

@@ -50,7 +50,8 @@ fun LazyStaggeredGridScope.timeBlockItems(
     data: CuratedTimeBlock,
     onCuratedEpisodeClick: (Episode, Podcast, String, Int) -> Unit,
     onImpression: (String, List<String>) -> Unit = { _, _ -> },
-    onSeeAllClick: () -> Unit = {}
+    onSeeAllClick: () -> Unit = {},
+    leadingContent: LazyStaggeredGridScope.() -> Unit = {},
 ) {
     item(span = StaggeredGridItemSpan.FullLine, key = "time_block_header", contentType = "time_block_header") {
         LaunchedEffect(data.title) {
@@ -58,6 +59,7 @@ fun LazyStaggeredGridScope.timeBlockItems(
         }
         TimeBlockHeader(data = data, onSeeAllClick = onSeeAllClick)
     }
+    leadingContent()
     data.sections.forEachIndexed { index, section ->
         item(
             span = StaggeredGridItemSpan.FullLine,
@@ -96,14 +98,23 @@ private fun TimeBlockHeader(
                 fallbackIcon = data.icon
             )
             Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = data.title,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = SectionHeaderFontFamily,
-                    fontWeight = FontWeight.Bold
-                ),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Column {
+                Text(
+                    text = data.title,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = SectionHeaderFontFamily,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                data.subtitle.takeIf(String::isNotBlank)?.let { subtitle ->
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         // Action chevron decorator

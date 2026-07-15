@@ -24,6 +24,7 @@ fun ExpressivePlayButton(
     isPlaying: Boolean,
     isResume: Boolean,
     accentColor: Color,
+    isLoading: Boolean = false,
     progress: Float = 0f,
     timeText: String? = null,
     modifier: Modifier = Modifier
@@ -34,7 +35,7 @@ fun ExpressivePlayButton(
         shape = CircleShape,
         modifier = modifier
             .widthIn(min = 160.dp)
-            .expressiveClickable(isolate = true, onClick = onClick)
+            .expressiveClickable(enabled = !isLoading, isolate = true, onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
             PlayButtonProgressStrip(isResume = isResume, progress = progress, accentColor = accentColor)
@@ -44,15 +45,22 @@ fun ExpressivePlayButton(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.padding(horizontal = 14.dp)
             ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(24.dp)
-                )
+                if (isLoading) {
+                    BoxLoreLoader.CircularWavy(
+                        size = 24.dp,
+                        color = accentColor.contrastColor(),
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(6.dp))
                 
                 Text(
-                    text = getPlayButtonDisplayText(isPlaying, isResume, timeText),
+                    text = getPlayButtonDisplayText(isLoading, isPlaying, isResume, timeText),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -91,11 +99,13 @@ private fun PlayButtonProgressStrip(
 }
 
 private fun getPlayButtonDisplayText(
+    isLoading: Boolean,
     isPlaying: Boolean,
     isResume: Boolean,
     timeText: String?
 ): String {
     return when {
+        isLoading -> "Loading"
         isPlaying -> "Pause"
         isResume && timeText != null -> "Resume • $timeText"
         isResume -> "Resume"

@@ -31,6 +31,7 @@ sealed interface EpisodeInfoUiState {
         val similarEpisodes: List<Episode> = emptyList(),
         val similarEpisodesLoading: Boolean = true,
         val isPlaying: Boolean = false, // Sync with global player
+        val isPlaybackLoading: Boolean = false,
         val location: String? = null,
         val license: String? = null,
         val crossPromotion: cx.aswin.boxcast.core.model.ResolvedCrossPromotion? = null,
@@ -107,13 +108,19 @@ class EpisodeInfoViewModel(
                 if (currentState is EpisodeInfoUiState.Success) {
                     val isSameEpisode = playerState.currentEpisode?.id == currentState.episode.id
                     val isPlaying = isSameEpisode && playerState.isPlaying
+                    val isPlaybackLoading = isSameEpisode && playerState.isLoading
                     
                     // If playing this episode, we can also sync the progress in real-time
                     val resumePos = if (isSameEpisode) playerState.position else currentState.resumePositionMs
                     
-                    if (currentState.isPlaying != isPlaying || (isSameEpisode && currentState.resumePositionMs != resumePos)) {
+                    if (
+                        currentState.isPlaying != isPlaying ||
+                        currentState.isPlaybackLoading != isPlaybackLoading ||
+                        (isSameEpisode && currentState.resumePositionMs != resumePos)
+                    ) {
                         _uiState.value = currentState.copy(
                             isPlaying = isPlaying,
+                            isPlaybackLoading = isPlaybackLoading,
                             resumePositionMs = resumePos
                         )
                     }
