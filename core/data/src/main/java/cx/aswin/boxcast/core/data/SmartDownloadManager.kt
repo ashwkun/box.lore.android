@@ -239,9 +239,15 @@ class SmartDownloadManager(
         } else {
             pod.latestEpisode
         }
-        if (resolvedEpisode == null) return null
-        val ep = resolvedEpisode
+        return buildUnplayedDropCandidate(pod, resolvedEpisode, historyByEpisode)
+    }
 
+    private fun buildUnplayedDropCandidate(
+        pod: PodcastEntity,
+        episode: Episode?,
+        historyByEpisode: Map<String, ListeningHistoryEntity>,
+    ): Pair<PodcastEntity, Episode>? {
+        val ep = episode ?: return null
         val history = historyByEpisode[ep.id]
         val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
         return if (isUnplayed) {
