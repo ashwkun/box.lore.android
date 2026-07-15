@@ -16,6 +16,7 @@ import cx.aswin.boxcast.core.data.PodcastScoring
 import cx.aswin.boxcast.core.data.toScorable
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.EpisodeStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -434,18 +435,19 @@ class HomeViewModel(
         // Auto-selections resolve from the fresher subscriptionRepository list (passed in by the
         // caller) so a just-subscribed RSS podcast can trigger its refresh immediately, rather than
         // waiting for uiState to catch up. Manual selections keep resolving from uiState as before.
-        val podcast = autoResolvedPodcast ?: uiState.value.subscribedPodcasts.find { it.id == podcastId }
+        val podcast = autoResolvedPodcast
+            ?: uiState.value.subscribedPodcasts.find { it.id == podcastId }
+            ?: return
         // Auto-selection (single show) shouldn't be reported as a user-driven filter.
         if (!isAuto) {
-            val title = podcast?.title ?: ""
-            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomePodcastFiltered(podcastId, title)
+            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackHomePodcastFiltered(podcastId, podcast.title)
         }
 
         // Mark as seen when filtered in "Your Shows"
-        podcast?.latestEpisode?.id?.let { episodeId ->
+        podcast.latestEpisode?.id?.let { episodeId ->
             markPodcastEpisodeAsSeen(podcastId, episodeId)
         }
-        if (podcast?.isRss == true) {
+        if (podcast.isRss) {
             val manualRefreshDue =
                 podcast.rssRefreshCapability == Podcast.RSS_REFRESH_MANUAL &&
                     rssFeedsRefreshedThisSession.add(podcastId)
@@ -493,8 +495,10 @@ class HomeViewModel(
     private fun refreshSelectedRssPodcast(podcastId: String) {
         viewModelScope.launch {
             try {
-                rssRepository.refreshCatalog(podcastId)
+                rssRepository.refreshCatalog(podcastId).getOrThrow()
                 _rssRefreshVersion.value += 1L
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to refresh selected RSS podcast $podcastId", e)
             }
@@ -1748,13 +1752,15 @@ class HomeViewModel(
             if (pod.isRss) {
                 // RSS catalogs are stored at subscribe time; this tops up latest
                 // episodes cheaply (HEAD-gated) so the filter view is fresh.
-                rssRepository.refreshCatalogIfNeeded(pod.id)
+                rssRepository.refreshCatalogIfNeeded(pod.id).getOrThrow()
             } else if (pod.latestEpisode == null) {
                 val synced = podcastRepository.syncSubscriptions(listOf(pod.id))
                 for ((podId, episode) in synced) {
                     subscriptionRepository.updateLatestEpisode(podId, episode)
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e(
                 "HomeViewModel",

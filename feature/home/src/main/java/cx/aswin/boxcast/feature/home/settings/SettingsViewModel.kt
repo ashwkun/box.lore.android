@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.RssPodcastRepository
 import cx.aswin.boxcast.core.data.RssSubscriptionResult
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -58,12 +59,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun addSubscription() {
-        val url = _uiState.value.rssUrl
-        _uiState.value = _uiState.value.copy(isAddingRss = true, rssError = null)
+        val state = _uiState.value
+        if (state.isAddingRss) return
+        val url = state.rssUrl
+        _uiState.value = state.copy(isAddingRss = true, rssError = null)
         viewModelScope.launch {
-            runCatching {
-                rssRepository.addSubscription(url)
-            }.onSuccess { subscription ->
+            try {
+                val subscription = rssRepository.addSubscription(url)
                 if (subscription.potentialPodcastIndexMatch != null) {
                     _uiState.value = _uiState.value.copy(
                         showAddRssDialog = false,
@@ -74,34 +76,41 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     _uiState.value = _uiState.value.copy(showAddRssDialog = false, rssUrl = "")
                     _events.emit(SettingsEvent.ShowToast(subscriptionAddedMessage(subscription)))
                 }
-            }.onFailure { error ->
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 _uiState.value = _uiState.value.copy(rssError = error.toRssErrorMessage())
+            } finally {
+                _uiState.value = _uiState.value.copy(isAddingRss = false)
             }
-            _uiState.value = _uiState.value.copy(isAddingRss = false)
         }
     }
 
     fun confirmPodcastIndexLink() {
-        val subscription = _uiState.value.pendingRssMatch ?: return
+        val state = _uiState.value
+        if (state.isLinkingRssMatch) return
+        val subscription = state.pendingRssMatch ?: return
         val podcastIndexMatch = subscription.potentialPodcastIndexMatch ?: return
-        _uiState.value = _uiState.value.copy(isLinkingRssMatch = true)
+        _uiState.value = state.copy(isLinkingRssMatch = true)
         viewModelScope.launch {
-            runCatching {
+            try {
                 rssRepository.confirmPodcastIndexLink(
                     rssPodcastId = subscription.podcast.id,
                     podcastIndexId = podcastIndexMatch.id,
                 )
-            }.onSuccess {
                 _uiState.value = _uiState.value.copy(pendingRssMatch = null)
                 _events.emit(
                     SettingsEvent.ShowToast(
                         "Using the RSS source for ${subscription.podcast.title}.",
                     ),
                 )
-            }.onFailure { error ->
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 _events.emit(SettingsEvent.ShowToast(error.toRssErrorMessage()))
+            } finally {
+                _uiState.value = _uiState.value.copy(isLinkingRssMatch = false)
             }
-            _uiState.value = _uiState.value.copy(isLinkingRssMatch = false)
         }
     }
 

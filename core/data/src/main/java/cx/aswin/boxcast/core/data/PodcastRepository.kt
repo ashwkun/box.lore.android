@@ -313,6 +313,8 @@ class PodcastRepository(
         if (feedId.startsWith("rss:")) {
             return@withContext try {
                 rssRepository.searchEpisodes(feedId, query)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("PodcastRepository", "RSS searchEpisodes failed for $feedId", e)
                 emptyList()
@@ -331,6 +333,8 @@ class PodcastRepository(
             } else {
                 emptyList()
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             emptyList()
         }
@@ -340,6 +344,8 @@ class PodcastRepository(
         if (feedId.startsWith("rss:")) {
             return@withContext try {
                 rssRepository.getAllEpisodes(feedId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("PodcastRepository", "RSS getAllEpisodes failed for $feedId", e)
                 emptyList()
@@ -359,6 +365,8 @@ class PodcastRepository(
             } else {
                 emptyList()
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             emptyList()
         }
@@ -368,6 +376,8 @@ class PodcastRepository(
         if (episodeId.toLongOrNull()?.let { it < 0L } == true) {
             return@withContext try {
                 rssRepository.getEpisode(episodeId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("PodcastRepository", "RSS getEpisode failed for $episodeId", e)
                 null
@@ -380,6 +390,8 @@ class PodcastRepository(
             } else {
                 null
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         }
@@ -409,18 +421,36 @@ class PodcastRepository(
         sort: String = "newest"
     ): EpisodePage = withContext(Dispatchers.IO) {
         if (feedId.startsWith("rss:")) {
-            return@withContext try {
-                val episodes = rssRepository.getEpisodes(feedId, limit, offset, sort)
-                val total = rssRepository.episodeCount(feedId)
-                EpisodePage(
-                    episodes = episodes,
-                    hasMore = offset + episodes.size < total,
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("PodcastRepository", "RSS getEpisodesPaginated failed for $feedId", e)
-                EpisodePage(emptyList(), false)
-            }
+            return@withContext getRssEpisodesPaginated(feedId, limit, offset, sort)
         }
+        getNetworkEpisodesPaginated(feedId, limit, offset, sort)
+    }
+
+    private suspend fun getRssEpisodesPaginated(
+        feedId: String,
+        limit: Int,
+        offset: Int,
+        sort: String,
+    ): EpisodePage = try {
+        val episodes = rssRepository.getEpisodes(feedId, limit, offset, sort)
+        val total = rssRepository.episodeCount(feedId)
+        EpisodePage(
+            episodes = episodes,
+            hasMore = offset + episodes.size < total,
+        )
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.e("PodcastRepository", "RSS getEpisodesPaginated failed for $feedId", e)
+        EpisodePage(emptyList(), false)
+    }
+
+    private suspend fun getNetworkEpisodesPaginated(
+        feedId: String,
+        limit: Int,
+        offset: Int,
+        sort: String,
+    ): EpisodePage {
         val resolvedId = if (feedId.startsWith("url:") || feedId.startsWith("guid:") || feedId.startsWith("itunes:")) {
             getPodcastDetails(feedId)?.id ?: feedId
         } else {
@@ -431,10 +461,10 @@ class PodcastRepository(
         val now = System.currentTimeMillis()
         if (cached != null && now - cached.second < 300_000L) { // 5-minute cache
             android.util.Log.d("PodcastRepository", "Cache HIT for getEpisodesPaginated: $cacheKey")
-            return@withContext cached.first
+            return cached.first
         }
         android.util.Log.d("PodcastRepository", "Cache MISS for getEpisodesPaginated: $cacheKey. Fetching from network.")
-        try {
+        return try {
             val response = api.getEpisodesPaginated(publicKey, resolvedId, limit, offset, sort).execute()
             if (response.isSuccessful && response.body() != null) {
                 val page = EpisodePage(
@@ -446,6 +476,8 @@ class PodcastRepository(
             } else {
                 EpisodePage(emptyList(), false)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             EpisodePage(emptyList(), false)
         }
@@ -453,56 +485,67 @@ class PodcastRepository(
 
     suspend fun getPodcastDetails(feedId: String): Podcast? = withContext(Dispatchers.IO) {
         if (feedId.startsWith("rss:")) {
-            return@withContext try {
-                rssRepository.getPodcast(feedId)?.toPodcast()
-            } catch (e: Exception) {
-                android.util.Log.e("PodcastRepository", "RSS getPodcastDetails failed for $feedId", e)
-                null
-            }
+            return@withContext getRssPodcastDetails(feedId)
         }
-        try {
-            val response = if (feedId.startsWith("url:")) {
-                val encodedUrl = feedId.substringAfter("url:")
-                val decodedUrl = java.net.URLDecoder.decode(encodedUrl, "UTF-8")
+        getNetworkPodcastDetails(feedId)
+    }
+
+    private suspend fun getRssPodcastDetails(feedId: String): Podcast? = try {
+        rssRepository.getPodcast(feedId)?.toPodcast()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.e("PodcastRepository", "RSS getPodcastDetails failed for $feedId", e)
+        null
+    }
+
+    /** Picks the right lookup parameter (feed URL/guid/iTunes id/id) and executes the request. */
+    private fun executeGetPodcastRequest(feedId: String): retrofit2.Response<cx.aswin.boxcast.core.network.model.PodcastResponse> {
+        return when {
+            feedId.startsWith("url:") -> {
+                val decodedUrl = java.net.URLDecoder.decode(feedId.substringAfter("url:"), "UTF-8")
                 api.getPodcast(publicKey = publicKey, feedUrl = decodedUrl).execute()
-            } else if (feedId.startsWith("guid:")) {
-                val guid = feedId.substringAfter("guid:")
-                api.getPodcast(publicKey = publicKey, feedGuid = guid).execute()
-            } else if (feedId.startsWith("itunes:")) {
-                val itunesId = feedId.substringAfter("itunes:")
-                api.getPodcast(publicKey = publicKey, itunesId = itunesId).execute()
-            } else {
-                api.getPodcast(publicKey = publicKey, feedId = feedId).execute()
             }
-            if (response.isSuccessful && response.body() != null) {
-                val feed = response.body()!!.feed ?: return@withContext null
-                Podcast(
-                    id = feed.id.toString(),
-                    title = feed.title,
-                    artist = feed.author ?: "Unknown",
-                    imageUrl = (feed.artwork ?: feed.image).toHttps(),
-                    type = feed.type ?: "episodic",
-                    description = feed.description,
-                    genre = resolvePrimaryGenre(feed.categories),
-                    // Podcast 2.0
-                    fundingUrl = feed.funding?.url,
-                    fundingMessage = feed.funding?.message,
-                    podcastGuid = feed.podcastGuid,
-                    medium = feed.medium,
-                    ownerName = feed.ownerName,
-                    hasValue = feed.value != null,
-                    updateFrequency = feed.updateFrequency,
-                    location = feed.location,
-                    license = feed.license,
-                    isLocked = feed.locked == 1,
-                    feedUrl = feed.url,
-                )
-            } else {
-                null
+            feedId.startsWith("guid:") -> {
+                api.getPodcast(publicKey = publicKey, feedGuid = feedId.substringAfter("guid:")).execute()
             }
-        } catch (e: Exception) {
-            null
+            feedId.startsWith("itunes:") -> {
+                api.getPodcast(publicKey = publicKey, itunesId = feedId.substringAfter("itunes:")).execute()
+            }
+            else -> api.getPodcast(publicKey = publicKey, feedId = feedId).execute()
         }
+    }
+
+    private fun mapPodcastResponseFeed(feed: cx.aswin.boxcast.core.network.model.PodcastFeed): Podcast = Podcast(
+        id = feed.id.toString(),
+        title = feed.title,
+        artist = feed.author ?: "Unknown",
+        imageUrl = (feed.artwork ?: feed.image).toHttps(),
+        type = feed.type ?: "episodic",
+        description = feed.description,
+        genre = resolvePrimaryGenre(feed.categories),
+        // Podcast 2.0
+        fundingUrl = feed.funding?.url,
+        fundingMessage = feed.funding?.message,
+        podcastGuid = feed.podcastGuid,
+        medium = feed.medium,
+        ownerName = feed.ownerName,
+        hasValue = feed.value != null,
+        updateFrequency = feed.updateFrequency,
+        location = feed.location,
+        license = feed.license,
+        isLocked = feed.locked == 1,
+        feedUrl = feed.url,
+    )
+
+    private suspend fun getNetworkPodcastDetails(feedId: String): Podcast? = try {
+        val response = executeGetPodcastRequest(feedId)
+        val feed = if (response.isSuccessful) response.body()?.feed else null
+        feed?.let { mapPodcastResponseFeed(it) }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     suspend fun syncSubscriptions(feedIds: List<String>): Map<String, Episode> = withContext(Dispatchers.IO) {

@@ -71,32 +71,62 @@ data class LibraryBackupWriters(
     val onImportOpml: (Uri) -> Unit = {},
 )
 
-@Composable
-fun SettingsScreen(
-    currentRegion: String = "us",
-    onSetRegion: (String) -> Unit = {},
-    onBack: () -> Unit,
-    onResetAnalytics: () -> Unit,
-    appInstanceId: String? = null,
-    appearanceState: AppearanceUiState = AppearanceUiState(
+/** Content-region selector state/action, surfaced from the Library settings sub-page. */
+data class RegionSettings(
+    val currentRegion: String = "us",
+    val onSetRegion: (String) -> Unit = {},
+)
+
+/** [SettingsScreen]'s top-level identifiers/callbacks that aren't tied to a specific sub-page. */
+data class SettingsScreenConfig(
+    val onBack: () -> Unit,
+    val onResetAnalytics: () -> Unit,
+    val appInstanceId: String? = null,
+    /** Optional deep-link page: "library", "appearance", etc. */
+    val initialPage: String? = null,
+)
+
+/** Appearance sub-page state paired with its actions, so [SettingsScreen] can pass both as one. */
+data class AppearanceSettings(
+    val state: AppearanceUiState = AppearanceUiState(
         currentThemeConfig = "system",
         isDynamicColorEnabled = true,
         currentThemeBrand = "violet",
         currentSurfaceStyle = "standard",
     ),
-    appearanceActions: AppearanceActions = AppearanceActions({}, {}, {}, {}),
-    libraryBackupWriters: LibraryBackupWriters = LibraryBackupWriters(),
-    playbackState: PlaybackUiState = PlaybackUiState(
+    val actions: AppearanceActions = AppearanceActions({}, {}, {}, {}),
+)
+
+/** Playback sub-page state paired with its actions, so [SettingsScreen] can pass both as one. */
+data class PlaybackSettings(
+    val state: PlaybackUiState = PlaybackUiState(
         skipBehavior = "just_skip",
         hideCompletedInHome = true,
         hideCompletedInSubs = true,
         hideCompletedInShowDetails = false,
     ),
-    playbackActions: PlaybackActions = PlaybackActions({}, {}, {}, {}),
+    val actions: PlaybackActions = PlaybackActions({}, {}, {}, {}),
+)
+
+@Composable
+fun SettingsScreen(
+    config: SettingsScreenConfig,
+    regionSettings: RegionSettings = RegionSettings(),
+    appearanceSettings: AppearanceSettings = AppearanceSettings(),
+    playbackSettings: PlaybackSettings = PlaybackSettings(),
+    libraryBackupWriters: LibraryBackupWriters = LibraryBackupWriters(),
     downloadsNavigation: DownloadsNavigation = DownloadsNavigation(),
-    /** Optional deep-link page: "library", "appearance", etc. */
-    initialPage: String? = null,
 ) {
+    val currentRegion = regionSettings.currentRegion
+    val onSetRegion = regionSettings.onSetRegion
+    val onBack = config.onBack
+    val onResetAnalytics = config.onResetAnalytics
+    val appInstanceId = config.appInstanceId
+    val initialPage = config.initialPage
+    val appearanceState = appearanceSettings.state
+    val appearanceActions = appearanceSettings.actions
+    val playbackState = playbackSettings.state
+    val playbackActions = playbackSettings.actions
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val settingsViewModel: SettingsViewModel = viewModel(

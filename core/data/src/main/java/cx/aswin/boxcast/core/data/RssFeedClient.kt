@@ -336,6 +336,17 @@ class RssFeedClient(
         name: String,
         qualifiedName: String,
     ) {
+        if (handleChannelImageOrAuthorTag(parser, feed, name)) return
+        if (handleChannelTextTag(parser, feed, name)) return
+        handleChannelMiscTag(parser, feed, name, qualifiedName)
+    }
+
+    /** Handles the channel `<image>`/`<author>` nesting, which share `feed`'s "inside X" flags. */
+    private fun handleChannelImageOrAuthorTag(
+        parser: XmlPullParser,
+        feed: MutableFeed,
+        name: String,
+    ): Boolean {
         when {
             name == "image" && parser.depth > 2 -> {
                 val href = parser.getAttributeValue(null, "href")
@@ -357,6 +368,18 @@ class RssFeedClient(
             feed.insideChannelImage && name == "url" -> {
                 feed.imageUrl = readSimpleText(parser)
             }
+            else -> return false
+        }
+        return true
+    }
+
+    /** Handles simple text-content channel tags: title, description, managing editor. */
+    private fun handleChannelTextTag(
+        parser: XmlPullParser,
+        feed: MutableFeed,
+        name: String,
+    ): Boolean {
+        when {
             name == "title" && feed.title.isBlank() -> {
                 feed.title = readSimpleText(parser)
             }
@@ -368,6 +391,19 @@ class RssFeedClient(
             name == "managingeditor" || name == "webmaster" -> {
                 if (feed.author.isBlank()) feed.author = readSimpleText(parser)
             }
+            else -> return false
+        }
+        return true
+    }
+
+    /** Handles the remaining channel tags: category, dates, podcast guid and type. */
+    private fun handleChannelMiscTag(
+        parser: XmlPullParser,
+        feed: MutableFeed,
+        name: String,
+        qualifiedName: String,
+    ) {
+        when {
             name == "category" && feed.genre.isNullOrBlank() -> {
                 feed.genre = parser.getAttributeValue(null, "text")
                     ?.takeIf(String::isNotBlank)
@@ -508,16 +544,21 @@ class RssFeedClient(
     }
 
     private fun handleEnclosureTag(parser: XmlPullParser, episode: MutableEpisode) {
-        episode.audioUrl = parser.getAttributeValue(null, "url").orEmpty()
-        episode.enclosureType = parser.getAttributeValue(null, "type")
+        val url = parser.getAttributeValue(null, "url")
+        val type = parser.getAttributeValue(null, "type")
+        if (!url.isNullOrBlank() && isPlayableMedia(url, type, null)) {
+            episode.audioUrl = url
+            episode.enclosureType = type
+        }
     }
 
     private fun handleEpisodeLinkTag(parser: XmlPullParser, episode: MutableEpisode) {
         val relation = parser.getAttributeValue(null, "rel")
         val href = parser.getAttributeValue(null, "href")
-        if (relation == "enclosure" && !href.isNullOrBlank()) {
+        val type = parser.getAttributeValue(null, "type")
+        if (relation == "enclosure" && !href.isNullOrBlank() && isPlayableMedia(href, type, null)) {
             episode.audioUrl = href
-            episode.enclosureType = parser.getAttributeValue(null, "type")
+            episode.enclosureType = type
         }
     }
 

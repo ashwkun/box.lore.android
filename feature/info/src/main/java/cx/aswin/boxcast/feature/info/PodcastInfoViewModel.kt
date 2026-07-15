@@ -10,6 +10,7 @@ import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.toPodcast
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -385,6 +386,8 @@ class PodcastInfoViewModel(
                         _uiState.value = PodcastInfoUiState.Error
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load podcast $effectivePodcastId", e)
                 if (currentPodcast == null) {
@@ -573,6 +576,8 @@ class PodcastInfoViewModel(
                     isRssRefreshing = false,
                     hasMoreEpisodes = page.hasMore,
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
                 val latestState = _uiState.value as? PodcastInfoUiState.Success ?: return@launch

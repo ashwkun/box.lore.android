@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
@@ -129,9 +130,12 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -500,6 +504,18 @@ fun PodcastInfoScreen(
                         detectTapGestures(onTap = { focusManager.clearFocus() })
                     }
 
+                val episodeListIndicators = remember(
+                    likedEpisodeIds, queuedEpisodeIds, downloadedEpisodeIds, downloadingEpisodeIds, completedEpisodeIds
+                ) {
+                    EpisodeListIndicators(
+                        likedEpisodeIds = likedEpisodeIds,
+                        queuedEpisodeIds = queuedEpisodeIds,
+                        downloadedEpisodeIds = downloadedEpisodeIds,
+                        downloadingEpisodeIds = downloadingEpisodeIds,
+                        completedEpisodeIds = completedEpisodeIds,
+                    )
+                }
+
                 @Composable
                 fun EpisodeLazyColumn() {
                     LazyColumn(
@@ -587,11 +603,7 @@ fun PodcastInfoScreen(
                             feedItem = feedItem,
                             viewModel = viewModel,
                             accentColor = accentColor,
-                            likedEpisodeIds = likedEpisodeIds,
-                            queuedEpisodeIds = queuedEpisodeIds,
-                            downloadedEpisodeIds = downloadedEpisodeIds,
-                            downloadingEpisodeIds = downloadingEpisodeIds,
-                            completedEpisodeIds = completedEpisodeIds,
+                            indicators = episodeListIndicators,
                             autoScrolledEpisodeId = autoScrolledEpisodeId,
                             onEpisodeClick = onEpisodeClick,
                         )
@@ -664,10 +676,12 @@ fun PodcastInfoScreen(
                     collapsedHeaderHeight = collapsedHeaderHeight,
                     hideCompleted = hideCompleted,
                     context = context,
-                    onBack = onBack,
-                    onMarkAllPlayed = { showMarkAllPlayedDialog = true },
-                    onMarkAllUnplayed = { showMarkAllUnplayedDialog = true },
-                    onToggleHideCompleted = { viewModel.toggleHideCompleted() },
+                    actions = PodcastInfoTopOverlayActions(
+                        onBack = onBack,
+                        onMarkAllPlayed = { showMarkAllPlayedDialog = true },
+                        onMarkAllUnplayed = { showMarkAllUnplayedDialog = true },
+                        onToggleHideCompleted = { viewModel.toggleHideCompleted() },
+                    ),
                 )
                 
                 // SNACKBAR HOST (Overlay)
@@ -882,29 +896,29 @@ private fun resolveAutoScrollTarget(
     completedEpisodeIds: Set<String>,
     ongoingEpisodeIds: Set<String>
 ): AutoScrollTarget {
-    fun episodeIdOf(item: FeedItem): String? = when (item) {
-        is FeedItem.NormalEpisode -> item.episode.id
-        is FeedItem.SingleTrailer -> item.episode.id
-        is FeedItem.TrailerGroup -> item.trailers.firstOrNull()?.first?.id
-    }
-
     fun isCompleted(item: FeedItem): Boolean = when (item) {
         is FeedItem.NormalEpisode -> completedEpisodeIds.contains(item.episode.id)
         is FeedItem.SingleTrailer -> completedEpisodeIds.contains(item.episode.id)
         is FeedItem.TrailerGroup -> item.trailers.any { completedEpisodeIds.contains(it.first.id) }
     }
 
+    fun isOngoing(item: FeedItem): Boolean = when (item) {
+        is FeedItem.NormalEpisode -> ongoingEpisodeIds.contains(item.episode.id)
+        is FeedItem.SingleTrailer -> ongoingEpisodeIds.contains(item.episode.id)
+        // Match any trailer in the group, not only the first.
+        is FeedItem.TrailerGroup -> item.trailers.any { ongoingEpisodeIds.contains(it.first.id) }
+    }
+
     fun episodeAt(item: FeedItem): Episode? = when (item) {
         is FeedItem.NormalEpisode -> item.episode
         is FeedItem.SingleTrailer -> item.episode
-        is FeedItem.TrailerGroup -> item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
+        is FeedItem.TrailerGroup ->
+            item.trailers.firstOrNull { ongoingEpisodeIds.contains(it.first.id) }?.first
+                ?: item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
     }
 
     // 1. Look for an in-progress/ongoing episode first
-    var targetIndex = feedItems.indexOfFirst { item ->
-        val episodeId = episodeIdOf(item)
-        episodeId != null && ongoingEpisodeIds.contains(episodeId)
-    }
+    var targetIndex = feedItems.indexOfFirst { isOngoing(it) }
     val isOngoingMatched = targetIndex != -1
 
     // 2. If nothing is ongoing, look for the episode just after the last completed one
@@ -958,26 +972,47 @@ private fun calculateUpdateFrequencyData(
     }
 
     // 1. Securely sort and take the latest 15 episodes (Recent History)
-    val validEpisodes = episodes
+    val validEpisodes = filterValidFrequencyEpisodes(episodes)
+    val daysSinceLatest = computeDaysSinceLatest(podcast, validEpisodes)
+
+    // 2. Check if it's dead or on hiatus
+    dormancyStatus(daysSinceLatest)?.let { return it }
+
+    // 3. Check for decay / delayed seasons (Between Seasons check)
+    val medianIntervalDays = computeMedianIntervalDays(validEpisodes, podcast)
+    betweenSeasonsStatus(medianIntervalDays, daysSinceLatest)?.let { return it }
+
+    // 4. Use the explicit updateFrequency tag if available
+    explicitFrequencyTag(podcast.updateFrequency)?.let { return it }
+
+    // 5. Fallback: Predict frequency using Median and Day of Week counts
+    if (validEpisodes.size < 4 || medianIntervalDays == null) return cachedFrequencyData
+    return predictedFrequencyFromPattern(validEpisodes, medianIntervalDays) ?: cachedFrequencyData
+}
+
+private fun filterValidFrequencyEpisodes(episodes: List<Episode>): List<Episode> =
+    episodes
         .filter { it.episodeType != "trailer" && it.episodeType != "bonus" && it.publishedDate > 0 }
         .sortedByDescending { it.publishedDate }
         .take(15)
 
+private fun computeDaysSinceLatest(podcast: Podcast, validEpisodes: List<Episode>): Long? {
     val latestEpisodeDate = validEpisodes.firstOrNull()?.publishedDate ?: podcast.latestEpisode?.publishedDate
-    val daysSinceLatest = latestEpisodeDate?.let { (System.currentTimeMillis() / 1000 - it) / (60 * 60 * 24) }
+    return latestEpisodeDate?.let { (System.currentTimeMillis() / 1000 - it) / (60 * 60 * 24) }
+}
 
-    // 2. Check if it's dead or on hiatus
-    if (daysSinceLatest != null && daysSinceLatest > 0) {
-        if (daysSinceLatest > 365) {
-            return Pair("Inactive / Ended", Icons.Rounded.PauseCircle)
-        } else if (daysSinceLatest > 180) {
-            return Pair("On Hiatus", Icons.Rounded.PauseCircle)
-        }
+private fun dormancyStatus(daysSinceLatest: Long?): Pair<String, ImageVector>? {
+    if (daysSinceLatest == null || daysSinceLatest <= 0) return null
+    return when {
+        daysSinceLatest > 365 -> Pair("Inactive / Ended", Icons.Rounded.PauseCircle)
+        daysSinceLatest > 180 -> Pair("On Hiatus", Icons.Rounded.PauseCircle)
+        else -> null
     }
+}
 
-    // 3. Check for decay / delayed seasons (Between Seasons check)
-    // Calculate medianIntervalDays to determine standard gap
-    val medianIntervalDays: Long? = if (validEpisodes.size >= 4) {
+/** Median gap (days) between the latest episodes, falling back to the feed's declared tag. */
+private fun computeMedianIntervalDays(validEpisodes: List<Episode>, podcast: Podcast): Long? {
+    if (validEpisodes.size >= 4) {
         val intervals = mutableListOf<Long>()
         for (i in 0 until validEpisodes.size - 1) {
             val newer = validEpisodes[i].publishedDate
@@ -985,60 +1020,58 @@ private fun calculateUpdateFrequencyData(
             val daysDiff = (newer - older) / (60 * 60 * 24)
             if (daysDiff >= 0) intervals.add(daysDiff)
         }
-        if (intervals.isNotEmpty()) {
-            val sortedIntervals = intervals.sorted()
-            sortedIntervals[sortedIntervals.size / 2]
-        } else null
+        if (intervals.isEmpty()) return null
+        val sortedIntervals = intervals.sorted()
+        return sortedIntervals[sortedIntervals.size / 2]
+    }
+    // Estimate based on tag if episodes are scarce
+    val tag = podcast.updateFrequency?.lowercase() ?: ""
+    return when {
+        tag.contains("daily") -> 1L
+        tag.contains("weekly") -> 7L
+        tag.contains("bi-weekly") || tag.contains("2 weeks") -> 14L
+        tag.contains("monthly") -> 30L
+        else -> null
+    }
+}
+
+private fun betweenSeasonsStatus(medianIntervalDays: Long?, daysSinceLatest: Long?): Pair<String, ImageVector>? {
+    if (medianIntervalDays == null || medianIntervalDays <= 3 || daysSinceLatest == null) return null
+    return if (daysSinceLatest > (medianIntervalDays * 2)) {
+        Pair("Between Seasons", Icons.Rounded.HourglassBottom)
     } else {
-        // Estimate based on tag if episodes are scarce
-        val tag = podcast.updateFrequency?.lowercase() ?: ""
+        null
+    }
+}
+
+private fun explicitFrequencyTag(tag: String?): Pair<String, ImageVector>? {
+    if (tag.isNullOrBlank()) return null
+    val cleanText = tag.trim().lowercase()
+    val parsedDouble = cleanText.toDoubleOrNull()
+    val formattedText = if (parsedDouble != null) {
         when {
-            tag.contains("daily") -> 1L
-            tag.contains("weekly") -> 7L
-            tag.contains("bi-weekly") || tag.contains("2 weeks") -> 14L
-            tag.contains("monthly") -> 30L
-            else -> null
+            parsedDouble >= 7.0 -> "Releases Daily"
+            parsedDouble >= 2.0 -> "Releases Multi-Weekly"
+            parsedDouble >= 1.0 -> "Releases Weekly"
+            parsedDouble >= 0.5 -> "Releases Every 2 Weeks"
+            parsedDouble >= 0.1 -> "Releases Monthly"
+            else -> "Releases Occasionally"
+        }
+    } else {
+        when (cleanText) {
+            "daily" -> "Releases Daily"
+            "weekly" -> "Releases Weekly"
+            "monthly" -> "Releases Monthly"
+            "biweekly", "bi-weekly" -> "Releases Every 2 Weeks"
+            else -> tag.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
         }
     }
+    val icon = if (formattedText.contains("Daily", ignoreCase = true)) Icons.Rounded.Bolt else Icons.Rounded.CalendarMonth
+    return Pair(formattedText, icon)
+}
 
-    if (medianIntervalDays != null && medianIntervalDays > 3 && daysSinceLatest != null) {
-        if (daysSinceLatest > (medianIntervalDays * 2)) {
-            return Pair("Between Seasons", Icons.Rounded.HourglassBottom)
-        }
-    }
-
-    // 4. Use the explicit updateFrequency tag if available
-    val tag = podcast.updateFrequency
-    if (!tag.isNullOrBlank()) {
-        val cleanText = tag.trim().lowercase()
-        val parsedDouble = cleanText.toDoubleOrNull()
-        val formattedText = if (parsedDouble != null) {
-            when {
-                parsedDouble >= 7.0 -> "Releases Daily"
-                parsedDouble >= 2.0 -> "Releases Multi-Weekly"
-                parsedDouble >= 1.0 -> "Releases Weekly"
-                parsedDouble >= 0.5 -> "Releases Every 2 Weeks"
-                parsedDouble >= 0.1 -> "Releases Monthly"
-                else -> "Releases Occasionally"
-            }
-        } else {
-            when (cleanText) {
-                "daily" -> "Releases Daily"
-                "weekly" -> "Releases Weekly"
-                "monthly" -> "Releases Monthly"
-                "biweekly", "bi-weekly" -> "Releases Every 2 Weeks"
-                else -> tag.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-            }
-        }
-        val icon = if (formattedText.contains("Daily", ignoreCase = true)) Icons.Rounded.Bolt else Icons.Rounded.CalendarMonth
-        return Pair(formattedText, icon)
-    }
-
-    // 5. Fallback: Predict frequency using Median and Day of Week counts
-    if (validEpisodes.size < 4) return cachedFrequencyData
-    if (medianIntervalDays == null) return cachedFrequencyData
-
-    // Determine common release day
+/** Most common weekday name across [validEpisodes], if at least half of them share one. */
+private fun commonReleaseDayName(validEpisodes: List<Episode>): String? {
     val calendar = java.util.Calendar.getInstance()
     val dayCounts = IntArray(8)
     for (ep in validEpisodes) {
@@ -1053,45 +1086,38 @@ private fun calculateUpdateFrequencyData(
             maxDay = i
         }
     }
-
-    val commonDayName = if (maxCount >= (validEpisodes.size * 0.5).toInt()) {
-        when (maxDay) {
-            java.util.Calendar.SUNDAY -> "Sundays"
-            java.util.Calendar.MONDAY -> "Mondays"
-            java.util.Calendar.TUESDAY -> "Tuesdays"
-            java.util.Calendar.WEDNESDAY -> "Wednesdays"
-            java.util.Calendar.THURSDAY -> "Thursdays"
-            java.util.Calendar.FRIDAY -> "Fridays"
-            java.util.Calendar.SATURDAY -> "Saturdays"
-            else -> null
-        }
-    } else null
-
-    var predictedText: String? = null
-    var icon: ImageVector = Icons.Rounded.CalendarMonth
-
-    if (medianIntervalDays in 0..1) {
-        predictedText = "Releases Daily"
-        icon = Icons.Rounded.Bolt
-    } else if (medianIntervalDays in 2..4) {
-        predictedText = "Releases Multi-Weekly"
-        icon = Icons.Rounded.CalendarMonth
-    } else if (medianIntervalDays in 5..8) {
-        predictedText = if (commonDayName != null) "Weekly on $commonDayName" else "Releases Weekly"
-        icon = Icons.Rounded.CalendarMonth
-    } else if (medianIntervalDays in 12..16) {
-        predictedText = if (commonDayName != null) "Every 2 Weeks on $commonDayName" else "Releases Every 2 Weeks"
-        icon = Icons.Rounded.CalendarMonth
-    } else if (medianIntervalDays in 25..35) {
-        predictedText = "Releases Monthly"
-        icon = Icons.Rounded.CalendarMonth
+    if (maxCount < (validEpisodes.size * 0.5).toInt()) return null
+    return when (maxDay) {
+        java.util.Calendar.SUNDAY -> "Sundays"
+        java.util.Calendar.MONDAY -> "Mondays"
+        java.util.Calendar.TUESDAY -> "Tuesdays"
+        java.util.Calendar.WEDNESDAY -> "Wednesdays"
+        java.util.Calendar.THURSDAY -> "Thursdays"
+        java.util.Calendar.FRIDAY -> "Fridays"
+        java.util.Calendar.SATURDAY -> "Saturdays"
+        else -> null
     }
+}
 
-    if (predictedText != null) {
-        return Pair(predictedText, icon)
+private fun predictedFrequencyFromPattern(
+    validEpisodes: List<Episode>,
+    medianIntervalDays: Long,
+): Pair<String, ImageVector>? {
+    val commonDayName = commonReleaseDayName(validEpisodes)
+    return when (medianIntervalDays) {
+        in 0..1 -> Pair("Releases Daily", Icons.Rounded.Bolt)
+        in 2..4 -> Pair("Releases Multi-Weekly", Icons.Rounded.CalendarMonth)
+        in 5..8 -> Pair(
+            if (commonDayName != null) "Weekly on $commonDayName" else "Releases Weekly",
+            Icons.Rounded.CalendarMonth,
+        )
+        in 12..16 -> Pair(
+            if (commonDayName != null) "Every 2 Weeks on $commonDayName" else "Releases Every 2 Weeks",
+            Icons.Rounded.CalendarMonth,
+        )
+        in 25..35 -> Pair("Releases Monthly", Icons.Rounded.CalendarMonth)
+        else -> null
     }
-
-    return cachedFrequencyData
 }
 
 private fun genreIconFor(genre: String): ImageVector {
@@ -1307,57 +1333,75 @@ private fun PodcastInfoMetadataChipsRow(
     context: android.content.Context,
     onPlayTrailer: (Episode) -> Unit,
 ) {
-    val medium = if (podcast.medium == "podcast" && podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) "video" else podcast.medium
-    val hasFunding = podcast.fundingUrl != null
+    val medium = resolveDisplayMedium(podcast)
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         contentPadding = PaddingValues(horizontal = 0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        if (podcast.isRss) {
-            item { RssFeedChip() }
-        }
-
-        if (frequencyData != null) {
-            item { UpdateFrequencyChip(frequencyData) }
-        }
-
-        if (podcast.genre.isNotEmpty()) {
-            item { GenreChip(podcast.genre) }
-        }
+        podcastIdentityChips(podcast, frequencyData)
 
         items(sortedPersons) { person ->
-            CompactPersonChip(
-                person = person,
-                onClick = {
-                    if (!person.href.isNullOrBlank()) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(person.href))
-                        context.startActivity(intent)
-                    }
-                }
-            )
+            CompactPersonChip(person = person, onClick = { openPersonLink(context, person) })
         }
 
-        if (trailerEpisode != null) {
-            item { PlayTrailerChip(onClick = { onPlayTrailer(trailerEpisode) }) }
-        }
+        trailerAndMediumChips(trailerEpisode, medium, onPlayTrailer)
+        fundingChip(podcast, context)
+    }
+}
 
-        if (!medium.isNullOrEmpty() && medium != "podcast") {
-            item { MediumChip(medium) }
-        }
+/** "video" if this is a video-only podcast feed masquerading as "podcast" medium; otherwise unchanged. */
+private fun resolveDisplayMedium(podcast: Podcast): String? =
+    if (podcast.medium == "podcast" && podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) {
+        "video"
+    } else {
+        podcast.medium
+    }
 
-        if (hasFunding) {
-            item {
-                FundingChip(
-                    fundingMessage = podcast.fundingMessage,
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(podcast.fundingUrl))
-                        context.startActivity(intent)
-                    }
-                )
+private fun openPersonLink(context: android.content.Context, person: Person) {
+    if (person.href.isNullOrBlank()) return
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(person.href)))
+}
+
+private fun LazyListScope.podcastIdentityChips(
+    podcast: Podcast,
+    frequencyData: Pair<String, ImageVector>?,
+) {
+    if (podcast.isRss) {
+        item { RssFeedChip() }
+    }
+    if (frequencyData != null) {
+        item { UpdateFrequencyChip(frequencyData) }
+    }
+    if (podcast.genre.isNotEmpty()) {
+        item { GenreChip(podcast.genre) }
+    }
+}
+
+private fun LazyListScope.trailerAndMediumChips(
+    trailerEpisode: Episode?,
+    medium: String?,
+    onPlayTrailer: (Episode) -> Unit,
+) {
+    if (trailerEpisode != null) {
+        item { PlayTrailerChip(onClick = { onPlayTrailer(trailerEpisode) }) }
+    }
+    if (!medium.isNullOrEmpty() && medium != "podcast") {
+        item { MediumChip(medium) }
+    }
+}
+
+private fun LazyListScope.fundingChip(podcast: Podcast, context: android.content.Context) {
+    if (podcast.fundingUrl == null) return
+    item {
+        FundingChip(
+            fundingMessage = podcast.fundingMessage,
+            onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(podcast.fundingUrl))
+                context.startActivity(intent)
             }
-        }
+        )
     }
 }
 
@@ -1480,7 +1524,8 @@ private fun PodcastInfoDescriptionSection(
     onToggleExpanded: () -> Unit,
     onPodcastClick: (String) -> Unit,
 ) {
-    if (strippedDesc.isEmpty()) return
+    val hasPodroll = !podroll.isNullOrEmpty()
+    if (strippedDesc.isEmpty() && !isLocked && !hasPodroll) return
 
     Surface(
         modifier = Modifier
@@ -1500,22 +1545,28 @@ private fun PodcastInfoDescriptionSection(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Text(
-                text = strippedDesc,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 20.sp,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (strippedDesc.isNotEmpty()) {
+                Text(
+                    text = strippedDesc,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-            if (isDescExpanded && isLocked) {
+            // With no description there's nothing to "expand" — always show the lock notice and
+            // podroll in that case instead of hiding them behind a collapsed, empty description.
+            val showMetadataRegardless = isDescExpanded || strippedDesc.isEmpty()
+
+            if (showMetadataRegardless && isLocked) {
                 LockedFeedNotice()
             }
 
-            if (isDescExpanded && !podroll.isNullOrEmpty()) {
-                PodrollRecommendations(podroll = podroll, onPodcastClick = onPodcastClick)
+            if (showMetadataRegardless && hasPodroll) {
+                PodrollRecommendations(podroll = podroll.orEmpty(), onPodcastClick = onPodcastClick)
             }
         }
     }
@@ -1581,17 +1632,29 @@ private fun PodcastInfoHeroSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Update Frequency Calculation
+        // Update Frequency Calculation — filters/sorts episodes and analyzes release intervals,
+        // which can be expensive for large RSS catalogs, so it runs off the composition thread
+        // and is cancelled/restarted automatically as its keys change.
         var cachedFrequencyData by remember(state.podcast.id) { mutableStateOf<Pair<String, ImageVector>?>(null) }
 
-        val frequencyData = remember(state.podcast, state.episodes, state.currentSort, state.searchQuery) {
-            calculateUpdateFrequencyData(
-                podcast = state.podcast,
-                episodes = state.episodes,
-                currentSort = state.currentSort,
-                searchQuery = state.searchQuery,
-                cachedFrequencyData = cachedFrequencyData
-            ).also { cachedFrequencyData = it }
+        val frequencyData by produceState(
+            initialValue = cachedFrequencyData,
+            state.podcast,
+            state.episodes,
+            state.currentSort,
+            state.searchQuery,
+        ) {
+            val computed = withContext(Dispatchers.Default) {
+                calculateUpdateFrequencyData(
+                    podcast = state.podcast,
+                    episodes = state.episodes,
+                    currentSort = state.currentSort,
+                    searchQuery = state.searchQuery,
+                    cachedFrequencyData = cachedFrequencyData
+                )
+            }
+            cachedFrequencyData = computed
+            value = computed
         }
 
         // 3. Scrollable Metadata Chips Row — centered
@@ -1817,16 +1880,21 @@ private fun ToolbarWarningBanner(
 
 // region PodcastInfoScreen extraction: episode feed item row
 
+/** Per-episode-list membership sets used to render like/queue/download/completed state on rows. */
+private data class EpisodeListIndicators(
+    val likedEpisodeIds: Set<String> = emptySet(),
+    val queuedEpisodeIds: Set<String> = emptySet(),
+    val downloadedEpisodeIds: Set<String> = emptySet(),
+    val downloadingEpisodeIds: Set<String> = emptySet(),
+    val completedEpisodeIds: Set<String> = emptySet(),
+)
+
 @Composable
 private fun EpisodeFeedItemRow(
     feedItem: FeedItem,
     viewModel: PodcastInfoViewModel,
     accentColor: Color,
-    likedEpisodeIds: Set<String>,
-    queuedEpisodeIds: Set<String>,
-    downloadedEpisodeIds: Set<String>,
-    downloadingEpisodeIds: Set<String>,
-    completedEpisodeIds: Set<String>,
+    indicators: EpisodeListIndicators,
     autoScrolledEpisodeId: String?,
     onEpisodeClick: (Episode, String, Int?) -> Unit,
 ) {
@@ -1841,7 +1909,7 @@ private fun EpisodeFeedItemRow(
             ) { playState ->
                 EpisodeListItem(
                     episode = episode,
-                    isLiked = likedEpisodeIds.contains(episode.id),
+                    isLiked = indicators.likedEpisodeIds.contains(episode.id),
                     accentColor = accentColor,
                     // Playback State
                     isPlaying = playState?.isPlaying == true,
@@ -1849,10 +1917,10 @@ private fun EpisodeFeedItemRow(
                     progress = playState?.progress ?: 0f,
                     timeLeft = playState?.timeLeft,
                     // Download State
-                    isDownloaded = downloadedEpisodeIds.contains(episode.id),
-                    isDownloading = downloadingEpisodeIds.contains(episode.id),
-                    isQueued = queuedEpisodeIds.contains(episode.id),
-                    isCompleted = completedEpisodeIds.contains(episode.id),
+                    isDownloaded = indicators.downloadedEpisodeIds.contains(episode.id),
+                    isDownloading = indicators.downloadingEpisodeIds.contains(episode.id),
+                    isQueued = indicators.queuedEpisodeIds.contains(episode.id),
+                    isCompleted = indicators.completedEpisodeIds.contains(episode.id),
                     isUpNext = episode.id == autoScrolledEpisodeId,
                     onClick = {
                         viewModel.recordEpisodeClick(episode.id)
@@ -1900,6 +1968,14 @@ private fun EpisodeFeedItemRow(
 
 // region PodcastInfoScreen extraction: top overlay (back/share/menu) and dialogs
 
+/** Groups [PodcastInfoTopOverlay]'s menu actions so the composable stays under the Sonar param limit. */
+private data class PodcastInfoTopOverlayActions(
+    val onBack: () -> Unit,
+    val onMarkAllPlayed: () -> Unit,
+    val onMarkAllUnplayed: () -> Unit,
+    val onToggleHideCompleted: () -> Unit,
+)
+
 @Composable
 private fun PodcastInfoTopOverlay(
     podcast: Podcast,
@@ -1907,10 +1983,7 @@ private fun PodcastInfoTopOverlay(
     collapsedHeaderHeight: Dp,
     hideCompleted: Boolean,
     context: android.content.Context,
-    onBack: () -> Unit,
-    onMarkAllPlayed: () -> Unit,
-    onMarkAllUnplayed: () -> Unit,
-    onToggleHideCompleted: () -> Unit,
+    actions: PodcastInfoTopOverlayActions,
 ) {
     Box(
         modifier = Modifier
@@ -1920,7 +1993,7 @@ private fun PodcastInfoTopOverlay(
             .statusBarsPadding()
     ) {
         IconButton(
-            onClick = onBack,
+            onClick = actions.onBack,
             modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)
         ) {
             Icon(
@@ -1987,7 +2060,7 @@ private fun PodcastInfoTopOverlay(
                     text = { Text("Mark all as played") },
                     onClick = {
                         showMenu = false
-                        onMarkAllPlayed()
+                        actions.onMarkAllPlayed()
                     },
                     leadingIcon = {
                         Icon(Icons.Rounded.DoneAll, contentDescription = null)
@@ -1997,7 +2070,7 @@ private fun PodcastInfoTopOverlay(
                     text = { Text("Mark all as unplayed") },
                     onClick = {
                         showMenu = false
-                        onMarkAllUnplayed()
+                        actions.onMarkAllUnplayed()
                     },
                     leadingIcon = {
                         Icon(Icons.Rounded.RadioButtonUnchecked, contentDescription = null)
@@ -2007,7 +2080,7 @@ private fun PodcastInfoTopOverlay(
                     text = { Text(if (hideCompleted) "Show completed episodes" else "Hide completed episodes") },
                     onClick = {
                         showMenu = false
-                        onToggleHideCompleted()
+                        actions.onToggleHideCompleted()
                     },
                     leadingIcon = {
                         Icon(

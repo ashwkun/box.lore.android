@@ -1568,49 +1568,58 @@ class MainActivity : ComponentActivity() {
                             ) { backStackEntry ->
                                 val settingsPage = backStackEntry.arguments?.getString("page")
                                 cx.aswin.boxcast.feature.home.settings.SettingsScreen(
-                                    currentRegion = currentRegion,
-                                    onSetRegion = { region -> 
-                                        scope.launch { userPrefs.setRegion(region) }
-                                    },
-                                    onBack = { navController.popBackStack() },
-                                    onResetAnalytics = {
-                                        try {
-                                            cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.resetIdentity()
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("Settings", "Failed to reset analytics", e)
-                                        }
-                                    },
-                                    appInstanceId = appInstanceId,
-                                    appearanceState = cx.aswin.boxcast.feature.home.settings.pages.AppearanceUiState(
-                                        currentThemeConfig = themeConfig,
-                                        isDynamicColorEnabled = useDynamicColor,
-                                        currentThemeBrand = themeBrand,
-                                        currentSurfaceStyle = surfaceStyle,
+                                    config = cx.aswin.boxcast.feature.home.settings.SettingsScreenConfig(
+                                        onBack = { navController.popBackStack() },
+                                        onResetAnalytics = {
+                                            try {
+                                                cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.resetIdentity()
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("Settings", "Failed to reset analytics", e)
+                                            }
+                                        },
+                                        appInstanceId = appInstanceId,
+                                        initialPage = settingsPage,
                                     ),
-                                    appearanceActions = cx.aswin.boxcast.feature.home.settings.pages.AppearanceActions(
-                                        onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
-                                        onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
-                                        onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
-                                        onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
+                                    regionSettings = cx.aswin.boxcast.feature.home.settings.RegionSettings(
+                                        currentRegion = currentRegion,
+                                        onSetRegion = { region ->
+                                            scope.launch { userPrefs.setRegion(region) }
+                                        },
                                     ),
-                                    playbackState = cx.aswin.boxcast.feature.home.settings.pages.PlaybackUiState(
-                                        skipBehavior = skipBehavior,
-                                        hideCompletedInHome = hideCompletedInHome,
-                                        hideCompletedInSubs = hideCompletedInSubs,
-                                        hideCompletedInShowDetails = hideCompletedInShowDetails,
+                                    appearanceSettings = cx.aswin.boxcast.feature.home.settings.AppearanceSettings(
+                                        state = cx.aswin.boxcast.feature.home.settings.pages.AppearanceUiState(
+                                            currentThemeConfig = themeConfig,
+                                            isDynamicColorEnabled = useDynamicColor,
+                                            currentThemeBrand = themeBrand,
+                                            currentSurfaceStyle = surfaceStyle,
+                                        ),
+                                        actions = cx.aswin.boxcast.feature.home.settings.pages.AppearanceActions(
+                                            onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
+                                            onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
+                                            onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
+                                            onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
+                                        ),
                                     ),
-                                    playbackActions = cx.aswin.boxcast.feature.home.settings.pages.PlaybackActions(
-                                        onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
-                                        onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
-                                        onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
-                                        onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
+                                    playbackSettings = cx.aswin.boxcast.feature.home.settings.PlaybackSettings(
+                                        state = cx.aswin.boxcast.feature.home.settings.pages.PlaybackUiState(
+                                            skipBehavior = skipBehavior,
+                                            hideCompletedInHome = hideCompletedInHome,
+                                            hideCompletedInSubs = hideCompletedInSubs,
+                                            hideCompletedInShowDetails = hideCompletedInShowDetails,
+                                        ),
+                                        actions = cx.aswin.boxcast.feature.home.settings.pages.PlaybackActions(
+                                            onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
+                                            onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
+                                            onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
+                                            onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
+                                        ),
                                     ),
                                     libraryBackupWriters = cx.aswin.boxcast.feature.home.settings.LibraryBackupWriters(
                                         onExportJson = { uri ->
                                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                                 try {
                                                     val backupJson = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository, userPrefs, application).exportLibraryAsJson()
-                                                    application.contentResolver.openOutputStream(uri)?.use { it.write(backupJson.toByteArray()) }
+                                                    (application.contentResolver.openOutputStream(uri) ?: error("Unable to open export destination")).use { it.write(backupJson.toByteArray()) }
                                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Library Exported Successfully", android.widget.Toast.LENGTH_SHORT).show() }
                                                 } catch(e: Exception){
                                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
@@ -1621,7 +1630,7 @@ class MainActivity : ComponentActivity() {
                                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                                 try {
                                                     val opmlXml = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).exportLibraryAsOpml()
-                                                    application.contentResolver.openOutputStream(uri)?.use { it.write(opmlXml.toByteArray()) }
+                                                    (application.contentResolver.openOutputStream(uri) ?: error("Unable to open export destination")).use { it.write(opmlXml.toByteArray()) }
                                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Subscriptions Exported as OPML", android.widget.Toast.LENGTH_SHORT).show() }
                                                 } catch(e: Exception){
                                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export OPML: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
@@ -1644,7 +1653,6 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate("library/auto_downloads/settings")
                                         },
                                     ),
-                                    initialPage = settingsPage,
                                 )
                             }
 
