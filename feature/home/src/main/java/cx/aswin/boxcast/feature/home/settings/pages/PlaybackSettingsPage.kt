@@ -11,16 +11,26 @@ import cx.aswin.boxcast.feature.home.settings.components.SettingsGroup
 import cx.aswin.boxcast.feature.home.settings.components.SettingsScaffold
 import cx.aswin.boxcast.feature.home.settings.components.SettingsSwitchRow
 
+/** Current values shown on [PlaybackSettingsPage]. Also used by [cx.aswin.boxcast.feature.home.settings.SettingsScreen]. */
+data class PlaybackUiState(
+    val skipBehavior: String,
+    val hideCompletedInHome: Boolean,
+    val hideCompletedInSubs: Boolean,
+    val hideCompletedInShowDetails: Boolean,
+)
+
+/** Callbacks for [PlaybackSettingsPage], grouped to keep the page's parameter count small. */
+data class PlaybackActions(
+    val onSetSkipBehavior: (String) -> Unit,
+    val onSetHideCompletedInHome: (Boolean) -> Unit,
+    val onSetHideCompletedInSubs: (Boolean) -> Unit,
+    val onSetHideCompletedInShowDetails: (Boolean) -> Unit,
+)
+
 @Composable
 internal fun PlaybackSettingsPage(
-    skipBehavior: String,
-    onSetSkipBehavior: (String) -> Unit,
-    hideCompletedInHome: Boolean,
-    onSetHideCompletedInHome: (Boolean) -> Unit,
-    hideCompletedInSubs: Boolean,
-    onSetHideCompletedInSubs: (Boolean) -> Unit,
-    hideCompletedInShowDetails: Boolean,
-    onSetHideCompletedInShowDetails: (Boolean) -> Unit,
+    state: PlaybackUiState,
+    actions: PlaybackActions,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(
@@ -34,15 +44,15 @@ internal fun PlaybackSettingsPage(
             SettingsChoiceRow(
                 title = "Skip only",
                 supportingText = "Leave the current episode unfinished",
-                selected = skipBehavior == "just_skip",
-                onClick = { onSetSkipBehavior("just_skip") },
+                selected = state.skipBehavior == "just_skip",
+                onClick = { actions.onSetSkipBehavior("just_skip") },
             )
             SettingsDivider()
             SettingsChoiceRow(
                 title = "Mark complete and skip",
                 supportingText = "Mark the current episode complete first",
-                selected = skipBehavior == "mark_completed_skip",
-                onClick = { onSetSkipBehavior("mark_completed_skip") },
+                selected = state.skipBehavior == "mark_completed_skip",
+                onClick = { actions.onSetSkipBehavior("mark_completed_skip") },
             )
         }
 
@@ -53,24 +63,24 @@ internal fun PlaybackSettingsPage(
             SettingsSwitchRow(
                 title = "Home show episodes",
                 supportingText = "When you tap a show on the Home tab",
-                checked = hideCompletedInHome,
-                onCheckedChange = onSetHideCompletedInHome,
+                checked = state.hideCompletedInHome,
+                onCheckedChange = actions.onSetHideCompletedInHome,
                 icon = Icons.Rounded.Home,
             )
             SettingsDivider()
             SettingsSwitchRow(
                 title = "Subscriptions · Latest",
                 supportingText = "The Latest tab under Library → Subscriptions",
-                checked = hideCompletedInSubs,
-                onCheckedChange = onSetHideCompletedInSubs,
+                checked = state.hideCompletedInSubs,
+                onCheckedChange = actions.onSetHideCompletedInSubs,
                 icon = Icons.Rounded.NewReleases,
             )
             SettingsDivider()
             SettingsSwitchRow(
                 title = "Podcast pages",
                 supportingText = "The full episode list on a show’s page",
-                checked = hideCompletedInShowDetails,
-                onCheckedChange = onSetHideCompletedInShowDetails,
+                checked = state.hideCompletedInShowDetails,
+                onCheckedChange = actions.onSetHideCompletedInShowDetails,
                 icon = Icons.Rounded.Podcasts,
             )
         }

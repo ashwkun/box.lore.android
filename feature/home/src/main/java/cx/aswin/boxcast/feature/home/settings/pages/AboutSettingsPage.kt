@@ -35,13 +35,21 @@ import cx.aswin.boxcast.feature.home.settings.components.SettingsGroup
 import cx.aswin.boxcast.feature.home.settings.components.SettingsNavigationRow
 import cx.aswin.boxcast.feature.home.settings.components.SettingsScaffold
 
+/**
+ * App/build details shown on [AboutSettingsPage], grouped to keep its parameter count small.
+ * Also used by [cx.aswin.boxcast.feature.home.settings.SettingsScreen].
+ */
+data class AppInfo(
+    val versionName: String,
+    val versionCode: Long,
+    val packageName: String,
+    val androidRelease: String,
+    val sdkInt: Int,
+)
+
 @Composable
 internal fun AboutSettingsPage(
-    versionName: String,
-    versionCode: Long,
-    packageName: String,
-    androidRelease: String,
-    sdkInt: Int,
+    appInfo: AppInfo,
     onVisitPodcastIndex: () -> Unit,
     onOpenChangelog: () -> Unit,
     onBack: () -> Unit,
@@ -112,13 +120,13 @@ internal fun AboutSettingsPage(
         SettingsGroup(title = "App") {
             SettingsContent {
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    SpecRow(label = "Version", value = versionName)
+                    SpecRow(label = "Version", value = appInfo.versionName)
                     SpecDivider()
-                    SpecRow(label = "Build", value = versionCode.toString())
+                    SpecRow(label = "Build", value = appInfo.versionCode.toString())
                     SpecDivider()
-                    SpecRow(label = "Package", value = packageName, monospace = true)
+                    SpecRow(label = "Package", value = appInfo.packageName, monospace = true)
                     SpecDivider()
-                    SpecRow(label = "Android", value = "$androidRelease (API $sdkInt)")
+                    SpecRow(label = "Android", value = "${appInfo.androidRelease} (API ${appInfo.sdkInt})")
                 }
             }
             SettingsNavigationRow(

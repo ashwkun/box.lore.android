@@ -245,6 +245,14 @@ class SubscriptionRepository(
         podcastDao.updatePreferredSortAndType(podcastId, sort, type)
     }
 
+    /**
+     * Marks a podcast's episodes as seen, clearing the RSS "new episodes" badge
+     * ([PodcastEntity.rssHasNewEpisodes]). Safe to call for non-RSS podcasts (no-op).
+     */
+    suspend fun clearRssNewEpisodesFlag(podcastId: String) {
+        podcastDao.clearRssNewEpisodesFlag(podcastId)
+    }
+
     suspend fun setAutoDownloadEnabled(podcastId: String, enabled: Boolean) {
         if (podcastDao.getPodcast(podcastId)?.isRss == true) {
             podcastDao.setAutoDownloadEnabled(podcastId, false)

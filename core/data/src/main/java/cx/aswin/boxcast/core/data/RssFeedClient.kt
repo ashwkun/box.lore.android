@@ -276,8 +276,6 @@ class RssFeedClient(
         }
         val feed = MutableFeed()
         var currentEpisode: MutableEpisode? = null
-        var insideChannelImage = false
-        var insideFeedAuthor = false
 
         while (parser.eventType != XmlPullParser.END_DOCUMENT) {
             when (parser.eventType) {
@@ -296,52 +294,7 @@ class RssFeedClient(
                                 episode = currentEpisode,
                             )
                         }
-                        name == "image" && parser.depth > 2 -> {
-                            val href = parser.getAttributeValue(null, "href")
-                                ?: parser.getAttributeValue(null, "url")
-                            if (!href.isNullOrBlank()) feed.imageUrl = href
-                            insideChannelImage = href.isNullOrBlank()
-                        }
-                        name == "author" -> {
-                            insideFeedAuthor = true
-                            val value = readSimpleText(parser)
-                            if (value.isNotBlank()) {
-                                feed.author = value
-                                insideFeedAuthor = false
-                            }
-                        }
-                        insideFeedAuthor && name == "name" -> {
-                            feed.author = readSimpleText(parser)
-                        }
-                        insideChannelImage && name == "url" -> {
-                            feed.imageUrl = readSimpleText(parser)
-                        }
-                        name == "title" && feed.title.isBlank() -> {
-                            feed.title = readSimpleText(parser)
-                        }
-                        name == "description" || name == "subtitle" -> {
-                            if (feed.description.isNullOrBlank()) {
-                                feed.description = readSimpleText(parser).cleanDescription()
-                            }
-                        }
-                        name == "managingeditor" || name == "webmaster" -> {
-                            if (feed.author.isBlank()) feed.author = readSimpleText(parser)
-                        }
-                        name == "category" && feed.genre.isNullOrBlank() -> {
-                            feed.genre = parser.getAttributeValue(null, "text")
-                                ?.takeIf(String::isNotBlank)
-                                ?: readSimpleText(parser).takeIf(String::isNotBlank)
-                        }
-                        name == "lastbuilddate" || name == "updated" -> {
-                            feed.declaredUpdatedAt = parseDate(readSimpleText(parser))
-                        }
-                        qualifiedName == "podcast:guid" -> {
-                            feed.podcastGuid = readSimpleText(parser).takeIf(String::isNotBlank)
-                        }
-                        name == "type" -> {
-                            val type = readSimpleText(parser).lowercase(Locale.ROOT)
-                            if (type == "serial" || type == "episodic") feed.podcastType = type
-                        }
+                        else -> handleChannelStartTag(parser, feed, name, qualifiedName)
                     }
                 }
                 XmlPullParser.END_TAG -> {
@@ -351,8 +304,8 @@ class RssFeedClient(
                             currentEpisode?.toEntity(podcastId)?.let(feed.episodes::add)
                             currentEpisode = null
                         }
-                        "image" -> insideChannelImage = false
-                        "author" -> insideFeedAuthor = false
+                        "image" -> feed.insideChannelImage = false
+                        "author" -> feed.insideFeedAuthor = false
                     }
                 }
             }
@@ -374,6 +327,63 @@ class RssFeedClient(
                 .distinctBy(RssEpisodeEntity::episodeId)
                 .sortedByDescending(RssEpisodeEntity::publishedDate),
         )
+    }
+
+    /** Handles START_TAG events for channel-level (non-episode) feed metadata elements. */
+    private fun handleChannelStartTag(
+        parser: XmlPullParser,
+        feed: MutableFeed,
+        name: String,
+        qualifiedName: String,
+    ) {
+        when {
+            name == "image" && parser.depth > 2 -> {
+                val href = parser.getAttributeValue(null, "href")
+                    ?: parser.getAttributeValue(null, "url")
+                if (!href.isNullOrBlank()) feed.imageUrl = href
+                feed.insideChannelImage = href.isNullOrBlank()
+            }
+            name == "author" -> {
+                feed.insideFeedAuthor = true
+                val value = readSimpleText(parser)
+                if (value.isNotBlank()) {
+                    feed.author = value
+                    feed.insideFeedAuthor = false
+                }
+            }
+            feed.insideFeedAuthor && name == "name" -> {
+                feed.author = readSimpleText(parser)
+            }
+            feed.insideChannelImage && name == "url" -> {
+                feed.imageUrl = readSimpleText(parser)
+            }
+            name == "title" && feed.title.isBlank() -> {
+                feed.title = readSimpleText(parser)
+            }
+            name == "description" || name == "subtitle" -> {
+                if (feed.description.isNullOrBlank()) {
+                    feed.description = readSimpleText(parser).cleanDescription()
+                }
+            }
+            name == "managingeditor" || name == "webmaster" -> {
+                if (feed.author.isBlank()) feed.author = readSimpleText(parser)
+            }
+            name == "category" && feed.genre.isNullOrBlank() -> {
+                feed.genre = parser.getAttributeValue(null, "text")
+                    ?.takeIf(String::isNotBlank)
+                    ?: readSimpleText(parser).takeIf(String::isNotBlank)
+            }
+            name == "lastbuilddate" || name == "updated" -> {
+                feed.declaredUpdatedAt = parseDate(readSimpleText(parser))
+            }
+            qualifiedName == "podcast:guid" -> {
+                feed.podcastGuid = readSimpleText(parser).takeIf(String::isNotBlank)
+            }
+            name == "type" -> {
+                val type = readSimpleText(parser).lowercase(Locale.ROOT)
+                if (type == "serial" || type == "episodic") feed.podcastType = type
+            }
+        }
     }
 
     private fun mergeParsedFeeds(
@@ -455,74 +465,89 @@ class RssFeedClient(
         episode: MutableEpisode,
     ) {
         when {
-            qualifiedName == "media:content" -> {
-                val url = parser.getAttributeValue(null, "url")
-                val type = parser.getAttributeValue(null, "type")
-                val medium = parser.getAttributeValue(null, "medium")
-                if (!url.isNullOrBlank() && isPlayableMedia(url, type, medium)) {
-                    episode.audioUrl = url
-                    episode.enclosureType = type
-                }
-            }
+            qualifiedName == "media:content" -> handleMediaContentTag(parser, episode)
             name == "title" -> episode.title = readSimpleText(parser)
             name == "description" ||
                 name == "summary" ||
                 name == "content" ||
-                name == "encoded" -> {
-                val text = readSimpleText(parser).cleanDescription()
-                if (text.length > episode.description.length) episode.description = text
-            }
+                name == "encoded" -> handleEpisodeDescriptionTag(parser, episode)
             name == "guid" || name == "id" -> episode.guid = readSimpleText(parser)
-            name == "pubdate" || name == "published" -> {
-                parseDate(readSimpleText(parser))?.let { episode.publishedDate = it }
-            }
-            name == "updated" && episode.publishedDate == 0L -> {
-                parseDate(readSimpleText(parser))?.let { episode.publishedDate = it }
-            }
-            name == "enclosure" -> {
-                episode.audioUrl = parser.getAttributeValue(null, "url").orEmpty()
-                episode.enclosureType = parser.getAttributeValue(null, "type")
-            }
-            name == "link" -> {
-                val relation = parser.getAttributeValue(null, "rel")
-                val href = parser.getAttributeValue(null, "href")
-                if (relation == "enclosure" && !href.isNullOrBlank()) {
-                    episode.audioUrl = href
-                    episode.enclosureType = parser.getAttributeValue(null, "type")
-                }
-            }
+            name == "pubdate" || name == "published" -> updateEpisodePublishedDate(parser, episode)
+            name == "updated" && episode.publishedDate == 0L ->
+                updateEpisodePublishedDate(parser, episode)
+            name == "enclosure" -> handleEnclosureTag(parser, episode)
+            name == "link" -> handleEpisodeLinkTag(parser, episode)
             name == "duration" -> episode.duration = parseDuration(readSimpleText(parser))
-            name == "image" || name == "thumbnail" -> {
-                episode.imageUrl = parser.getAttributeValue(null, "href")
-                    ?: parser.getAttributeValue(null, "url")
-                    ?: readSimpleText(parser).takeIf(String::isNotBlank)
-            }
+            name == "image" || name == "thumbnail" -> handleEpisodeImageTag(parser, episode)
             name == "season" -> episode.seasonNumber = readSimpleText(parser).toIntOrNull()
             name == "episode" -> episode.episodeNumber = readSimpleText(parser).toIntOrNull()
             name == "episodetype" -> episode.episodeType = readSimpleText(parser)
             name == "chapters" -> episode.chaptersUrl = parser.getAttributeValue(null, "url")
-            name == "transcript" -> {
-                val url = parser.getAttributeValue(null, "url")
-                if (!url.isNullOrBlank()) {
-                    val type = parser.getAttributeValue(null, "type").orEmpty()
-                    episode.transcripts += Transcript(url, type)
-                    if (episode.transcriptUrl.isNullOrBlank()) episode.transcriptUrl = url
-                }
-            }
-            name == "person" -> {
-                val role = parser.getAttributeValue(null, "role")
-                val image = parser.getAttributeValue(null, "img")
-                val href = parser.getAttributeValue(null, "href")
-                val personName = readSimpleText(parser)
-                if (personName.isNotBlank()) {
-                    episode.persons += Person(
-                        name = personName,
-                        role = role,
-                        img = image,
-                        href = href,
-                    )
-                }
-            }
+            name == "transcript" -> handleTranscriptTag(parser, episode)
+            name == "person" -> handlePersonTag(parser, episode)
+        }
+    }
+
+    private fun handleMediaContentTag(parser: XmlPullParser, episode: MutableEpisode) {
+        val url = parser.getAttributeValue(null, "url")
+        val type = parser.getAttributeValue(null, "type")
+        val medium = parser.getAttributeValue(null, "medium")
+        if (!url.isNullOrBlank() && isPlayableMedia(url, type, medium)) {
+            episode.audioUrl = url
+            episode.enclosureType = type
+        }
+    }
+
+    private fun handleEpisodeDescriptionTag(parser: XmlPullParser, episode: MutableEpisode) {
+        val text = readSimpleText(parser).cleanDescription()
+        if (text.length > episode.description.length) episode.description = text
+    }
+
+    private fun updateEpisodePublishedDate(parser: XmlPullParser, episode: MutableEpisode) {
+        parseDate(readSimpleText(parser))?.let { episode.publishedDate = it }
+    }
+
+    private fun handleEnclosureTag(parser: XmlPullParser, episode: MutableEpisode) {
+        episode.audioUrl = parser.getAttributeValue(null, "url").orEmpty()
+        episode.enclosureType = parser.getAttributeValue(null, "type")
+    }
+
+    private fun handleEpisodeLinkTag(parser: XmlPullParser, episode: MutableEpisode) {
+        val relation = parser.getAttributeValue(null, "rel")
+        val href = parser.getAttributeValue(null, "href")
+        if (relation == "enclosure" && !href.isNullOrBlank()) {
+            episode.audioUrl = href
+            episode.enclosureType = parser.getAttributeValue(null, "type")
+        }
+    }
+
+    private fun handleEpisodeImageTag(parser: XmlPullParser, episode: MutableEpisode) {
+        episode.imageUrl = parser.getAttributeValue(null, "href")
+            ?: parser.getAttributeValue(null, "url")
+            ?: readSimpleText(parser).takeIf(String::isNotBlank)
+    }
+
+    private fun handleTranscriptTag(parser: XmlPullParser, episode: MutableEpisode) {
+        val url = parser.getAttributeValue(null, "url")
+        if (!url.isNullOrBlank()) {
+            val type = parser.getAttributeValue(null, "type").orEmpty()
+            episode.transcripts += Transcript(url, type)
+            if (episode.transcriptUrl.isNullOrBlank()) episode.transcriptUrl = url
+        }
+    }
+
+    private fun handlePersonTag(parser: XmlPullParser, episode: MutableEpisode) {
+        val role = parser.getAttributeValue(null, "role")
+        val image = parser.getAttributeValue(null, "img")
+        val href = parser.getAttributeValue(null, "href")
+        val personName = readSimpleText(parser)
+        if (personName.isNotBlank()) {
+            episode.persons += Person(
+                name = personName,
+                role = role,
+                img = image,
+                href = href,
+            )
         }
     }
 
@@ -634,6 +659,8 @@ class RssFeedClient(
         var podcastType: String = "episodic"
         var podcastGuid: String? = null
         var declaredUpdatedAt: Long? = null
+        var insideChannelImage: Boolean = false
+        var insideFeedAuthor: Boolean = false
         val episodes = mutableListOf<RssEpisodeEntity>()
     }
 
@@ -709,7 +736,10 @@ class RssFeedClient(
             .readTimeout(45, TimeUnit.SECONDS)
             .callTimeout(60, TimeUnit.SECONDS)
             .followRedirects(true)
-            .followSslRedirects(true)
+            // Never let OkHttp silently follow an HTTPS→HTTP downgrade redirect; execute()
+            // re-validates the final scheme, but OkHttp would otherwise complete the request
+            // over plaintext before that check ever runs.
+            .followSslRedirects(false)
             .build()
     }
 }

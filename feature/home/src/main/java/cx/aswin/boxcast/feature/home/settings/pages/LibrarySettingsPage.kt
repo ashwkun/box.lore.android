@@ -37,15 +37,23 @@ import cx.aswin.boxcast.feature.home.settings.components.SettingsGroup
 import cx.aswin.boxcast.feature.home.settings.components.SettingsNavigationRow
 import cx.aswin.boxcast.feature.home.settings.components.SettingsScaffold
 
+/**
+ * Export/import callbacks for [LibrarySettingsPage], grouped to keep its parameter count small.
+ * Also used by [cx.aswin.boxcast.feature.home.settings.SettingsScreen].
+ */
+data class LibraryBackupActions(
+    val onExportJson: () -> Unit,
+    val onExportOpml: () -> Unit,
+    val onImportJson: () -> Unit,
+    val onImportOpml: () -> Unit,
+)
+
 @Composable
 internal fun LibrarySettingsPage(
     currentRegion: String,
     onSetRegion: (String) -> Unit,
     onAddRssClick: () -> Unit,
-    onExportJson: () -> Unit,
-    onExportOpml: () -> Unit,
-    onImportJson: () -> Unit,
-    onImportOpml: () -> Unit,
+    backupActions: LibraryBackupActions,
     onBack: () -> Unit,
 ) {
     var isCountryFaqExpanded by rememberSaveable { mutableStateOf(false) }
@@ -93,7 +101,7 @@ internal fun LibrarySettingsPage(
                 icon = Icons.Rounded.FileUpload,
                 onClick = {
                     collapseCountryFaq()
-                    onExportJson()
+                    backupActions.onExportJson()
                 },
             )
             SettingsDivider()
@@ -103,7 +111,7 @@ internal fun LibrarySettingsPage(
                 icon = Icons.Rounded.FileUpload,
                 onClick = {
                     collapseCountryFaq()
-                    onExportOpml()
+                    backupActions.onExportOpml()
                 },
             )
         }
@@ -115,7 +123,7 @@ internal fun LibrarySettingsPage(
                 icon = Icons.Rounded.FileDownload,
                 onClick = {
                     collapseCountryFaq()
-                    onImportJson()
+                    backupActions.onImportJson()
                 },
             )
             SettingsDivider()
@@ -125,7 +133,7 @@ internal fun LibrarySettingsPage(
                 icon = Icons.Rounded.FileDownload,
                 onClick = {
                     collapseCountryFaq()
-                    onImportOpml()
+                    backupActions.onImportOpml()
                 },
             )
         }

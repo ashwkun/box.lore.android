@@ -90,12 +90,9 @@ class UserPreferencesRepository(context: Context) {
                 normalizeRegionCode(stored)
             } else {
                 val localeCountry = java.util.Locale.getDefault().country.lowercase()
-                if (
-                    localeCountry == "in" ||
-                    localeCountry == "gb" ||
-                    localeCountry == "uk" ||
-                    localeCountry == "fr"
-                ) {
+                // "fr" is intentional here even though France isn't a supported region value —
+                // it still routes French locales into the region nudge/picker flow.
+                if (localeCountry in setOf("in", "gb", "uk", "fr")) {
                     normalizeRegionCode(localeCountry)
                 } else {
                     "us"

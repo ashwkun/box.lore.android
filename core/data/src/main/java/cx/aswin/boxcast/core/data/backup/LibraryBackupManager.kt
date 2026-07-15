@@ -197,13 +197,21 @@ class LibraryBackupManager(
                         null
                     }
                     if (rssPodcast == null) continue
-                    subscriptionRepository.subscribe(
-                        rssPodcast.copy(
-                            preferredSort = entity.preferredSort,
-                            linkedPodcastIndexId = entity.linkedPodcastIndexId,
-                        ),
+                    val subscribedRssPodcast = rssPodcast.copy(
+                        preferredSort = entity.preferredSort,
+                        linkedPodcastIndexId = entity.linkedPodcastIndexId,
                     )
-                    importedIds.add(rssPodcast.id)
+                    subscriptionRepository.subscribe(subscribedRssPodcast)
+
+                    // Restore per-podcast settings & FCM registrations, same as the
+                    // Podcast Index branch below — RSS subscriptions must not skip this.
+                    if (entity.notificationsEnabled) {
+                        subscriptionRepository.setNotificationsEnabled(subscribedRssPodcast, true)
+                    }
+                    if (entity.autoDownloadEnabled) {
+                        subscriptionRepository.setAutoDownloadEnabled(subscribedRssPodcast.id, true)
+                    }
+                    importedIds.add(subscribedRssPodcast.id)
                     continue
                 }
                 // Assuming we have a way to save entity directly or we re-map to model

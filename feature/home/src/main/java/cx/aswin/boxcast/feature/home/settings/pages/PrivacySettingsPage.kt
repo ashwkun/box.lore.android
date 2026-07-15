@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -169,9 +170,7 @@ internal fun PrivacySettingsPage(
                         destructive = false,
                         actionLabel = "Reset ID",
                         onAction = onResetIdentityClick,
-                        expanded = false,
-                        onToggleExpand = null,
-                        expandedContent = null,
+                        expansion = null,
                     )
 
                     AnalyticsControlCard(
@@ -181,15 +180,17 @@ internal fun PrivacySettingsPage(
                         destructive = true,
                         actionLabel = if (isDeletionExpanded) "Hide" else "Show ID",
                         onAction = { onDeletionExpandedChange(!isDeletionExpanded) },
-                        expanded = isDeletionExpanded,
-                        onToggleExpand = { onDeletionExpandedChange(!isDeletionExpanded) },
-                        expandedContent = {
-                            DeletionRequestPanel(
-                                deletionId = deletionId,
-                                onCopyDeletionId = onCopyDeletionId,
-                                onEmailDeletionRequest = onEmailDeletionRequest,
-                            )
-                        },
+                        expansion = AnalyticsCardExpansion(
+                            expanded = isDeletionExpanded,
+                            onToggleExpand = { onDeletionExpandedChange(!isDeletionExpanded) },
+                            content = {
+                                DeletionRequestPanel(
+                                    deletionId = deletionId,
+                                    onCopyDeletionId = onCopyDeletionId,
+                                    onEmailDeletionRequest = onEmailDeletionRequest,
+                                )
+                            },
+                        ),
                     )
                 }
             }
@@ -381,6 +382,126 @@ private fun ExampleCallout(text: String) {
     }
 }
 
+/** Expand/collapse affordance for [AnalyticsControlCard]; omitted entirely for non-expandable cards. */
+private data class AnalyticsCardExpansion(
+    val expanded: Boolean,
+    val onToggleExpand: () -> Unit,
+    val content: @Composable () -> Unit,
+)
+
+private data class AnalyticsCardColors(
+    val container: Color,
+    val onContainer: Color,
+    val iconContainer: Color,
+    val iconContent: Color,
+)
+
+@Composable
+private fun analyticsCardColors(destructive: Boolean): AnalyticsCardColors = if (destructive) {
+    AnalyticsCardColors(
+        container = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
+        onContainer = MaterialTheme.colorScheme.onErrorContainer,
+        iconContainer = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
+        iconContent = MaterialTheme.colorScheme.error,
+    )
+} else {
+    AnalyticsCardColors(
+        container = MaterialTheme.colorScheme.surface,
+        onContainer = MaterialTheme.colorScheme.onSurface,
+        iconContainer = MaterialTheme.colorScheme.secondaryContainer,
+        iconContent = MaterialTheme.colorScheme.onSecondaryContainer,
+    )
+}
+
+@Composable
+private fun AnalyticsCardActionButton(
+    destructive: Boolean,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    if (destructive) {
+        Button(
+            onClick = onAction,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            ),
+        ) {
+            Text(actionLabel)
+        }
+    } else {
+        OutlinedButton(onClick = onAction) {
+            Text(actionLabel)
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsCardHeader(
+    title: String,
+    body: String,
+    icon: ImageVector,
+    colors: AnalyticsCardColors,
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SettingsIconContainer(
+            icon = icon,
+            containerColor = colors.iconContainer,
+            contentColor = colors.iconContent,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onContainer.copy(alpha = 0.85f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsCardFooter(
+    destructive: Boolean,
+    actionLabel: String,
+    onAction: () -> Unit,
+    expansion: AnalyticsCardExpansion?,
+    onContainer: Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (expansion != null) {
+            Icon(
+                imageVector = if (expansion.expanded) {
+                    Icons.Rounded.KeyboardArrowUp
+                } else {
+                    Icons.Rounded.KeyboardArrowDown
+                },
+                contentDescription = null,
+                tint = onContainer.copy(alpha = 0.7f),
+            )
+        }
+        AnalyticsCardActionButton(
+            destructive = destructive,
+            actionLabel = actionLabel,
+            onAction = onAction,
+        )
+    }
+}
+
 @Composable
 private fun AnalyticsControlCard(
     title: String,
@@ -389,103 +510,33 @@ private fun AnalyticsControlCard(
     destructive: Boolean,
     actionLabel: String,
     onAction: () -> Unit,
-    expanded: Boolean,
-    onToggleExpand: (() -> Unit)?,
-    expandedContent: (@Composable () -> Unit)?,
+    expansion: AnalyticsCardExpansion?,
 ) {
-    val container = if (destructive) {
-        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val onContainer = if (destructive) {
-        MaterialTheme.colorScheme.onErrorContainer
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
+    val colors = analyticsCardColors(destructive)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = container,
-        contentColor = onContainer,
+        color = colors.container,
+        contentColor = colors.onContainer,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                SettingsIconContainer(
-                    icon = icon,
-                    containerColor = if (destructive) {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
-                    } else {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    },
-                    contentColor = if (destructive) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    },
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = onContainer.copy(alpha = 0.85f),
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (onToggleExpand != null) {
-                    Icon(
-                        imageVector = if (expanded) {
-                            Icons.Rounded.KeyboardArrowUp
-                        } else {
-                            Icons.Rounded.KeyboardArrowDown
-                        },
-                        contentDescription = null,
-                        tint = onContainer.copy(alpha = 0.7f),
-                    )
-                }
-                if (destructive) {
-                    Button(
-                        onClick = onAction,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        ),
-                    ) {
-                        Text(actionLabel)
-                    }
-                } else {
-                    OutlinedButton(onClick = onAction) {
-                        Text(actionLabel)
-                    }
-                }
-            }
-
-            if (expandedContent != null) {
-                AnimatedVisibility(visible = expanded) {
+            AnalyticsCardHeader(title = title, body = body, icon = icon, colors = colors)
+            AnalyticsCardFooter(
+                destructive = destructive,
+                actionLabel = actionLabel,
+                onAction = onAction,
+                expansion = expansion,
+                onContainer = colors.onContainer,
+            )
+            if (expansion != null) {
+                AnimatedVisibility(visible = expansion.expanded) {
                     Column {
                         Spacer(modifier = Modifier.height(4.dp))
-                        expandedContent()
+                        expansion.content()
                     }
                 }
             }

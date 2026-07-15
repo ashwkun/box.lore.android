@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -42,6 +43,7 @@ internal fun SettingsScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val currentOnUnconsumedTap = rememberUpdatedState(onUnconsumedTap)
     val titleStyle = lerp(
         start = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
         stop = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -96,11 +98,11 @@ internal fun SettingsScaffold(
                     )
                     .then(
                         if (onUnconsumedTap != null) {
-                            Modifier.pointerInput(onUnconsumedTap) {
+                            Modifier.pointerInput(Unit) {
                                 awaitEachGesture {
                                     awaitFirstDown(requireUnconsumed = true)
                                     if (waitForUpOrCancellation() != null) {
-                                        onUnconsumedTap()
+                                        currentOnUnconsumedTap.value?.invoke()
                                     }
                                 }
                             }

@@ -2,8 +2,26 @@ package cx.aswin.boxcast.core.data.database
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
+
+/**
+ * Bundled params for [PodcastDao.updateRssState] — Room's `@Query` bind parameters can't
+ * reference object fields (no `:state.field` syntax), so this is applied via a partial-entity
+ * [Update] instead: field names below must match [PodcastEntity] column names exactly, and
+ * [podcastId] doubles as the `@PrimaryKey` Room matches the update against.
+ */
+data class RssFeedStateUpdate(
+    val podcastId: String,
+    val feedEtag: String?,
+    val feedLastModified: String?,
+    val feedDeclaredUpdatedAt: Long?,
+    val rssRefreshCapability: String,
+    val lastRssSyncAt: Long,
+    val rssCatalogStale: Boolean,
+    val rssHasNewEpisodes: Boolean,
+)
 
 @Dao
 interface PodcastDao {
@@ -63,30 +81,14 @@ interface PodcastDao {
     @Query("UPDATE podcasts SET autoDownloadEnabled = :enabled WHERE podcastId = :id")
     suspend fun setAutoDownloadEnabled(id: String, enabled: Boolean)
 
-    @Query(
-        """
-        UPDATE podcasts
-        SET feedEtag = :etag,
-            feedLastModified = :lastModified,
-            feedDeclaredUpdatedAt = :declaredUpdatedAt,
-            rssRefreshCapability = :refreshCapability,
-            lastRssSyncAt = :syncedAt,
-            rssCatalogStale = :catalogStale,
-            rssHasNewEpisodes = :hasNewEpisodes
-        WHERE podcastId = :id
-        """,
-    )
-    suspend fun updateRssState(
-        id: String,
-        etag: String?,
-        lastModified: String?,
-        declaredUpdatedAt: Long?,
-        refreshCapability: String,
-        syncedAt: Long,
-        catalogStale: Boolean,
-        hasNewEpisodes: Boolean,
-    )
+    /** Partial-entity update — see [RssFeedStateUpdate] for why this isn't a plain `@Query`. */
+    @Update(entity = PodcastEntity::class)
+    suspend fun updateRssState(state: RssFeedStateUpdate)
 
     @Query("SELECT * FROM podcasts WHERE notificationsEnabled = 1")
     suspend fun getNotificationEnabledPodcasts(): List<PodcastEntity>
+
+    /** Clears the "new episodes" RSS badge once the user has opened/dismissed the podcast. */
+    @Query("UPDATE podcasts SET rssHasNewEpisodes = 0 WHERE podcastId = :id")
+    suspend fun clearRssNewEpisodesFlag(id: String)
 }

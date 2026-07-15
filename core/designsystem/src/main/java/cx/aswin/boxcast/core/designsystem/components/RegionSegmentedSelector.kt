@@ -83,22 +83,27 @@ private val REGIONS = listOf(
     "fr" to "France",
 )
 
-/** Display label for a stored region code (e.g. charts header chip). */
-fun regionDisplayLabel(code: String): String {
+/** Canonical region code -> accepted alias codes (lowercase), single source of truth. */
+private val REGION_ALIASES: Map<String, Set<String>> = mapOf(
+    "us" to setOf("us"),
+    "in" to setOf("in", "ind"),
+    "gb" to setOf("gb", "uk"),
+    "fr" to setOf("fr"),
+)
+
+/**
+ * Canonicalizes any known alias (e.g. "uk", "ind") to its region code (e.g. "gb", "in"),
+ * or `null` if [code] doesn't match any known region.
+ */
+private fun canonicalRegionCode(code: String): String? {
     val normalized = code.trim().lowercase()
-    return when {
-        normalized == "in" || normalized == "ind" -> "India"
-        normalized == "gb" || normalized == "uk" -> "UK"
-        normalized == "fr" -> "France"
-        else -> "USA"
-    }
+    return REGION_ALIASES.entries.firstOrNull { (_, aliases) -> normalized in aliases }?.key
 }
 
-private fun String.matchesRegion(region: String): Boolean {
-    val normalized = lowercase()
-    return when (region) {
-        "gb" -> normalized == "gb" || normalized == "uk"
-        "in" -> normalized == "in" || normalized == "ind"
-        else -> normalized == region
-    }
+/** Display label for a stored region code (e.g. charts header chip). */
+fun regionDisplayLabel(code: String): String {
+    val canonical = canonicalRegionCode(code)
+    return REGIONS.firstOrNull { (regionCode, _) -> regionCode == canonical }?.second ?: "USA"
 }
+
+private fun String.matchesRegion(region: String): Boolean = canonicalRegionCode(this) == region

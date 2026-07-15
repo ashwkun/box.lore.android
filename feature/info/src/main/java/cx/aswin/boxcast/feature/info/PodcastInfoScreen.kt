@@ -170,6 +170,7 @@ import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.TrackScreenSession
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Person
+import cx.aswin.boxcast.core.model.Podcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import coil.compose.SubcomposeAsyncImage
@@ -461,74 +462,12 @@ fun PodcastInfoScreen(
                 val feedItems = remember(displayEpisodes) { groupEpisodes(displayEpisodes) }
                 
                 LaunchedEffect(state, completedEpisodeIds, feedItems, ongoingEpisodeIds) {
-                    android.util.Log.d("PodcastInfoScreenScroll", "Target check triggered: currentSort=${state.currentSort}, autoScrolledEpisodeId=$autoScrolledEpisodeId, feedItemsSize=${feedItems.size}")
                     if (state.currentSort == EpisodeSort.OLDEST && feedItems.isNotEmpty()) {
-                        // 1. Look for an in-progress/ongoing episode first
-                        var targetIndex = feedItems.indexOfFirst { item ->
-                            val episodeId = when (item) {
-                                is FeedItem.NormalEpisode -> item.episode.id
-                                is FeedItem.SingleTrailer -> item.episode.id
-                                is FeedItem.TrailerGroup -> item.trailers.firstOrNull()?.first?.id
-                            }
-                            episodeId != null && ongoingEpisodeIds.contains(episodeId)
-                        }
-                        val isOngoingMatched = targetIndex != -1
-                        android.util.Log.d("PodcastInfoScreenScroll", "Step 1 Ongoing Index: $targetIndex")
-
-                        // 2. If nothing is ongoing, look for the episode just after the last completed one
-                        if (targetIndex == -1) {
-                            val lastCompletedIndex = feedItems.indexOfLast { item ->
-                                when (item) {
-                                    is FeedItem.NormalEpisode -> completedEpisodeIds.contains(item.episode.id)
-                                    is FeedItem.SingleTrailer -> completedEpisodeIds.contains(item.episode.id)
-                                    is FeedItem.TrailerGroup -> item.trailers.any { completedEpisodeIds.contains(it.first.id) }
-                                }
-                            }
-                            android.util.Log.d("PodcastInfoScreenScroll", "Step 2 Last Completed Index: $lastCompletedIndex")
-                            if (lastCompletedIndex != -1) {
-                                targetIndex = lastCompletedIndex + 1
-                            }
-                        }
-
-                        // 3. Fallback to first episode (index 0) if nothing completed or ongoing
-                        if (targetIndex == -1) {
-                            targetIndex = 0
-                        }
-
-                        // Coerce to ensure we stay inside bounds
-                        val resolvedIndex = targetIndex.coerceIn(0, feedItems.size - 1)
-                        android.util.Log.d("PodcastInfoScreenScroll", "Resolved Scroll Target Index: $resolvedIndex")
-
-                        targetJumpIndex = resolvedIndex
-                        isTargetOngoing = isOngoingMatched
-
-                        // UP NEXT tag should go to the episode immediately following the ongoing/in-progress one
-                        val badgeIndex = if (isOngoingMatched && resolvedIndex < feedItems.size - 1) {
-                            resolvedIndex + 1
-                        } else {
-                            resolvedIndex
-                        }
-                        android.util.Log.d("PodcastInfoScreenScroll", "Resolved Badge Target Index: $badgeIndex")
-
-                        // Find the target episode object to jump to
-                        val jumpEp = feedItems.getOrNull(resolvedIndex)?.let { item ->
-                            when (item) {
-                                is FeedItem.NormalEpisode -> item.episode
-                                is FeedItem.SingleTrailer -> item.episode
-                                is FeedItem.TrailerGroup -> item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
-                            }
-                        }
-                        targetJumpEpisode = jumpEp
-
-                        // Set the UP NEXT badge episode ID immediately on load so it appears on the row
-                        val badgeEp = feedItems.getOrNull(badgeIndex)?.let { item ->
-                            when (item) {
-                                is FeedItem.NormalEpisode -> item.episode
-                                is FeedItem.SingleTrailer -> item.episode
-                                is FeedItem.TrailerGroup -> item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
-                            }
-                        }
-                        autoScrolledEpisodeId = badgeEp?.id
+                        val target = resolveAutoScrollTarget(feedItems, completedEpisodeIds, ongoingEpisodeIds)
+                        targetJumpIndex = target.jumpIndex
+                        isTargetOngoing = target.isOngoing
+                        targetJumpEpisode = target.jumpEpisode
+                        autoScrolledEpisodeId = target.badgeEpisodeId
                     } else {
                         targetJumpIndex = -1
                         targetJumpEpisode = null
@@ -537,7 +476,6 @@ fun PodcastInfoScreen(
                     }
                 }
                 
-                val strippedDesc = remember(state.podcast.description) { stripHtml(state.podcast.description) }
                 var isDescExpanded by remember { mutableStateOf(false) }
                 
                 val podcastPersons = remember(state.episodes) {
@@ -575,584 +513,15 @@ fun PodcastInfoScreen(
                     ) {
                     // HERO SECTION: Centered Layout
                     item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // 1. Centered Large Image
-                            Surface(
-                                modifier = Modifier.size(180.dp),
-                                shape = MaterialTheme.shapes.extraLarge,
-                                shadowElevation = 8.dp
-                            ) {
-                                OptimizedImage(
-                                    url = state.podcast.imageUrl.takeIf { it.isNotEmpty() } ?: state.podcast.fallbackImageUrl,
-                                    proxyWidth = 600, // 180dp * ~3x density
-                                    contentDescription = state.podcast.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.height(20.dp))
-                            
-                            // 2. Title & Artist
-                            Text(
-                                text = state.podcast.title,
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-                            
-                            Spacer(modifier = Modifier.height(4.dp))
-                            
-                            Text(
-                                text = state.podcast.artist,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Update Frequency Calculation
-                            var cachedFrequencyData by remember(state.podcast.id) { mutableStateOf<Pair<String, ImageVector>?>(null) }
-                            
-                            val frequencyData = remember(state.podcast, state.episodes, state.currentSort, state.searchQuery) {
-                                // Only calculate when we have the newest episodes
-                                if (state.currentSort == EpisodeSort.NEWEST && state.searchQuery.isEmpty()) {
-                                    // 1. Securely sort and take the latest 15 episodes (Recent History)
-                                    val validEpisodes = state.episodes
-                                        .filter { it.episodeType != "trailer" && it.episodeType != "bonus" && it.publishedDate > 0 }
-                                        .sortedByDescending { it.publishedDate }
-                                        .take(15)
-     
-                                     val latestEpisodeDate = validEpisodes.firstOrNull()?.publishedDate ?: state.podcast.latestEpisode?.publishedDate
-                                     val daysSinceLatest = latestEpisodeDate?.let { (System.currentTimeMillis() / 1000 - it) / (60 * 60 * 24) }
-     
-                                     // 2. Check if it's dead or on hiatus
-                                     if (daysSinceLatest != null && daysSinceLatest > 0) {
-                                         if (daysSinceLatest > 365) {
-                                             val result = Pair("Inactive / Ended", Icons.Rounded.PauseCircle)
-                                             cachedFrequencyData = result
-                                             return@remember result
-                                         } else if (daysSinceLatest > 180) {
-                                             val result = Pair("On Hiatus", Icons.Rounded.PauseCircle)
-                                             cachedFrequencyData = result
-                                             return@remember result
-                                         }
-                                     }
-
-                                     // 3. Check for decay / delayed seasons (Between Seasons check)
-                                     // Calculate medianIntervalDays to determine standard gap
-                                     val medianIntervalDays: Long? = if (validEpisodes.size >= 4) {
-                                         val intervals = mutableListOf<Long>()
-                                         for (i in 0 until validEpisodes.size - 1) {
-                                             val newer = validEpisodes[i].publishedDate
-                                             val older = validEpisodes[i + 1].publishedDate
-                                             val daysDiff = (newer - older) / (60 * 60 * 24)
-                                             if (daysDiff >= 0) intervals.add(daysDiff)
-                                         }
-                                         if (intervals.isNotEmpty()) {
-                                             val sortedIntervals = intervals.sorted()
-                                             sortedIntervals[sortedIntervals.size / 2]
-                                         } else null
-                                     } else {
-                                         // Estimate based on tag if episodes are scarce
-                                         val tag = state.podcast.updateFrequency?.lowercase() ?: ""
-                                         when {
-                                             tag.contains("daily") -> 1L
-                                             tag.contains("weekly") -> 7L
-                                             tag.contains("bi-weekly") || tag.contains("2 weeks") -> 14L
-                                             tag.contains("monthly") -> 30L
-                                             else -> null
-                                         }
-                                     }
-
-                                     if (medianIntervalDays != null && medianIntervalDays > 3 && daysSinceLatest != null) {
-                                         if (daysSinceLatest > (medianIntervalDays * 2)) {
-                                             val result = Pair("Between Seasons", Icons.Rounded.HourglassBottom)
-                                             cachedFrequencyData = result
-                                             return@remember result
-                                         }
-                                     }
-
-                                     // 4. Use the explicit updateFrequency tag if available
-                                     val tag = state.podcast.updateFrequency
-                                     if (!tag.isNullOrBlank()) {
-                                         val cleanText = tag.trim().lowercase()
-                                         val parsedDouble = cleanText.toDoubleOrNull()
-                                         val formattedText = if (parsedDouble != null) {
-                                             when {
-                                                 parsedDouble >= 7.0 -> "Releases Daily"
-                                                 parsedDouble >= 2.0 -> "Releases Multi-Weekly"
-                                                 parsedDouble >= 1.0 -> "Releases Weekly"
-                                                 parsedDouble >= 0.5 -> "Releases Every 2 Weeks"
-                                                 parsedDouble >= 0.1 -> "Releases Monthly"
-                                                 else -> "Releases Occasionally"
-                                             }
-                                         } else {
-                                             when (cleanText) {
-                                                 "daily" -> "Releases Daily"
-                                                 "weekly" -> "Releases Weekly"
-                                                 "monthly" -> "Releases Monthly"
-                                                 "biweekly", "bi-weekly" -> "Releases Every 2 Weeks"
-                                                 else -> tag.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                                             }
-                                         }
-                                         val icon = if (formattedText.contains("Daily", ignoreCase = true)) Icons.Rounded.Bolt else Icons.Rounded.CalendarMonth
-                                         val result = Pair(formattedText, icon)
-                                         cachedFrequencyData = result
-                                         return@remember result
-                                     }
-
-                                     // 5. Fallback: Predict frequency using Median and Day of Week counts
-                                     if (validEpisodes.size < 4) return@remember cachedFrequencyData
-                                     if (medianIntervalDays == null) return@remember cachedFrequencyData
-     
-                                     // Determine common release day
-                                     val calendar = java.util.Calendar.getInstance()
-                                     val dayCounts = IntArray(8)
-                                     for (ep in validEpisodes) {
-                                         calendar.timeInMillis = ep.publishedDate * 1000
-                                         dayCounts[calendar.get(java.util.Calendar.DAY_OF_WEEK)]++
-                                     }
-                                     var maxDay = -1
-                                     var maxCount = 0
-                                     for (i in 1..7) {
-                                         if (dayCounts[i] > maxCount) {
-                                             maxCount = dayCounts[i]
-                                             maxDay = i
-                                         }
-                                     }
-                                     
-                                     val commonDayName = if (maxCount >= (validEpisodes.size * 0.5).toInt()) {
-                                         when (maxDay) {
-                                             java.util.Calendar.SUNDAY -> "Sundays"
-                                             java.util.Calendar.MONDAY -> "Mondays"
-                                             java.util.Calendar.TUESDAY -> "Tuesdays"
-                                             java.util.Calendar.WEDNESDAY -> "Wednesdays"
-                                             java.util.Calendar.THURSDAY -> "Thursdays"
-                                             java.util.Calendar.FRIDAY -> "Fridays"
-                                             java.util.Calendar.SATURDAY -> "Saturdays"
-                                             else -> null
-                                         }
-                                     } else null
-     
-                                     var predictedText: String? = null
-                                     var icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.CalendarMonth
-     
-                                     if (medianIntervalDays in 0..1) {
-                                         predictedText = "Releases Daily"
-                                         icon = Icons.Rounded.Bolt
-                                     } else if (medianIntervalDays in 2..4) {
-                                         predictedText = "Releases Multi-Weekly"
-                                         icon = Icons.Rounded.CalendarMonth
-                                     } else if (medianIntervalDays in 5..8) {
-                                         predictedText = if (commonDayName != null) "Weekly on $commonDayName" else "Releases Weekly"
-                                         icon = Icons.Rounded.CalendarMonth
-                                     } else if (medianIntervalDays in 12..16) {
-                                         predictedText = if (commonDayName != null) "Every 2 Weeks on $commonDayName" else "Releases Every 2 Weeks"
-                                         icon = Icons.Rounded.CalendarMonth
-                                     } else if (medianIntervalDays in 25..35) {
-                                         predictedText = "Releases Monthly"
-                                         icon = Icons.Rounded.CalendarMonth
-                                     }
-     
-                                     if (predictedText != null) {
-                                         val result = Pair(predictedText, icon)
-                                         cachedFrequencyData = result
-                                         return@remember result
-                                     }
-     
-                                     cachedFrequencyData
-                                 } else {
-                                     // If sorted by oldest or searching, use the cached calculation (to prevent "Inactive / Ended" bug)
-                                     cachedFrequencyData
-                                 }
-                             }
-
-                            // 3. Scrollable Metadata Chips Row — centered
-                            // Pre-compute trailer episode in composable scope
-                            val trailerEpisode = remember(state.episodes) {
-                                state.episodes.firstOrNull { it.episodeType == "trailer" }
-                            }
-                            
-                            androidx.compose.foundation.lazy.LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                                contentPadding = PaddingValues(horizontal = 0.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                if (state.podcast.isRss) {
-                                    item {
-                                        Surface(
-                                            shape = ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.RssFeed,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                )
-                                                Text(
-                                                    text = "RSS",
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 4. Update Frequency
-                                if (frequencyData != null) {
-                                    item {
-                                        Surface(
-                                            shape = ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = frequencyData.second,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Text(
-                                                    text = frequencyData.first,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 6. Genre
-                                if (state.podcast.genre.isNotEmpty()) {
-                                    item {
-                                        val genreLc = state.podcast.genre.lowercase()
-                                        val genreIcon: ImageVector = when {
-                                            genreLc.contains("music") -> Icons.Rounded.MusicNote
-                                            genreLc.contains("comedy") -> Icons.Rounded.SentimentVerySatisfied
-                                            genreLc.contains("sport") -> Icons.Rounded.EmojiEvents
-                                            genreLc.contains("science") -> Icons.Rounded.Science
-                                            genreLc.contains("tech") -> Icons.Rounded.Computer
-                                            genreLc.contains("news") -> Icons.Rounded.Newspaper
-                                            genreLc.contains("health") -> Icons.Rounded.MonitorHeart
-                                            genreLc.contains("history") -> Icons.Rounded.AccountBalance
-                                            genreLc.contains("arts") -> Icons.Rounded.Palette
-                                            genreLc.contains("education") -> Icons.Rounded.School
-                                            genreLc.contains("tv") || genreLc.contains("film") -> Icons.Rounded.Movie
-                                            genreLc.contains("fiction") -> Icons.Rounded.AutoStories
-                                            genreLc.contains("religion") || genreLc.contains("spiritual") -> Icons.Rounded.SelfImprovement
-                                            genreLc.contains("family") || genreLc.contains("kids") -> Icons.Rounded.ChildCare
-                                            genreLc.contains("leisure") -> Icons.Rounded.Weekend
-                                            genreLc.contains("business") -> Icons.Rounded.Work
-                                            genreLc.contains("government") -> Icons.Rounded.Gavel
-                                            genreLc.contains("society") || genreLc.contains("culture") -> Icons.Rounded.Groups
-                                            genreLc.contains("crime") -> Icons.Rounded.Fingerprint
-                                            else -> Icons.Rounded.Category
-                                        }
-                                        Surface(
-                                            shape = ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.secondaryContainer,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = genreIcon,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                                Text(
-                                                    text = state.podcast.genre,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 2. Cast & Crew
-                                items(sortedPersons) { person ->
-                                    CompactPersonChip(
-                                        person = person,
-                                        onClick = {
-                                            if (!person.href.isNullOrBlank()) {
-                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(person.href))
-                                                context.startActivity(intent)
-                                            }
-                                        }
-                                    )
-                                }
-
-                                // 1. Play Trailer
-                                if (trailerEpisode != null) {
-                                    item {
-                                        Surface(
-                                            shape = ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.expressiveClickable {
-                                                viewModel.onPlayClick(trailerEpisode)
-                                            }
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.PlayArrow,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Text(
-                                                    text = "Play Trailer",
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onPrimary,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 5. Medium (if non-standard)
-                                val medium = if (state.podcast.medium == "podcast" && state.podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) "video" else state.podcast.medium
-                                if (!medium.isNullOrEmpty() && medium != "podcast") {
-                                    item {
-                                        val mediumIcon = when (medium.lowercase()) {
-                                            "music" -> Icons.Rounded.MusicNote
-                                            "video" -> Icons.Rounded.Videocam
-                                            "film" -> Icons.Rounded.Movie
-                                            "audiobook" -> Icons.Rounded.AutoStories
-                                            "newsletter" -> Icons.Rounded.Email
-                                            "blog" -> Icons.AutoMirrored.Rounded.Article
-                                            else -> Icons.Rounded.Headphones
-                                        }
-                                        Surface(
-                                            shape = ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = mediumIcon,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                                Text(
-                                                    text = medium.replaceFirstChar { c -> c.uppercaseChar() },
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 3. Funding / Support
-                                val hasFunding = state.podcast.fundingUrl != null
-                                if (hasFunding) {
-                                    item {
-                                        Surface(
-                                            shape = ExpressiveShapes.Pill,
-                                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                                            modifier = Modifier.expressiveClickable {
-                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(state.podcast.fundingUrl))
-                                                context.startActivity(intent)
-                                            }
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Favorite,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                                )
-                                                Text(
-                                                    text = state.podcast.fundingMessage ?: "Support",
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(18.dp))
-                            
-                             if (strippedDesc.isNotEmpty()) {
-                                 Surface(
-                                     modifier = Modifier
-                                         .fillMaxWidth()
-                                         .animateContentSize(
-                                             animationSpec = spring(
-                                                 dampingRatio = Spring.DampingRatioLowBouncy,
-                                                 stiffness = Spring.StiffnessMediumLow
-                                             )
-                                         )
-                                         .expressiveClickable { isDescExpanded = !isDescExpanded },
-                                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                     shape = MaterialTheme.shapes.large
-                                 ) {
-                                     Column(
-                                         modifier = Modifier
-                                             .fillMaxWidth()
-                                             .padding(16.dp)
-                                     ) {
-                                         Text(
-                                             text = strippedDesc,
-                                             style = MaterialTheme.typography.bodyMedium,
-                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                             maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
-                                             overflow = TextOverflow.Ellipsis,
-                                             lineHeight = 20.sp,
-                                             modifier = Modifier.fillMaxWidth()
-                                         )
-                                         
-                                         if (isDescExpanded && state.podcast.isLocked) {
-                                             var showLockedInfoDialog by remember { mutableStateOf(false) }
-                                             
-                                             Spacer(modifier = Modifier.height(12.dp))
-                                             androidx.compose.material3.HorizontalDivider(
-                                                 thickness = 0.5.dp,
-                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                                             )
-                                             Spacer(modifier = Modifier.height(8.dp))
-                                             
-                                             Row(
-                                                 modifier = Modifier
-                                                     .fillMaxWidth()
-                                                     .clip(MaterialTheme.shapes.small)
-                                                     .expressiveClickable(isolate = true) { showLockedInfoDialog = true }
-                                                     .padding(vertical = 4.dp),
-                                                 verticalAlignment = Alignment.CenterVertically,
-                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                             ) {
-                                                 Icon(
-                                                     imageVector = Icons.Rounded.Lock,
-                                                     contentDescription = "Locked",
-                                                     tint = MaterialTheme.colorScheme.error,
-                                                     modifier = Modifier.size(16.dp)
-                                                 )
-                                                 Text(
-                                                     text = "Podcast feed is locked",
-                                                     style = MaterialTheme.typography.labelMedium,
-                                                     fontWeight = FontWeight.Bold,
-                                                     color = MaterialTheme.colorScheme.error
-                                                 )
-                                                 Icon(
-                                                     imageVector = Icons.Rounded.Info,
-                                                     contentDescription = "Information",
-                                                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                                     modifier = Modifier.size(14.dp)
-                                                 )
-                                             }
-                                             
-                                             if (showLockedInfoDialog) {
-                                                 AlertDialog(
-                                                     onDismissRequest = { showLockedInfoDialog = false },
-                                                     icon = {
-                                                         Icon(
-                                                             imageVector = Icons.Rounded.Lock,
-                                                             contentDescription = null,
-                                                             tint = MaterialTheme.colorScheme.error
-                                                         )
-                                                     },
-                                                     title = {
-                                                         Text(
-                                                             text = "Podcast Locked",
-                                                             style = MaterialTheme.typography.titleMedium,
-                                                             fontWeight = FontWeight.Bold
-                                                         )
-                                                     },
-                                                     text = {
-                                                         Text(
-                                                             text = "This podcast's feed has been locked by its publisher. According to the Podcasting 2.0 specification, a locked feed prevents other directory platforms or hosting services from importing or migrating this show's feed without the owner's explicit authorization.",
-                                                             style = MaterialTheme.typography.bodyMedium
-                                                         )
-                                                     },
-                                                     confirmButton = {
-                                                         TextButton(onClick = { showLockedInfoDialog = false }) {
-                                                             Text("Got it")
-                                                        }
-                                                     }
-                                                 )
-                                             }
-                                         }
-                                         
-                                         val podroll = state.podcast.podroll
-                                         if (isDescExpanded && !podroll.isNullOrEmpty()) {
-                                             Spacer(modifier = Modifier.height(12.dp))
-                                             androidx.compose.material3.HorizontalDivider(
-                                                 thickness = 0.5.dp,
-                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                                             )
-                                             Spacer(modifier = Modifier.height(12.dp))
-                                             
-                                             Text(
-                                                 text = "Creator Recommends",
-                                                 style = MaterialTheme.typography.labelLarge,
-                                                 fontWeight = FontWeight.Bold,
-                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
-                                             )
-                                             
-                                             Spacer(modifier = Modifier.height(12.dp))
-                                             
-                                             LazyRow(
-                                                 modifier = Modifier.fillMaxWidth(),
-                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                             ) {
-                                                 items(podroll) { item ->
-                                                     RecommendedPodcastCard(
-                                                         item = item,
-                                                         onPodcastClick = onPodcastClick
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                     }
-                                 }
-                             }
-                        }
+                        PodcastInfoHeroSection(
+                            state = state,
+                            sortedPersons = sortedPersons,
+                            isDescExpanded = isDescExpanded,
+                            onDescExpandedChange = { isDescExpanded = it },
+                            onPlayEpisode = { viewModel.onPlayClick(it) },
+                            onPodcastClick = onPodcastClick,
+                            context = context,
+                        )
                     }
                     
                     // EPISODE TOOLBAR
@@ -1169,35 +538,22 @@ fun PodcastInfoScreen(
                             supportsReleaseAutomation = !state.podcast.isRss,
                             notificationsEnabled = state.podcast.notificationsEnabled,
                             onNotificationsToggle = {
-                                if (!state.podcast.notificationsEnabled) {
-                                    // Turning notifications ON
-                                    if (!areAppNotificationsEnabled(context)) {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        } else {
-                                            toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED
-                                        }
-                                    } else {
-                                        viewModel.toggleNotifications()
-                                    }
-                                } else {
-                                    // Turning notifications OFF
-                                    viewModel.toggleNotifications()
-                                }
+                                handleNotificationsToggle(
+                                    context = context,
+                                    podcastNotificationsEnabled = state.podcast.notificationsEnabled,
+                                    onRequestPermission = { notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                                    onShowPermissionBlockedWarning = { toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED },
+                                    onToggleNotifications = { viewModel.toggleNotifications() },
+                                )
                             },
                             autoDownloadEnabled = state.podcast.autoDownloadEnabled,
                             onAutoDownloadToggle = {
-                                if (!state.podcast.autoDownloadEnabled) {
-                                    // Turning auto-download ON
-                                    if (!state.podcast.notificationsEnabled) {
-                                        toolbarWarning = ToolbarWarning.NOTIFICATIONS_REQUIRED
-                                    } else {
-                                        viewModel.toggleAutoDownload()
-                                    }
-                                } else {
-                                    // Turning auto-download OFF
-                                    viewModel.toggleAutoDownload()
-                                }
+                                handleAutoDownloadToggle(
+                                    podcastAutoDownloadEnabled = state.podcast.autoDownloadEnabled,
+                                    podcastNotificationsEnabled = state.podcast.notificationsEnabled,
+                                    onShowNotificationsRequiredWarning = { toolbarWarning = ToolbarWarning.NOTIFICATIONS_REQUIRED },
+                                    onToggleAutoDownload = { viewModel.toggleAutoDownload() },
+                                )
                             },
                             genre = state.podcast.genre,
                             onSearchFocused = { isSearchActive = true }
@@ -1207,203 +563,39 @@ fun PodcastInfoScreen(
                     // TOOLBAR WARNING BANNER (Space Reveal)
                     if (toolbarWarning != ToolbarWarning.NONE) {
                         item(key = "toolbar_warning") {
-                            AnimatedVisibility(
-                                visible = toolbarWarning != ToolbarWarning.NONE,
-                                enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-                                exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
-                            ) {
-                                androidx.compose.material3.Card(
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.weight(1f),
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.WarningAmber,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.error,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                                Text(
-                                                    text = when (toolbarWarning) {
-                                                        ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Action Required"
-                                                        ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Notifications Disabled"
-                                                        else -> "Notice"
-                                                    },
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                            }
-                                            IconButton(
-                                                onClick = { toolbarWarning = ToolbarWarning.NONE },
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Close,
-                                                    contentDescription = "Dismiss",
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
-                                                )
-                                            }
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        
-                                        Text(
-                                            text = when (toolbarWarning) {
-                                                ToolbarWarning.NOTIFICATIONS_REQUIRED -> "In order for us to download the latest episode of this show when it arrives, you need to toggle notifications on as well."
-                                                ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Notification permissions are disabled in system settings. Please allow notifications and try again. We promise we will never spam."
-                                                else -> ""
-                                            },
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
-                                        )
-                                        
-                                        val actionText = when (toolbarWarning) {
-                                            ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Enable Both"
-                                            ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Go to Settings"
-                                            else -> ""
-                                        }
-                                        
-                                        if (actionText.isNotEmpty()) {
-                                            Spacer(modifier = Modifier.height(12.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End
-                                            ) {
-                                                Button(
-                                                    onClick = {
-                                                        val currentWarning = toolbarWarning
-                                                        toolbarWarning = ToolbarWarning.NONE
-                                                        when (currentWarning) {
-                                                            ToolbarWarning.NOTIFICATIONS_REQUIRED -> {
-                                                                if (areAppNotificationsEnabled(context)) {
-                                                                    viewModel.enableBothNotificationsAndAutoDownload()
-                                                                } else {
-                                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                                                        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                                                    } else {
-                                                                        toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED
-                                                                    }
-                                                                }
-                                                            }
-                                                            ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> {
-                                                                openAppNotificationSettings(context)
-                                                            }
-                                                            else -> {}
-                                                        }
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(
-                                                        containerColor = MaterialTheme.colorScheme.error,
-                                                        contentColor = MaterialTheme.colorScheme.onError
-                                                    ),
-                                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                                                ) {
-                                                    Text(
-                                                        text = actionText,
-                                                        fontWeight = FontWeight.Bold,
-                                                        style = MaterialTheme.typography.labelLarge
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
+                            ToolbarWarningBanner(
+                                warning = toolbarWarning,
+                                onDismiss = { toolbarWarning = ToolbarWarning.NONE },
+                                onAction = {
+                                    val currentWarning = toolbarWarning
+                                    toolbarWarning = ToolbarWarning.NONE
+                                    handleToolbarWarningAction(
+                                        warning = currentWarning,
+                                        context = context,
+                                        viewModel = viewModel,
+                                        onRequestNotificationPermission = { notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                                        onShowPermissionBlockedWarning = { toolbarWarning = ToolbarWarning.SYSTEM_PERMISSION_BLOCKED },
+                                    )
                                 }
-                            }
+                            )
                         }
                     }
                     
                     // Episodes
                     itemsIndexed(feedItems, key = { _, item -> item.id }) { itemIndex, feedItem ->
-                        when (feedItem) {
-                            is FeedItem.NormalEpisode -> {
-                                val index = feedItem.globalIndex
-                                val episode = feedItem.episode
-                                val isDownloaded = downloadedEpisodeIds.contains(episode.id)
-                                val isDownloading = downloadingEpisodeIds.contains(episode.id)
-                                val isCompleted = completedEpisodeIds.contains(episode.id)
-                                
-                                EpisodePlayStateWrapper(
-                                    episodeId = episode.id,
-                                    playbackStateFlow = viewModel.episodePlaybackState
-                                ) { playState ->
-                                    EpisodeListItem(
-                                        episode = episode,
-                                        isLiked = likedEpisodeIds.contains(episode.id),
-                                        accentColor = accentColor,
-                                        // Playback State
-                                        isPlaying = playState?.isPlaying == true,
-                                        isResume = playState?.isResume == true,
-                                        progress = playState?.progress ?: 0f,
-                                        timeLeft = playState?.timeLeft,
-                                        // Download State
-                                        isDownloaded = isDownloaded,
-                                        isDownloading = isDownloading,
-                                        isQueued = queuedEpisodeIds.contains(episode.id),
-                                        isCompleted = isCompleted,
-                                        isUpNext = episode.id == autoScrolledEpisodeId,
-                                        onClick = { 
-                                            viewModel.recordEpisodeClick(episode.id)
-                                            onEpisodeClick(episode, "podcast_info_episodes_list", index) 
-                                        },
-                                        onPlayClick = { viewModel.onPlayClick(episode) },
-                                        onToggleLike = { viewModel.onToggleLike(episode) },
-                                        onQueueClick = { viewModel.toggleQueue(episode) },
-                                        onDownloadClick = { viewModel.toggleDownload(episode) },
-                                        onMarkPlayedClick = { viewModel.onToggleCompletion(episode) },
-                                        showMarkPlayedButton = false, // Hide in list view
-                                        modifier = Modifier.padding(horizontal = 16.dp)
-                                    )
-                                }
-                            }
-                            is FeedItem.SingleTrailer -> {
-                                SingleTrailerCard(
-                                    episode = feedItem.episode,
-                                    globalIndex = feedItem.globalIndex,
-                                    playbackStateFlow = viewModel.episodePlaybackState,
-                                    onEpisodeClick = { ep, globalIndex ->
-                                        viewModel.recordEpisodeClick(ep.id)
-                                        onEpisodeClick(ep, "podcast_info_episodes_list", globalIndex)
-                                    },
-                                    onPlayClick = { ep -> viewModel.onPlayClick(ep) },
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-                            }
-                            is FeedItem.TrailerGroup -> {
-                                TrailerStackCard(
-                                    group = feedItem,
-                                    playbackStateFlow = viewModel.episodePlaybackState,
-                                    onEpisodeClick = { ep, globalIndex ->
-                                        viewModel.recordEpisodeClick(ep.id)
-                                        onEpisodeClick(ep, "podcast_info_episodes_list", globalIndex)
-                                    },
-                                    onPlayClick = { ep -> viewModel.onPlayClick(ep) },
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-                            }
-                        }
-                        
+                        EpisodeFeedItemRow(
+                            feedItem = feedItem,
+                            viewModel = viewModel,
+                            accentColor = accentColor,
+                            likedEpisodeIds = likedEpisodeIds,
+                            queuedEpisodeIds = queuedEpisodeIds,
+                            downloadedEpisodeIds = downloadedEpisodeIds,
+                            downloadingEpisodeIds = downloadingEpisodeIds,
+                            completedEpisodeIds = completedEpisodeIds,
+                            autoScrolledEpisodeId = autoScrolledEpisodeId,
+                            onEpisodeClick = onEpisodeClick,
+                        )
+
                         if (state.searchResults == null && itemIndex == feedItems.lastIndex && state.hasMoreEpisodes && !state.isLoadingMore) {
                             LaunchedEffect(displayEpisodes.size) {
                                 viewModel.loadMoreEpisodes()
@@ -1466,117 +658,17 @@ fun PodcastInfoScreen(
                 }
                 
                 // FIXED HEADER
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(collapsedHeaderHeight)
-                        .background(headerColor)
-                        .statusBarsPadding()
-                ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Share and More Options Dropdown Menu (Top Right)
-                    var showMenu by remember { mutableStateOf(false) }
-                    var showShareSheet by remember { mutableStateOf(false) }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 4.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { showShareSheet = true }
-                            ) {
-                                Icon(
-                                    imageVector = androidx.compose.material.icons.Icons.Rounded.Share,
-                                    contentDescription = "Share Podcast",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            IconButton(
-                                onClick = { showMenu = true }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
-                                    contentDescription = "More Options",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                        
-                        if (showShareSheet) {
-                            val state = uiState
-                            val sharePodcast = (state as? PodcastInfoUiState.Success)?.podcast
-                            if (sharePodcast != null) {
-                                cx.aswin.boxcast.core.designsystem.components.ShareBottomSheet(
-                                    id = sharePodcast.id,
-                                    type = "podcast",
-                                    title = sharePodcast.title,
-                                    subtitle = sharePodcast.artist,
-                                    imageUrl = sharePodcast.imageUrl,
-                                    onDismissRequest = { showShareSheet = false },
-                                    onShare = { _, _, _, target ->
-                                        cx.aswin.boxcast.core.data.ShareManager.sharePodcast(
-                                            context = context,
-                                            podcast = sharePodcast,
-                                            target = target
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                        
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            shape = RoundedCornerShape(20.dp),
-                            offset = DpOffset(x = (-12).dp, y = 4.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Mark all as played") },
-                                onClick = {
-                                    showMenu = false
-                                    showMarkAllPlayedDialog = true
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Rounded.DoneAll, contentDescription = null)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Mark all as unplayed") },
-                                onClick = {
-                                    showMenu = false
-                                    showMarkAllUnplayedDialog = true
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Rounded.RadioButtonUnchecked, contentDescription = null)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(if (hideCompleted) "Show completed episodes" else "Hide completed episodes") },
-                                onClick = {
-                                    showMenu = false
-                                    viewModel.toggleHideCompleted()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = if (hideCompleted) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
-                                        contentDescription = null
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
+                PodcastInfoTopOverlay(
+                    podcast = state.podcast,
+                    headerColor = headerColor,
+                    collapsedHeaderHeight = collapsedHeaderHeight,
+                    hideCompleted = hideCompleted,
+                    context = context,
+                    onBack = onBack,
+                    onMarkAllPlayed = { showMarkAllPlayedDialog = true },
+                    onMarkAllUnplayed = { showMarkAllUnplayedDialog = true },
+                    onToggleHideCompleted = { viewModel.toggleHideCompleted() },
+                )
                 
                 // SNACKBAR HOST (Overlay)
 
@@ -1747,55 +839,14 @@ fun PodcastInfoScreen(
         if (showMarkAllPlayedDialog) {
             val currentState = uiState
             if (currentState is PodcastInfoUiState.Success) {
-                AlertDialog(
-                    onDismissRequest = { showMarkAllPlayedDialog = false },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Rounded.DoneAll,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    },
-                    title = {
-                        Text(
-                            text = "Mark all as played?",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = "This will mark all episodes of \"${currentState.podcast.title}\" as played.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showMarkAllPlayedDialog = false
-                                viewModel.markAllAsCompleted()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            shape = ExpressiveShapes.Pill
-                        ) {
-                            Text("Confirm")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = { showMarkAllPlayedDialog = false }
-                        ) {
-                            Text("Cancel")
-                        }
-                    },
-                    shape = MaterialTheme.shapes.extraLarge,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                MarkAllEpisodesDialog(
+                    podcastTitle = currentState.podcast.title,
+                    markAsPlayed = true,
+                    onDismiss = { showMarkAllPlayedDialog = false },
+                    onConfirm = {
+                        showMarkAllPlayedDialog = false
+                        viewModel.markAllAsCompleted()
+                    }
                 )
             }
         }
@@ -1803,60 +854,1234 @@ fun PodcastInfoScreen(
         if (showMarkAllUnplayedDialog) {
             val currentState = uiState
             if (currentState is PodcastInfoUiState.Success) {
-                AlertDialog(
-                    onDismissRequest = { showMarkAllUnplayedDialog = false },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Rounded.RadioButtonUnchecked,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    },
-                    title = {
-                        Text(
-                            text = "Mark all as unplayed?",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = "This will reset all episodes of \"${currentState.podcast.title}\" to unplayed.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showMarkAllUnplayedDialog = false
-                                viewModel.markAllAsUncompleted()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            shape = ExpressiveShapes.Pill
-                        ) {
-                            Text("Confirm")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = { showMarkAllUnplayedDialog = false }
-                        ) {
-                            Text("Cancel")
-                        }
-                    },
-                    shape = MaterialTheme.shapes.extraLarge,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                MarkAllEpisodesDialog(
+                    podcastTitle = currentState.podcast.title,
+                    markAsPlayed = false,
+                    onDismiss = { showMarkAllUnplayedDialog = false },
+                    onConfirm = {
+                        showMarkAllUnplayedDialog = false
+                        viewModel.markAllAsUncompleted()
+                    }
                 )
             }
         }
     }
 }
+
+// region PodcastInfoScreen extraction: auto-scroll target resolution
+
+private data class AutoScrollTarget(
+    val jumpIndex: Int,
+    val isOngoing: Boolean,
+    val jumpEpisode: Episode?,
+    val badgeEpisodeId: String?
+)
+
+private fun resolveAutoScrollTarget(
+    feedItems: List<FeedItem>,
+    completedEpisodeIds: Set<String>,
+    ongoingEpisodeIds: Set<String>
+): AutoScrollTarget {
+    fun episodeIdOf(item: FeedItem): String? = when (item) {
+        is FeedItem.NormalEpisode -> item.episode.id
+        is FeedItem.SingleTrailer -> item.episode.id
+        is FeedItem.TrailerGroup -> item.trailers.firstOrNull()?.first?.id
+    }
+
+    fun isCompleted(item: FeedItem): Boolean = when (item) {
+        is FeedItem.NormalEpisode -> completedEpisodeIds.contains(item.episode.id)
+        is FeedItem.SingleTrailer -> completedEpisodeIds.contains(item.episode.id)
+        is FeedItem.TrailerGroup -> item.trailers.any { completedEpisodeIds.contains(it.first.id) }
+    }
+
+    fun episodeAt(item: FeedItem): Episode? = when (item) {
+        is FeedItem.NormalEpisode -> item.episode
+        is FeedItem.SingleTrailer -> item.episode
+        is FeedItem.TrailerGroup -> item.trailers.firstOrNull { !completedEpisodeIds.contains(it.first.id) }?.first
+    }
+
+    // 1. Look for an in-progress/ongoing episode first
+    var targetIndex = feedItems.indexOfFirst { item ->
+        val episodeId = episodeIdOf(item)
+        episodeId != null && ongoingEpisodeIds.contains(episodeId)
+    }
+    val isOngoingMatched = targetIndex != -1
+
+    // 2. If nothing is ongoing, look for the episode just after the last completed one
+    if (targetIndex == -1) {
+        val lastCompletedIndex = feedItems.indexOfLast { isCompleted(it) }
+        if (lastCompletedIndex != -1) {
+            targetIndex = lastCompletedIndex + 1
+        }
+    }
+
+    // 3. Fallback to first episode (index 0) if nothing completed or ongoing
+    if (targetIndex == -1) {
+        targetIndex = 0
+    }
+
+    // Coerce to ensure we stay inside bounds
+    val resolvedIndex = targetIndex.coerceIn(0, feedItems.size - 1)
+
+    // UP NEXT tag should go to the episode immediately following the ongoing/in-progress one
+    val badgeIndex = if (isOngoingMatched && resolvedIndex < feedItems.size - 1) {
+        resolvedIndex + 1
+    } else {
+        resolvedIndex
+    }
+
+    val jumpEpisode = feedItems.getOrNull(resolvedIndex)?.let { episodeAt(it) }
+    val badgeEpisode = feedItems.getOrNull(badgeIndex)?.let { episodeAt(it) }
+
+    return AutoScrollTarget(
+        jumpIndex = resolvedIndex,
+        isOngoing = isOngoingMatched,
+        jumpEpisode = jumpEpisode,
+        badgeEpisodeId = badgeEpisode?.id
+    )
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: update frequency / genre / medium chip helpers
+
+private fun calculateUpdateFrequencyData(
+    podcast: Podcast,
+    episodes: List<Episode>,
+    currentSort: EpisodeSort,
+    searchQuery: String,
+    cachedFrequencyData: Pair<String, ImageVector>?
+): Pair<String, ImageVector>? {
+    // If sorted by oldest or searching, use the cached calculation (to prevent "Inactive / Ended" bug)
+    if (currentSort != EpisodeSort.NEWEST || searchQuery.isNotEmpty()) {
+        return cachedFrequencyData
+    }
+
+    // 1. Securely sort and take the latest 15 episodes (Recent History)
+    val validEpisodes = episodes
+        .filter { it.episodeType != "trailer" && it.episodeType != "bonus" && it.publishedDate > 0 }
+        .sortedByDescending { it.publishedDate }
+        .take(15)
+
+    val latestEpisodeDate = validEpisodes.firstOrNull()?.publishedDate ?: podcast.latestEpisode?.publishedDate
+    val daysSinceLatest = latestEpisodeDate?.let { (System.currentTimeMillis() / 1000 - it) / (60 * 60 * 24) }
+
+    // 2. Check if it's dead or on hiatus
+    if (daysSinceLatest != null && daysSinceLatest > 0) {
+        if (daysSinceLatest > 365) {
+            return Pair("Inactive / Ended", Icons.Rounded.PauseCircle)
+        } else if (daysSinceLatest > 180) {
+            return Pair("On Hiatus", Icons.Rounded.PauseCircle)
+        }
+    }
+
+    // 3. Check for decay / delayed seasons (Between Seasons check)
+    // Calculate medianIntervalDays to determine standard gap
+    val medianIntervalDays: Long? = if (validEpisodes.size >= 4) {
+        val intervals = mutableListOf<Long>()
+        for (i in 0 until validEpisodes.size - 1) {
+            val newer = validEpisodes[i].publishedDate
+            val older = validEpisodes[i + 1].publishedDate
+            val daysDiff = (newer - older) / (60 * 60 * 24)
+            if (daysDiff >= 0) intervals.add(daysDiff)
+        }
+        if (intervals.isNotEmpty()) {
+            val sortedIntervals = intervals.sorted()
+            sortedIntervals[sortedIntervals.size / 2]
+        } else null
+    } else {
+        // Estimate based on tag if episodes are scarce
+        val tag = podcast.updateFrequency?.lowercase() ?: ""
+        when {
+            tag.contains("daily") -> 1L
+            tag.contains("weekly") -> 7L
+            tag.contains("bi-weekly") || tag.contains("2 weeks") -> 14L
+            tag.contains("monthly") -> 30L
+            else -> null
+        }
+    }
+
+    if (medianIntervalDays != null && medianIntervalDays > 3 && daysSinceLatest != null) {
+        if (daysSinceLatest > (medianIntervalDays * 2)) {
+            return Pair("Between Seasons", Icons.Rounded.HourglassBottom)
+        }
+    }
+
+    // 4. Use the explicit updateFrequency tag if available
+    val tag = podcast.updateFrequency
+    if (!tag.isNullOrBlank()) {
+        val cleanText = tag.trim().lowercase()
+        val parsedDouble = cleanText.toDoubleOrNull()
+        val formattedText = if (parsedDouble != null) {
+            when {
+                parsedDouble >= 7.0 -> "Releases Daily"
+                parsedDouble >= 2.0 -> "Releases Multi-Weekly"
+                parsedDouble >= 1.0 -> "Releases Weekly"
+                parsedDouble >= 0.5 -> "Releases Every 2 Weeks"
+                parsedDouble >= 0.1 -> "Releases Monthly"
+                else -> "Releases Occasionally"
+            }
+        } else {
+            when (cleanText) {
+                "daily" -> "Releases Daily"
+                "weekly" -> "Releases Weekly"
+                "monthly" -> "Releases Monthly"
+                "biweekly", "bi-weekly" -> "Releases Every 2 Weeks"
+                else -> tag.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            }
+        }
+        val icon = if (formattedText.contains("Daily", ignoreCase = true)) Icons.Rounded.Bolt else Icons.Rounded.CalendarMonth
+        return Pair(formattedText, icon)
+    }
+
+    // 5. Fallback: Predict frequency using Median and Day of Week counts
+    if (validEpisodes.size < 4) return cachedFrequencyData
+    if (medianIntervalDays == null) return cachedFrequencyData
+
+    // Determine common release day
+    val calendar = java.util.Calendar.getInstance()
+    val dayCounts = IntArray(8)
+    for (ep in validEpisodes) {
+        calendar.timeInMillis = ep.publishedDate * 1000
+        dayCounts[calendar.get(java.util.Calendar.DAY_OF_WEEK)]++
+    }
+    var maxDay = -1
+    var maxCount = 0
+    for (i in 1..7) {
+        if (dayCounts[i] > maxCount) {
+            maxCount = dayCounts[i]
+            maxDay = i
+        }
+    }
+
+    val commonDayName = if (maxCount >= (validEpisodes.size * 0.5).toInt()) {
+        when (maxDay) {
+            java.util.Calendar.SUNDAY -> "Sundays"
+            java.util.Calendar.MONDAY -> "Mondays"
+            java.util.Calendar.TUESDAY -> "Tuesdays"
+            java.util.Calendar.WEDNESDAY -> "Wednesdays"
+            java.util.Calendar.THURSDAY -> "Thursdays"
+            java.util.Calendar.FRIDAY -> "Fridays"
+            java.util.Calendar.SATURDAY -> "Saturdays"
+            else -> null
+        }
+    } else null
+
+    var predictedText: String? = null
+    var icon: ImageVector = Icons.Rounded.CalendarMonth
+
+    if (medianIntervalDays in 0..1) {
+        predictedText = "Releases Daily"
+        icon = Icons.Rounded.Bolt
+    } else if (medianIntervalDays in 2..4) {
+        predictedText = "Releases Multi-Weekly"
+        icon = Icons.Rounded.CalendarMonth
+    } else if (medianIntervalDays in 5..8) {
+        predictedText = if (commonDayName != null) "Weekly on $commonDayName" else "Releases Weekly"
+        icon = Icons.Rounded.CalendarMonth
+    } else if (medianIntervalDays in 12..16) {
+        predictedText = if (commonDayName != null) "Every 2 Weeks on $commonDayName" else "Releases Every 2 Weeks"
+        icon = Icons.Rounded.CalendarMonth
+    } else if (medianIntervalDays in 25..35) {
+        predictedText = "Releases Monthly"
+        icon = Icons.Rounded.CalendarMonth
+    }
+
+    if (predictedText != null) {
+        return Pair(predictedText, icon)
+    }
+
+    return cachedFrequencyData
+}
+
+private fun genreIconFor(genre: String): ImageVector {
+    val genreLc = genre.lowercase()
+    return when {
+        genreLc.contains("music") -> Icons.Rounded.MusicNote
+        genreLc.contains("comedy") -> Icons.Rounded.SentimentVerySatisfied
+        genreLc.contains("sport") -> Icons.Rounded.EmojiEvents
+        genreLc.contains("science") -> Icons.Rounded.Science
+        genreLc.contains("tech") -> Icons.Rounded.Computer
+        genreLc.contains("news") -> Icons.Rounded.Newspaper
+        genreLc.contains("health") -> Icons.Rounded.MonitorHeart
+        genreLc.contains("history") -> Icons.Rounded.AccountBalance
+        genreLc.contains("arts") -> Icons.Rounded.Palette
+        genreLc.contains("education") -> Icons.Rounded.School
+        genreLc.contains("tv") || genreLc.contains("film") -> Icons.Rounded.Movie
+        genreLc.contains("fiction") -> Icons.Rounded.AutoStories
+        genreLc.contains("religion") || genreLc.contains("spiritual") -> Icons.Rounded.SelfImprovement
+        genreLc.contains("family") || genreLc.contains("kids") -> Icons.Rounded.ChildCare
+        genreLc.contains("leisure") -> Icons.Rounded.Weekend
+        genreLc.contains("business") -> Icons.Rounded.Work
+        genreLc.contains("government") -> Icons.Rounded.Gavel
+        genreLc.contains("society") || genreLc.contains("culture") -> Icons.Rounded.Groups
+        genreLc.contains("crime") -> Icons.Rounded.Fingerprint
+        else -> Icons.Rounded.Category
+    }
+}
+
+private fun mediumIconFor(medium: String): ImageVector = when (medium.lowercase()) {
+    "music" -> Icons.Rounded.MusicNote
+    "video" -> Icons.Rounded.Videocam
+    "film" -> Icons.Rounded.Movie
+    "audiobook" -> Icons.Rounded.AutoStories
+    "newsletter" -> Icons.Rounded.Email
+    "blog" -> Icons.AutoMirrored.Rounded.Article
+    else -> Icons.Rounded.Headphones
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: metadata chips row
+
+@Composable
+private fun RssFeedChip() {
+    Surface(
+        shape = ExpressiveShapes.Pill,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.RssFeed,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = "RSS",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun UpdateFrequencyChip(frequencyData: Pair<String, ImageVector>) {
+    Surface(
+        shape = ExpressiveShapes.Pill,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = frequencyData.second,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = frequencyData.first,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun GenreChip(genre: String) {
+    Surface(
+        shape = ExpressiveShapes.Pill,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = genreIconFor(genre),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = genre,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayTrailerChip(onClick: () -> Unit) {
+    Surface(
+        shape = ExpressiveShapes.Pill,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.expressiveClickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+            Text(
+                text = "Play Trailer",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun MediumChip(medium: String) {
+    Surface(
+        shape = ExpressiveShapes.Pill,
+        color = MaterialTheme.colorScheme.primaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = mediumIconFor(medium),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                text = medium.replaceFirstChar { c -> c.uppercaseChar() },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun FundingChip(fundingMessage: String?, onClick: () -> Unit) {
+    Surface(
+        shape = ExpressiveShapes.Pill,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        modifier = Modifier.expressiveClickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Text(
+                text = fundingMessage ?: "Support",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun PodcastInfoMetadataChipsRow(
+    podcast: Podcast,
+    sortedPersons: List<Person>,
+    trailerEpisode: Episode?,
+    frequencyData: Pair<String, ImageVector>?,
+    context: android.content.Context,
+    onPlayTrailer: (Episode) -> Unit,
+) {
+    val medium = if (podcast.medium == "podcast" && podcast.latestEpisode?.enclosureType?.startsWith("video/") == true) "video" else podcast.medium
+    val hasFunding = podcast.fundingUrl != null
+
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        contentPadding = PaddingValues(horizontal = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (podcast.isRss) {
+            item { RssFeedChip() }
+        }
+
+        if (frequencyData != null) {
+            item { UpdateFrequencyChip(frequencyData) }
+        }
+
+        if (podcast.genre.isNotEmpty()) {
+            item { GenreChip(podcast.genre) }
+        }
+
+        items(sortedPersons) { person ->
+            CompactPersonChip(
+                person = person,
+                onClick = {
+                    if (!person.href.isNullOrBlank()) {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(person.href))
+                        context.startActivity(intent)
+                    }
+                }
+            )
+        }
+
+        if (trailerEpisode != null) {
+            item { PlayTrailerChip(onClick = { onPlayTrailer(trailerEpisode) }) }
+        }
+
+        if (!medium.isNullOrEmpty() && medium != "podcast") {
+            item { MediumChip(medium) }
+        }
+
+        if (hasFunding) {
+            item {
+                FundingChip(
+                    fundingMessage = podcast.fundingMessage,
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(podcast.fundingUrl))
+                        context.startActivity(intent)
+                    }
+                )
+            }
+        }
+    }
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: description section
+
+@Composable
+private fun LockedFeedNotice() {
+    var showLockedInfoDialog by remember { mutableStateOf(false) }
+
+    Spacer(modifier = Modifier.height(12.dp))
+    androidx.compose.material3.HorizontalDivider(
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .expressiveClickable(isolate = true) { showLockedInfoDialog = true }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Lock,
+            contentDescription = "Locked",
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = "Podcast feed is locked",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.error
+        )
+        Icon(
+            imageVector = Icons.Rounded.Info,
+            contentDescription = "Information",
+            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+            modifier = Modifier.size(14.dp)
+        )
+    }
+
+    if (showLockedInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showLockedInfoDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text(
+                    text = "Podcast Locked",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "This podcast's feed has been locked by its publisher. According to the Podcasting 2.0 specification, a locked feed prevents other directory platforms or hosting services from importing or migrating this show's feed without the owner's explicit authorization.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showLockedInfoDialog = false }) {
+                    Text("Got it")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun PodrollRecommendations(
+    podroll: List<PodrollItem>,
+    onPodcastClick: (String) -> Unit,
+) {
+    Spacer(modifier = Modifier.height(12.dp))
+    androidx.compose.material3.HorizontalDivider(
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        text = "Creator Recommends",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(podroll) { item ->
+            RecommendedPodcastCard(
+                item = item,
+                onPodcastClick = onPodcastClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun PodcastInfoDescriptionSection(
+    strippedDesc: String,
+    isLocked: Boolean,
+    podroll: List<PodrollItem>?,
+    isDescExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onPodcastClick: (String) -> Unit,
+) {
+    if (strippedDesc.isEmpty()) return
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+            .expressiveClickable { onToggleExpanded() },
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = strippedDesc,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (isDescExpanded && isLocked) {
+                LockedFeedNotice()
+            }
+
+            if (isDescExpanded && !podroll.isNullOrEmpty()) {
+                PodrollRecommendations(podroll = podroll, onPodcastClick = onPodcastClick)
+            }
+        }
+    }
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: hero section
+
+@Composable
+private fun PodcastInfoHeroSection(
+    state: PodcastInfoUiState.Success,
+    sortedPersons: List<Person>,
+    isDescExpanded: Boolean,
+    onDescExpandedChange: (Boolean) -> Unit,
+    onPlayEpisode: (Episode) -> Unit,
+    onPodcastClick: (String) -> Unit,
+    context: android.content.Context,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // 1. Centered Large Image
+        Surface(
+            modifier = Modifier.size(180.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            shadowElevation = 8.dp
+        ) {
+            OptimizedImage(
+                url = state.podcast.imageUrl.takeIf { it.isNotEmpty() } ?: state.podcast.fallbackImageUrl,
+                proxyWidth = 600, // 180dp * ~3x density
+                contentDescription = state.podcast.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 2. Title & Artist
+        Text(
+            text = state.podcast.title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = state.podcast.artist,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Update Frequency Calculation
+        var cachedFrequencyData by remember(state.podcast.id) { mutableStateOf<Pair<String, ImageVector>?>(null) }
+
+        val frequencyData = remember(state.podcast, state.episodes, state.currentSort, state.searchQuery) {
+            calculateUpdateFrequencyData(
+                podcast = state.podcast,
+                episodes = state.episodes,
+                currentSort = state.currentSort,
+                searchQuery = state.searchQuery,
+                cachedFrequencyData = cachedFrequencyData
+            ).also { cachedFrequencyData = it }
+        }
+
+        // 3. Scrollable Metadata Chips Row — centered
+        val trailerEpisode = remember(state.episodes) {
+            state.episodes.firstOrNull { it.episodeType == "trailer" }
+        }
+
+        PodcastInfoMetadataChipsRow(
+            podcast = state.podcast,
+            sortedPersons = sortedPersons,
+            trailerEpisode = trailerEpisode,
+            frequencyData = frequencyData,
+            context = context,
+            onPlayTrailer = onPlayEpisode,
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        val strippedDesc = remember(state.podcast.description) { stripHtml(state.podcast.description) }
+        PodcastInfoDescriptionSection(
+            strippedDesc = strippedDesc,
+            isLocked = state.podcast.isLocked,
+            podroll = state.podcast.podroll,
+            isDescExpanded = isDescExpanded,
+            onToggleExpanded = { onDescExpandedChange(!isDescExpanded) },
+            onPodcastClick = onPodcastClick,
+        )
+    }
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: toolbar notification/auto-download handlers
+
+private fun handleNotificationsToggle(
+    context: android.content.Context,
+    podcastNotificationsEnabled: Boolean,
+    onRequestPermission: () -> Unit,
+    onShowPermissionBlockedWarning: () -> Unit,
+    onToggleNotifications: () -> Unit,
+) {
+    if (!podcastNotificationsEnabled) {
+        // Turning notifications ON
+        if (!areAppNotificationsEnabled(context)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                onRequestPermission()
+            } else {
+                onShowPermissionBlockedWarning()
+            }
+        } else {
+            onToggleNotifications()
+        }
+    } else {
+        // Turning notifications OFF
+        onToggleNotifications()
+    }
+}
+
+private fun handleAutoDownloadToggle(
+    podcastAutoDownloadEnabled: Boolean,
+    podcastNotificationsEnabled: Boolean,
+    onShowNotificationsRequiredWarning: () -> Unit,
+    onToggleAutoDownload: () -> Unit,
+) {
+    if (!podcastAutoDownloadEnabled) {
+        // Turning auto-download ON
+        if (!podcastNotificationsEnabled) {
+            onShowNotificationsRequiredWarning()
+        } else {
+            onToggleAutoDownload()
+        }
+    } else {
+        // Turning auto-download OFF
+        onToggleAutoDownload()
+    }
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: toolbar warning banner
+
+private fun toolbarWarningTitle(warning: ToolbarWarning): String = when (warning) {
+    ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Action Required"
+    ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Notifications Disabled"
+    else -> "Notice"
+}
+
+private fun toolbarWarningMessage(warning: ToolbarWarning): String = when (warning) {
+    ToolbarWarning.NOTIFICATIONS_REQUIRED -> "In order for us to download the latest episode of this show when it arrives, you need to toggle notifications on as well."
+    ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Notification permissions are disabled in system settings. Please allow notifications and try again. We promise we will never spam."
+    else -> ""
+}
+
+private fun toolbarWarningActionText(warning: ToolbarWarning): String = when (warning) {
+    ToolbarWarning.NOTIFICATIONS_REQUIRED -> "Enable Both"
+    ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> "Go to Settings"
+    else -> ""
+}
+
+private fun handleToolbarWarningAction(
+    warning: ToolbarWarning,
+    context: android.content.Context,
+    viewModel: PodcastInfoViewModel,
+    onRequestNotificationPermission: () -> Unit,
+    onShowPermissionBlockedWarning: () -> Unit,
+) {
+    when (warning) {
+        ToolbarWarning.NOTIFICATIONS_REQUIRED -> {
+            if (areAppNotificationsEnabled(context)) {
+                viewModel.enableBothNotificationsAndAutoDownload()
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                onRequestNotificationPermission()
+            } else {
+                onShowPermissionBlockedWarning()
+            }
+        }
+        ToolbarWarning.SYSTEM_PERMISSION_BLOCKED -> openAppNotificationSettings(context)
+        else -> {}
+    }
+}
+
+@Composable
+private fun ToolbarWarningBanner(
+    warning: ToolbarWarning,
+    onDismiss: () -> Unit,
+    onAction: () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = warning != ToolbarWarning.NONE,
+        enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+        exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
+    ) {
+        androidx.compose.material3.Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = toolbarWarningTitle(warning),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Dismiss",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = toolbarWarningMessage(warning),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                )
+
+                val actionText = toolbarWarningActionText(warning)
+
+                if (actionText.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Button(
+                            onClick = onAction,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            ),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = actionText,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: episode feed item row
+
+@Composable
+private fun EpisodeFeedItemRow(
+    feedItem: FeedItem,
+    viewModel: PodcastInfoViewModel,
+    accentColor: Color,
+    likedEpisodeIds: Set<String>,
+    queuedEpisodeIds: Set<String>,
+    downloadedEpisodeIds: Set<String>,
+    downloadingEpisodeIds: Set<String>,
+    completedEpisodeIds: Set<String>,
+    autoScrolledEpisodeId: String?,
+    onEpisodeClick: (Episode, String, Int?) -> Unit,
+) {
+    when (feedItem) {
+        is FeedItem.NormalEpisode -> {
+            val index = feedItem.globalIndex
+            val episode = feedItem.episode
+
+            EpisodePlayStateWrapper(
+                episodeId = episode.id,
+                playbackStateFlow = viewModel.episodePlaybackState
+            ) { playState ->
+                EpisodeListItem(
+                    episode = episode,
+                    isLiked = likedEpisodeIds.contains(episode.id),
+                    accentColor = accentColor,
+                    // Playback State
+                    isPlaying = playState?.isPlaying == true,
+                    isResume = playState?.isResume == true,
+                    progress = playState?.progress ?: 0f,
+                    timeLeft = playState?.timeLeft,
+                    // Download State
+                    isDownloaded = downloadedEpisodeIds.contains(episode.id),
+                    isDownloading = downloadingEpisodeIds.contains(episode.id),
+                    isQueued = queuedEpisodeIds.contains(episode.id),
+                    isCompleted = completedEpisodeIds.contains(episode.id),
+                    isUpNext = episode.id == autoScrolledEpisodeId,
+                    onClick = {
+                        viewModel.recordEpisodeClick(episode.id)
+                        onEpisodeClick(episode, "podcast_info_episodes_list", index)
+                    },
+                    onPlayClick = { viewModel.onPlayClick(episode) },
+                    onToggleLike = { viewModel.onToggleLike(episode) },
+                    onQueueClick = { viewModel.toggleQueue(episode) },
+                    onDownloadClick = { viewModel.toggleDownload(episode) },
+                    onMarkPlayedClick = { viewModel.onToggleCompletion(episode) },
+                    showMarkPlayedButton = false, // Hide in list view
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+        }
+        is FeedItem.SingleTrailer -> {
+            SingleTrailerCard(
+                episode = feedItem.episode,
+                globalIndex = feedItem.globalIndex,
+                playbackStateFlow = viewModel.episodePlaybackState,
+                onEpisodeClick = { ep, globalIndex ->
+                    viewModel.recordEpisodeClick(ep.id)
+                    onEpisodeClick(ep, "podcast_info_episodes_list", globalIndex)
+                },
+                onPlayClick = { ep -> viewModel.onPlayClick(ep) },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+        is FeedItem.TrailerGroup -> {
+            TrailerStackCard(
+                group = feedItem,
+                playbackStateFlow = viewModel.episodePlaybackState,
+                onEpisodeClick = { ep, globalIndex ->
+                    viewModel.recordEpisodeClick(ep.id)
+                    onEpisodeClick(ep, "podcast_info_episodes_list", globalIndex)
+                },
+                onPlayClick = { ep -> viewModel.onPlayClick(ep) },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+    }
+}
+
+// endregion
+
+// region PodcastInfoScreen extraction: top overlay (back/share/menu) and dialogs
+
+@Composable
+private fun PodcastInfoTopOverlay(
+    podcast: Podcast,
+    headerColor: Color,
+    collapsedHeaderHeight: Dp,
+    hideCompleted: Boolean,
+    context: android.content.Context,
+    onBack: () -> Unit,
+    onMarkAllPlayed: () -> Unit,
+    onMarkAllUnplayed: () -> Unit,
+    onToggleHideCompleted: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(collapsedHeaderHeight)
+            .background(headerColor)
+            .statusBarsPadding()
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = "Back",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        // Share and More Options Dropdown Menu (Top Right)
+        var showMenu by remember { mutableStateOf(false) }
+        var showShareSheet by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 4.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { showShareSheet = true }
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Rounded.Share,
+                        contentDescription = "Share Podcast",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                IconButton(
+                    onClick = { showMenu = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = "More Options",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            if (showShareSheet) {
+                cx.aswin.boxcast.core.designsystem.components.ShareBottomSheet(
+                    id = podcast.id,
+                    type = "podcast",
+                    title = podcast.title,
+                    subtitle = podcast.artist,
+                    imageUrl = podcast.imageUrl,
+                    onDismissRequest = { showShareSheet = false },
+                    onShare = { _, _, _, target ->
+                        cx.aswin.boxcast.core.data.ShareManager.sharePodcast(
+                            context = context,
+                            podcast = podcast,
+                            target = target
+                        )
+                    }
+                )
+            }
+
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                shape = RoundedCornerShape(20.dp),
+                offset = DpOffset(x = (-12).dp, y = 4.dp)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Mark all as played") },
+                    onClick = {
+                        showMenu = false
+                        onMarkAllPlayed()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.DoneAll, contentDescription = null)
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Mark all as unplayed") },
+                    onClick = {
+                        showMenu = false
+                        onMarkAllUnplayed()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.RadioButtonUnchecked, contentDescription = null)
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(if (hideCompleted) "Show completed episodes" else "Hide completed episodes") },
+                    onClick = {
+                        showMenu = false
+                        onToggleHideCompleted()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (hideCompleted) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                            contentDescription = null
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkAllEpisodesDialog(
+    podcastTitle: String,
+    markAsPlayed: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = if (markAsPlayed) Icons.Rounded.DoneAll else Icons.Rounded.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (markAsPlayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                text = if (markAsPlayed) "Mark all as played?" else "Mark all as unplayed?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Text(
+                text = if (markAsPlayed) {
+                    "This will mark all episodes of \"$podcastTitle\" as played."
+                } else {
+                    "This will reset all episodes of \"$podcastTitle\" to unplayed."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (markAsPlayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                ),
+                shape = ExpressiveShapes.Pill
+            ) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    )
+}
+
+// endregion
 
 
 @Composable

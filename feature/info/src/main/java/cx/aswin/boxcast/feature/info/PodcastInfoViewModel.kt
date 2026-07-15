@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 
 import cx.aswin.boxcast.core.data.PodcastRepository
+import cx.aswin.boxcast.core.data.toPodcast
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
 import kotlinx.coroutines.Job
@@ -258,6 +259,7 @@ class PodcastInfoViewModel(
     }
 
     companion object {
+        private const val TAG = "PodcastInfoViewModel"
         private const val PAGE_SIZE = 20
         private const val SEARCH_DEBOUNCE_MS = 500L
     }
@@ -282,7 +284,7 @@ class PodcastInfoViewModel(
             val localPodcastEntity =
                 linkedRssEntity ?: database.podcastDao().getPodcast(effectivePodcastId)
             val isSubscribed = subscriptionRepository.isSubscribed(effectivePodcastId)
-            var currentPodcast = localPodcastEntity?.let { mapEntityToPodcast(it) }
+            var currentPodcast = localPodcastEntity?.let { it.toPodcast() }
 
             if (currentPodcast != null) {
                 if (wasSubscribedAtStart == null) {
@@ -300,6 +302,7 @@ class PodcastInfoViewModel(
                         podcast.latestEpisode?.id?.let { episodeId ->
                             launch {
                                 userPrefs.setLastSeenEpisodeId(podcast.id, episodeId)
+                                subscriptionRepository.clearRssNewEpisodesFlag(podcast.id)
                             }
                         }
                     }
@@ -361,6 +364,7 @@ class PodcastInfoViewModel(
                         apiPodcastWithFallback.latestEpisode?.id?.let { episodeId ->
                             launch {
                                 userPrefs.setLastSeenEpisodeId(apiPodcastWithFallback.id, episodeId)
+                                subscriptionRepository.clearRssNewEpisodesFlag(apiPodcastWithFallback.id)
                             }
                         }
                     }
@@ -382,44 +386,20 @@ class PodcastInfoViewModel(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load podcast $effectivePodcastId", e)
                 if (currentPodcast == null) {
                     trackScreenViewed(effectivePodcastId, null)
                     _uiState.value = PodcastInfoUiState.Error
+                } else {
+                    // We already showed a Success state (with isLoadingMore = true) further up;
+                    // make sure a failed refresh doesn't leave it stuck loading forever.
+                    val latestState = _uiState.value as? PodcastInfoUiState.Success
+                    if (latestState != null) {
+                        _uiState.value = latestState.copy(isLoadingMore = false, isRssRefreshing = false)
+                    }
                 }
             }
         }
-    }
-
-    private fun mapEntityToPodcast(entity: cx.aswin.boxcast.core.data.database.PodcastEntity): Podcast {
-        return Podcast(
-            id = entity.podcastId,
-            title = entity.title,
-            artist = entity.author,
-            imageUrl = entity.imageUrl,
-            fallbackImageUrl = entity.latestEpisode?.imageUrl ?: "",
-            description = entity.description,
-            genre = entity.genre ?: "Podcast",
-            type = entity.type,
-            latestEpisode = entity.latestEpisode,
-            subscribedAt = entity.subscribedAt,
-            podcastGuid = entity.podcastGuid,
-            fundingUrl = entity.fundingUrl,
-            fundingMessage = entity.fundingMessage,
-            medium = entity.medium,
-            hasValue = entity.hasValue,
-            updateFrequency = entity.updateFrequency,
-            location = entity.location,
-            license = entity.license,
-            isLocked = entity.isLocked,
-            notificationsEnabled = entity.notificationsEnabled,
-            autoDownloadEnabled = entity.autoDownloadEnabled,
-            sourceType = entity.sourceType,
-            feedUrl = entity.feedUrl,
-            rssRefreshCapability = entity.rssRefreshCapability,
-            rssCatalogStale = entity.rssCatalogStale,
-            rssHasNewEpisodes = entity.rssHasNewEpisodes,
-            linkedPodcastIndexId = entity.linkedPodcastIndexId,
-        )
     }
 
     private fun resolveInitialSort(preferredSort: String?, initialType: String): EpisodeSort {

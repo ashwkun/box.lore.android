@@ -242,7 +242,6 @@ fun ExploreContent(
 
     var searchActive by rememberSaveable { mutableStateOf(false) }
     val isSearchModeActive = searchActive || state.searchQuery.isNotEmpty() || state.currentVibe != null
-    val isPrompting = isSearchModeActive && state.searchQuery.isEmpty() && state.currentVibe == null
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
     val systemNavBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

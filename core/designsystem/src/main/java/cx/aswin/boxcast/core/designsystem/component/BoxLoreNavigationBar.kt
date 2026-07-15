@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationItemIconPosition
@@ -89,6 +90,7 @@ val bottomNavDestinations = listOf(
  * App bottom navigation using Material 3 [ShortNavigationBar], wrapped with a
  * taller min height and rounded top corners.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BoxLoreNavigationBar(
     currentRoute: String,

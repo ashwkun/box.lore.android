@@ -18,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private fun PodcastEntity.toPodcast(): Podcast {
+private fun PodcastEntity.toDownloadManagerPodcast(): Podcast {
     return Podcast(
         id = this.podcastId,
         title = this.title,
@@ -214,7 +214,7 @@ class SmartDownloadManager(
                 episodeId = history.episodeId,
                 score = score,
                 isProgress = true,
-                podcast = parentPod.toPodcast(),
+                podcast = parentPod.toDownloadManagerPodcast(),
                 episode = inProgressEpisode,
                 progressMs = history.progressMs,
                 durationMs = history.durationMs
@@ -269,7 +269,7 @@ class SmartDownloadManager(
                 episodeId = ep.id,
                 score = score,
                 isProgress = false,
-                podcast = pod.toPodcast(),
+                podcast = pod.toDownloadManagerPodcast(),
                 episode = ep
             )
         }
@@ -490,7 +490,7 @@ class SmartDownloadManager(
                 break
             }
 
-            val parentPod = subs.find { it.podcastId == episode.podcastId }?.toPodcast() ?: Podcast(
+            val parentPod = subs.find { it.podcastId == episode.podcastId }?.toDownloadManagerPodcast() ?: Podcast(
                 id = episode.podcastId ?: "0",
                 title = episode.podcastTitle?.takeIf { it.isNotBlank() } ?: "Unknown Podcast",
                 artist = episode.podcastArtist ?: "Unknown",

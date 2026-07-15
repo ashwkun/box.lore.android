@@ -202,48 +202,66 @@ private fun DebugSectionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (isCollapsible) {
-                        Modifier.clickable { expanded = !expanded }
-                    } else {
-                        Modifier
-                    },
-                )
                 .padding(20.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp),
-                )
-                Spacer(Modifier.size(12.dp))
-                Text(
-                    text = title,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                if (isCollapsible) {
-                    Icon(
-                        imageVector = if (expanded) {
-                            Icons.Rounded.KeyboardArrowUp
-                        } else {
-                            Icons.Rounded.KeyboardArrowDown
-                        },
-                        contentDescription = if (expanded) "Collapse" else "Expand",
-                    )
-                }
-            }
+            DebugSectionHeader(
+                title = title,
+                icon = icon,
+                isCollapsible = isCollapsible,
+                expanded = expanded,
+                onToggle = { expanded = !expanded },
+            )
             AnimatedVisibility(visible = !isCollapsible || expanded) {
                 Column(modifier = Modifier.padding(top = 20.dp)) {
                     content()
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DebugSectionHeader(
+    title: String,
+    icon: ImageVector,
+    isCollapsible: Boolean,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isCollapsible) {
+                    Modifier.clickable(onClick = onToggle)
+                } else {
+                    Modifier
+                },
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.size(12.dp))
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        if (isCollapsible) {
+            Icon(
+                imageVector = if (expanded) {
+                    Icons.Rounded.KeyboardArrowUp
+                } else {
+                    Icons.Rounded.KeyboardArrowDown
+                },
+                contentDescription = if (expanded) "Collapse" else "Expand",
+            )
         }
     }
 }

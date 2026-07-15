@@ -42,11 +42,21 @@ interface RssEpisodeDao {
     )
     suspend fun getAllNewest(podcastId: String): List<RssEpisodeEntity>
 
+    /**
+     * [query] must already be escaped for SQL LIKE (see [cx.aswin.boxcast.core.data.escapeForSqlLike])
+     * so literal `%`/`_` characters in a user's search don't get treated as wildcards.
+     *
+     * Full-text search (FTS4) was deliberately deferred here: Room's external-content FTS4
+     * tables need hand-maintained insert/update/delete triggers to stay in sync with this
+     * table, plus a new destructive-free migration — a bigger, riskier change than this
+     * quality-fix pass should carry. This LIKE-based search is still podcastId-scoped and
+     * bounded by a per-show episode count, so it stays cheap in practice.
+     */
     @Query(
         """
         SELECT * FROM rss_episodes
         WHERE podcastId = :podcastId
-          AND (title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%')
+          AND (title LIKE '%' || :query || '%' ESCAPE '\' OR description LIKE '%' || :query || '%' ESCAPE '\')
         ORDER BY publishedDate DESC, episodeId ASC
         """,
     )

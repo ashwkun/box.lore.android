@@ -39,27 +39,36 @@ import cx.aswin.boxcast.feature.home.settings.components.SettingsScaffold
 import cx.aswin.boxcast.feature.home.settings.components.SettingsSwitchRow
 import cx.aswin.boxcast.feature.home.settings.dialogs.AccentColorPickerDialog
 
+/** Current values shown on [AppearanceSettingsPage]. Also used by [cx.aswin.boxcast.feature.home.settings.SettingsScreen]. */
+data class AppearanceUiState(
+    val currentThemeConfig: String,
+    val isDynamicColorEnabled: Boolean,
+    val currentThemeBrand: String,
+    val currentSurfaceStyle: String,
+)
+
+/** Callbacks for [AppearanceSettingsPage], grouped to keep the page's parameter count small. */
+data class AppearanceActions(
+    val onSetThemeConfig: (String) -> Unit,
+    val onToggleDynamicColor: (Boolean) -> Unit,
+    val onSetThemeBrand: (String) -> Unit,
+    val onSetSurfaceStyle: (String) -> Unit,
+)
+
 @Composable
 internal fun AppearanceSettingsPage(
-    currentThemeConfig: String,
-    onSetThemeConfig: (String) -> Unit,
-    isDynamicColorEnabled: Boolean,
-    onToggleDynamicColor: (Boolean) -> Unit,
-    currentThemeBrand: String,
-    onSetThemeBrand: (String) -> Unit,
-    currentSurfaceStyle: String,
-    onSetSurfaceStyle: (String) -> Unit,
+    state: AppearanceUiState,
+    actions: AppearanceActions,
     onBack: () -> Unit,
 ) {
-    val look = BackgroundLook.fromSurfaceStyle(currentSurfaceStyle)
+    val look = BackgroundLook.fromSurfaceStyle(state.currentSurfaceStyle)
 
     fun applyStyle(style: String) {
         selectSurfaceStyle(
             style = style,
-            onSetSurfaceStyle = onSetSurfaceStyle,
-            onSetThemeConfig = onSetThemeConfig,
-            onToggleDynamicColor = onToggleDynamicColor,
-            onSetThemeBrand = onSetThemeBrand,
+            onSetSurfaceStyle = actions.onSetSurfaceStyle,
+            onToggleDynamicColor = actions.onToggleDynamicColor,
+            onSetThemeBrand = actions.onSetThemeBrand,
         )
     }
 
@@ -68,9 +77,9 @@ internal fun AppearanceSettingsPage(
         onBack = onBack,
     ) {
         ThemeModeSection(
-            currentThemeConfig = currentThemeConfig,
-            currentSurfaceStyle = currentSurfaceStyle,
-            onSetThemeConfig = onSetThemeConfig,
+            currentThemeConfig = state.currentThemeConfig,
+            currentSurfaceStyle = state.currentSurfaceStyle,
+            onSetThemeConfig = actions.onSetThemeConfig,
             onUnlockToAutomatic = { automaticStyle ->
                 applyStyle(automaticStyle)
             },
@@ -84,10 +93,10 @@ internal fun AppearanceSettingsPage(
         )
 
         ColorsSection(
-            isDynamicColorEnabled = isDynamicColorEnabled,
-            onToggleDynamicColor = onToggleDynamicColor,
-            currentThemeBrand = currentThemeBrand,
-            onSetThemeBrand = onSetThemeBrand,
+            isDynamicColorEnabled = state.isDynamicColorEnabled,
+            onToggleDynamicColor = actions.onToggleDynamicColor,
+            currentThemeBrand = state.currentThemeBrand,
+            onSetThemeBrand = actions.onSetThemeBrand,
         )
     }
 }
@@ -264,7 +273,6 @@ private fun ColorsSection(
 private fun selectSurfaceStyle(
     style: String,
     onSetSurfaceStyle: (String) -> Unit,
-    onSetThemeConfig: (String) -> Unit,
     onToggleDynamicColor: (Boolean) -> Unit,
     onSetThemeBrand: (String) -> Unit,
 ) {

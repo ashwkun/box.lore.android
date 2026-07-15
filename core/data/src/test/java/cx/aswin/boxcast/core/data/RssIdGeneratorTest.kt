@@ -31,17 +31,26 @@ class RssIdGeneratorTest {
 
     @Test
     fun rssIdsCannotOverlapPositivePodcastIndexIds() {
-        val rssId = RssIdGenerator.episodeId(
-            feedUrl = "https://example.com/feed.xml",
-            guid = "guid",
-            enclosureUrl = null,
-            publishedDate = 0L,
-            title = "Episode",
-        ).toLong()
+        // Podcast Index ids are always positive Longs (as returned by their API); RSS ids must
+        // never collide with any of them, no matter which feed/episode input produced them.
+        val podcastIndexSampleIds = listOf(1L, 42L, 123_456_789L, Long.MAX_VALUE)
+        val rssIds = (0 until 20).map { index ->
+            RssIdGenerator.episodeId(
+                feedUrl = "https://example.com/feed.xml",
+                guid = "guid-$index",
+                enclosureUrl = null,
+                publishedDate = index.toLong(),
+                title = "Episode $index",
+            ).toLong()
+        }
 
-        assertTrue(rssId < 0L)
-        assertTrue(1L > 0L)
-        assertTrue(Long.MAX_VALUE > 0L)
+        rssIds.forEach { rssId ->
+            assertTrue("RSS id $rssId must be negative", rssId < 0L)
+            assertTrue(
+                "RSS id $rssId must never collide with a positive Podcast Index id",
+                rssId !in podcastIndexSampleIds,
+            )
+        }
     }
 
     @Test

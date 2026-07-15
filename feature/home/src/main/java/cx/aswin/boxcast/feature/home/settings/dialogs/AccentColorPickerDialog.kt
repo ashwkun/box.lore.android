@@ -20,8 +20,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,6 +38,10 @@ import androidx.compose.ui.unit.dp
 import cx.aswin.boxcast.core.designsystem.theme.SurfaceStyles
 import cx.aswin.boxcast.core.designsystem.theme.generateBrandColorScheme
 import cx.aswin.boxcast.core.designsystem.theme.toThemeBrandHex
+import kotlinx.coroutines.delay
+
+/** Debounce before recomputing the harmonized Material 3 preview while dragging. */
+private const val HarmonizedPreviewDebounceMs = 120L
 
 @Composable
 internal fun AccentColorPickerDialog(
@@ -51,8 +57,20 @@ internal fun AccentColorPickerDialog(
         hsvToColor(hue, saturation, value)
     }
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val matchedPrimary = remember(selectedColor, isDark) {
-        generateBrandColorScheme(
+    // generateBrandColorScheme is too expensive to run on every drag frame; debounce it
+    // and only refresh the harmonized preview once the user pauses (or releases).
+    var matchedPrimary by remember {
+        mutableStateOf(
+            generateBrandColorScheme(
+                seedColor = selectedColor,
+                isDark = isDark,
+                surfaceStyle = SurfaceStyles.STANDARD,
+            ).primary,
+        )
+    }
+    LaunchedEffect(selectedColor, isDark) {
+        delay(HarmonizedPreviewDebounceMs)
+        matchedPrimary = generateBrandColorScheme(
             seedColor = selectedColor,
             isDark = isDark,
             surfaceStyle = SurfaceStyles.STANDARD,

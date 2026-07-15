@@ -166,29 +166,34 @@ private fun resolveBottomNavTab(
     backStack: List<androidx.navigation.NavBackStackEntry>
 ): String {
     val route = currentRoute ?: return "home"
-    when {
-        route == "home" -> return "home"
-        route.startsWith("learn") -> return "learn"
-        route.startsWith("explore") -> return "explore"
-        route.startsWith("library") -> return "library"
+    return when {
+        route == "home" -> "home"
+        route.startsWith("learn") -> "learn"
+        route.startsWith("explore") -> "explore"
+        route.startsWith("library") -> "library"
         route.startsWith("settings") ||
             route.startsWith("debug") ||
             route.startsWith("podcast") ||
             route.startsWith("episode") ||
-            route.startsWith("briefing") -> {
-            for (i in backStack.size - 2 downTo 0) {
-                val prior = backStack.getOrNull(i)?.destination?.route ?: continue
-                when {
-                    prior.startsWith("learn") -> return "learn"
-                    prior.startsWith("explore") -> return "explore"
-                    prior.startsWith("library") -> return "library"
-                    prior == "home" -> return "home"
-                }
-            }
-            return "home"
-        }
-        else -> return "home"
+            route.startsWith("briefing") -> resolveBottomNavTabFromBackStack(backStack)
+        else -> "home"
     }
+}
+
+/** Overlay screens (settings/debug/podcast/etc.) inherit the tab of the nearest bottom-nav entry beneath them. */
+private fun resolveBottomNavTabFromBackStack(
+    backStack: List<androidx.navigation.NavBackStackEntry>
+): String {
+    for (i in backStack.size - 2 downTo 0) {
+        val prior = backStack.getOrNull(i)?.destination?.route ?: continue
+        when {
+            prior.startsWith("learn") -> return "learn"
+            prior.startsWith("explore") -> return "explore"
+            prior.startsWith("library") -> return "library"
+            prior == "home" -> return "home"
+        }
+    }
+    return "home"
 }
 
 class MainActivity : ComponentActivity() {
@@ -1576,58 +1581,69 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     appInstanceId = appInstanceId,
-                                    // Theme Props
-                                    currentThemeConfig = themeConfig,
-                                    isDynamicColorEnabled = useDynamicColor,
-                                    currentThemeBrand = themeBrand,
-                                    onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
-                                    onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
-                                    onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
-                                    currentSurfaceStyle = surfaceStyle,
-                                    onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
-                                    skipBehavior = skipBehavior,
-                                    onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
-                                     hideCompletedInHome = hideCompletedInHome,
-                                     onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
-                                     hideCompletedInSubs = hideCompletedInSubs,
-                                     onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
-                                     hideCompletedInShowDetails = hideCompletedInShowDetails,
-                                     onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
-                                    onExportJson = { uri -> 
-                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                val backupJson = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository, userPrefs, application).exportLibraryAsJson()
-                                                application.contentResolver.openOutputStream(uri)?.use { it.write(backupJson.toByteArray()) }
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Library Exported Successfully", android.widget.Toast.LENGTH_SHORT).show() }
-                                            } catch(e: Exception){
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
+                                    appearanceState = cx.aswin.boxcast.feature.home.settings.pages.AppearanceUiState(
+                                        currentThemeConfig = themeConfig,
+                                        isDynamicColorEnabled = useDynamicColor,
+                                        currentThemeBrand = themeBrand,
+                                        currentSurfaceStyle = surfaceStyle,
+                                    ),
+                                    appearanceActions = cx.aswin.boxcast.feature.home.settings.pages.AppearanceActions(
+                                        onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
+                                        onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
+                                        onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
+                                        onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
+                                    ),
+                                    playbackState = cx.aswin.boxcast.feature.home.settings.pages.PlaybackUiState(
+                                        skipBehavior = skipBehavior,
+                                        hideCompletedInHome = hideCompletedInHome,
+                                        hideCompletedInSubs = hideCompletedInSubs,
+                                        hideCompletedInShowDetails = hideCompletedInShowDetails,
+                                    ),
+                                    playbackActions = cx.aswin.boxcast.feature.home.settings.pages.PlaybackActions(
+                                        onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
+                                        onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
+                                        onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
+                                        onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
+                                    ),
+                                    libraryBackupWriters = cx.aswin.boxcast.feature.home.settings.LibraryBackupWriters(
+                                        onExportJson = { uri ->
+                                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                try {
+                                                    val backupJson = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository, userPrefs, application).exportLibraryAsJson()
+                                                    application.contentResolver.openOutputStream(uri)?.use { it.write(backupJson.toByteArray()) }
+                                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Library Exported Successfully", android.widget.Toast.LENGTH_SHORT).show() }
+                                                } catch(e: Exception){
+                                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
+                                                }
                                             }
-                                        }
-                                    },
-                                    onExportOpml = { uri -> 
-                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            try {
-                                                val opmlXml = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).exportLibraryAsOpml()
-                                                application.contentResolver.openOutputStream(uri)?.use { it.write(opmlXml.toByteArray()) }
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Subscriptions Exported as OPML", android.widget.Toast.LENGTH_SHORT).show() }
-                                            } catch(e: Exception){
-                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export OPML: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
+                                        },
+                                        onExportOpml = { uri ->
+                                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                try {
+                                                    val opmlXml = cx.aswin.boxcast.core.data.backup.LibraryBackupManager(subscriptionRepository, playbackRepository, podcastRepository).exportLibraryAsOpml()
+                                                    application.contentResolver.openOutputStream(uri)?.use { it.write(opmlXml.toByteArray()) }
+                                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Subscriptions Exported as OPML", android.widget.Toast.LENGTH_SHORT).show() }
+                                                } catch(e: Exception){
+                                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { android.widget.Toast.makeText(application, "Failed to export OPML: ${e.message}", android.widget.Toast.LENGTH_SHORT).show() }
+                                                }
                                             }
-                                        }
-                                    },
-                                    onImportJson = { uri ->
-                                        performJsonImport(uri)
-                                    },
-                                    onImportOpml = { uri ->
-                                        opmlImportState = OpmlImportState.Parsing(uri)
-                                        importTriggerKey = System.currentTimeMillis()
-                                    },
-                                    onNavigateToSmartDownloads = {
-                                        navController.navigate("library/downloads/settings")
-                                    },
-                                    onNavigateToAutoDownloads = {
-                                        navController.navigate("library/auto_downloads/settings")
-                                    },
+                                        },
+                                        onImportJson = { uri ->
+                                            performJsonImport(uri)
+                                        },
+                                        onImportOpml = { uri ->
+                                            opmlImportState = OpmlImportState.Parsing(uri)
+                                            importTriggerKey = System.currentTimeMillis()
+                                        },
+                                    ),
+                                    downloadsNavigation = cx.aswin.boxcast.feature.home.settings.DownloadsNavigation(
+                                        onNavigateToSmartDownloads = {
+                                            navController.navigate("library/downloads/settings")
+                                        },
+                                        onNavigateToAutoDownloads = {
+                                            navController.navigate("library/auto_downloads/settings")
+                                        },
+                                    ),
                                     initialPage = settingsPage,
                                 )
                             }

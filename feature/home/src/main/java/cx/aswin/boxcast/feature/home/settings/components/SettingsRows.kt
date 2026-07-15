@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -176,6 +177,12 @@ internal fun SettingsContent(
     )
 }
 
+/** Icon tint pair reused by settings row composables, kept as one parameter to limit arity. */
+internal data class SettingsRowIconColors(
+    val containerColor: Color,
+    val contentColor: Color,
+)
+
 @Composable
 internal fun SettingsNavigationRow(
     title: String,
@@ -184,17 +191,16 @@ internal fun SettingsNavigationRow(
     supportingText: String? = null,
     trailingText: String? = null,
     icon: ImageVector? = null,
-    iconContainerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
-    iconContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    iconColors: SettingsRowIconColors = SettingsRowIconColors(
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ),
 ) {
     SettingsRowScaffold(
-        modifier = modifier,
+        text = SettingsRowTextStyle(title = title, supportingText = supportingText),
         onClick = onClick,
-        icon = icon,
-        iconContainerColor = iconContainerColor,
-        iconContentColor = iconContentColor,
-        title = title,
-        supportingText = supportingText,
+        modifier = modifier,
+        icon = icon?.let { SettingsRowIcon(it, iconColors.containerColor, iconColors.contentColor) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (trailingText != null) {
@@ -224,12 +230,15 @@ internal fun SettingsSwitchRow(
     supportingText: String? = null,
     icon: ImageVector? = null,
 ) {
+    val defaultIconColors = SettingsRowIconColors(
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    )
     SettingsRowScaffold(
-        modifier = modifier,
+        text = SettingsRowTextStyle(title = title, supportingText = supportingText),
         onClick = { onCheckedChange(!checked) },
-        icon = icon,
-        title = title,
-        supportingText = supportingText,
+        modifier = modifier,
+        icon = icon?.let { SettingsRowIcon(it, defaultIconColors.containerColor, defaultIconColors.contentColor) },
         trailing = {
             Switch(
                 checked = checked,
@@ -321,49 +330,67 @@ internal fun SettingsActionRow(
         MaterialTheme.colorScheme.onSurface
     }
     SettingsRowScaffold(
-        modifier = modifier,
+        text = SettingsRowTextStyle(
+            title = title,
+            titleColor = accent,
+            supportingText = supportingText,
+            supportingColor = if (destructive) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.82f)
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        ),
         onClick = onClick,
-        icon = icon,
-        iconContainerColor = if (destructive) {
-            MaterialTheme.colorScheme.errorContainer
-        } else {
-            MaterialTheme.colorScheme.secondaryContainer
-        },
-        iconContentColor = if (destructive) {
-            MaterialTheme.colorScheme.onErrorContainer
-        } else {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        },
-        title = title,
-        titleColor = accent,
-        supportingText = supportingText,
-        supportingColor = if (destructive) {
-            MaterialTheme.colorScheme.error.copy(alpha = 0.82f)
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+        modifier = modifier,
+        icon = icon?.let {
+            SettingsRowIcon(
+                icon = it,
+                containerColor = if (destructive) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.secondaryContainer
+                },
+                contentColor = if (destructive) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                },
+            )
         },
         trailing = trailing,
     )
 }
 
+/** Icon + tint colors for a settings row, kept as one parameter to limit [SettingsRowScaffold] arity. */
+private data class SettingsRowIcon(
+    val icon: ImageVector,
+    val containerColor: Color,
+    val contentColor: Color,
+)
+
+/** Title/supporting text + colors for a settings row, kept as one parameter to limit [SettingsRowScaffold] arity. */
+private data class SettingsRowTextStyle(
+    val title: String,
+    val titleColor: Color = Color.Unspecified,
+    val supportingText: String? = null,
+    val supportingColor: Color = Color.Unspecified,
+)
+
 @Composable
 private fun SettingsRowScaffold(
-    title: String,
+    text: SettingsRowTextStyle,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-    iconContainerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
-    iconContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-    titleColor: Color = MaterialTheme.colorScheme.onSurface,
-    supportingText: String? = null,
-    supportingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    icon: SettingsRowIcon? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
+    val titleColor = text.titleColor.takeOrElse { MaterialTheme.colorScheme.onSurface }
+    val supportingColor = text.supportingColor.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(
-                minHeight = if (supportingText != null) SettingsRowHeight else SettingsRowHeightCompact,
+                minHeight = if (text.supportingText != null) SettingsRowHeight else SettingsRowHeightCompact,
             )
             .expressiveClickable(shape = MaterialTheme.shapes.medium, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -372,9 +399,9 @@ private fun SettingsRowScaffold(
     ) {
         if (icon != null) {
             SettingsIconContainer(
-                icon = icon,
-                containerColor = iconContainerColor,
-                contentColor = iconContentColor,
+                icon = icon.icon,
+                containerColor = icon.containerColor,
+                contentColor = icon.contentColor,
             )
         }
         Column(
@@ -382,13 +409,13 @@ private fun SettingsRowScaffold(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = title,
+                text = text.title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = titleColor,
             )
-            if (supportingText != null) {
+            if (text.supportingText != null) {
                 Text(
-                    text = supportingText,
+                    text = text.supportingText,
                     style = MaterialTheme.typography.bodySmall,
                     color = supportingColor,
                 )

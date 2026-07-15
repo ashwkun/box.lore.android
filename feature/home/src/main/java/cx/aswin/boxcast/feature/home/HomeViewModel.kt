@@ -239,6 +239,9 @@ class HomeViewModel(
         viewModelScope.launch {
             if (subscriptionRepository.isSubscribed(podcastId)) {
                 userPrefs.setLastSeenEpisodeId(podcastId, episodeId)
+                // Clears the RSS "new episodes" badge now that the user has opened/dismissed
+                // this podcast; no-op for non-RSS podcasts.
+                subscriptionRepository.clearRssNewEpisodesFlag(podcastId)
             }
         }
     }
@@ -354,7 +357,11 @@ class HomeViewModel(
 
         // Lightweight RSS freshness checks never download or parse feed bodies.
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            rssRepository.checkSubscribedFeedFreshness()
+            try {
+                rssRepository.checkSubscribedFeedFreshness()
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to check subscribed feed freshness", e)
+            }
         }
 
         // Start oldest-sort serial episode resolution after a delay
@@ -419,12 +426,15 @@ class HomeViewModel(
         applySelection(podcastId, isAuto = false)
     }
 
-    private fun applySelection(podcastId: String?, isAuto: Boolean) {
+    private fun applySelection(podcastId: String?, isAuto: Boolean, autoResolvedPodcast: Podcast? = null) {
         filterSelectionIsAuto = isAuto && podcastId != null
         _selectedPodcastId.value = podcastId
         if (podcastId == null) return
 
-        val podcast = uiState.value.subscribedPodcasts.find { it.id == podcastId }
+        // Auto-selections resolve from the fresher subscriptionRepository list (passed in by the
+        // caller) so a just-subscribed RSS podcast can trigger its refresh immediately, rather than
+        // waiting for uiState to catch up. Manual selections keep resolving from uiState as before.
+        val podcast = autoResolvedPodcast ?: uiState.value.subscribedPodcasts.find { it.id == podcastId }
         // Auto-selection (single show) shouldn't be reported as a user-driven filter.
         if (!isAuto) {
             val title = podcast?.title ?: ""
@@ -456,32 +466,38 @@ class HomeViewModel(
     private fun manageFilterSelectionOnSubscriptionChange() {
         viewModelScope.launch {
             subscriptionRepository.subscribedPodcasts
-                .map { subs -> subs.map { it.id }.toSet() }
-                .distinctUntilChanged()
-                .collect { subIds ->
-                    val current = _selectedPodcastId.value
-                    when {
-                        subIds.isEmpty() -> {
-                            if (current != null) applySelection(null, isAuto = false)
-                        }
-                        subIds.size == 1 -> {
-                            val only = subIds.first()
-                            if (current != only) applySelection(only, isAuto = true)
-                        }
-                        else -> {
-                            if (current != null && (current !in subIds || filterSelectionIsAuto)) {
-                                applySelection(null, isAuto = false)
-                            }
-                        }
-                    }
+                .distinctUntilChanged { old, new -> old.map { it.id }.toSet() == new.map { it.id }.toSet() }
+                .collect { subs -> handleSubscriptionSetChange(subs) }
+        }
+    }
+
+    private fun handleSubscriptionSetChange(subs: List<Podcast>) {
+        val current = _selectedPodcastId.value
+        when {
+            subs.isEmpty() -> {
+                if (current != null) applySelection(null, isAuto = false)
+            }
+            subs.size == 1 -> {
+                val only = subs.first()
+                if (current != only.id) applySelection(only.id, isAuto = true, autoResolvedPodcast = only)
+            }
+            else -> {
+                val subIds = subs.map { it.id }.toSet()
+                if (current != null && (current !in subIds || filterSelectionIsAuto)) {
+                    applySelection(null, isAuto = false)
                 }
+            }
         }
     }
 
     private fun refreshSelectedRssPodcast(podcastId: String) {
         viewModelScope.launch {
-            rssRepository.refreshCatalog(podcastId)
-            _rssRefreshVersion.value += 1L
+            try {
+                rssRepository.refreshCatalog(podcastId)
+                _rssRefreshVersion.value += 1L
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to refresh selected RSS podcast $podcastId", e)
+            }
         }
     }
 
@@ -1715,26 +1731,36 @@ class HomeViewModel(
                 if (newlyAdded.isEmpty()) return@collect
 
                 for (pod in newlyAdded) {
-                    try {
-                        if (pod.isRss) {
-                            // RSS catalogs are stored at subscribe time; this tops up latest
-                            // episodes cheaply (HEAD-gated) so the filter view is fresh.
-                            rssRepository.refreshCatalogIfNeeded(pod.id)
-                        } else if (pod.latestEpisode == null) {
-                            val synced = podcastRepository.syncSubscriptions(listOf(pod.id))
-                            for ((podId, episode) in synced) {
-                                subscriptionRepository.updateLatestEpisode(podId, episode)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e(
-                            "HomeViewModel",
-                            "Eager load for new sub ${pod.id} failed",
-                            e,
-                        )
-                    }
+                    warmUpNewSubscription(pod)
                 }
             }
+        }
+    }
+
+    /**
+     * Warms a single freshly-subscribed show: tops up its RSS catalog or syncs its latest
+     * episode, so it's ready for the mixtape and Home filter view without waiting for the next
+     * periodic [startBackgroundSync]. Failures are logged and swallowed per-podcast so one bad
+     * feed doesn't stop the rest of the batch in [eagerlyLoadNewSubscriptions].
+     */
+    private suspend fun warmUpNewSubscription(pod: Podcast) {
+        try {
+            if (pod.isRss) {
+                // RSS catalogs are stored at subscribe time; this tops up latest
+                // episodes cheaply (HEAD-gated) so the filter view is fresh.
+                rssRepository.refreshCatalogIfNeeded(pod.id)
+            } else if (pod.latestEpisode == null) {
+                val synced = podcastRepository.syncSubscriptions(listOf(pod.id))
+                for ((podId, episode) in synced) {
+                    subscriptionRepository.updateLatestEpisode(podId, episode)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "HomeViewModel",
+                "Eager load for new sub ${pod.id} failed",
+                e,
+            )
         }
     }
 
