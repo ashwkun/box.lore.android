@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Subscriptions
@@ -78,6 +79,8 @@ import cx.aswin.boxcast.feature.info.components.EpisodeArtworkBackdrop
 import cx.aswin.boxcast.feature.info.components.EpisodeInfoHero
 import cx.aswin.boxcast.feature.info.components.EpisodeRecommendationSection
 import cx.aswin.boxcast.feature.info.components.EpisodeRecommendationState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val HERO_ITEM_KEY = "episode_hero"
 private const val ACTION_RAIL_ITEM_KEY = "episode_action_rail"
@@ -92,6 +95,7 @@ private data class EpisodeInfoSuccessFlags(
 )
 
 private data class EpisodeInfoSuccessActions(
+    val onBack: () -> Unit,
     val onPodcastClick: (String) -> Unit,
     val onEpisodeClick: (Episode) -> Unit,
     val onMarkPlayedTipDismissed: () -> Unit,
@@ -108,7 +112,7 @@ fun EpisodeInfoScreen(
     podcastId: String,
     podcastTitle: String,
     viewModel: EpisodeInfoViewModel,
-    @Suppress("UNUSED_PARAMETER") onBack: () -> Unit,
+    onBack: () -> Unit,
     onPodcastClick: (String) -> Unit,
     onEpisodeClick: (Episode) -> Unit,
     @Suppress("UNUSED_PARAMETER") onPlay: () -> Unit,
@@ -171,6 +175,7 @@ fun EpisodeInfoScreen(
             viewModel = viewModel,
             entryPointContext = entryPointContext,
             actions = EpisodeInfoSuccessActions(
+                onBack = onBack,
                 onPodcastClick = onPodcastClick,
                 onEpisodeClick = onEpisodeClick,
                 onMarkPlayedTipDismissed = onMarkPlayedTipDismissed,
@@ -360,6 +365,7 @@ private fun EpisodeInfoSuccess(
         ExpressiveEpisodeTopBar(
             title = state.episode.title,
             collapseFraction = collapseFraction,
+            onBack = actions.onBack,
             onShare = { showShareSheet = true },
             modifier = Modifier.align(Alignment.TopCenter),
         )
@@ -401,7 +407,11 @@ private fun rememberEpisodeAccentColor(
         val painterState = palettePainter.state
         if (painterState is AsyncImagePainter.State.Success) {
             val bitmap = (painterState.result.drawable as? BitmapDrawable)?.bitmap
-            if (bitmap != null) extractedColor = extractArtworkColor(bitmap)
+            if (bitmap != null) {
+                extractedColor = withContext(Dispatchers.Default) {
+                    extractArtworkColorFromBoundedBitmap(bitmap)
+                }
+            }
         }
     }
 
@@ -454,6 +464,7 @@ private fun EpisodeShareSheet(
 private fun ExpressiveEpisodeTopBar(
     title: String,
     collapseFraction: Float,
+    onBack: () -> Unit,
     onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -472,12 +483,18 @@ private fun ExpressiveEpisodeTopBar(
             .height(64.dp)
             .padding(horizontal = 8.dp),
     ) {
+        TopBarAction(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.CenterStart),
+        ) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+        }
         AnimatedVisibility(
             visible = collapseFraction > 0.68f,
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 64.dp),
+                .padding(start = 64.dp, end = 64.dp),
             enter = fadeIn(ExpressiveMotion.SleekFadeSpec) + slideInVertically { it / 3 },
             exit = fadeOut(ExpressiveMotion.SleekFadeSpec) + slideOutVertically { it / 3 },
         ) {
@@ -574,6 +591,24 @@ private fun extractArtworkColor(bitmap: Bitmap): Color {
             ?: palette.dominantSwatch?.rgb
             ?: 0xFF6750A4.toInt(),
     )
+}
+
+private fun extractArtworkColorFromBoundedBitmap(bitmap: Bitmap): Color {
+    val maximumDimension = maxOf(bitmap.width, bitmap.height)
+    if (maximumDimension <= 256) return extractArtworkColor(bitmap)
+
+    val scale = 256f / maximumDimension
+    val scaledBitmap = Bitmap.createScaledBitmap(
+        bitmap,
+        (bitmap.width * scale).toInt().coerceAtLeast(1),
+        (bitmap.height * scale).toInt().coerceAtLeast(1),
+        true,
+    )
+    return try {
+        extractArtworkColor(scaledBitmap)
+    } finally {
+        scaledBitmap.recycle()
+    }
 }
 
 private fun formatRemainingTime(remainingMs: Long): String? {

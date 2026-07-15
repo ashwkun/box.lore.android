@@ -231,7 +231,9 @@ private fun ExpressiveEpisodeCard(
 
 private fun formatCardDuration(seconds: Int): String {
     if (seconds <= 0) return ""
-    return "${seconds / 60}m"
+    val hours = seconds / 3_600
+    val minutes = (seconds % 3_600) / 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 @Composable

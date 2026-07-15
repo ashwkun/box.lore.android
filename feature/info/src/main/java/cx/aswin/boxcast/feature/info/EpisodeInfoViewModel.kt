@@ -289,20 +289,18 @@ class EpisodeInfoViewModel(
                         )
                         
                         val existingState = _uiState.value as? EpisodeInfoUiState.Success
-                        _uiState.value = EpisodeInfoUiState.Success(
+                        _uiState.value = existingState?.copy(
+                            episode = currentEpisode,
+                            podcastId = finalPodcastId,
+                            podcastTitle = finalPodcastTitle,
+                        ) ?: EpisodeInfoUiState.Success(
                             episode = currentEpisode,
                             podcastId = finalPodcastId,
                             podcastTitle = finalPodcastTitle,
                             resumePositionMs = resumeMs,
                             durationMs = durationMs,
-                            relatedEpisodes = existingState?.relatedEpisodes ?: emptyList(),
-                            relatedEpisodesLoading = existingState?.relatedEpisodesLoading ?: true,
-                            similarEpisodes = existingState?.similarEpisodes ?: emptyList(),
-                            similarEpisodesLoading = existingState?.similarEpisodesLoading ?: true,
-                            location = existingState?.location ?: initialLocation,
-                            license = existingState?.license ?: initialLicense,
-                            crossPromotion = existingState?.crossPromotion,
-                            crossPromoLoading = existingState?.crossPromoLoading ?: false
+                            location = initialLocation,
+                            license = initialLicense,
                         )
 
                         detectCrossPromotion(currentEpisode, finalPodcastTitle)

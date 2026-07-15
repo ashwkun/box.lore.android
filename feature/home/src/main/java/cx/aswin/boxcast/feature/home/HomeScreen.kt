@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.navigation.NavController
 import kotlinx.coroutines.flow.map
@@ -1153,6 +1154,7 @@ private fun AdaptiveSectionVisibilityEffect(
     onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
 ) {
     val sectionKey = "adaptive_${section.stableId}"
+    val currentOnAdaptiveSectionVisible by rememberUpdatedState(onAdaptiveSectionVisible)
     LaunchedEffect(section, gridState, rowState) {
         snapshotFlow {
             val sectionVisible = gridState.layoutInfo.visibleItemsInfo.any {
@@ -1167,7 +1169,7 @@ private fun AdaptiveSectionVisibilityEffect(
             }
         }.distinctUntilChanged().collect { visibleCandidateIds ->
             if (visibleCandidateIds.isNotEmpty()) {
-                onAdaptiveSectionVisible(section, visibleCandidateIds)
+                currentOnAdaptiveSectionVisible(section, visibleCandidateIds)
             }
         }
     }

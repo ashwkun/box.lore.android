@@ -107,38 +107,41 @@ internal fun EpisodeInfoHero(
                 .height(204.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                modifier = Modifier
-                    .size(184.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shadowElevation = 6.dp,
+            Box(
+                modifier = Modifier.size(184.dp),
             ) {
-                OptimizedImage(
-                    url = episode.imageUrl?.ifBlank { episode.podcastImageUrl },
-                    proxyWidth = 640,
-                    contentDescription = episode.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-            if (episode.enclosureType?.startsWith("video/") == true) {
                 Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 54.dp, bottom = 2.dp),
-                    shape = ExpressiveShapes.Pill,
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.fillMaxSize(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shadowElevation = 6.dp,
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    OptimizedImage(
+                        url = episode.imageUrl?.ifBlank { episode.podcastImageUrl },
+                        proxyWidth = 640,
+                        contentDescription = episode.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+                if (episode.enclosureType?.startsWith("video/") == true) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = 2.dp),
+                        shape = ExpressiveShapes.Pill,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        shadowElevation = 6.dp,
                     ) {
-                        Icon(Icons.Rounded.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Video", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("Video", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

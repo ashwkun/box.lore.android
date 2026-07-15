@@ -51,6 +51,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -189,6 +192,10 @@ private fun EpisodeToolbarActionButton(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(48.dp)
+            .semantics {
+                this.contentDescription = contentDescription
+                if (isLoading) stateDescription = "Loading"
+            }
             .expressiveClickable(
                 enabled = !isLoading,
                 shape = ExpressiveShapes.Pill,
@@ -204,7 +211,7 @@ private fun EpisodeToolbarActionButton(
         } else {
             Icon(
                 imageVector = if (isActive) activeIcon else inactiveIcon,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 tint = contentColor,
                 modifier = Modifier.size(22.dp),
             )
@@ -323,10 +330,15 @@ private fun CompactPlayButton(
     accentColor: Color,
     onClick: () -> Unit,
 ) {
+    val contentDescription = if (isPlaying) "Pause" else "Play"
     Surface(
         modifier = Modifier
             .padding(start = 4.dp)
             .size(52.dp)
+            .semantics {
+                this.contentDescription = contentDescription
+                if (isLoading) stateDescription = "Loading"
+            }
             .expressiveClickable(
                 enabled = !isLoading,
                 shape = CircleShape,
@@ -346,7 +358,7 @@ private fun CompactPlayButton(
             } else {
                 Icon(
                     imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    contentDescription = null,
                     modifier = Modifier.size(27.dp),
                 )
             }

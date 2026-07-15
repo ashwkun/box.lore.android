@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import cx.aswin.boxcast.core.designsystem.component.HtmlText
 import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.ExpressiveShapes
+import cx.aswin.boxcast.core.designsystem.theme.contrastColor
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Person
 
@@ -363,6 +365,8 @@ internal fun EpisodeDescriptionCard(
 
             if (isLong) {
                 Spacer(modifier = Modifier.height(8.dp))
+                val readMoreContainerColor = accentColor.copy(alpha = 0.14f)
+                    .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
                 Surface(
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
@@ -371,8 +375,8 @@ internal fun EpisodeDescriptionCard(
                             onClick = { expanded = !expanded },
                         ),
                     shape = ExpressiveShapes.Pill,
-                    color = accentColor.copy(alpha = 0.14f),
-                    contentColor = accentColor,
+                    color = readMoreContainerColor,
+                    contentColor = readMoreContainerColor.contrastColor(),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
