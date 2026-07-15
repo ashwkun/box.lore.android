@@ -1154,7 +1154,7 @@ private fun AdaptiveSectionVisibilityEffect(
     onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
 ) {
     val sectionKey = "adaptive_${section.stableId}"
-    val currentOnAdaptiveSectionVisible by rememberUpdatedState(onAdaptiveSectionVisible)
+    val currentOnAdaptiveSectionVisible = rememberUpdatedState(onAdaptiveSectionVisible)
     LaunchedEffect(section, gridState, rowState) {
         snapshotFlow {
             val sectionVisible = gridState.layoutInfo.visibleItemsInfo.any {
@@ -1169,7 +1169,7 @@ private fun AdaptiveSectionVisibilityEffect(
             }
         }.distinctUntilChanged().collect { visibleCandidateIds ->
             if (visibleCandidateIds.isNotEmpty()) {
-                currentOnAdaptiveSectionVisible(section, visibleCandidateIds)
+                currentOnAdaptiveSectionVisible.value(section, visibleCandidateIds)
             }
         }
     }
