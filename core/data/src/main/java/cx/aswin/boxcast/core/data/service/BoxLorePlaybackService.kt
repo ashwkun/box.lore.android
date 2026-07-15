@@ -20,6 +20,8 @@ import cx.aswin.boxcast.core.data.service.auto.AutoBrowseContract
 import cx.aswin.boxcast.core.data.service.auto.AutoMediaItemFactory
 import cx.aswin.boxcast.core.data.service.auto.AutoPlayableSpec
 import cx.aswin.boxcast.core.data.playback.PlaybackSkipPolicy
+import cx.aswin.boxcast.core.data.ranking.RankingObjective
+import cx.aswin.boxcast.core.data.toScorable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -3310,8 +3312,17 @@ class BoxLorePlaybackService : MediaLibraryService() {
         private suspend fun getSubscriptionsChildren(): List<MediaItem> {
             val subscriptions = database.podcastDao().getSubscribedPodcastsList()
             android.util.Log.d("AutoBrowse", "Subscriptions: ${subscriptions.size} podcasts")
-            
-            return subscriptions.map { entity ->
+            val history = database.listeningHistoryDao().getRecentHistoryList(300)
+            val scores = adaptiveCandidateScorer.scorePodcasts(
+                podcasts = subscriptions.map { it.toScorable() },
+                history = history,
+                objective = RankingObjective.YOUR_SHOWS,
+            )
+            val rankedSubscriptions = subscriptions.sortedByDescending {
+                scores[it.podcastId] ?: 0.0
+            }
+
+            return rankedSubscriptions.map { entity ->
                 AutoMediaItemFactory.browsable(
                     id = "$SUBSCRIPTION_PREFIX${entity.podcastId}",
                     title = entity.title,

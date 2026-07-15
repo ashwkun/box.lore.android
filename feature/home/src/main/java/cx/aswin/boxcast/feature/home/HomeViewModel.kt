@@ -16,7 +16,9 @@ import cx.aswin.boxcast.core.data.toScorable
 import cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxcast.core.data.ranking.CandidateSource
 import cx.aswin.boxcast.core.data.ranking.EpisodeRankingInput
+import cx.aswin.boxcast.core.data.ranking.PodcastRankingInput
 import cx.aswin.boxcast.core.data.ranking.RankingObjective
+import cx.aswin.boxcast.core.data.ranking.DiversityPolicy
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import kotlinx.coroutines.CancellationException
@@ -336,20 +338,7 @@ class HomeViewModel(
                     val json = Json { ignoreUnknownKeys = true }
                     val cachedVibesMap = json.decodeFromString<Map<String, List<Podcast>>>(cachedVibesJson)
                     val blockConfig = getTimeBlockConfig()
-                    val daySeed = java.time.LocalDate.now().toEpochDay()
-                    val resolvedSections = blockConfig.genres.map { genre ->
-                        val list = cachedVibesMap[genre.id] ?: emptyList()
-                        val filtered = list
-                            .filter { it.latestEpisode != null }
-                            .shuffled(kotlin.random.Random(daySeed.toInt() + genre.title.hashCode()))
-                            .take(10)
-                        if (filtered.isNotEmpty()) {
-                            CuratedSectionData(genre.title, genre.id, filtered)
-                        } else null
-                    }.filterNotNull()
-
-                    if (resolvedSections.isNotEmpty()) {
-                        val block = CuratedTimeBlock(blockConfig.title, blockConfig.subtitle, blockConfig.icon, resolvedSections)
+                    buildRankedTimeBlock(blockConfig, cachedVibesMap)?.let { block ->
                         _timeBlockState.value = block
                         cachedTimeBlock = block
                         _isCuratedLoaded.value = true
@@ -924,22 +913,7 @@ class HomeViewModel(
                         val blockConfig = getTimeBlockConfig()
                         val vibeIds = blockConfig.genres.map { it.id }
                         val curatedVibesMap = podcastRepository.getCuratedVibes(vibeIds, region)
-                        
-                        val daySeed = java.time.LocalDate.now().toEpochDay()
-                        val resolvedSections = blockConfig.genres.map { genre ->
-                            val list = curatedVibesMap[genre.id] ?: emptyList()
-                            val filtered = list
-                                .filter { it.latestEpisode != null }
-                                .shuffled(kotlin.random.Random(daySeed.toInt() + genre.title.hashCode()))
-                                .take(10)
-                            if (filtered.isNotEmpty()) {
-                                CuratedSectionData(genre.title, genre.id, filtered)
-                            } else null
-                        }.filterNotNull()
-                        
-                        val block = if (resolvedSections.isNotEmpty()) {
-                            CuratedTimeBlock(blockConfig.title, blockConfig.subtitle, blockConfig.icon, resolvedSections)
-                        } else null
+                        val block = buildRankedTimeBlock(blockConfig, curatedVibesMap)
                         
                         _timeBlockState.value = block
                         cachedTimeBlock = block
@@ -1058,10 +1032,46 @@ class HomeViewModel(
                     )
                 }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                        val trendingList = wrapper.trending
+                        val allHistory = wrapper.history
+                        val subscribedIds = wrapper.subs.map(Podcast::id).toSet()
+                        val trendingList = adaptiveScorer.rankPodcasts(
+                            inputs = wrapper.trending.mapIndexed { index, podcast ->
+                                PodcastRankingInput(
+                                    podcast = podcast,
+                                    priorScore = (wrapper.trending.size - index).toDouble(),
+                                    source = CandidateSource.TRENDING,
+                                    isNovel = podcast.id !in subscribedIds,
+                                )
+                            },
+                            history = allHistory,
+                            objective = RankingObjective.DISCOVERY,
+                            diversityPolicy = DiversityPolicy(
+                                limit = wrapper.trending.size,
+                                maxPerShow = 1,
+                                reserveNovelSlot = true,
+                            ),
+                        )
+                        val rankedRecommendations = adaptiveScorer.rankEpisodes(
+                            inputs = wrapper.recommendations.mapIndexed { index, episode ->
+                                val podcast = episode.toRecommendationPodcast()
+                                EpisodeRankingInput(
+                                    episode = episode,
+                                    podcast = podcast,
+                                    priorScore = (wrapper.recommendations.size - index).toDouble(),
+                                    source = CandidateSource.SERVER_RECOMMENDATION,
+                                    isNovel = podcast.id !in subscribedIds,
+                                )
+                            },
+                            history = allHistory,
+                            objective = RankingObjective.DISCOVERY,
+                            diversityPolicy = DiversityPolicy(
+                                limit = wrapper.recommendations.size,
+                                maxPerShow = 2,
+                                reserveNovelSlot = true,
+                            ),
+                        )
                         val resumeList = wrapper.resume
                         val subs = wrapper.subs
-                        val allHistory = wrapper.history
                         val resolvedSerial = wrapper.resolvedSerial
                         val completedEpisodeIds = wrapper.completedEpisodeIds
                     
@@ -1360,7 +1370,7 @@ class HomeViewModel(
                                 subscriptions = subs,
                                 history = allHistory,
                                 resolvedSerialEpisodes = _resolvedSerialEpisodes.value,
-                                recommendations = wrapper.recommendations,
+                                recommendations = rankedRecommendations,
                                 podcastScores = podScoresMap,
                                 adaptiveRanking = MixtapeEngine.AdaptiveRanking(adaptiveScorer),
                             )
@@ -1539,7 +1549,7 @@ class HomeViewModel(
                             selectedCategory = _selectedCategory.value,
                             timeBlock = timeBlock,
                             discoverPodcasts = discover,
-                            recommendations = wrapper.recommendations,
+                            recommendations = rankedRecommendations,
                             isLoading = initialLoading,
                             isFilterLoading = trendingList.isEmpty(),
                             isError = false,
@@ -1730,6 +1740,44 @@ class HomeViewModel(
     // --- Helper Logic ---
     data class TimeBlockConfig(val title: String, val subtitle: String, val icon: ImageVector, val genres: List<GenreConfig>)
     data class GenreConfig(val id: String, val title: String)
+
+    private suspend fun buildRankedTimeBlock(
+        config: TimeBlockConfig,
+        candidatesByIntent: Map<String, List<Podcast>>,
+    ): CuratedTimeBlock? {
+        val history = database.listeningHistoryDao().getRecentHistoryList(300)
+        val daySeed = java.time.LocalDate.now().toEpochDay().toInt()
+        val sections = config.genres.mapNotNull { genre ->
+            val candidates = candidatesByIntent[genre.id]
+                .orEmpty()
+                .filter { it.latestEpisode != null }
+                .shuffled(kotlin.random.Random(daySeed + genre.title.hashCode()))
+            val ranked = adaptiveScorer.rankPodcasts(
+                inputs = candidates.mapIndexed { index, podcast ->
+                    PodcastRankingInput(
+                        podcast = podcast,
+                        priorScore = (candidates.size - index).toDouble(),
+                        source = CandidateSource.CURATED_INTENT,
+                        isNovel = podcast.subscribedAt <= 0L,
+                        timeContextMatch = 1.0,
+                    )
+                },
+                history = history,
+                objective = RankingObjective.SLATE,
+                diversityPolicy = DiversityPolicy(
+                    limit = 10,
+                    maxPerShow = 1,
+                    reserveNovelSlot = true,
+                ),
+            )
+            ranked.takeIf { it.isNotEmpty() }?.let {
+                CuratedSectionData(genre.title, genre.id, it)
+            }
+        }
+        return sections.takeIf { it.isNotEmpty() }?.let {
+            CuratedTimeBlock(config.title, config.subtitle, config.icon, it)
+        }
+    }
 
     /**
      * Warms episode data for shows subscribed *during* this session so a freshly added show has

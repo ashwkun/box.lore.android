@@ -17,6 +17,14 @@ data class EpisodeRankingInput(
     val online: Boolean = true,
 )
 
+data class PodcastRankingInput(
+    val podcast: Podcast,
+    val priorScore: Double,
+    val source: CandidateSource,
+    val isNovel: Boolean = false,
+    val timeContextMatch: Double = 0.5,
+)
+
 class AdaptiveCandidateScorer private constructor(
     private val rankingRepository: AdaptiveRankingRepository,
 ) {
@@ -139,6 +147,106 @@ class AdaptiveCandidateScorer private constructor(
             )
             input.episode.id to score.finalScore
         }
+    }
+
+    suspend fun rankEpisodes(
+        inputs: List<EpisodeRankingInput>,
+        history: List<ListeningHistoryEntity>,
+        objective: RankingObjective,
+        diversityPolicy: DiversityPolicy,
+        nowMs: Long = System.currentTimeMillis(),
+    ): List<Episode> {
+        val scores = scoreEpisodes(inputs, history, objective, nowMs)
+        val candidates = inputs.map { input ->
+            RankedCandidate(
+                value = input.episode,
+                episodeId = input.episode.id,
+                podcastId = input.podcast.id,
+                genre = input.episode.podcastGenre ?: input.podcast.genre,
+                score = scores[input.episode.id] ?: 0.0,
+                isNovel = input.isNovel,
+            )
+        }
+        return DiversityReranker.rerank(candidates, diversityPolicy)
+            .map(RankedCandidate<Episode>::value)
+    }
+
+    suspend fun rankPodcasts(
+        inputs: List<PodcastRankingInput>,
+        history: List<ListeningHistoryEntity>,
+        objective: RankingObjective,
+        diversityPolicy: DiversityPolicy? = null,
+        nowMs: Long = System.currentTimeMillis(),
+    ): List<Podcast> {
+        if (inputs.isEmpty()) return emptyList()
+        val normalizedPriors = normalizePriors(inputs.associate { it.podcast.id to it.priorScore })
+        val historyByPodcast = history.groupBy(ListeningHistoryEntity::podcastId)
+        val scored = inputs.map { input ->
+            val podcast = input.podcast
+            val latestHistory = podcast.latestEpisode?.let { episode ->
+                historyByPodcast[podcast.id].orEmpty().firstOrNull { it.episodeId == episode.id }
+            }
+            val showAffinity = rankingRepository.facetAffinity(
+                PreferenceFacetType.SHOW,
+                podcast.id,
+                nowMs,
+            )
+            val genreAffinity = podcast.genre
+                .split(",")
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .map { rankingRepository.facetAffinity(PreferenceFacetType.GENRE, it, nowMs) }
+                .averageOrNeutral()
+            val features = CandidateFeatureBuilder.build(
+                CandidateSignals(
+                    showAffinity = showAffinity.toUnitAffinity(),
+                    genreAffinity = genreAffinity.toUnitAffinity(),
+                    sourceAffinity = rankingRepository.facetAffinity(
+                        PreferenceFacetType.SOURCE,
+                        input.source.name,
+                        nowMs,
+                    ).toUnitAffinity(),
+                    ageHours = podcast.latestEpisode?.let { episode ->
+                        (nowMs / 1_000.0 - episode.publishedDate).coerceAtLeast(0.0) / 3_600.0
+                    },
+                    isUnseenShow = input.isNovel,
+                    isSubscribed = podcast.subscribedAt > 0L,
+                    progressRatio = latestHistory.progressRatio(),
+                    isUnplayed = latestHistory == null ||
+                        (latestHistory.progressMs == 0L && !latestHistory.isCompleted),
+                    serverRelevance = normalizedPriors[podcast.id] ?: 0.0,
+                    timeContextMatch = input.timeContextMatch,
+                    explicitPreference = when {
+                        podcast.autoDownloadEnabled -> 1.0
+                        podcast.notificationsEnabled -> 0.7
+                        else -> 0.0
+                    },
+                    hoursSinceSubscription = podcast.subscribedAt
+                        .takeIf { it > 0L }
+                        ?.let { (nowMs - it).coerceAtLeast(0L) / 3_600_000.0 },
+                ),
+            )
+            val score = rankingRepository.score(
+                objective = objective,
+                features = features,
+                priorScore = normalizedPriors[podcast.id] ?: 0.0,
+            )
+            RankedCandidate(
+                value = podcast,
+                episodeId = podcast.id,
+                podcastId = podcast.id,
+                genre = podcast.genre.substringBefore(",").trim(),
+                score = score.finalScore,
+                isNovel = input.isNovel,
+            )
+        }
+        val ordered = if (diversityPolicy == null) {
+            scored.distinctBy(RankedCandidate<Podcast>::episodeId)
+                .sortedByDescending(RankedCandidate<Podcast>::score)
+        } else {
+            DiversityReranker.rerank(scored, diversityPolicy)
+        }
+        return ordered.map(RankedCandidate<Podcast>::value)
     }
 
     private fun normalizePriors(scores: Map<String, Double>): Map<String, Double> {

@@ -6,6 +6,11 @@ import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.data.SearchResult
 import cx.aswin.boxcast.core.data.SubscriptionRepository
+import cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxcast.core.data.ranking.CandidateSource
+import cx.aswin.boxcast.core.data.ranking.EpisodeRankingInput
+import cx.aswin.boxcast.core.data.ranking.PodcastRankingInput
+import cx.aswin.boxcast.core.data.ranking.RankingObjective
 import cx.aswin.boxcast.core.model.Podcast
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -64,6 +69,7 @@ class ExploreViewModel(
     initialCategory: String? = null,
     initialTab: String? = null
 ) : androidx.lifecycle.AndroidViewModel(application) {
+    private val adaptiveScorer = AdaptiveCandidateScorer.getInstance(application)
 
     private val _uiState = MutableStateFlow<ExploreUiState>(
         ExploreUiState.Success(
@@ -136,6 +142,7 @@ class ExploreViewModel(
     // Pagination State
     private var currentOffset = 0
     private val PAGE_SIZE = 20
+    private val searchTieWindow = 4
     private val _isLoadingMore = MutableStateFlow(false)
     private val _hasMorePages = MutableStateFlow(true)
 
@@ -501,7 +508,7 @@ class ExploreViewModel(
             try {
                 val searchResult = podcastRepository.searchPodcastsWithCorrection(query)
                 if (searchJob == myJob) {
-                    _searchResults.value = searchResult.podcasts
+                    _searchResults.value = rankPodcastSearchTies(searchResult.podcasts)
                     searchResult.podcasts.forEach { _seenPodcasts[it.id] = it }
                     cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, searchResult.podcasts.size)
                 }
@@ -534,7 +541,7 @@ class ExploreViewModel(
                 val region = userPrefs.regionStream.first()
                 val results = podcastRepository.searchEpisodesSemantic(query, region)
                 if (semanticSearchJob == myJob) {
-                    _semanticSearchResults.value = results
+                    _semanticSearchResults.value = rankEpisodeSearchTies(results)
                     _hasPerformedSemanticSearch.value = true
                 }
             } catch (e: Exception) {
@@ -553,6 +560,53 @@ class ExploreViewModel(
         }
         semanticSearchJob = myJob
     }
+
+    private suspend fun rankPodcastSearchTies(results: List<Podcast>): List<Podcast> {
+        val history = playbackRepository.getAllHistory().first()
+        return results.chunked(searchTieWindow).flatMap { window ->
+            adaptiveScorer.rankPodcasts(
+                inputs = window.map { podcast ->
+                    PodcastRankingInput(
+                        podcast = podcast,
+                        priorScore = 1.0,
+                        source = CandidateSource.SERVER_RECOMMENDATION,
+                        isNovel = podcast.subscribedAt <= 0L,
+                    )
+                },
+                history = history,
+                objective = RankingObjective.DISCOVERY,
+            )
+        }
+    }
+
+    private suspend fun rankEpisodeSearchTies(results: List<Episode>): List<Episode> {
+        val history = playbackRepository.getAllHistory().first()
+        return results.chunked(searchTieWindow).flatMap { window ->
+            val scores = adaptiveScorer.scoreEpisodes(
+                inputs = window.map { episode ->
+                    EpisodeRankingInput(
+                        episode = episode,
+                        podcast = episode.toSearchPodcast(),
+                        priorScore = 1.0,
+                        source = CandidateSource.SERVER_RECOMMENDATION,
+                        isNovel = true,
+                    )
+                },
+                history = history,
+                objective = RankingObjective.DISCOVERY,
+            )
+            window.sortedByDescending { scores[it.id] ?: 0.0 }
+        }
+    }
+
+    private fun Episode.toSearchPodcast(): Podcast = Podcast(
+        id = podcastId.orEmpty(),
+        title = podcastTitle.orEmpty(),
+        artist = podcastArtist.orEmpty(),
+        imageUrl = podcastImageUrl ?: imageUrl.orEmpty(),
+        genre = podcastGenre.orEmpty(),
+        latestEpisode = this,
+    )
 
     fun setSearchTab(tab: SearchTab) {
         if (_searchTab.value == tab) return
