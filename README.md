@@ -8,7 +8,7 @@
 
 <br/>
 
-<a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.8.apk">
+<a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.9.apk">
   <img src="docs/images/card_github_v6.svg" height="72" alt="Download boxlore podcast app APK on GitHub"/>
 </a>
 &nbsp;&nbsp;
@@ -53,42 +53,30 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <!-- upcoming-changes:start -->
 <div align="center">
 
-<details open>
+<details>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
-<b>🆕 New features:</b>
-<ul align="left">
-<li>Add RSS feed subscriptions, import/export OPML, a revamped Settings hub with custom colors and privacy page, plus refreshed navigation and player UI. <a href="https://github.com/ashwkun/boxlore/pull/874"><img src="https://img.shields.io/badge/PR-874-6750A4?style=flat-square" alt="PR #874" height="18"/></a></li>
-<li>Set automatic intro/outro trimming and customize skip forward/backward steps for smoother listening. <a href="https://github.com/ashwkun/boxlore/pull/875"><img src="https://img.shields.io/badge/PR-875-6750A4?style=flat-square" alt="PR #875" height="18"/></a></li>
-<li>Enjoy smarter episode ordering with adaptive recommendations that adjust to your listening habits. <a href="https://github.com/ashwkun/boxlore/pull/876"><img src="https://img.shields.io/badge/PR-876-6750A4?style=flat-square" alt="PR #876" height="18"/></a></li>
-</ul>
-<b>⚡ Improvements:</b>
-<ul align="left">
-<li>New episode view with big artwork header, sticky playback bar, and clearer buffering indicator; home feed now adapts to time of day. <a href="https://github.com/ashwkun/boxlore/pull/877"><img src="https://img.shields.io/badge/PR-877-6750A4?style=flat-square" alt="PR #877" height="18"/></a></li>
-<li>Announcements stay on screen until you tap X or Dismiss, and Play Store installs no longer show extra “What’s New” prompts. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
-</ul>
+<p align="left">
+New features and improvements for the next release are currently in development.
+</p>
 <p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
 </details>
 
 <br/>
 
 <details open>
-<summary><b>🎉 What's New (v0.0.8) - 2026-07-12</b></summary>
+<summary><b>🎉 What's New (v0.0.9) - 2026-07-16</b></summary>
 <b>🆕 New features:</b>
 <ul align="left">
-<li>Enhanced notifications with dry‑run mode, admin UI, custom sounds, HTML preview, live validation, and saved templates. <a href="https://github.com/ashwkun/boxlore/pull/861"><img src="https://img.shields.io/badge/PR-861-2ebbca?style=flat-square" alt="PR #861" height="18"/></a></li>
-<li>Added option to set a custom label on category badges in announcements. <a href="https://github.com/ashwkun/boxlore/pull/862"><img src="https://img.shields.io/badge/PR-862-2ebbca?style=flat-square" alt="PR #862" height="18"/></a></li>
-<li>Added Android Auto support for browsing and actions, and fixed survey icons and low‑contrast text issues. <a href="https://github.com/ashwkun/boxlore/pull/865"><img src="https://img.shields.io/badge/PR-865-2ebbca?style=flat-square" alt="PR #865" height="18"/></a></li>
+<li>Add RSS feed subscriptions, a new Settings hub with multiple pages, and OPML import/export plus backup/restore. <a href="https://github.com/ashwkun/boxlore/pull/874"><img src="https://img.shields.io/badge/PR-874-6750A4?style=flat-square" alt="PR #874" height="18"/></a></li>
+<li>Set intro and outro trims globally or per podcast, and customize forward/backward seek steps for playback and Android Auto. <a href="https://github.com/ashwkun/boxlore/pull/875"><img src="https://img.shields.io/badge/PR-875-6750A4?style=flat-square" alt="PR #875" height="18"/></a></li>
+<li>Enjoy smarter Home, discovery, queue and download ordering thanks to on‑device adaptive ranking that learns your listening habits. <a href="https://github.com/ashwkun/boxlore/pull/876"><img src="https://img.shields.io/badge/PR-876-6750A4?style=flat-square" alt="PR #876" height="18"/></a></li>
 </ul>
 <b>⚡ Improvements:</b>
 <ul align="left">
-<li>Improved survey and announcement dialogs: scrolling for tall content, fixed contrast, corrected markdown lists. <a href="https://github.com/ashwkun/boxlore/pull/863"><img src="https://img.shields.io/badge/PR-863-2ebbca?style=flat-square" alt="PR #863" height="18"/></a></li>
+<li>New episode detail view with artwork header and sticky playback rail, plus a clear buffering indicator during loading. <a href="https://github.com/ashwkun/boxlore/pull/877"><img src="https://img.shields.io/badge/PR-877-6750A4?style=flat-square" alt="PR #877" height="18"/></a></li>
+<li>In‑app announcements now stay until you tap X or Dismiss, and Play Store installs no longer show extra “What’s New” prompts. <a href="https://github.com/ashwkun/boxlore/pull/870"><img src="https://img.shields.io/badge/PR-870-6750A4?style=flat-square" alt="PR #870" height="18"/></a></li>
 </ul>
-<b>🐛 Fixes:</b>
-<ul align="left">
-<li>Fixed artwork flicker while dragging the player sheet and refreshed next‑episode arrow colors to Material 3. <a href="https://github.com/ashwkun/boxlore/pull/864"><img src="https://img.shields.io/badge/PR-864-2ebbca?style=flat-square" alt="PR #864" height="18"/></a></li>
-</ul>
-<p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>
-Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
+<p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
 </details>
 
 </div>
@@ -269,7 +257,7 @@ Subscriptions, downloads, history, and liked episodes in one place. Launch offli
 <a id="install--build"></a>
 
 <div align="center">
-  <a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.8.apk">
+  <a href="https://github.com/ashwkun/boxlore/releases/latest/download/boxlore-v0.0.9.apk">
     <img src="docs/images/card_github_v6.svg" height="72" alt="Download boxlore podcast app APK on GitHub"/>
   </a>
   &nbsp;&nbsp;
