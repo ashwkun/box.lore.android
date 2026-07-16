@@ -29,6 +29,36 @@ enum class ContentRefreshPolicy {
     DAILY,
 }
 
+data class ContentDurationRange(
+    val minimumMinutes: Int,
+    val maximumMinutes: Int,
+) {
+    init {
+        require(minimumMinutes >= 0)
+        require(maximumMinutes >= minimumMinutes)
+    }
+}
+
+data class ContentDiversityConstraints(
+    val maximumItemsPerShow: Int = 2,
+    val minimumDistinctShows: Int = 1,
+) {
+    init {
+        require(maximumItemsPerShow > 0)
+        require(minimumDistinctShows > 0)
+    }
+}
+
+data class ContentQualityConstraints(
+    val minimumSemanticScore: Double = 0.0,
+    val unseenShowReserve: Double = 0.0,
+) {
+    init {
+        require(minimumSemanticScore.isFinite())
+        require(unseenShowReserve in 0.0..1.0)
+    }
+}
+
 data class ContentContext(
     val surface: RankingSurface,
     val localMinuteOfDay: Int,
@@ -65,11 +95,19 @@ data class ContentIntent(
     val eligibleDayparts: Set<ContentDaypart> = ContentDaypart.entries.toSet(),
     val title: String,
     val subtitle: String? = null,
+    val titleKey: String? = null,
+    val subtitleKey: String? = null,
+    val icon: String? = null,
+    val daypartIds: List<String> = emptyList(),
     val providerQueryRef: String? = null,
     val layout: ContentLayout,
     val refreshPolicy: ContentRefreshPolicy = ContentRefreshPolicy.SESSION,
     val minimumItems: Int = 1,
     val maximumItems: Int = 10,
+    val freshnessDays: Int? = null,
+    val durationRange: ContentDurationRange? = null,
+    val diversity: ContentDiversityConstraints = ContentDiversityConstraints(),
+    val quality: ContentQualityConstraints = ContentQualityConstraints(),
     val protected: Boolean = false,
 ) {
     init {
@@ -77,6 +115,8 @@ data class ContentIntent(
         require(title.isNotBlank())
         require(minimumItems >= 0)
         require(maximumItems >= minimumItems)
+        require(freshnessDays == null || freshnessDays > 0)
+        require(diversity.minimumDistinctShows <= maximumItems.coerceAtLeast(1))
     }
 
     fun isEligible(context: ContentContext): Boolean {
@@ -93,6 +133,8 @@ data class ContentCandidate(
     val retrievalScore: Double,
     val rankingScore: Double = retrievalScore,
     val isNovel: Boolean = false,
+    val semanticScore: Double? = episode?.semanticScore,
+    val serverRank: Int? = episode?.serverRank,
     val explanationTokens: Set<String> = emptySet(),
 ) {
     init {
@@ -100,8 +142,29 @@ data class ContentCandidate(
         require(intentId.isNotBlank())
         require(retrievalScore.isFinite())
         require(rankingScore.isFinite())
+        require(semanticScore == null || semanticScore.isFinite())
+        require(serverRank == null || serverRank > 0)
     }
 }
+
+data class GroupedContentSection(
+    val intent: ContentIntent,
+    val items: List<ContentCandidate>,
+) {
+    init {
+        require(items.all { it.intentId == intent.id })
+    }
+}
+
+data class GroupedContentSections(
+    val contractVersion: Int,
+    val catalogVersion: String,
+    val resolvedDaypart: String,
+    val algorithmVersion: String,
+    val isFallback: Boolean,
+    val generatedAt: String?,
+    val sections: List<GroupedContentSection>,
+)
 
 data class ContentSection(
     val stableId: String,
@@ -132,6 +195,12 @@ interface CandidateProvider {
         intent: ContentIntent,
         context: ContentContext,
     ): List<ContentCandidate>
+}
+
+interface GroupedCandidateProvider {
+    val source: CandidateSource
+
+    suspend fun sections(context: ContentContext): GroupedContentSections?
 }
 
 fun interface ContentCandidateRanker {

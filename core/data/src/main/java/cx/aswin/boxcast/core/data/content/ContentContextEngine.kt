@@ -52,6 +52,11 @@ data class ContentCatalogSnapshot(
 class ContentContextEngine(
     private val clock: Clock = Clock.systemDefaultZone(),
 ) {
+    fun currentDaypart(): ContentDaypart {
+        val local = ZonedDateTime.now(clock)
+        return (local.hour * 60 + local.minute).toDaypart()
+    }
+
     fun create(input: ContentContextInput): ContentContext {
         val local = ZonedDateTime.now(clock)
         val minuteOfDay = local.hour * 60 + local.minute

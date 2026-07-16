@@ -5,8 +5,12 @@ import kotlinx.serialization.encodeToString
 import androidx.core.os.bundleOf
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.compose.runtime.Immutable
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxcast.core.data.MixtapeEngine
@@ -16,9 +20,11 @@ import cx.aswin.boxcast.core.data.toScorable
 import cx.aswin.boxcast.core.data.content.AdaptiveContentCandidateRanker
 import cx.aswin.boxcast.core.data.content.ContentContextEngine
 import cx.aswin.boxcast.core.data.content.ContentContextInput
+import cx.aswin.boxcast.core.data.content.ContentDaypart
 import cx.aswin.boxcast.core.data.content.ContentOrchestrator
 import cx.aswin.boxcast.core.data.content.ContentSection
-import cx.aswin.boxcast.core.data.content.PodcastCandidateProvider
+import cx.aswin.boxcast.core.data.content.ContentSectionsDaypartResolver
+import cx.aswin.boxcast.core.data.content.ServerGroupedSectionProvider
 import cx.aswin.boxcast.core.data.content.ServerIntentCandidateProvider
 import cx.aswin.boxcast.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxcast.core.data.ranking.CandidateSource
@@ -34,6 +40,7 @@ import cx.aswin.boxcast.core.data.ranking.DiversityPolicy
 import cx.aswin.boxcast.core.model.Podcast
 import cx.aswin.boxcast.core.model.EpisodeStatus
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +54,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Briefing
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
@@ -58,14 +66,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.awaitAll
-import java.util.Calendar
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material.icons.rounded.NightsStay
-import androidx.compose.material.icons.rounded.WbTwilight
-import androidx.compose.material.icons.rounded.Bedtime
-
 @Immutable
 data class SmartHeroItem(
     val type: HeroType,
@@ -79,19 +79,51 @@ data class SmartHeroItem(
 enum class HeroType { RESUME, RESUME_GRID, JUMP_BACK_IN, NEW_EPISODES_GRID, SPOTLIGHT }
 
 @Immutable
-data class CuratedTimeBlock(
+data class DiscoveryGreeting(
     val title: String,
     val subtitle: String,
-    val icon: ImageVector,
-    val sections: List<CuratedSectionData>
+    val daypart: ContentDaypart,
 )
 
-@Immutable
-data class CuratedSectionData(
-    val title: String, 
-    val category: String,
-    val podcasts: List<Podcast>
-)
+private fun discoveryGreetingFor(
+    daypart: ContentDaypart,
+    date: java.time.LocalDate = java.time.LocalDate.now(),
+): DiscoveryGreeting {
+    return when (daypart) {
+        ContentDaypart.MORNING -> DiscoveryGreeting(
+            title = "Good Morning",
+            subtitle = if (date.dayOfWeek in setOf(
+                    java.time.DayOfWeek.SATURDAY,
+                    java.time.DayOfWeek.SUNDAY,
+                )
+            ) {
+                "Catch up on the week."
+            } else {
+                "Start your day with these updates."
+            },
+            daypart = daypart,
+        )
+        ContentDaypart.AFTERNOON -> DiscoveryGreeting(
+            title = "Afternoon Break",
+            subtitle = "Smart conversations to keep you going.",
+            daypart = daypart,
+        )
+        ContentDaypart.EVENING -> DiscoveryGreeting(
+            title = "Evening Unwind",
+            subtitle = if (date.dayOfWeek == java.time.DayOfWeek.FRIDAY) {
+                "Kick off the weekend."
+            } else {
+                "Relax, laugh, and catch up."
+            },
+            daypart = daypart,
+        )
+        ContentDaypart.LATE_NIGHT -> DiscoveryGreeting(
+            title = "Late Night Listen",
+            subtitle = "Stories for the dark hours.",
+            daypart = daypart,
+        )
+    }
+}
 
 @Immutable
 data class HomeUiState(
@@ -101,7 +133,7 @@ data class HomeUiState(
     val completedEpisodeCount: Int = 0, 
     val subscribedPodcasts: List<Podcast> = emptyList(), // "Your Shows" Section
     val selectedCategory: String? = null, // Null = "For You"
-    val timeBlock: CuratedTimeBlock? = null, // Unified Time Block
+    val discoveryGreeting: DiscoveryGreeting = discoveryGreetingFor(ContentDaypart.MORNING),
     val discoverPodcasts: List<Podcast>, 
     val recommendations: List<Episode> = emptyList(), // Personalized recommendations from Qdrant
     val isLoading: Boolean = false, // Initial full-screen loader
@@ -116,7 +148,6 @@ data class HomeUiState(
     val briefing: Briefing? = null,
     val briefingChapters: List<cx.aswin.boxcast.core.model.Chapter> = emptyList(),
     val isRecommendationsLoading: Boolean = true,
-    val isCuratedLoading: Boolean = true,
     val seemsToLikePodcast: Podcast? = null,
     val becauseYouLikeRecommendations: List<Episode> = emptyList(),
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
@@ -141,7 +172,6 @@ data class HomeDataWrapper(
     val recommendations: List<Episode> = emptyList(),
     val completedEpisodeIds: Set<String> = emptySet(),
     val isTrendingLoaded: Boolean = false,
-    val isCuratedLoaded: Boolean = false,
     val isRecommendationsLoaded: Boolean = false,
     val hasDismissedImportBanner: Boolean = false,
     val briefing: Briefing? = null,
@@ -170,10 +200,17 @@ object ModeSwitchState {
 
 private data class AdaptiveContentTrigger(
     val region: String,
+    val daypart: ContentDaypart,
+    val sectionDaypart: String,
     val subscriptionIds: Set<String>,
     val latestEpisodeId: String?,
     val latestPodcastId: String?,
     val historyMaturity: Int,
+)
+
+private data class HomeClockContext(
+    val daypart: ContentDaypart,
+    val sectionDaypart: String,
 )
 
 @Suppress("kotlin:S6310")
@@ -203,7 +240,13 @@ class HomeViewModel(
     // Let's leave SubscriptionRepository as is for now, it's less critical for playback state.
     // But `playbackRepository` MUST be injected.
 
-    private val _uiState = MutableStateFlow(HomeUiState(emptyList(), emptyList(), 0, 0, emptyList(), null, null, emptyList(), isLoading = true, isFilterLoading = false))
+    private val _uiState = MutableStateFlow(
+        HomeUiState(
+            heroItems = emptyList(),
+            discoverPodcasts = emptyList(),
+            isLoading = true,
+        ),
+    )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private val _showReviewPrompt = MutableStateFlow(false)
@@ -221,10 +264,7 @@ class HomeViewModel(
 
     private val _selectedCategory = MutableStateFlow<String?>(null)
     private val _recommendations = MutableStateFlow<List<Episode>>(emptyList())
-    private val _timeBlockState = MutableStateFlow<CuratedTimeBlock?>(null)
-    
     private val _isTrendingLoaded = MutableStateFlow(false)
-    private val _isCuratedLoaded = MutableStateFlow(false)
     private val _isRecommendationsLoaded = MutableStateFlow(false)
     private val _briefingState = MutableStateFlow<Briefing?>(null)
     private val _briefingDismissedDate = MutableStateFlow("")
@@ -240,12 +280,52 @@ class HomeViewModel(
     private val adaptiveContentSessionId = java.util.UUID.randomUUID().toString()
     private val exposedAdaptiveCandidates = mutableSetOf<String>()
     private val contentContextEngine = ContentContextEngine()
+    private val clockContextFlow: StateFlow<HomeClockContext> = callbackFlow {
+        fun currentClockContext(): HomeClockContext {
+            val localMinuteOfDay = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
+            return HomeClockContext(
+                daypart = contentContextEngine.currentDaypart(),
+                sectionDaypart = ContentSectionsDaypartResolver.resolve(localMinuteOfDay),
+            )
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                trySend(currentClockContext())
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        val context = getApplication<Application>()
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        trySend(currentClockContext())
+        awaitClose { context.unregisterReceiver(receiver) }
+    }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = java.time.LocalTime.now().let { time ->
+                HomeClockContext(
+                    daypart = contentContextEngine.currentDaypart(),
+                    sectionDaypart = ContentSectionsDaypartResolver.resolve(time.hour * 60 + time.minute),
+                )
+            },
+        )
+    private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
     private val contentOrchestrator = ContentOrchestrator(
         providers = listOf(
             ServerIntentCandidateProvider(podcastRepository),
-            PodcastCandidateProvider(CandidateSource.SUBSCRIPTION) { _, _ ->
-                subscriptionRepository.subscribedPodcasts.first()
-            },
+        ),
+        groupedProviders = listOf(
+            ServerGroupedSectionProvider(::loadPersonalizedDiscoverySections),
         ),
         ranker = AdaptiveContentCandidateRanker(adaptiveScorer) {
             playbackRepository.getAllHistory().first()
@@ -256,7 +336,6 @@ class HomeViewModel(
     private var cachedRegion: String? = null
     private var cachedForYouTrending: List<Podcast> = emptyList()
     private var cachedHeroItems: List<SmartHeroItem> = emptyList()
-    private var cachedTimeBlock: CuratedTimeBlock? = null
     private var cachedLatestEpisodes: List<Podcast> = emptyList()
     private var stablePodcastOrder: List<String>? = null
     private var stableMixtapePodcasts: List<Podcast>? = null
@@ -269,8 +348,6 @@ class HomeViewModel(
     // Subscription IDs we've already eagerly warmed episodes for (once per session).
     private val eagerlyLoadedSubIds =
         java.util.Collections.synchronizedSet(mutableSetOf<String>())
-
-    private val userPrefs = cx.aswin.boxcast.core.data.UserPreferencesRepository(application)
 
     val lastSeenEpisodes: StateFlow<Map<String, String>> = userPrefs.lastSeenEpisodesStream
         .stateIn(
@@ -329,7 +406,7 @@ class HomeViewModel(
             }
         }
 
-        // Load cached recommendations and curated vibes asynchronously on IO thread to prevent main-thread jank at startup
+        // Load cached recommendations asynchronously on IO thread to prevent main-thread jank at startup
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             // Load cached recommendations
             try {
@@ -367,23 +444,6 @@ class HomeViewModel(
                 android.util.Log.e("HomeViewModel", "Failed to load cached because-you-like recommendations", e)
             }
 
-            // Load cached Curated Vibes
-            try {
-                val prefs = application.getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
-                val cachedVibesJson = prefs.getString("cached_curated_vibes", null)
-                if (cachedVibesJson != null) {
-                    val json = Json { ignoreUnknownKeys = true }
-                    val cachedVibesMap = json.decodeFromString<Map<String, List<Podcast>>>(cachedVibesJson)
-                    val blockConfig = getTimeBlockConfig()
-                    buildRankedTimeBlock(blockConfig, cachedVibesMap)?.let { block ->
-                        _timeBlockState.value = block
-                        cachedTimeBlock = block
-                        _isCuratedLoaded.value = true
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("HomeViewModel", "Failed to load cached curated vibes", e)
-            }
         }
 
         // Lightweight RSS freshness checks never download or parse feed bodies.
@@ -424,15 +484,6 @@ class HomeViewModel(
     
     // Playback state to UI
     val playerState = playbackRepository.playerState
-    
-    // Curated impression dedup — prevents LazyGrid recomposition from re-firing
-    private var hasFiredCuratedImpression = false
-    
-    fun trackCuratedImpressionOnce(blockTitle: String, vibeIds: List<String>) {
-        if (hasFiredCuratedImpression) return
-        hasFiredCuratedImpression = true
-        cx.aswin.boxcast.core.data.analytics.AnalyticsHelper.trackCuratedBlockImpression(blockTitle, vibeIds)
-    }
     
     // Store current region for use in other scopes
     private var activeRegion = "us"
@@ -859,16 +910,44 @@ class HomeViewModel(
         eagerlyLoadNewSubscriptions()
     }
 
+    private suspend fun loadPersonalizedDiscoverySections(
+        context: cx.aswin.boxcast.core.data.content.ContentContext,
+    ): cx.aswin.boxcast.core.data.content.GroupedContentSections? {
+        val catalog = podcastRepository.getContentCatalog() ?: return null
+        val preferences = getApplication<Application>().getSharedPreferences(
+            "boxcast_prefs",
+            Context.MODE_PRIVATE,
+        )
+        val interests = preferences.getStringSet("user_genres", emptySet()).orEmpty().toList()
+        val history = playbackRepository.getHistoryForRecommendations(30)
+        val subscriptions = subscriptionRepository.subscribedPodcasts.first()
+        return podcastRepository.getPersonalizedContentSections(
+            contentContext = context,
+            catalog = catalog,
+            history = history,
+            interests = interests,
+            subscribedPodcastIds = subscriptions.map(Podcast::id),
+            subscribedGenres = subscriptions.mapNotNull(Podcast::genre).distinct(),
+            languages = listOf(
+                java.util.Locale.getDefault().language,
+                "en",
+            ).distinct(),
+        )
+    }
+
     private fun loadAdaptiveContent() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             combine(
                 userPrefs.regionStream,
+                clockContextFlow,
                 subscriptionRepository.subscribedPodcasts,
                 playbackRepository.getAllHistory(),
-            ) { region, subscriptions, history ->
+            ) { region, clockContext, subscriptions, history ->
                 val latestHistory = history.maxByOrNull(ListeningHistoryEntity::lastPlayedAt)
                 AdaptiveContentTrigger(
                     region = region,
+                    daypart = clockContext.daypart,
+                    sectionDaypart = clockContext.sectionDaypart,
                     subscriptionIds = subscriptions.map(Podcast::id).toSet(),
                     latestEpisodeId = latestHistory?.episodeId,
                     latestPodcastId = latestHistory?.podcastId,
@@ -889,7 +968,7 @@ class HomeViewModel(
                             subscriptionCount = trigger.subscriptionIds.size,
                             sessionId = adaptiveContentSessionId,
                         ),
-                    )
+                    ).copy(daypart = trigger.daypart)
                     val slate = contentOrchestrator.compose(
                         context = context,
                         catalog = podcastRepository.getContentCatalog(),
@@ -989,14 +1068,18 @@ class HomeViewModel(
     private fun loadData() {
         viewModelScope.launch {
             // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
-            userPrefs.regionStream
+            combine(
+                userPrefs.regionStream,
+                clockContextFlow.map { clock -> clock.daypart }.distinctUntilChanged(),
+            ) { region, daypart ->
+                region to daypart
+            }
                 .distinctUntilChanged()
-                .collectLatest { region ->
+                .collectLatest { (region, daypart) ->
                 if (cachedRegion != region) {
                     cachedRegion = region
                     cachedForYouTrending = emptyList()
                     cachedHeroItems = emptyList()
-                    cachedTimeBlock = null
                     cachedLatestEpisodes = emptyList()
                     
                     _uiState.update { 
@@ -1029,33 +1112,7 @@ class HomeViewModel(
                     }
                 }
 
-                // 2. Independent Curated Vibes Call (Fast GET)
-                launch {
-                    try {
-                        val blockConfig = getTimeBlockConfig()
-                        val vibeIds = blockConfig.genres.map { it.id }
-                        val curatedVibesMap = podcastRepository.getCuratedVibes(vibeIds, region)
-                        val block = buildRankedTimeBlock(blockConfig, curatedVibesMap)
-                        
-                        _timeBlockState.value = block
-                        cachedTimeBlock = block
-                        
-                        try {
-                            val json = Json { ignoreUnknownKeys = true }
-                            val prefs = getApplication<Application>().getSharedPreferences("boxcast_prefs", Context.MODE_PRIVATE)
-                            val serializedVibes = json.encodeToString(curatedVibesMap)
-                            prefs.edit().putString("cached_curated_vibes", serializedVibes).apply()
-                        } catch (ce: Exception) {
-                            android.util.Log.e("HomeViewModel", "Failed to cache curated vibes", ce)
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("BoxCastTiming", "VM: Curated Vibes load failed", e)
-                    } finally {
-                        _isCuratedLoaded.value = true
-                    }
-                }
-
-                // 3. Background Personalized Recommendations Call
+                // 2. Background Personalized Recommendations Call
                 launch {
                     fastJob.join()
                     _isRecommendationsLoaded.value = false
@@ -1113,9 +1170,7 @@ class HomeViewModel(
                     _resolvedSerialEpisodes,
                     _recommendations,
                     playbackRepository.completedEpisodeIds,
-                    _timeBlockState, // Re-emit when curated vibes resolve
                     _isTrendingLoaded,
-                    _isCuratedLoaded,
                     _isRecommendationsLoaded,
                     userPrefs.hasDismissedHomeImportBannerStream,
                     _briefingState,
@@ -1129,8 +1184,8 @@ class HomeViewModel(
                     _isRecommendationsFallback,
                     _adaptiveSections,
                 ) { array ->
-                    val dismissedDate = array[13] as String
-                    val dismissedForever = array[15] as Boolean
+                    val dismissedDate = array[11] as String
+                    val dismissedForever = array[13] as Boolean
                     HomeDataWrapper(
                         trending = array[0] as List<Podcast>,
                         resume = array[1] as List<cx.aswin.boxcast.core.data.PlaybackSession>,
@@ -1139,20 +1194,19 @@ class HomeViewModel(
                         resolvedSerial = array[4] as Map<String, Episode>,
                         recommendations = array[5] as List<Episode>,
                         completedEpisodeIds = array[6] as Set<String>,
-                        isTrendingLoaded = array[8] as Boolean,
-                        isCuratedLoaded = array[9] as Boolean,
-                        isRecommendationsLoaded = array[10] as Boolean,
-                        hasDismissedImportBanner = array[11] as Boolean,
-                        briefing = array[12] as Briefing?,
-                        briefingChapters = array[14] as List<cx.aswin.boxcast.core.model.Chapter>,
+                        isTrendingLoaded = array[7] as Boolean,
+                        isRecommendationsLoaded = array[8] as Boolean,
+                        hasDismissedImportBanner = array[9] as Boolean,
+                        briefing = array[10] as Briefing?,
+                        briefingChapters = array[12] as List<cx.aswin.boxcast.core.model.Chapter>,
                         briefingDismissedDate = dismissedDate,
                         briefingDismissedForever = dismissedForever,
-                        seemsToLikePodcast = array[16] as Podcast?,
-                        becauseYouLikeRecommendations = array[17] as List<Episode>,
-                        becauseYouLikePodcasts = array[18] as List<Podcast>,
-                        isBecauseYouLikeLoading = array[19] as Boolean,
-                        isRecommendationsFallback = array[20] as Boolean,
-                        adaptiveSections = array[21] as List<ContentSection>,
+                        seemsToLikePodcast = array[14] as Podcast?,
+                        becauseYouLikeRecommendations = array[15] as List<Episode>,
+                        becauseYouLikePodcasts = array[16] as List<Podcast>,
+                        isBecauseYouLikeLoading = array[17] as Boolean,
+                        isRecommendationsFallback = array[18] as Boolean,
+                        adaptiveSections = array[19] as List<ContentSection>,
                     )
                 }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -1607,15 +1661,6 @@ class HomeViewModel(
                             i++
                         }
 
-
-                        // --- Unified Time Block (non-blocking: use current state or null) ---
-                        val timeBlock = _timeBlockState.value
-                        
-                        // Update used IDs
-                        timeBlock?.sections?.forEach { sec -> 
-                            sec.podcasts.forEach { usedPodcastIds.add(it.id) } 
-                        }
-
                         val remaining = trendingList.filter { !usedPodcastIds.contains(it.id) }
                         val discover = remaining 
 
@@ -1677,7 +1722,7 @@ class HomeViewModel(
                             completedEpisodeCount = completedCount,
                             subscribedPodcasts = sortedSubs,
                             selectedCategory = _selectedCategory.value,
-                            timeBlock = timeBlock,
+                            discoveryGreeting = discoveryGreetingFor(daypart),
                             discoverPodcasts = discover,
                             recommendations = rankedRecommendations,
                             isLoading = initialLoading,
@@ -1692,7 +1737,6 @@ class HomeViewModel(
                             briefing = if (showBriefing) rawBriefing else null,
                             briefingChapters = if (showBriefing) wrapper.briefingChapters else emptyList(),
                             isRecommendationsLoading = !wrapper.isRecommendationsLoaded,
-                            isCuratedLoading = !wrapper.isCuratedLoaded,
                             seemsToLikePodcast = wrapper.seemsToLikePodcast,
                             becauseYouLikeRecommendations = wrapper.becauseYouLikeRecommendations,
                             becauseYouLikePodcasts = wrapper.becauseYouLikePodcasts,
@@ -1715,7 +1759,9 @@ class HomeViewModel(
                     if (cachedRegion == region && cachedHeroItems.isNotEmpty()) {
                         val discover = cachedForYouTrending.filter { pod ->
                             !cachedHeroItems.any { it.podcast.id == pod.id } &&
-                            !(cachedTimeBlock?.sections?.any { sec -> sec.podcasts.any { it.id == pod.id } } ?: false)
+                                _adaptiveSections.value.none { section ->
+                                    section.items.any { candidate -> candidate.podcast.id == pod.id }
+                                }
                         }
                         
                         _uiState.update { 
@@ -1785,7 +1831,10 @@ class HomeViewModel(
     fun toggleSubscription(podcastId: String) {
         viewModelScope.launch {
             val state = _uiState.value
-            val podcast = state.timeBlock?.sections?.flatMap { it.podcasts }?.find { it.id == podcastId }
+            val podcast = state.adaptiveSections.asSequence()
+                .flatMap { it.items.asSequence() }
+                .map { it.podcast }
+                .firstOrNull { it.id == podcastId }
                 ?: state.discoverPodcasts.find { it.id == podcastId }
                 ?: state.heroItems.find { it.podcast.id == podcastId }?.podcast
             
@@ -1868,49 +1917,6 @@ class HomeViewModel(
         }
     }
     
-    // --- Helper Logic ---
-    data class TimeBlockConfig(val title: String, val subtitle: String, val icon: ImageVector, val genres: List<GenreConfig>)
-    data class GenreConfig(val id: String, val title: String)
-
-    private suspend fun buildRankedTimeBlock(
-        config: TimeBlockConfig,
-        candidatesByIntent: Map<String, List<Podcast>>,
-    ): CuratedTimeBlock? {
-        val history = database.listeningHistoryDao().getRecentHistoryList(300)
-        val daySeed = java.time.LocalDate.now().toEpochDay().toInt()
-        val sections = config.genres.mapNotNull { genre ->
-            val candidates = candidatesByIntent[genre.id]
-                .orEmpty()
-                .filter { it.latestEpisode != null }
-                .shuffled(kotlin.random.Random(daySeed + genre.title.hashCode()))
-            val ranked = adaptiveScorer.rankPodcasts(
-                inputs = candidates.mapIndexed { index, podcast ->
-                    PodcastRankingInput(
-                        podcast = podcast,
-                        priorScore = (candidates.size - index).toDouble(),
-                        source = CandidateSource.CURATED_INTENT,
-                        isNovel = podcast.subscribedAt <= 0L,
-                        timeContextMatch = 1.0,
-                    )
-                },
-                history = history,
-                objective = RankingObjective.SLATE,
-                surface = RankingSurface.HOME,
-                diversityPolicy = DiversityPolicy(
-                    limit = 10,
-                    maxPerShow = 1,
-                    reserveNovelSlot = true,
-                ),
-            )
-            ranked.takeIf { it.isNotEmpty() }?.let {
-                CuratedSectionData(genre.title, genre.id, it)
-            }
-        }
-        return sections.takeIf { it.isNotEmpty() }?.let {
-            CuratedTimeBlock(config.title, config.subtitle, config.icon, it)
-        }
-    }
-
     /**
      * Warms episode data for shows subscribed *during* this session so a freshly added show has
      * content ready for the mixtape and the Home filter view immediately — without waiting for the
@@ -1995,58 +2001,6 @@ class HomeViewModel(
         }
     }
 
-    private fun getTimeBlockConfig(): TimeBlockConfig {
-        val cal = Calendar.getInstance()
-        val hour = cal.get(Calendar.HOUR_OF_DAY)
-        val day = cal.get(Calendar.DAY_OF_WEEK) // Sun=1...
-        
-        val isWeekend = day == Calendar.SATURDAY || day == Calendar.SUNDAY
-        val isFriday = day == Calendar.FRIDAY
-
-        return when (hour) {
-            in 5..11 -> TimeBlockConfig(
-                title = "Good Morning",
-                subtitle = if(isWeekend) "Catch up on the week." else "Start your day with these updates.",
-                icon = Icons.Rounded.WbSunny,
-                genres = listOf(
-                    GenreConfig("morning_news", "Global Headlines & Politics"),
-                    GenreConfig("morning_motivation", "Ideas, Culture & Reflections"), 
-                    GenreConfig("business_insider", "Markets, Tech & Business")
-                )
-            )
-            in 12..16 -> TimeBlockConfig(
-                title = "Afternoon Break",
-                subtitle = "Smart conversations to keep you going.",
-                icon = Icons.Rounded.WbSunny,
-                genres = listOf(
-                    GenreConfig("science_explainer", "Science, Cosmos & Exploration"),
-                    GenreConfig("tech_culture", "Digital Culture & Emerging Tech"),
-                    GenreConfig("creative_focus", "Design, Art & Creative Practice")
-                )
-            )
-            in 17..22 -> TimeBlockConfig(
-                title = "Evening Unwind",
-                subtitle = if(isFriday) "Kick off the weekend." else "Relax, laugh, and catch up.",
-                icon = Icons.Rounded.WbTwilight,
-                genres = listOf(
-                    GenreConfig("comedy_gold", "Satire, Comedy & Conversation"),
-                    GenreConfig("tv_film_buff", "Pop Culture, Film & Television"),
-                    GenreConfig("sports_fan", "Sports Culture & Field Analysis")
-                )
-            )
-            else -> TimeBlockConfig(
-                title = "Late Night Listen",
-                subtitle = "Stories for the dark hours.",
-                icon = Icons.Rounded.NightsStay,
-                genres = listOf(
-                    GenreConfig("true_crime_sleep", "True Crime & Investigative Files"),
-                    GenreConfig("history_buff", "Historical Narratives & Chronicles"),
-                    GenreConfig("mystery_thriller", "Suspense, Thrillers & Drama")
-                )
-            )
-        }
-    }
-    
     fun dismissHomeImportBanner() {
         viewModelScope.launch {
             userPrefs.dismissHomeImportBanner()

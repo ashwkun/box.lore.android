@@ -31,7 +31,6 @@ import cx.aswin.boxcast.core.designsystem.components.OptimizedImage
 import cx.aswin.boxcast.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.designsystem.theme.m3Shimmer
-import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import androidx.compose.runtime.LaunchedEffect
 import cx.aswin.boxcast.core.data.analytics.AnalyticsHelper
 import cx.aswin.boxcast.feature.home.StableEpisodeList
@@ -45,7 +44,7 @@ import cx.aswin.boxcast.feature.home.StableEpisodeList
 fun LazyStaggeredGridScope.forYouItems(
     recommendations: StableEpisodeList,
     onEpisodeClick: (Episode, Podcast) -> Unit,
-    timeBlock: CuratedTimeBlock?,
+    discoveryContextTitle: String,
     showTasteHeader: Boolean = true,
     isFallback: Boolean = true
 ) {
@@ -79,7 +78,7 @@ fun LazyStaggeredGridScope.forYouItems(
             AnalyticsHelper.trackHomeRecommendationsImpression(
                 recommendationsCount = recommendations.list.size,
                 episodeIds = recommendations.list.map { it.id },
-                timeBlockTitle = timeBlock?.title
+                timeBlockTitle = discoveryContextTitle,
             )
         }
         val ep = items[0]
@@ -102,7 +101,7 @@ fun LazyStaggeredGridScope.forYouItems(
                     podcastId = parentPodcast.id,
                     podcastName = parentPodcast.title,
                     positionIndex = 0,
-                    timeBlockTitle = timeBlock?.title
+                    timeBlockTitle = discoveryContextTitle,
                 )
                 onEpisodeClick(ep, parentPodcast)
             }
@@ -135,7 +134,7 @@ fun LazyStaggeredGridScope.forYouItems(
                     podcastId = parentPodcast.id,
                     podcastName = parentPodcast.title,
                     positionIndex = originalIndex,
-                    timeBlockTitle = timeBlock?.title
+                    timeBlockTitle = discoveryContextTitle,
                 )
                 onEpisodeClick(ep, parentPodcast)
             },

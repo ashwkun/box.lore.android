@@ -24,6 +24,8 @@ import cx.aswin.boxcast.core.network.model.OnboardingSelectedShowDto
 import cx.aswin.boxcast.core.network.model.BootstrapRequest
 import cx.aswin.boxcast.core.network.model.BootstrapResponse
 import cx.aswin.boxcast.core.network.model.ContentCatalogResponse
+import cx.aswin.boxcast.core.network.model.ContentSectionsV1Request
+import cx.aswin.boxcast.core.network.model.ContentSectionsV1Response
 import cx.aswin.boxcast.core.network.model.RecommendationsV2Request
 import cx.aswin.boxcast.core.network.model.RecommendationsV2Response
 import cx.aswin.boxcast.core.network.model.CuratedCuriosityResponseDto
@@ -155,11 +157,18 @@ interface BoxLoreApi {
         @Body request: RecommendationsV2Request,
     ): retrofit2.Call<RecommendationsV2Response>
 
-    @GET("content/catalog/v1")
+    @GET("content/catalog/v3")
     fun getContentCatalog(
         @Header("X-App-Key") publicKey: String,
         @Header("If-None-Match") etag: String? = null,
     ): retrofit2.Call<ContentCatalogResponse>
+
+    @POST("content/sections/v1")
+    fun getContentSectionsV1(
+        @Header("X-App-Key") publicKey: String,
+        @Header("X-Device-UUID") deviceUuid: String,
+        @Body request: ContentSectionsV1Request,
+    ): retrofit2.Call<ContentSectionsV1Response>
 
     @POST("recommendations/because-you-like")
     fun getBecauseYouLikeRecommendations(

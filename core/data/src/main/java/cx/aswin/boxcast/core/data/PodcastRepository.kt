@@ -1,6 +1,12 @@
 package cx.aswin.boxcast.core.data
 
 import cx.aswin.boxcast.core.data.database.PodcastEntity
+import cx.aswin.boxcast.core.data.content.ContentCatalogSnapshot
+import cx.aswin.boxcast.core.data.content.ContentContext
+import cx.aswin.boxcast.core.data.content.GroupedContentSections
+import cx.aswin.boxcast.core.data.content.contentSectionsCacheKey
+import cx.aswin.boxcast.core.data.content.toGroupedContentSections
+import cx.aswin.boxcast.core.data.ranking.RankingSurface
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Person
 import cx.aswin.boxcast.core.model.Podcast
@@ -21,6 +27,10 @@ import java.io.InputStreamReader
 
 import cx.aswin.boxcast.core.network.model.TrendingFeed
 import cx.aswin.boxcast.core.network.model.CuratedCuriosityResponseDto
+import cx.aswin.boxcast.core.network.model.ContentSectionRecentSeedDto
+import cx.aswin.boxcast.core.network.model.ContentSectionSeedFallbackDto
+import cx.aswin.boxcast.core.network.model.ContentSectionsV1Request
+import cx.aswin.boxcast.core.network.model.ContentSectionsV1Response
 
 /**
  * Upgrade HTTP URLs to HTTPS to fix Android cleartext traffic restrictions.
@@ -106,6 +116,10 @@ class PodcastRepository(
     private val rssRepository = RssPodcastRepository.getInstance(context)
     private val contentCatalogPreferences = context.applicationContext.getSharedPreferences(
         "content_catalog_cache",
+        android.content.Context.MODE_PRIVATE,
+    )
+    private val contentSectionsPreferences = context.applicationContext.getSharedPreferences(
+        "content_sections_cache",
         android.content.Context.MODE_PRIVATE,
     )
 
@@ -650,6 +664,130 @@ class PodcastRepository(
         }.getOrNull()
     }
 
+    suspend fun getPersonalizedContentSections(
+        contentContext: ContentContext,
+        catalog: ContentCatalogSnapshot,
+        history: List<cx.aswin.boxcast.core.network.model.HistoryItem>,
+        interests: List<String> = emptyList(),
+        searchTopics: List<String> = emptyList(),
+        subscribedPodcastIds: List<String> = emptyList(),
+        subscribedGenres: List<String> = emptyList(),
+        excludedPodcastIds: List<String> = emptyList(),
+        excludedEpisodeIds: List<String> = emptyList(),
+        languages: List<String> = listOf("en"),
+    ): GroupedContentSections? = withContext(ioDispatcher) {
+        val expectedCatalogVersion = catalog.catalogVersion.toIntOrNull() ?: return@withContext null
+        val country = contentContext.region.lowercase().takeIf { it.length in 2..3 } ?: "us"
+        val (podcastIndexHistory, podcastIndexSubscriptionIds) =
+            filterToPodcastIndexScope(history, subscribedPodcastIds)
+        val subscribedIds = podcastIndexSubscriptionIds.toBoundedPositiveIds()
+        val seenPodcastIdStrings = (
+            subscribedIds.map(Long::toString) +
+                podcastIndexHistory.mapNotNull { it.podcastId?.toLongOrNull()?.toString() }
+            ).toSet()
+        val cacheKey = contentSectionsCacheKey(
+            catalogVersion = expectedCatalogVersion,
+            country = country,
+            localMinuteOfDay = contentContext.localMinuteOfDay,
+        )
+        val cached = readCachedContentSections(cacheKey, catalog, seenPodcastIdStrings)
+        if (!contentContext.isOnline) return@withContext cached
+        val historyByEpisodeId = podcastIndexHistory
+            .mapNotNull { item -> item.episodeId?.toLongOrNull()?.let { it to item } }
+            .toMap()
+        val recentSeeds = buildRecommendationSeeds(
+            history = podcastIndexHistory,
+            subscribedPodcastIds = podcastIndexSubscriptionIds,
+            maximumSeeds = MAX_CONTENT_SECTION_SEEDS,
+        ).map { seed ->
+            val historyItem = historyByEpisodeId[seed.id]
+            ContentSectionRecentSeedDto(
+                kind = seed.kind,
+                id = seed.id,
+                weight = seed.weight,
+                fallback = seed.fallback?.let { fallback ->
+                    ContentSectionSeedFallbackDto(
+                        episodeTitle = fallback.episodeTitle,
+                        podcastTitle = fallback.podcastTitle,
+                        podcastId = historyItem?.podcastId?.toLongOrNull()?.takeIf { it > 0L },
+                        genre = fallback.genre,
+                        description = fallback.description,
+                    )
+                },
+            )
+        }
+        val boundedInterests = (interests + searchTopics + subscribedGenres)
+            .asSequence()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .map { it.take(MAX_CONTENT_SECTION_INTEREST_LENGTH) }
+            .distinctBy(String::lowercase)
+            .take(MAX_CONTENT_SECTION_INTERESTS)
+            .toList()
+        val request = ContentSectionsV1Request(
+            surface = contentContext.surface.toContentSectionsSurface(),
+            localMinuteOfDay = contentContext.localMinuteOfDay,
+            // The backend owns six overlapping dayparts; deliberately omit the broad Android hint.
+            daypart = null,
+            country = country,
+            languages = languages.toBoundedLanguageCodes(),
+            recentSeeds = recentSeeds,
+            interests = boundedInterests,
+            subscribedPodcastIds = subscribedIds,
+            excludedPodcastIds = excludedPodcastIds.toBoundedPositiveIds(),
+            excludedEpisodeIds = (
+                excludedEpisodeIds.mapNotNull(String::toLongOrNull) +
+                    podcastIndexHistory.mapNotNull { it.episodeId?.toLongOrNull() }
+                ).asSequence()
+                .filter { it > 0L }
+                .distinct()
+                .take(MAX_CONTENT_SECTION_EXCLUSIONS)
+                .toList(),
+            candidateBudget = CONTENT_SECTION_CANDIDATE_BUDGET,
+        )
+        try {
+            val response = api.getContentSectionsV1(
+                publicKey = publicKey,
+                deviceUuid = getOrCreateDeviceUuid(),
+                request = request,
+            ).execute()
+            val body = response.body()
+            val mapped = if (response.isSuccessful && body != null) {
+                body.toGroupedContentSections(catalog, seenPodcastIdStrings)
+            } else {
+                null
+            }
+            if (body != null && mapped != null) {
+                val responseKey = contentSectionsCacheKey(
+                    catalogVersion = requireNotNull(body.catalogVersion),
+                    country = country,
+                    resolvedDaypart = requireNotNull(body.resolvedDaypart),
+                )
+                contentSectionsPreferences.edit()
+                    .putString(responseKey, Gson().toJson(body))
+                    .apply()
+            }
+            mapped ?: cached
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.w("PodcastRepository", "Grouped content sections refresh failed", error)
+            cached
+        }
+    }
+
+    private fun readCachedContentSections(
+        cacheKey: String,
+        catalog: ContentCatalogSnapshot,
+        seenPodcastIds: Set<String>,
+    ): GroupedContentSections? {
+        val json = contentSectionsPreferences.getString(cacheKey, null) ?: return null
+        return runCatching {
+            Gson().fromJson(json, ContentSectionsV1Response::class.java)
+                .toGroupedContentSections(catalog, seenPodcastIds)
+        }.getOrNull()
+    }
+
     suspend fun getPersonalizedRecommendations(
         history: List<cx.aswin.boxcast.core.network.model.HistoryItem>,
         interests: List<String> = emptyList(),
@@ -756,7 +894,9 @@ class PodcastRepository(
     private fun buildRecommendationSeeds(
         history: List<cx.aswin.boxcast.core.network.model.HistoryItem>,
         subscribedPodcastIds: List<String>,
+        maximumSeeds: Int = 12,
     ): List<cx.aswin.boxcast.core.network.model.RecommendationSeedV2> {
+        require(maximumSeeds > 0)
         val episodeSeeds = history.mapNotNull { item ->
             val id = item.episodeId?.toLongOrNull()?.takeIf { it > 0L } ?: return@mapNotNull null
             val durationMs = item.durationMs ?: 0L
@@ -784,7 +924,7 @@ class PodcastRepository(
                 ),
             )
         }.distinctBy { it.id }.sortedByDescending { it.weight }
-        if (episodeSeeds.size >= 12) return episodeSeeds.take(12)
+        if (episodeSeeds.size >= maximumSeeds) return episodeSeeds.take(maximumSeeds)
         val podcastSeeds = subscribedPodcastIds.asSequence()
             .mapNotNull(String::toLongOrNull)
             .filter { it > 0L }
@@ -796,9 +936,9 @@ class PodcastRepository(
                     weight = 0.35,
                 )
             }
-            .take(12 - episodeSeeds.size)
+            .take(maximumSeeds - episodeSeeds.size)
             .toList()
-        return episodeSeeds.take(12) + podcastSeeds
+        return episodeSeeds.take(maximumSeeds) + podcastSeeds
     }
 
     private fun fetchLegacyRecommendations(
@@ -1181,6 +1321,11 @@ class PodcastRepository(
         private const val CONTENT_CATALOG_JSON = "catalog_json"
         private const val CONTENT_CATALOG_ETAG = "catalog_etag"
         private const val CONTENT_CATALOG_FETCHED_AT = "catalog_fetched_at"
+        private const val MAX_CONTENT_SECTION_SEEDS = 8
+        private const val MAX_CONTENT_SECTION_INTERESTS = 12
+        private const val MAX_CONTENT_SECTION_INTEREST_LENGTH = 80
+        private const val MAX_CONTENT_SECTION_EXCLUSIONS = 250
+        private const val CONTENT_SECTION_CANDIDATE_BUDGET = 120
 
         private val episodesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<EpisodePage, Long>>()
         private val recommendationsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<Episode>, Long>>()
@@ -1202,7 +1347,35 @@ private fun String?.toSemanticFallback(): String? {
         ?.takeIf(String::isNotEmpty)
 }
 
-private fun cx.aswin.boxcast.core.network.model.ContentCatalogResponse.toContentCatalogSnapshot(
+private fun List<String>.toBoundedPositiveIds(
+    maximum: Int = 250,
+): List<Long> {
+    return asSequence()
+        .mapNotNull(String::toLongOrNull)
+        .filter { it > 0L }
+        .distinct()
+        .take(maximum)
+        .toList()
+}
+
+private fun List<String>.toBoundedLanguageCodes(): List<String> {
+    return asSequence()
+        .map { it.trim().lowercase() }
+        .filter { it.matches(Regex("^[a-z]{2,3}(?:-[a-z]{2})?$")) }
+        .distinct()
+        .take(4)
+        .toList()
+        .ifEmpty { listOf("en") }
+}
+
+private fun RankingSurface.toContentSectionsSurface(): String = when (this) {
+    RankingSurface.HOME -> "home"
+    RankingSurface.EXPLORE -> "explore"
+    RankingSurface.ANDROID_AUTO -> "auto"
+    else -> "home"
+}
+
+internal fun cx.aswin.boxcast.core.network.model.ContentCatalogResponse.toContentCatalogSnapshot(
     fetchedAt: Long,
 ): cx.aswin.boxcast.core.data.content.ContentCatalogSnapshot {
     val validDurationMillis = validForSeconds
@@ -1221,12 +1394,31 @@ private fun cx.aswin.boxcast.core.network.model.ContentCatalogResponse.toContent
                 eligibleDayparts = dayparts,
                 title = intent.titleFallback,
                 subtitle = intent.subtitleFallback,
+                titleKey = intent.titleKey,
+                subtitleKey = intent.subtitleKey,
+                icon = intent.icon,
+                daypartIds = intent.dayparts,
                 providerQueryRef = intent.providerQueryRef,
                 layout = layout,
                 refreshPolicy = intent.refreshPolicy.toContentRefreshPolicy()
                     ?: cx.aswin.boxcast.core.data.content.ContentRefreshPolicy.SESSION,
                 minimumItems = intent.minCandidates,
                 maximumItems = intent.maxCandidates,
+                freshnessDays = intent.freshnessDays,
+                durationRange = intent.durationMinutes?.let {
+                    cx.aswin.boxcast.core.data.content.ContentDurationRange(
+                        minimumMinutes = it.min,
+                        maximumMinutes = it.max,
+                    )
+                },
+                diversity = cx.aswin.boxcast.core.data.content.ContentDiversityConstraints(
+                    maximumItemsPerShow = intent.diversity.maxPerShow,
+                    minimumDistinctShows = intent.diversity.minDistinctShows,
+                ),
+                quality = cx.aswin.boxcast.core.data.content.ContentQualityConstraints(
+                    minimumSemanticScore = intent.quality.minSemanticScore,
+                    unseenShowReserve = intent.quality.unseenShowReserve,
+                ),
                 protected = intent.layout == "protected_card",
             )
         }.getOrNull()

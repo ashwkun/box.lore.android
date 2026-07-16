@@ -96,6 +96,7 @@ class AdaptiveContentCandidateRanker(
         } catch (_: Exception) {
             candidates.sortedWith(
                 compareByDescending(ContentCandidate::retrievalScore)
+                    .thenBy { it.serverRank ?: Int.MAX_VALUE }
                     .thenBy(ContentCandidate::id),
             )
         }
@@ -150,6 +151,8 @@ class AdaptiveContentCandidateRanker(
             )
         }.sortedWith(
             compareByDescending<ContentCandidate>(ContentCandidate::rankingScore)
+                .thenBy { it.serverRank ?: Int.MAX_VALUE }
+                .thenByDescending(ContentCandidate::retrievalScore)
                 .thenBy(ContentCandidate::id),
         )
     }

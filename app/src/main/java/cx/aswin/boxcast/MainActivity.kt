@@ -1376,20 +1376,6 @@ class MainActivity : ComponentActivity() {
                                             entryPointQuery
                                         )
                                     },
-                                    onCuratedEpisodeClick = { episode, podcast, vibeId, carouselPos ->
-                                        fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
-                                        navController.navigate(
-                                            "episode/${encode(episode.id)}/${encode(episode.title)}/" +
-                                            "${encode(episode.description.take(500))}/" +
-                                            "${encode(episode.imageUrl)}/" +
-                                            "${encode(episode.audioUrl)}/" +
-                                            "${episode.duration}/${encode(podcast.id)}/" +
-                                            "${encode(podcast.title)}" +
-                                            "?entryPoint=home_curated_timeblock" +
-                                            "&vibeId=${encode(vibeId)}" +
-                                            "&carouselPosition=$carouselPos"
-                                        )
-                                    },
                                     onNavigateToLibrary = {
                                         navController.navigate("library/subscriptions") {
                                             popUpTo("home") { saveState = true }

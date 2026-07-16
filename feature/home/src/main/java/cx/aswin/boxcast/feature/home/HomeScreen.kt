@@ -62,7 +62,6 @@ import androidx.compose.ui.Alignment
 import cx.aswin.boxcast.feature.home.components.GridSkeletonItem
 import cx.aswin.boxcast.feature.home.components.GridSkeletonItems
 import cx.aswin.boxcast.feature.home.components.YourShowsSkeleton
-import cx.aswin.boxcast.feature.home.components.TimeBlockSkeleton
 import cx.aswin.boxcast.feature.home.components.LocalLastSeenEpisodes
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
@@ -84,6 +83,7 @@ import androidx.compose.ui.graphics.Color
 import cx.aswin.boxcast.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxcast.core.model.Briefing
 import cx.aswin.boxcast.core.data.content.ContentCandidate
+import cx.aswin.boxcast.core.data.content.ContentDaypart
 import cx.aswin.boxcast.core.data.content.ContentSection
 import cx.aswin.boxcast.feature.home.components.DailyBriefingCard
 
@@ -96,6 +96,9 @@ import androidx.compose.material.icons.rounded.DriveFolderUpload
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
@@ -120,8 +123,6 @@ import androidx.compose.foundation.shape.CircleShape
 import cx.aswin.boxcast.feature.home.components.HeroCarousel
 import cx.aswin.boxcast.feature.home.components.CuratedEpisodeCard
 import cx.aswin.boxcast.feature.home.components.PodcastCard
-import cx.aswin.boxcast.feature.home.components.timeBlockItems
-import cx.aswin.boxcast.feature.home.CuratedTimeBlock
 import cx.aswin.boxcast.feature.home.components.TopControlBar
 import cx.aswin.boxcast.feature.home.components.YourShowsSection
 import cx.aswin.boxcast.feature.home.components.forYouItems
@@ -167,8 +168,6 @@ data class HomeFeedCallbacks(
     val onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     val onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     val onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
-    val onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
-    val onCuratedImpression: (String, List<String>) -> Unit,
     val onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
     val onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     val onNavigateToLibrary: (() -> Unit)?,
@@ -213,7 +212,6 @@ fun HomeRoute(
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null, // Navigate to EpisodeInfo
-    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)? = null,
     onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)? = null, // Navigate directly to Player (Resume)
     onNavigateToLibrary: (() -> Unit)? = null,
     onNavigateToLatestEpisodes: (() -> Unit)? = null,
@@ -289,7 +287,6 @@ fun HomeRoute(
         onPodcastClick,
         onHeroArrowClick,
         onEpisodeClick,
-        onCuratedEpisodeClick,
         onPlayClick,
         onNavigateToLibrary,
         onNavigateToExplore,
@@ -312,8 +309,6 @@ fun HomeRoute(
                 },
                 onHeroArrowClick = onHeroArrowClick,
                 onEpisodeClick = onEpisodeClick,
-                onCuratedEpisodeClick = onCuratedEpisodeClick,
-                onCuratedImpression = viewModel::trackCuratedImpressionOnce,
                 onAdaptiveSectionVisible = viewModel::trackAdaptiveSectionVisible,
                 onPlayClick = onPlayClick,
                 onNavigateToLibrary = onNavigateToLibrary,
@@ -404,7 +399,7 @@ private fun HomeScreenFeedContent(
         heroItems = StableHeroList(uiState.heroItems),
         latestItems = StablePodcastList(uiState.latestEpisodes),
         subscribedItems = StablePodcastList(uiState.subscribedPodcasts),
-        timeBlock = uiState.timeBlock,
+        discoveryGreeting = uiState.discoveryGreeting,
         adaptiveSections = StableContentSectionList(uiState.adaptiveSections),
         onAdaptiveSectionVisible = callbacks.onAdaptiveSectionVisible,
         briefing = uiState.briefing,
@@ -425,7 +420,6 @@ private fun HomeScreenFeedContent(
         episodePlaybackState = StablePlaybackStateMap(uiState.episodePlaybackState),
         isLoading = uiState.isLoading,
         isRecommendationsLoading = uiState.isRecommendationsLoading,
-        isCuratedLoading = uiState.isCuratedLoading,
         seemsToLikePodcast = uiState.seemsToLikePodcast,
         becauseYouLikeRecommendations = StableEpisodeList(uiState.becauseYouLikeRecommendations),
         becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
@@ -437,8 +431,6 @@ private fun HomeScreenFeedContent(
         onPodcastClick = callbacks.onPodcastClick,
         onHeroArrowClick = callbacks.onHeroArrowClick,
         onEpisodeClick = callbacks.onEpisodeClick,
-        onCuratedEpisodeClick = callbacks.onCuratedEpisodeClick,
-        onCuratedImpression = callbacks.onCuratedImpression,
         onPlayClick = callbacks.onPlayClick,
         onNavigateToLibrary = callbacks.onNavigateToLibrary,
         onNavigateToExplore = callbacks.onNavigateToExplore,
@@ -593,7 +585,7 @@ private fun PodcastFeed(
     heroItems: StableHeroList,
     latestItems: StablePodcastList,
     subscribedItems: StablePodcastList,
-    timeBlock: CuratedTimeBlock?,
+    discoveryGreeting: DiscoveryGreeting,
     adaptiveSections: StableContentSectionList,
     onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
     gridItems: StablePodcastList,
@@ -612,7 +604,6 @@ private fun PodcastFeed(
     isLoading: Boolean,
     isRecommendationsLoading: Boolean = true,
     isRecommendationsFallback: Boolean = true,
-    isCuratedLoading: Boolean = true,
     onPodcastSelected: (String?) -> Unit = {},
     onPlayMix: () -> Unit = {},
     onPlayEpisode: (Episode, Podcast, cx.aswin.boxcast.core.model.PlaybackEntryPoint) -> Unit = { _, _, _ -> },
@@ -620,8 +611,6 @@ private fun PodcastFeed(
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
-    onCuratedEpisodeClick: ((Episode, Podcast, String, Int) -> Unit)?,
-    onCuratedImpression: (String, List<String>) -> Unit = { _, _ -> },
     onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     onNavigateToLibrary: (() -> Unit)?,
     onNavigateToExplore: ((String?, String, String?) -> Unit)?,
@@ -661,26 +650,6 @@ private fun PodcastFeed(
     }
     val showDiscoverContent = !isLoading && !isFilterLoading && discoverItems.isNotEmpty()
     val discoverGenreChip = selectedCategory == null
-    val primaryAdaptiveSection = remember(adaptiveSections.list, timeBlock) {
-        timeBlock?.let {
-            adaptiveSections.list.firstOrNull { section -> section.intent.protected }
-                ?: adaptiveSections.list.firstOrNull()
-        }
-    }
-    val standaloneAdaptiveSections = remember(adaptiveSections.list, primaryAdaptiveSection) {
-        adaptiveSections.list.filterNot { it.stableId == primaryAdaptiveSection?.stableId }
-    }
-    val adaptiveTimeBlock = remember(timeBlock, primaryAdaptiveSection) {
-        timeBlock?.let { block ->
-            primaryAdaptiveSection?.let { section ->
-                block.copy(
-                    title = section.intent.title,
-                    subtitle = section.intent.subtitle ?: block.subtitle,
-                )
-            } ?: block
-        }
-    }
-
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
         state = gridState,
@@ -976,14 +945,27 @@ private fun PodcastFeed(
                     onEpisodeClick = { episode, podcast ->
                         onEpisodeClick?.invoke(episode, podcast, "home_for_you")
                     },
-                    timeBlock = timeBlock,
+                    discoveryContextTitle = discoveryGreeting.title,
                     showTasteHeader = hasBecauseYouLike,
                     isFallback = isRecommendationsFallback
                 )
             }
         }
 
-        standaloneAdaptiveSections.forEach { section ->
+        item(
+            span = StaggeredGridItemSpan.FullLine,
+            key = "discovery_greeting",
+            contentType = "discovery_greeting",
+        ) {
+            DiscoveryGreetingHeader(
+                greeting = discoveryGreeting,
+                onSeeAllClick = {
+                    onNavigateToExplore?.invoke(null, "home_discovery_greeting", "foryou")
+                },
+            )
+        }
+
+        adaptiveSections.list.forEach { section ->
             adaptiveSectionItem(
                 section = section,
                 gridState = gridState,
@@ -994,37 +976,7 @@ private fun PodcastFeed(
             )
         }
 
-        // 3. Time-Based Curated Block — flattened so the header and each vibe rail are
-        // individual items that compose independently as they scroll in (removes the
-        // atomic multi-rail compose spike near the bottom of the feed).
-        if (isCuratedLoading) {
-            item(span = StaggeredGridItemSpan.FullLine, key = "time_block_skeleton", contentType = "time_block_skeleton") {
-                TimeBlockSkeleton()
-            }
-        } else if (adaptiveTimeBlock != null) {
-            timeBlockItems(
-                data = adaptiveTimeBlock,
-                onCuratedEpisodeClick = { episode, podcast, vibeId, pos -> onCuratedEpisodeClick?.invoke(episode, podcast, vibeId, pos) },
-                onImpression = onCuratedImpression,
-                onSeeAllClick = {
-                    onNavigateToExplore?.invoke(null, "home_time_block_see_all", "foryou")
-                },
-                leadingContent = {
-                    primaryAdaptiveSection?.let { section ->
-                        adaptiveSectionItem(
-                            section = section,
-                            gridState = gridState,
-                            showHeader = false,
-                            onAdaptiveSectionVisible = onAdaptiveSectionVisible,
-                            onPodcastClick = onPodcastClick,
-                            onEpisodeClick = onEpisodeClick,
-                        )
-                    }
-                },
-            )
-        }
-
-        // 4. Discover Section header (title + category chips)
+        // 3. Discover Section header (title + category chips)
         item(span = StaggeredGridItemSpan.FullLine, key = "discover_header", contentType = "section_header") {
             cx.aswin.boxcast.feature.home.components.DiscoverSection(
                 selectedCategory = selectedCategory,
@@ -1076,6 +1028,64 @@ private fun PodcastFeed(
             items(6, key = { "discover_skel_$it" }, contentType = { "discover_skel" }) {
                 GridSkeletonItem()
             }
+        }
+    }
+}
+
+@Composable
+private fun DiscoveryGreetingHeader(
+    greeting: DiscoveryGreeting,
+    onSeeAllClick: () -> Unit,
+) {
+    val icon = when (greeting.daypart) {
+        ContentDaypart.MORNING,
+        ContentDaypart.AFTERNOON,
+        -> Icons.Rounded.WbSunny
+        ContentDaypart.EVENING -> Icons.Rounded.WbTwilight
+        ContentDaypart.LATE_NIGHT -> Icons.Rounded.NightsStay
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Column {
+                Text(
+                    text = greeting.title,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = SectionHeaderFontFamily,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                )
+                Text(
+                    text = greeting.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        FilledTonalIconButton(
+            onClick = onSeeAllClick,
+            modifier = Modifier.size(32.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = "See all discoveries",
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }
