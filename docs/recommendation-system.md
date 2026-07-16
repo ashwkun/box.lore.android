@@ -3,19 +3,15 @@
 > How boxlore decides what to show you, and how it learns from what you do.
 
 This document is a deep, implementation-accurate walkthrough of boxlore's recommendation
-engine across **both repositories**:
+engine — both the **Android client** (on-device learning, surface orchestration, queue/
+mixtape logic) and **the API** (semantic retrieval, vector search, curated content).
 
-| Repo | Role |
-|------|------|
-| [`ashwkun/boxlore`](https://github.com/ashwkun/boxlore) | Android client — on-device learning, surface orchestration, queue/mixtape logic |
-| [`ashwkun/Proxy`](https://github.com/ashwkun/Proxy) | Cloudflare Worker (`api.aswin.cx`) — semantic retrieval, vector search, curated content |
+It covers the on-device machine-learning models, the API-side retrieval pipelines, the
+full retrieval → ranking → diversification → layout stack, the reward/feedback loop that
+makes the app "learn", how every user surface plugs into the system, the client–API
+contract, and the migration from the legacy recommendation system to the current one.
 
-It covers the on-device machine-learning models, the server-side retrieval pipelines,
-the full retrieval → ranking → diversification → layout stack, the reward/feedback loop
-that makes the app "learn", how every user surface plugs into the system, and the
-client–server contract between them.
-
-**Division of labor:** the proxy is **stateless** — it turns seeds and filters into
+**Division of labor:** the API is **stateless** — it turns seeds and filters into
 semantically relevant *candidates*. The Android client is **stateful** — it maintains
 the personalization model, records exposures, and re-ranks every candidate list on-device.
 There is no cloud user-profile store; the learned model lives in a local Room database
@@ -62,9 +58,8 @@ Key source packages:
 - `core/data/.../ranking/` — the ML core (bandit, facets, reward, features, persistence).
 - `core/data/.../content/` — the retrieval→ranking→layout orchestration used by Home.
 - `core/data/MixtapeEngine.kt`, `core/data/SmartQueueEngine.kt` — surface-specific engines.
-- `core/network/.../BoxLoreApi.kt` — the boundary to the server (candidate retrieval,
-  semantic search). The server implementation lives in the `proxy` repo
-  (`proxy/src/routes/`).
+- `core/network/.../BoxLoreApi.kt` — the Retrofit boundary to the API (candidate
+  retrieval, semantic search, curated content).
 
 ---
 
@@ -89,8 +84,8 @@ flowchart TB
         AR --> Room["AdaptiveRankingDatabase"]
     end
 
-    subgraph Server["Cloudflare Worker (Proxy)"]
-        API["api.aswin.cx"]
+    subgraph Api["The API"]
+        API["API gateway"]
         R1["/recommendations v1"]
         R2["/recommendations/v2"]
         BOOT["/home/bootstrap"]
@@ -104,7 +99,7 @@ flowchart TB
         QD["Qdrant — episode/podcast vectors"]
         TS["Turso — charts, FTS search"]
         SB["Supabase — curiosity deck"]
-        KV["Cloudflare KV — response cache"]
+        KV["KV — response cache"]
     end
 
     PR -->|Retrofit + X-App-Key| API
@@ -121,7 +116,7 @@ flowchart TB
 
 ```
         ┌──────────────────────────── RETRIEVAL (candidates) ─────────────────────────────┐
-        │  Subscriptions   Listening history   Server recs   Semantic search   Trending    │
+        │  Subscriptions   Listening history   API recs   Semantic search   Trending    │
         │  (SUBSCRIPTION)  (LOCAL_HISTORY)      (SERVER_REC/  (CURATED_INTENT)  (TRENDING)  │
         │                                        CURATED)                        Liked/DL   │
         └───────────────────────────────────────┬──────────────────────────────────────────┘
@@ -186,7 +181,7 @@ blend       = min(updateCount/50, 1) · 0.65
 final       = clamp( (1-blend)·prior + blend·learned + uncertainty , -1, 1)
 ```
 
-- **`prior`** is the hand-tuned/server score, clamped to `[-1, 1]`.
+- **`prior`** is the hand-tuned/API score, clamped to `[-1, 1]`.
 - **`blend`** ramps the learned model in *gradually*: at 0 outcomes it is `0` (pure
   prior); at ≥50 outcomes it saturates at `maximumLearnedBlend = 0.65`. The model never
   fully overrides the prior — the prior always keeps ≥35% weight.
@@ -403,7 +398,7 @@ is never lost.
 
 `SUBSCRIPTION`, `LOCAL_HISTORY`, `SERVER_RECOMMENDATION`, `CURATED_INTENT`, `TRENDING`,
 `LIKED`, `DOWNLOADED`. Providers wrap these into `ContentCandidate`s with a
-`retrievalScore` (server-supplied `retrievalScore`/`semanticScore`, or reciprocal-rank
+`retrievalScore` (API-supplied `retrievalScore`/`semanticScore`, or reciprocal-rank
 `1/(index+1)` when the source is just an ordered list).
 
 ### 8.2 Scoring (`AdaptiveCandidateScorer`)
@@ -414,7 +409,7 @@ File: `core/data/.../ranking/AdaptiveCandidateScorer.kt`.
   batched DB read via `facetAffinities`), then call the bandit's `scoreBatch` for the
   objective.
 - Priors are normalized with `normalizePriors` — a log1p normalization
-  (`ln(1+v)/ln(1+max)`) that squashes heavy-tailed server scores into `[0,1]` so they sit
+  (`ln(1+v)/ln(1+max)`) that squashes heavy-tailed API scores into `[0,1]` so they sit
   in the same range as the learned score before blending.
 - If adaptive ranking is disabled for the (objective, surface) pair, it **transparently
   falls back to the normalized prior order** (and, for `scorePodcasts`, the legacy
@@ -447,7 +442,7 @@ Files: `core/data/.../content/*`.
 
 The Home feed is assembled by the `ContentOrchestrator`:
 
-1. **Intent resolution** (`ContentIntentResolver`) — a server-delivered
+1. **Intent resolution** (`ContentIntentResolver`) — a API-delivered
    `ContentCatalogSnapshot` (endpoint `/content/catalog/v1`) defines "intents" (rows) with
    objectives, eligible surfaces/dayparts, layouts, item counts and refresh policies. If
    the catalog is missing/expired/unsupported, it falls back to an embedded
@@ -528,7 +523,7 @@ Files: `ranking/database/*`, `RankingSerialization.kt`, `AdaptiveRankingReposito
 
 ## 11. Where it shows up in the app (surface by surface)
 
-| Surface | Client engine | Server endpoints | Objective |
+| Surface | Client engine | API endpoints | Objective |
 |---------|---------------|------------------|-----------|
 | Home — For You | `ContentOrchestrator` + `AdaptiveCandidateScorer` | `/home/bootstrap`, `/recommendations/v2`, `/content/catalog/v1` | `DISCOVERY` |
 | Home — Mixtape | `MixtapeEngine` | `/recommendations/v2` (fallback if <3 local candidates) | `CONTINUATION` |
@@ -544,9 +539,9 @@ Files: `ranking/database/*`, `RankingSerialization.kt`, `AdaptiveRankingReposito
 
 Details:
 
-- **Home — "For You" / Mixtape.** `HomeViewModel` wires a `ContentOrchestrator` (server
+- **Home — "For You" / Mixtape.** `HomeViewModel` wires a `ContentOrchestrator` (API
   intent + subscription providers, `AdaptiveContentCandidateRanker`) for the For You rows,
-  ranks trending and server recommendations with `DISCOVERY`, ranks subscriptions with
+  ranks trending and API recommendations with `DISCOVERY`, ranks subscriptions with
   `YOUR_SHOWS`, then hands everything to `MixtapeEngine.build(...)` which produces the
   home queue. `MixtapeEngine` first builds resume + unplayed candidates with a transparent
   freshness/affinity heuristic, then (when an `AdaptiveRanking` is supplied) re-scores them
@@ -563,67 +558,66 @@ Details:
   diversity policy that reserves a novel slot. A `QueueSkipMemory` down-ranks shows you
   keep skipping.
 - **Because You Like.** `BecauseYouLikeSection` / `ChangeRecommendationPodcastSheet` use
-  the server `recommendations/because-you-like` endpoint seeded by a show you like.
+  the API `recommendations/because-you-like` endpoint seeded by a show you like.
 - **Downloads / Smart Downloads.** Use the `OFFLINE` objective (no exploration) and
   `DOWNLOADED`/`LIKED` sources.
 
 ---
 
-## 12. Server-side retrieval (the `proxy` repo)
+## 12. API-side retrieval
 
-The **retrieval and semantic layer runs server-side** in the [`proxy`](https://github.com/ashwkun/Proxy)
-repository — a Cloudflare Worker deployed at `api.aswin.cx` (`wrangler.jsonc` → worker
-`boxcast-api`). The Android client talks to it via `BoxLoreApi` (`core/network/.../BoxLoreApi.kt`).
-**Ranking and learning happen on the client**, on top of whatever candidates the server returns.
+The **retrieval and semantic layer runs in the API**. The Android client talks to it via
+`BoxLoreApi` (`core/network/.../BoxLoreApi.kt`). **Ranking and learning happen on the
+client**, on top of whatever candidates the API returns.
 
-### 12.1 Proxy architecture
+### 12.1 Request flow
 
 ```
 Android app
     │  HTTPS + X-App-Key + X-Device-UUID [+ X-Firebase-AppCheck]
     ▼
-proxy/src/index.ts  (router)
-    ├── routes/recommendations.ts      POST /recommendations, /recommendations/because-you-like
-    ├── routes/recommendationsV2.ts    POST /recommendations/v2
-    ├── routes/bootstrap.ts            GET/POST /home/bootstrap
-    ├── routes/contentCatalog.ts       GET /content/catalog/v1
-    ├── routes/curatedVibes.ts         GET /curated/vibe
-    ├── routes/curatedCuriosity.ts     GET /curated/curiosity-v3
-    ├── routes/search.ts               GET /search, /search/semantic, /episodes/search
-    ├── routes/episodes.ts             POST /episodes/similar
-    ├── routes/trending.ts             GET /trending
-    └── services/qdrant.ts             Qdrant REST client
+API gateway
+    ├── POST /recommendations                    (legacy v1 — full history)
+    ├── POST /recommendations/v2                 (preferred — seed-based RRF)
+    ├── POST /recommendations/because-you-like
+    ├── POST /episodes/similar
+    ├── GET/POST /home/bootstrap
+    ├── GET /content/catalog/v1
+    ├── GET /curated/vibe
+    ├── GET /curated/curiosity-v3
+    ├── GET /search, /search/semantic, /episodes/search
+    └── GET /trending
 ```
 
-**Auth gate** (`proxy/src/utils/auth.ts`):
-- `X-App-Key` must match `APP_SECRET_KEY` (required on all routes).
-- `X-Firebase-AppCheck` JWT validated when `FIREBASE_PROJECT_NUMBER` is set; enforced when
+**Auth gate:**
+- `X-App-Key` required on all routes.
+- `X-Firebase-AppCheck` JWT validated when App Check is configured; enforced when
   `APPCHECK_ENFORCE=true`.
-- `X-Device-UUID` scopes recommendation/bootstrap KV cache keys per device.
+- `X-Device-UUID` scopes recommendation/bootstrap cache keys per device.
 - `X-App-Version` logged for App Check adoption slicing.
 
 ### 12.2 Endpoint reference
 
-| Endpoint | Method | Handler | Used by |
-|----------|--------|---------|---------|
-| `POST /recommendations` | POST | `handleRecommendations` | Legacy fallback; full history payload |
-| `POST /recommendations/v2` | POST | `handleRecommendationsV2` | **Preferred** — seed-based RRF fusion |
-| `POST /recommendations/because-you-like` | POST | `handleBecauseYouLike` | Home "Because you like X" |
-| `POST /episodes/similar` | POST | `handleEpisodesSimilar` | Smart Queue cold start, episode info |
-| `POST /home/bootstrap` | POST/GET | `handleBootstrap` | Home cold start (briefing + trending + recs) |
-| `GET /content/catalog/v1` | GET | `handleContentCatalog` | Home adaptive intent rows |
-| `GET /curated/vibe?id={vibeId}` | GET | `handleCuratedVibe` | Daypart rails, content intents |
-| `GET /curated/curiosity-v3` | GET | `handleCuratedCuriosity` | Lore / Learn card deck |
-| `GET /search/semantic` | GET | `handleSemanticSearch` | Explore natural-language search |
-| `GET /trending` | GET | `handleTrending` | Charts, Smart Queue Tier 4 |
-| `GET /search` | GET | `handleSearch` | Hybrid podcast search (Turso FTS + iTunes + PI) |
+| Endpoint | Method | Used by |
+|----------|--------|---------|
+| `POST /recommendations` | POST | Legacy fallback; full history payload |
+| `POST /recommendations/v2` | POST | **Preferred** — seed-based RRF fusion |
+| `POST /recommendations/because-you-like` | POST | Home "Because you like X" |
+| `POST /episodes/similar` | POST | Smart Queue cold start, episode info |
+| `POST /home/bootstrap` | POST/GET | Home cold start (briefing + trending + recs) |
+| `GET /content/catalog/v1` | GET | Home adaptive intent rows |
+| `GET /curated/vibe?id={vibeId}` | GET | Daypart rails, content intents |
+| `GET /curated/curiosity-v3` | GET | Lore / Learn card deck |
+| `GET /search/semantic` | GET | Explore natural-language search |
+| `GET /trending` | GET | Charts, Smart Queue Tier 4 |
+| `GET /search` | GET | Hybrid podcast search (Turso FTS + iTunes + PI) |
 
 ### 12.3 Embedding model
 
 | Context | Model | Dimension |
 |---------|-------|-----------|
-| Runtime (Worker) | Cloudflare Workers AI `@cf/baai/bge-m3` | 1024 |
-| Offline vibe vectors | `scripts/gen-static-vectors.js` → `src/vibes.ts` | 1024 |
+| API runtime | Cloudflare Workers AI `@cf/baai/bge-m3` | 1024 |
+| Offline vibe vectors | Precomputed static embeddings | 1024 |
 | ETL pipeline (boxlore CI) | `transformers.js` Xenova/bge-large-en-v1.5 | 1024 |
 
 Prompt format for episode vectors (used in both v1 and v2 fallback embedding):
@@ -632,17 +626,48 @@ Prompt format for episode vectors (used in both v1 and v2 fallback embedding):
 Episode: {title}. Description: {cleanedDesc}. Podcast: {showTitle}. Genres: {categories}. Host: {author}
 ```
 
-Description cleaning (`proxy/src/utils/text.ts` → `cleanDescription`):
+Description cleaning:
 - Strip HTML tags and URLs/emails.
 - Truncate at boilerplate keywords (`follow us`, `sponsors`, `patreon`, etc.).
 - Cap at 1000 characters.
 
-### 12.4 V1 recommendations — `POST /recommendations`
+### 12.4 Legacy recommendation system — `POST /recommendations`
 
-**File:** `proxy/src/routes/recommendations.ts`  
-**Algorithm:** genre-cluster weighted-average + parallel Qdrant search + recency decay + interleaving.
+> This section absorbs the former standalone write-up that lived at
+> `core/data/.../analytics/recommendation_logic.md` (now deleted). That document described
+> only the v1 path. The client still falls back to v1 when v2 fails, but **v2 is preferred**.
 
-#### Request (legacy — full history)
+**Algorithm:** genre-cluster weighted-average + parallel Qdrant search + recency decay +
+interleaving.
+
+#### Client payload (full listening history)
+
+Personalization begins on the device, which transmits listening state metadata to the API
+via `POST /recommendations`. The request includes `X-Device-UUID` for cache scoping.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `country` | string | Geolocation code (`us`, `in`, `gb`, `fr`) |
+| `subscribedPodcastIds` | int[] | iTunes / Podcast Index feed IDs of subscriptions |
+| `interests` | string[] | Onboarding genres (cold-start fallback) |
+| `history[]` | objects | Recent playback activity (see below) |
+
+Each `history` item:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `episodeId` | int | Podcast Index episode ID |
+| `episodeTitle` | string | Episode title |
+| `episodeDescription` | string? | Cached description |
+| `podcastId` | int | Parent feed ID |
+| `podcastTitle` | string | Show title |
+| `progressMs` | long | Playback position |
+| `durationMs` | long | Episode length |
+| `isCompleted` | bool | Played to completion |
+| `isLiked` | bool | Explicit like |
+| `genre` | string | Category / genre |
+
+#### Example request
 
 ```json
 {
@@ -667,44 +692,49 @@ Description cleaning (`proxy/src/utils/text.ts` → `cleanDescription`):
 }
 ```
 
-> **Note:** v1 sends raw behavioral fields (`progressMs`, `isLiked`, etc.). v2 deliberately
-> does **not** — see §12.5.
-
-#### Server pipeline
+#### API processing flow
 
 1. **KV cache** — key `rec:user:{deviceUuid}:{country}:personalized:{hash}` (3h TTL).
-2. **Qdrant enrichment** — batch scroll episode IDs from history to get canonical descriptions.
-3. **Engagement weighting** per history item:
+2. **History enrichment** — batch-scroll episode IDs from Qdrant for canonical descriptions.
+   Falls back to client-supplied `episodeDescription` / `description` when missing.
+3. **Description cleaning** — HTML strip, boilerplate truncation, URL/email strip, 1000-char cap.
+4. **Prompt construction:**
+   `"Episode: {title}. Description: {cleaned}. Podcast: {show}. Genres: {cats}. Host: {author}"`
+5. **Engagement weighting** per history item:
 
    ```
-   ratio      = min(progressMs / durationMs, 1.0)
-   w_raw      = 0.3 + 0.7 × ratio
-   w_completed = max(w_raw, 0.9)   if isCompleted
-   w_liked    = w_completed + 0.3  if isLiked
-   w_final    = min(w_liked, 1.5)
+   R           = min(progressMs / durationMs, 1.0)
+   w_raw       = 0.3 + 0.7 × R
+   w_completed = max(w_raw, 0.9)   if isCompleted else w_raw
+   w_liked     = w_completed + 0.3 if isLiked else w_completed
+   w_final     = min(w_liked, 1.5)
    ```
 
-4. **Seed selection** — top 3 episodes from distinct podcasts, sorted by engagement weight.
-5. **Genre clustering** — group history by genre (up to 3 clusters); per cluster, embed prompts
-   via Workers AI and compute weighted-average taste vector.
-6. **Diversity vector** — embed interests/subscribed genres (or geo-default interests).
-7. **Parallel Qdrant queries** — `episodes` collection, ~600/limit split across vectors.
-8. **Recency re-ranking:**
+6. **Genre clustering** — group history by genre (up to 3 clusters). Within each cluster,
+   embed prompts and compute a weighted-average taste vector:
 
    ```
-   ageDays       = max(0, (now - publishedAt) / 86400)
-   recencyBoost  = 1.0 / (1.0 + 0.003 × ageDays)
-   adjustedScore = semanticScore × recencyBoost
+   V_cluster = Σ (w_final_i · v_i) / Σ w_final_i
    ```
 
-   An episode 100 days old incurs ~30% penalty; fresh semantic matches still surface.
+7. **Seed selection** — top 3 episodes from distinct podcasts by engagement weight.
+8. **Diversity vector** — embed interests / subscribed genres (or geo-default interests).
+9. **Parallel Qdrant queries** — `episodes` collection, ~600 / (number of clusters) matches
+   each, with language filters (`hi` for IN, `fr` for FR, else `en`).
+10. **Recency re-ranking:**
 
-9. **Interleaving** — round-robin across query result lists with day-of-year rotation offset
-   for genre diversity.
-10. **Filtering** — language (country-aware: `hi` for IN, `fr` for FR), NSFW keywords, exclude
-    subscribed shows, exclude history episode titles, max 2 eps/show.
-11. **Relaxation** — if <15 results, relax show-level history exclusion (Pass 2).
-12. **Response** — up to 60 episodes, `isFallback: true` when no history.
+    ```
+    t_age        = max(0, (t_now - t_published) / 86400)
+    b_recency    = 1.0 / (1.0 + 0.003 × t_age)
+    S_adjusted   = S_similarity × b_recency
+    ```
+
+    An episode ~100 days old incurs ~30% score penalty.
+
+11. **Interleaving** — round-robin across cluster result lists with day-of-year rotation.
+12. **Filtering** — NSFW keywords; exclude subscribed shows; exclude exact history titles;
+    Pass 1 (strict): exclude any show in history, max 1 ep/show; if <15 results → Pass 2
+    (relax show exclusion, still exclude listened episodes). Cap at top 60.
 
 #### Response shape
 
@@ -727,9 +757,34 @@ Description cleaning (`proxy/src/utils/text.ts` → `cleanDescription`):
 }
 ```
 
-### 12.5 V2 recommendations — `POST /recommendations/v2` (preferred)
+#### Flaws of the legacy (v1) system
 
-**File:** `proxy/src/routes/recommendationsV2.ts`  
+| Flaw | Impact |
+|------|--------|
+| **Raw behavioral history leaves the device** | `progressMs`, `isLiked`, `isCompleted`, and per-episode history rows are sent to the API — a privacy and payload-size cost |
+| **No client-side learning** | Ranking was entirely API-side and stateless; the same history always produced the same order, with no feedback loop from skips/likes/queues after delivery |
+| **Genre-cluster average collapses nuance** | Averaging embeddings within a genre cluster washes out episode-level taste (e.g. liking one science episode does not mean liking all science) |
+| **Only 3 seed episodes** | Top-3 distinct-podcast selection under-represents multi-interest users |
+| **No exclusion contract** | Queue refill could re-suggest episodes already queued or recently played; client had to filter after the fact |
+| **Opaque scores** | Response carried a single `score` — no `reason`, `source`, or separable `retrievalScore` / `semanticScore` for client re-ranking |
+| **No mode / contract version** | One endpoint served home, discovery, and cold-start with identical semantics |
+| **Heavy request bodies** | Full history + descriptions on every call; cache keying depended on hashing the entire payload |
+
+#### Gains of switching to v2 (+ on-device adaptive ranking)
+
+| Gain | How |
+|------|-----|
+| **Privacy-preserving seeds** | Client sends only `{kind, id, weight}` (+ optional sanitized fallback text) — no progress/like flags |
+| **On-device learning** | Adaptive bandit + Bayesian facets re-rank every candidate list from local exposures/rewards; personalization model never leaves the device |
+| **RRF multi-seed fusion** | Up to 12 weighted seeds fused with Reciprocal Rank Fusion (`K=60`) — broader, more stable candidates than a 3-cluster average |
+| **Explicit exclusions** | `excludedEpisodeIds` / `excludedPodcastIds` let Smart Queue and Home avoid already-queued items at retrieval time |
+| **Richer response metadata** | `retrievalScore`, `semanticScore`, `source`, `reason`, `serverRank`, `algorithmVersion` feed the client's `SERVER_RELEVANCE` feature and UI reason chips |
+| **Contract versioning** | `contractVersion: 2`, `mode: home\|discovery\|because_you_like`, bounded limits — forward-compatible API |
+| **Smaller, cacheable requests** | Seed sets hash cleanly; fallback vectors cached 24h; client memory cache 15m |
+| **Graceful fallback** | Client tries v2 first; on failure falls back to v1 without changing the adaptive re-ranking layer |
+
+### 12.5 Current recommendations — `POST /recommendations/v2` (preferred)
+
 **Algorithm version:** `adaptive-candidates-v2.1`  
 **Fusion:** weighted Reciprocal Rank Fusion (RRF) with `K = 60`.
 
@@ -738,7 +793,7 @@ Description cleaning (`proxy/src/utils/text.ts` → `cleanDescription`):
 The v2 request is **seed-based**: the client converts listening history into compact
 `{kind, id, weight}` seeds locally. Raw behavioral fields (`progressMs`, `isLiked`,
 per-episode history rows) **never leave the device**. Test:
-`recommendation v2 request excludes raw behavioral history` in boxlore.
+`recommendation v2 request excludes raw behavioral history`.
 
 #### Client seed construction
 
@@ -755,7 +810,7 @@ per-episode history rows) **never leave the device**. Test:
 
 Up to **12 seeds** total: episode seeds first (sorted by weight), then podcast seeds from
 subscriptions to fill remaining slots. RSS-only content (`rss:` IDs, negative episode IDs)
-is excluded from server requests.
+is excluded from API requests.
 
 #### Example v2 request
 
@@ -784,12 +839,12 @@ is excluded from server requests.
 `excludedEpisodeIds` is populated from the current queue + recently played — this is how
 Smart Queue refill avoids re-suggesting items already queued.
 
-#### Server pipeline
+#### API pipeline
 
-1. **Validate** — `parseRecommendationV2Request()`: contract version, seed weights ∈ (0,1],
-   limit 10–100, max 12 seeds, max 250 exclusion IDs.
+1. **Validate** — contract version, seed weights ∈ (0,1], limit 10–100, max 12 seeds,
+   max 250 exclusion IDs.
 2. **KV cache** — key `rec:v2:{deviceUuid}:{country}:{mode}:{hash}` (3h TTL).
-3. **Build seed vectors** (`buildSeedVectors`):
+3. **Build seed vectors:**
    - Retrieve stored vectors from Qdrant (`episodes` or `podcasts` collection).
    - For missing vectors, embed `fallback` text via Workers AI; cache in KV
      (`rec:v2:fallback-vector:{sha256}`) for 24h.
@@ -841,8 +896,6 @@ Client-side memory cache: **15 minutes** (`recommendationsCache`).
 
 ### 12.6 Home bootstrap — `POST /home/bootstrap`
 
-**File:** `proxy/src/routes/bootstrap.ts`
-
 Bundles the Home cold-start payload in one parallel fetch:
 
 | Sub-request | Source |
@@ -873,9 +926,8 @@ GET requests are edge-cached **1 hour** by country (no personalization).
 
 ### 12.7 Content catalog & curated vibes
 
-**Content catalog** (`proxy/src/routes/contentCatalog.ts`, version 2):
-
-Defines Home "intent" rows the client resolves via `ContentOrchestrator`:
+**Content catalog** (`GET /content/catalog/v1`, version 2) defines Home "intent" rows the
+client resolves via `ContentOrchestrator`:
 
 | Intent ID | Dayparts | Vibe provider | Layout |
 |-----------|----------|---------------|--------|
@@ -887,10 +939,8 @@ Defines Home "intent" rows the client resolves via `ContentOrchestrator`:
 Each intent specifies `minCandidates`, `maxCandidates`, `freshnessDays`, duration bounds,
 and diversity policy (`maxPerShow`, `minDistinctShows`).
 
-**Curated vibes** (`proxy/src/routes/curatedVibes.ts`):
-
-14 precomputed vibe vectors in `src/vibes.ts` (`morning_news`, `tech_culture`,
-`true_crime_sleep`, etc.). Each vibe applies vibe-specific recency decay:
+**Curated vibes** (`GET /curated/vibe`): 14 precomputed vibe vectors (`morning_news`,
+`tech_culture`, `true_crime_sleep`, etc.). Each vibe applies vibe-specific recency decay:
 
 ```
 penalizedScore = score / (1 + decayWeight × ageDays)
@@ -900,13 +950,12 @@ Some vibes also enforce `maxAgeDays` cutoffs (e.g. news vibes prefer episodes <7
 
 ### 12.8 Curiosity deck — `GET /curated/curiosity-v3`
 
-**File:** `proxy/src/routes/curatedCuriosity.ts`  
 **Data:** Supabase (`curated_shows`, `curated_episodes` with `curiosity_question`,
 `curiosity_hook`, `curiosity_score`).
 
 - Paginated: 24 cards/page via RPC `get_curiosity_deck_v2(p_page, p_limit)`.
 - Ranking: `curiosity_score × daily_hash_random` per episode, 1 per show per page.
-- Populated by `scripts/sync-curiosity.js` (Gemini generates questions + scores).
+- Populated by the curiosity sync job (LLM-generated questions + scores).
 - Edge + KV cache: `curiosity:v3:page:{n}`.
 
 Client (`LearnViewModel`) filters dismissed IDs locally, weighted-shuffles by score, and
@@ -914,17 +963,17 @@ feeds ranking feedback on dismiss/queue/play.
 
 ### 12.9 Because-you-like & similar episodes
 
-**Because-you-like** (`handleBecauseYouLike`):
+**Because-you-like** (`POST /recommendations/because-you-like`):
 - Embed podcast title + description → query `podcasts` (15) + `episodes` (40) collections.
 - Returns `{ podcasts: [...], episodes: [...] }`.
 
-**Similar episodes** (`handleEpisodesSimilar`):
+**Similar episodes** (`POST /episodes/similar`):
 - Single episode ID → retrieve vector → nearest-neighbor search in `episodes`.
 - Used by Smart Queue Tier 3 (cold users) and Tier 3.5 (recent liked episode).
 
 ### 12.10 Data infrastructure
 
-#### Qdrant (`proxy/src/services/qdrant.ts`)
+#### Qdrant (vector index)
 
 | Collection | Contents | Key payload fields |
 |------------|----------|-------------------|
@@ -951,28 +1000,37 @@ Indexed: `language` (filter), `id`, `podcast_id`.
 
 #### ETL pipeline (boxlore CI — `.github/workflows/sync-pi-data.yml`)
 
-Runs every 6 hours for regions `[us, in, gb, fr]`:
+The pool of recommendations queryable in Qdrant is built and maintained by this workflow.
+It runs every 6 hours (or manually) for regions `[us, in, gb, fr]`:
 
 ```
 populate-charts.js     → Turso charts (iTunes RSS top 200 × 16 genres)
 pre-check-sync.js      → skip full PI dump if unchanged
-podcastindex_feeds.db  → global PI SQLite dump (~1.5 GB)
+podcastindex_feeds.db  → global Podcast Index SQLite dump (~1.5 GB)
 get-chart-itunes-ids   → export matching feeds to CSV
-import-pi-data.js      → Turso podcasts/episodes
+create-episodes-table  → ensure Turso schema / indices / triggers
+import-pi-data.js      → Turso podcasts/episodes (+ live PI episode sync)
 vectorize.js           → Xenova embeddings → Qdrant upsert (latest 30 eps/show)
-                       → prune older vectors per show
+                       → prune older vectors per show (rolling window)
 ```
 
-See also `core/data/.../analytics/recommendation_logic.md` for the original v1/ETL write-up.
+`vectorize.js` details:
+- Selects trending podcasts in Turso with `qdrant_vectorized = 0/NULL`.
+- Fetches the latest 30 episodes per show from Podcast Index.
+- Skips points already in Qdrant (MD5-hashed episode IDs as UUIDs).
+- Cleans descriptions, builds the standard prompt, embeds with Xenova/bge-large-en-v1.5.
+- Upserts vectors + payload metadata; marks `qdrant_vectorized = 1`.
+- Deletes Qdrant points for the show that are outside the active top-30 window (free-tier
+  storage discipline).
 
 ### 12.11 Caching layers (full stack)
 
 | Layer | TTL | Key pattern |
 |-------|-----|-------------|
-| Server KV (v1 recs) | 3h | `rec:user:{uuid}:{country}:personalized:{hash}` |
-| Server KV (v2 recs) | 3h | `rec:v2:{uuid}:{country}:{mode}:{hash}` |
-| Server KV (fallback vectors) | 24h | `rec:v2:fallback-vector:{sha256}` |
-| Server edge (bootstrap GET) | 1h | by country |
+| API KV (v1 recs) | 3h | `rec:user:{uuid}:{country}:personalized:{hash}` |
+| API KV (v2 recs) | 3h | `rec:v2:{uuid}:{country}:{mode}:{hash}` |
+| API KV (fallback vectors) | 24h | `rec:v2:fallback-vector:{sha256}` |
+| API edge (bootstrap GET) | 1h | by country |
 | Client memory (recs) | 15m | `PodcastRepository.recommendationsCache` |
 | Client memory (because-you-like) | 15m | `becauseYouLikeCache` |
 | Client disk (home recs) | session | `boxcast_prefs` → `cached_recommendations` |
@@ -982,7 +1040,7 @@ Bypass: `Cache-Control: no-cache` header or `?bypass_cache=true`.
 
 ---
 
-## 13. Client–server integration
+## 13. Client–API integration
 
 ### 13.1 End-to-end flow (Home For You)
 
@@ -991,7 +1049,7 @@ Bypass: `Cache-Control: no-cache` header or `?bypass_cache=true`.
 2. GET /home/bootstrap?country=us          → briefing + trending (fast)
 3. POST /home/bootstrap                     → + recommendations (deviceUuid)
    └─ client builds v2 seeds from Room history
-   └─ server returns 60 candidates with retrievalScore
+   └─ API returns 60 candidates with retrievalScore
 4. adaptiveScorer.rankEpisodes(DISCOVERY, HOME)
    └─ 18-dim features + bandit blend → re-ordered list
 5. DiversityReranker (max 2/show, novel slot)
@@ -1000,9 +1058,9 @@ Bypass: `Cache-Control: no-cache` header or `?bypass_cache=true`.
 8. user plays → recordPlayback → model.update()
 ```
 
-### 13.2 What stays on-device vs. what goes to the server
+### 13.2 What stays on-device vs. what goes to the API
 
-| Data | Sent to server? | Stored on device? |
+| Data | Sent to API? | Stored on device? |
 |------|:--------------:|:-----------------:|
 | Episode/podcast IDs + weights (seeds) | ✅ v2 | — |
 | Full listening history (progress, liked) | ✅ v1 only | ✅ Room |
@@ -1015,10 +1073,10 @@ Bypass: `Cache-Control: no-cache` header or `?bypass_cache=true`.
 
 ### 13.3 Prior score handoff
 
-Server `retrievalScore` / `semanticScore` → client's `CandidateSignals.serverRelevance`
+API `retrievalScore` / `semanticScore` → client's `CandidateSignals.serverRelevance`
 → normalized via `normalizePriors()` → blended as `prior` in `AdaptiveLinearModel.score()`.
 
-The bandit never discards server relevance entirely: `maximumLearnedBlend = 0.65` means
+The bandit never discards API relevance entirely: `maximumLearnedBlend = 0.65` means
 the prior always retains ≥35% influence even after 50+ learning outcomes.
 
 ---
@@ -1033,14 +1091,14 @@ to one show, opened Home in the US.
 | Step | Layer | What happens |
 |------|-------|--------------|
 | 1 | Client | `buildRecommendationSeeds()` returns 1 podcast seed (weight 0.35) + interests |
-| 2 | Server | v2: diversity vector from interests embeds "Science, Technology"; Qdrant returns broad matches |
-| 3 | Server | `isFallback: true` if seeds insufficient; geo-default interests used |
-| 4 | Client | `blend = 0` (cold_start) → pure prior order from server scores |
+| 2 | API | v2: diversity vector from interests embeds "Science, Technology"; Qdrant returns broad matches |
+| 3 | API | `isFallback: true` if seeds insufficient; geo-default interests used |
+| 4 | Client | `blend = 0` (cold_start) → pure prior order from API scores |
 | 5 | Client | `ContentOrchestrator` renders `quick_update` intent (morning) from catalog fallback |
 | 6 | Client | Mixtape shows unplayed subscription drops only; no adaptive re-rank yet |
 
 **Outcome:** User sees chart-backed trending + genre-broad discovery. No personalization
-model influence yet, but server semantic search still finds relevant candidates.
+model influence yet, but API semantic search still finds relevant candidates.
 
 ### Scenario B — Warm user opens Home (120+ outcomes, liked science shows)
 
@@ -1050,14 +1108,14 @@ model influence yet, but server semantic search still finds relevant candidates.
 | Step | Layer | What happens |
 |------|-------|--------------|
 | 1 | Client | Top 12 episode seeds: 3 at weight 1.0 (liked), 4 at 0.9 (completed), rest 0.55–0.75 |
-| 2 | Server | RRF fuses 12 seed queries + diversity vector; returns 60 candidates |
+| 2 | API | RRF fuses 12 seed queries + diversity vector; returns 60 candidates |
 | 3 | Client | `SHOW` facet for "Science Weekly" affinity ≈ +0.6 → `SHOW_AFFINITY` ≈ 0.8 |
 | 4 | Client | `final = 0.35·prior + 0.65·learned + UCB_bonus` for each candidate |
 | 5 | Client | DiversityReranker caps at 2 eps/show, reserves novel slot for unsubscribed show |
 | 6 | Client | Exposure logged; user plays 40 min + likes → reward ≈ +0.87 |
 | 7 | Client | `DISCOVERY` matrix updates; SHOW/GENRE/SOURCE facets tick positive |
 
-**Outcome:** Tomorrow, science shows and similar genres get lift. Server still provides
+**Outcome:** Tomorrow, science shows and similar genres get lift. The API still provides
 candidates; client model decides ordering.
 
 ### Scenario C — Smart Queue refill after discovery landing
@@ -1071,7 +1129,7 @@ candidates; client model decides ordering.
 | 2 | Client | Tier 1: no resume candidates (only 5 min progress) |
 | 3 | Client | Tier 2: subscription round-robin (local feeds, no network) |
 | 4 | Client | Tier 3: `getPersonalizedRecommendations()` with `excludedEpisodeIds` = queue + history |
-| 5 | Server | v2 RRF with exclusions → fresh candidates not already queued |
+| 5 | API | v2 RRF with exclusions → fresh candidates not already queued |
 | 6 | Client | `rankFallbackEntries(CONTINUATION, QUEUE)` with diversity + novel slot |
 | 7 | Client | Append with source tag `personalized_rec`; exposure logged |
 
@@ -1090,7 +1148,7 @@ within 30 seconds.
 | 4 | Client | Next refill: Tier 2/3 candidates from that show down-ranked |
 | 5 | Client | If exposure existed, bandit learns `CURRENT_SHOW` / `SHOW_AFFINITY` negative correlation |
 
-**Outcome:** Show fades from queue suggestions without any server-side state change.
+**Outcome:** Show fades from queue suggestions without any API-side state change.
 
 ### Scenario E — Explore semantic search + adaptive re-rank
 
@@ -1098,8 +1156,8 @@ within 30 seconds.
 
 | Step | Layer | What happens |
 |------|-------|--------------|
-| 1 | Server | `GET /search/semantic?q=...` → embed query → Qdrant episodes query (50) → recency boost → top 30 |
-| 2 | Client | Results arrive in server relevance order |
+| 1 | API | `GET /search/semantic?q=...` → embed query → Qdrant episodes query (50) → recency boost → top 30 |
+| 2 | Client | Results arrive in API relevance order |
 | 3 | Client | `ExploreViewModel` chunks into windows of 4, re-ranks each with `DISCOVERY`/`EXPLORE` |
 | 4 | Client | User's science/genre affinities boost matching results within each relevance band |
 | 5 | Client | No exposure logged unless user opens details (search is not a ranked slate) |
@@ -1113,7 +1171,7 @@ reflects personal taste.
 
 | Step | Layer | What happens |
 |------|-------|--------------|
-| 1 | Server | `GET /curated/curiosity-v3?page=1` → 24 cards, scored by `curiosity_score` |
+| 1 | API | `GET /curated/curiosity-v3?page=1` → 24 cards, scored by `curiosity_score` |
 | 2 | Client | Filter dismissed IDs; weighted shuffle; render card stack |
 | 3 | Client | `recordExposure()` with `DISCOVERY` objective when card becomes visible |
 | 4a | User swipes away after 3s | `DISMISS` → reward −0.75 → facet + bandit update |
@@ -1129,10 +1187,10 @@ reflects personal taste.
 |------|-------|--------------|
 | 1 | Client A | `AdaptiveRankingRepository.exportBackup()` → JSON blob in backup file |
 | 2 | Client B | `restoreBackup()` validates schema, restores models + facets |
-| 3 | Client B | Server recs use phone B's device UUID (fresh server cache) |
+| 3 | Client B | API recs use phone B's device UUID (fresh API cache) |
 | 4 | Client B | Adaptive ranking immediately applies restored θ and facet affinities |
 
-**Outcome:** Personalization travels with backup; server cache is per-device and cold.
+**Outcome:** Personalization travels with backup; API cache is per-device and cold.
 
 ### Scenario H — v1 → v2 fallback on network error
 
@@ -1142,10 +1200,10 @@ reflects personal taste.
 |------|-------|--------------|
 | 1 | Client | `fetchRecommendationV2()` returns null |
 | 2 | Client | `fetchLegacyRecommendations()` sends full history to v1 |
-| 3 | Server | Genre-cluster pipeline runs (§12.4) |
+| 3 | API | Genre-cluster pipeline runs (§12.4) |
 | 4 | Client | Same adaptive re-ranking applied regardless of v1/v2 source |
 
-**Outcome:** Degraded server path still produces candidates; client personalization unchanged.
+**Outcome:** Degraded API path still produces candidates; client personalization unchanged.
 
 ---
 
@@ -1196,17 +1254,11 @@ Per objective (`aggregateTelemetry` / the `blend` schedule):
 | Home queue | `MixtapeEngine` | `MixtapeEngine.kt` |
 | Playback queue refill | `DefaultSmartQueueEngine` | `SmartQueueEngine.kt` |
 | Prior heuristic | `PodcastScoring` | `PodcastScoring.kt` |
-| Server API | `BoxLoreApi`, `Recommendations*Request/Response` | `core/network/.../BoxLoreApi.kt`, `.../model/SyncModels.kt` |
-| Proxy router | `src/index.ts` | `proxy/src/index.ts` |
-| Recs v1 | `handleRecommendations` | `proxy/src/routes/recommendations.ts` |
-| Recs v2 | `handleRecommendationsV2`, `weightedReciprocalRankFusion` | `proxy/src/routes/recommendationsV2.ts` |
-| Home bootstrap | `handleBootstrap` | `proxy/src/routes/bootstrap.ts` |
-| Content catalog | `CONTENT_INTENTS`, `handleContentCatalog` | `proxy/src/routes/contentCatalog.ts` |
-| Curated vibes | `VIBE_VECTORS`, `handleCuratedVibe` | `proxy/src/vibes.ts`, `proxy/src/routes/curatedVibes.ts` |
-| Curiosity deck | `handleCuratedCuriosity` | `proxy/src/routes/curatedCuriosity.ts` |
-| Qdrant client | `queryQdrant`, `retrieveSeedPoints` | `proxy/src/services/qdrant.ts` |
-| ETL (vector pool) | `sync-pi-data.yml`, `vectorize.js` | `boxlore/.github/workflows/`, `boxlore/scripts/sync/` |
-| Legacy server doc | v1 payload + ETL detail | `core/data/.../analytics/recommendation_logic.md` |
+| API client | `BoxLoreApi`, `Recommendations*Request/Response` | `core/network/.../BoxLoreApi.kt`, `.../model/SyncModels.kt` |
+| Recs fetch | `PodcastRepository.getPersonalizedRecommendations` | `core/data/PodcastRepository.kt` |
+| Seed builder | `buildRecommendationSeeds` | `core/data/PodcastRepository.kt` |
+| ETL (vector pool) | `sync-pi-data.yml`, `vectorize.js` | `.github/workflows/`, `scripts/sync/` |
+| Legacy recs (v1) | documented in §12.4 | (former `recommendation_logic.md` absorbed here) |
 
 ---
 
@@ -1214,7 +1266,7 @@ Per objective (`aggregateTelemetry` / the `blend` schedule):
 
 ### 18.1 Home morning session (client learning)
 
-You open Home in the morning. The `ContentOrchestrator` resolves the server intent catalog
+You open Home in the morning. The `ContentOrchestrator` resolves the API intent catalog
 into rows like "Quick update" and "Start with momentum". For a candidate episode of a
 show you've liked twice recently:
 
@@ -1233,7 +1285,7 @@ show you've liked twice recently:
 7. Tomorrow, that show — and, via genre/source affinity, *similar* shows you haven't heard
    — get a bit more lift.
 
-### 18.2 RRF fusion (server retrieval)
+### 18.2 RRF fusion (API retrieval)
 
 Suppose v2 receives two episode seeds and one diversity vector:
 
@@ -1262,12 +1314,12 @@ A user listened to episode 987654 for 25 minutes of a 50-minute episode and like
 
 | Stage | Computation | Value |
 |-------|-------------|------:|
-| Server v1 weight | `w_raw = 0.3 + 0.7×0.5 = 0.65`; liked → `+0.3` → `0.95` | 0.95 |
+| API v1 weight | `w_raw = 0.3 + 0.7×0.5 = 0.65`; liked → `+0.3` → `0.95` | 0.95 |
 | Client v2 seed | liked → weight | 1.0 |
 | Client v2 fallback text | `"Episode: How CRISPR changed medicine. Podcast: Science Weekly. Genres: Science"` | (if vector missing in Qdrant) |
 
 If the episode vector is not yet in Qdrant (new show outside the chart-synced pool), the
-server embeds the fallback text at request time and caches the resulting vector for 24h.
+the API embeds the fallback text at request time and caches the resulting vector for 24h.
 
-That is boxlore "learning" — server finds semantically relevant candidates; the device
+That is boxlore "learning" — the API finds semantically relevant candidates; the device
 learns which candidates you actually want.
