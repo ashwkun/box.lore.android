@@ -243,11 +243,6 @@ class ContentOrchestrator(
     ): ContentSlate {
         val (catalogVersion, intents) = intentResolver.resolve(catalog, context)
         val fallbackCacheKey = cacheKey(context, catalogVersion, intents, now)
-        if (!forceRefresh) {
-            sessionCache[fallbackCacheKey]
-                ?.takeIf { it.sections.isNotEmpty() }
-                ?.let { return it }
-        }
         val groupedSections = loadGroupedSections(context)
         if (groupedSections != null) {
             val groupedCacheKey = cacheKey(
@@ -381,6 +376,11 @@ class ContentOrchestrator(
 
     fun clearAll() {
         sessionCache.clear()
+        exposureBudget.reset()
+    }
+
+    /** Clears cross-compose exposure memory without dropping the session slate cache. */
+    fun resetExposureBudget() {
         exposureBudget.reset()
     }
 

@@ -1060,6 +1060,9 @@ class HomeViewModel(
         context: ContentContext,
         catalog: ContentCatalogSnapshot?,
     ) {
+        // Stale compose already recorded those candidates; without a reset the refresh
+        // filters every overlapping item out and we keep the cache forever.
+        contentOrchestrator.resetExposureBudget()
         val freshSlate = contentOrchestrator.compose(
             context = context,
             catalog = catalog,
@@ -1085,11 +1088,31 @@ class HomeViewModel(
     ) {
         _adaptiveSections.value = sections
         _isAdaptiveSectionsLoading.value = loading
+        val discover = discoverPodcastsExcluding(
+            trending = cachedForYouTrending,
+            heroItems = cachedHeroItems,
+            adaptiveSections = sections,
+        )
         _uiState.update {
             it.copy(
                 adaptiveSections = sections,
                 isAdaptiveSectionsLoading = loading,
+                discoverPodcasts = discover ?: it.discoverPodcasts,
             )
+        }
+    }
+
+    private fun discoverPodcastsExcluding(
+        trending: List<Podcast>,
+        heroItems: List<SmartHeroItem>,
+        adaptiveSections: List<ContentSection>,
+    ): List<Podcast>? {
+        if (trending.isEmpty()) return null
+        return trending.filter { podcast ->
+            heroItems.none { it.podcast.id == podcast.id } &&
+                adaptiveSections.none { section ->
+                    section.items.any { candidate -> candidate.podcast.id == podcast.id }
+                }
         }
     }
 
@@ -1785,15 +1808,18 @@ class HomeViewModel(
                             i++
                         }
 
-                        val remaining = trendingList.filter { !usedPodcastIds.contains(it.id) }
-                        val discover = remaining 
-
                         if (trendingList.isNotEmpty()) {
                             cachedRegion = region
                             cachedForYouTrending = trendingList
                             cachedHeroItems = heroList
                             cachedLatestEpisodes = mixtapePodcasts
                         }
+
+                        val discover = discoverPodcastsExcluding(
+                            trending = trendingList,
+                            heroItems = heroList,
+                            adaptiveSections = _adaptiveSections.value,
+                        ).orEmpty()
 
                         val episodePlaybackState = allHistory.associate { history ->
                             val ratio = if (history.durationMs > 0) {
@@ -1885,13 +1911,12 @@ class HomeViewModel(
                 if (category == null) {
                     // "For You" - use cached data instantly if it matches current region
                     if (cachedRegion == region && cachedHeroItems.isNotEmpty()) {
-                        val discover = cachedForYouTrending.filter { pod ->
-                            !cachedHeroItems.any { it.podcast.id == pod.id } &&
-                                _adaptiveSections.value.none { section ->
-                                    section.items.any { candidate -> candidate.podcast.id == pod.id }
-                                }
-                        }
-                        
+                        val discover = discoverPodcastsExcluding(
+                            trending = cachedForYouTrending,
+                            heroItems = cachedHeroItems,
+                            adaptiveSections = _adaptiveSections.value,
+                        ).orEmpty()
+
                         _uiState.update { 
                             it.copy(
                                 selectedCategory = null,

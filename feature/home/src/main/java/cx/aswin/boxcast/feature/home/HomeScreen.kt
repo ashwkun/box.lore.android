@@ -1047,7 +1047,8 @@ private fun DiscoveryGreetingHeader(
     }
     HomeTopLevelSectionHeader(
         title = greeting.title,
-        subtitle = greeting.subtitle,
+        // Personalized rails are no longer daypart-specific; omit time-claiming subcopy.
+        subtitle = null,
         icon = icon,
         seeAllIcon = Icons.Rounded.ChevronRight,
         seeAllContentDescription = "See all discoveries",

@@ -1,6 +1,7 @@
 package cx.aswin.boxcast.core.data.ranking
 
 import android.content.Context
+import androidx.room.withTransaction
 import cx.aswin.boxcast.core.data.ranking.database.AdaptiveModelEntity
 import cx.aswin.boxcast.core.data.ranking.database.AdaptiveRankingDatabase
 import cx.aswin.boxcast.core.data.ranking.database.PreferenceFacetEntity
@@ -9,8 +10,11 @@ import cx.aswin.boxcast.core.model.PodcastGenres
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.max
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 data class RankingExposure(
     val episodeId: String,
@@ -282,13 +286,49 @@ class AdaptiveRankingRepository private constructor(
     }
 
     /**
-     * Drops non-canonical genre facets (e.g. the "Podcast" placeholder) so they cannot
-     * keep weighting the local bandit after older builds wrote them.
+     * Merges alias genre facets into their canonical keys and drops placeholders (e.g.
+     * "Podcast") so older builds cannot orphan evidence or keep weighting invalid keys.
      */
     suspend fun pruneNonCanonicalGenreFacets() {
-        dao.getFacetsByType(PreferenceFacetType.GENRE.name).forEach { entity ->
-            if (PodcastGenres.canonicalize(entity.facetKey) == null) {
-                dao.deleteFacet(entity.facetType, entity.facetKey)
+        database.withTransaction {
+            val genres = dao.getFacetsByType(PreferenceFacetType.GENRE.name)
+            if (genres.isEmpty()) return@withTransaction
+            val byKey = genres.associateBy { it.facetKey }
+            val mergedCanonical = linkedMapOf<String, BayesianPreferenceFacet>()
+            val deleteKeys = mutableListOf<String>()
+
+            for (entity in genres) {
+                val canonical = PodcastGenres.canonicalize(entity.facetKey)
+                if (canonical == null) {
+                    deleteKeys += entity.facetKey
+                    continue
+                }
+                if (canonical == entity.facetKey) continue
+
+                deleteKeys += entity.facetKey
+                val base = mergedCanonical[canonical]
+                    ?: byKey[canonical]?.toFacet()
+                    ?: BayesianPreferenceFacet(updatedAt = entity.updatedAt)
+                mergedCanonical[canonical] = BayesianPreferenceFacet(
+                    positiveEvidence = base.positiveEvidence + entity.positiveEvidence,
+                    negativeEvidence = base.negativeEvidence + entity.negativeEvidence,
+                    updatedAt = max(base.updatedAt, entity.updatedAt),
+                )
+            }
+
+            for ((canonical, facet) in mergedCanonical) {
+                dao.upsertFacet(
+                    PreferenceFacetEntity(
+                        facetType = PreferenceFacetType.GENRE.name,
+                        facetKey = canonical,
+                        positiveEvidence = facet.positiveEvidence,
+                        negativeEvidence = facet.negativeEvidence,
+                        updatedAt = facet.updatedAt,
+                    ),
+                )
+            }
+            for (key in deleteKeys) {
+                dao.deleteFacet(PreferenceFacetType.GENRE.name, key)
             }
         }
     }
@@ -316,7 +356,7 @@ class AdaptiveRankingRepository private constructor(
      */
     suspend fun learnerInspectorSnapshot(
         now: Long = System.currentTimeMillis(),
-    ): LearnerInspectorSnapshot {
+    ): LearnerInspectorSnapshot = withContext(Dispatchers.Default) {
         pruneNonCanonicalGenreFacets()
         val objectives = RankingObjective.entries.map { debugSnapshot(it) }
         val telemetry = aggregateTelemetry()
@@ -361,7 +401,7 @@ class AdaptiveRankingRepository private constructor(
         val featureWeights = FeatureSlot.entries.map { slot ->
             LearnerFeatureWeightDebug(slot = slot, weight = theta[slot.ordinal])
         }
-        return LearnerInspectorSnapshot(
+        LearnerInspectorSnapshot(
             objectives = objectives,
             telemetry = telemetry,
             facets = facets,

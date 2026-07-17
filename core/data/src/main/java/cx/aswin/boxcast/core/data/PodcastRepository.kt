@@ -825,11 +825,11 @@ class PodcastRepository(
                     localDate = localDate,
                     profileFingerprint = profileFingerprint,
                 )
-                val editor = contentSectionsPreferences.edit().putString(cacheKey, payload)
-                if (responseKey != cacheKey) {
-                    editor.putString(responseKey, payload)
-                }
-                editor.apply()
+                persistContentSectionsCache(
+                    activeKey = responseKey,
+                    aliasKey = cacheKey.takeIf { it != responseKey },
+                    payload = payload,
+                )
             }
             mapped ?: cached
         } catch (error: kotlinx.coroutines.CancellationException) {
@@ -857,8 +857,13 @@ class PodcastRepository(
     ): GroupedContentSections? {
         val json = contentSectionsPreferences.getString(cacheKey, null) ?: return null
         return runCatching {
-            Gson().fromJson(json, ContentSectionsV1Response::class.java)
-                .toGroupedContentSections(catalog, seenPodcastIds, subscribedPodcastIds)
+            val response = Gson().fromJson(json, ContentSectionsV1Response::class.java)
+            if (response.algorithmVersion != PERSONALIZED_CONTENT_SECTIONS_ALGORITHM) {
+                contentSectionsPreferences.edit().remove(cacheKey).apply()
+                null
+            } else {
+                response.toGroupedContentSections(catalog, seenPodcastIds, subscribedPodcastIds)
+            }
         }.getOrNull()
     }
 
@@ -875,10 +880,13 @@ class PodcastRepository(
             resolvedDaypart = ContentSectionsDaypartResolver.resolve(slot.localMinuteOfDay),
             localDate = slot.localDate,
         )
-        val staleKey = contentSectionsPreferences.all.keys
-            .asSequence()
-            .filterIsInstance<String>()
-            .firstOrNull { it.startsWith(prefix) }
+        val pointerKey = contentSectionsLatestPointerKey(prefix)
+        val staleKey = contentSectionsPreferences.getString(pointerKey, null)
+            ?: contentSectionsPreferences.all.keys
+                .asSequence()
+                .filterIsInstance<String>()
+                .filter { it.startsWith(prefix) && it != pointerKey }
+                .maxOrNull()
             ?: return null
         return readCachedContentSections(
             cacheKey = staleKey,
@@ -886,6 +894,43 @@ class PodcastRepository(
             seenPodcastIds = seenPodcastIds,
             subscribedPodcastIds = subscribedPodcastIds,
         )
+    }
+
+    /**
+     * Keeps a single active payload per daypart slot. Older fingerprint keys under the same
+     * prefix are removed so stale-while-revalidate cannot resurrect a superseded profile.
+     */
+    private fun persistContentSectionsCache(
+        activeKey: String,
+        aliasKey: String?,
+        payload: String,
+    ) {
+        val slotPrefixes = buildSet {
+            add(contentSectionsSlotPrefix(activeKey))
+            if (aliasKey != null) add(contentSectionsSlotPrefix(aliasKey))
+        }
+        val editor = contentSectionsPreferences.edit()
+        contentSectionsPreferences.all.keys
+            .asSequence()
+            .filterIsInstance<String>()
+            .filter { key -> slotPrefixes.any { prefix -> key.startsWith(prefix) } }
+            .forEach(editor::remove)
+        editor.putString(activeKey, payload)
+        if (aliasKey != null) {
+            editor.putString(aliasKey, payload)
+        }
+        slotPrefixes.forEach { prefix ->
+            editor.putString(contentSectionsLatestPointerKey(prefix), activeKey)
+        }
+        editor.apply()
+    }
+
+    private fun contentSectionsSlotPrefix(cacheKey: String): String {
+        return cacheKey.dropLast(CONTENT_SECTIONS_PROFILE_FINGERPRINT_HEX_LENGTH)
+    }
+
+    private fun contentSectionsLatestPointerKey(slotPrefix: String): String {
+        return "${slotPrefix}__latest"
     }
 
     private data class ContentSectionsSlotKey(
@@ -1438,6 +1483,8 @@ class PodcastRepository(
         private const val CONTENT_SECTION_CANDIDATE_BUDGET = 120
         private const val MAX_RECENT_CONTENT_SECTION_IDS = 24
         private const val MAX_CONTENT_SECTION_ID_LENGTH = 128
+        private const val PERSONALIZED_CONTENT_SECTIONS_ALGORITHM = "personalized-recipe-mmr-v1.1"
+        private const val CONTENT_SECTIONS_PROFILE_FINGERPRINT_HEX_LENGTH = 24
         private const val MIN_TIMEZONE_OFFSET_MINUTES = -840
         private const val MAX_TIMEZONE_OFFSET_MINUTES = 840
 
