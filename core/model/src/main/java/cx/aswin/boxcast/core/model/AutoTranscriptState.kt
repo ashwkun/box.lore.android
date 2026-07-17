@@ -1,9 +1,9 @@
-package cx.aswin.boxcast.core.designsystem.components
+package cx.aswin.boxcast.core.model
 
 /**
  * Represents the state of AI auto-transcription for an episode.
- * Used by the player UI to render the transcript button with appropriate
- * badges, loaders, and interaction behavior.
+ * Used by playback state and the player UI to render transcript/chapter
+ * controls with appropriate badges, loaders, and interaction behavior.
  */
 enum class AutoTranscriptState {
     /** RSS transcript is available — normal behavior, no badge/indicator. */

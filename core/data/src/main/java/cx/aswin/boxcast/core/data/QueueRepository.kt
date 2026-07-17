@@ -14,11 +14,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class QueueRepository @Inject constructor(
+class QueueRepository(
     private val database: BoxLoreDatabase,
     private val podcastRepository: PodcastRepository
 ) {

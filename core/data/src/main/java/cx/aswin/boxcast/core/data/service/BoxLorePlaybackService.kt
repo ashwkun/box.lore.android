@@ -526,7 +526,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     cachedSeekBackwardMs / 1_000L,
                 ),
             )
-            .setIconResId(cx.aswin.boxcast.core.designsystem.R.drawable.rounded_replay_24)
+            .setIconResId(cx.aswin.boxcast.core.data.R.drawable.rounded_replay_24)
             .setSessionCommand(androidx.media3.session.SessionCommand("SEEK_BACK", Bundle.EMPTY))
             .build()
         seekForwardAction = androidx.media3.session.CommandButton.Builder()
@@ -536,7 +536,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                     cachedSeekForwardMs / 1_000L,
                 ),
             )
-            .setIconResId(cx.aswin.boxcast.core.designsystem.R.drawable.rounded_forward_24)
+            .setIconResId(cx.aswin.boxcast.core.data.R.drawable.rounded_forward_24)
             .setSessionCommand(androidx.media3.session.SessionCommand("SEEK_FORWARD", Bundle.EMPTY))
             .build()
     }

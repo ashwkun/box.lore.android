@@ -48,4 +48,5 @@ dependencies {
     implementation(libs.smooth.corner.rect)
     api(libs.coil.compose) // OptimizedImage composable uses Coil
     implementation(libs.posthog.android)
+    implementation(libs.kotlinx.coroutines.android)
 }

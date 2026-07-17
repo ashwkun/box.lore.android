@@ -30,7 +30,7 @@ import cx.aswin.boxcast.core.data.ranking.CandidateSource
 import cx.aswin.boxcast.core.data.ranking.FeedbackTarget
 import cx.aswin.boxcast.core.data.ranking.RankingAction
 import cx.aswin.boxcast.core.data.ranking.RankingFeedbackRepository
-import cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState
+import cx.aswin.boxcast.core.model.AutoTranscriptState
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 

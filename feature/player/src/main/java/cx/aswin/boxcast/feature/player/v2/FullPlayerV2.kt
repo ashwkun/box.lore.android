@@ -93,7 +93,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cx.aswin.boxcast.core.data.PlaybackRepository
 import cx.aswin.boxcast.core.data.PlayerState
-import cx.aswin.boxcast.core.designsystem.components.AutoTranscriptState
+import cx.aswin.boxcast.core.model.AutoTranscriptState
 import cx.aswin.boxcast.core.designsystem.theme.LocalEffectiveDarkTheme
 import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.Podcast
@@ -541,7 +541,7 @@ private fun PlayerShareSheet(
         currentPositionMs = currentPosition,
         showTimestampOption = true,
         onShare = { _, _, timestamp, target ->
-            cx.aswin.boxcast.core.data.ShareManager.shareEpisode(
+            cx.aswin.boxcast.core.designsystem.share.ShareManager.shareEpisode(
                 context = context,
                 episode = model.episode,
                 podcastTitle = model.podcast.title,

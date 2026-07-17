@@ -2,11 +2,8 @@ package cx.aswin.boxcast.core.data.crosspromo
 
 import cx.aswin.boxcast.core.data.PodcastRepository
 import cx.aswin.boxcast.core.model.Podcast
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class CrossPromotionResolver @Inject constructor(
+class CrossPromotionResolver(
     private val podcastRepository: PodcastRepository
 ) {
     private val resolutionCache = mutableMapOf<String, Podcast?>()

@@ -2087,7 +2087,7 @@ private fun PodcastInfoTopOverlay(
                     imageUrl = podcast.imageUrl,
                     onDismissRequest = { showShareSheet = false },
                     onShare = { _, _, _, target ->
-                        cx.aswin.boxcast.core.data.ShareManager.sharePodcast(
+                        cx.aswin.boxcast.core.designsystem.share.ShareManager.sharePodcast(
                             context = context,
                             podcast = podcast,
                             target = target

@@ -5,11 +5,8 @@ import cx.aswin.boxcast.core.model.PlaybackEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class QueueManager @Inject constructor(
+class QueueManager(
     private val queueRepository: QueueRepository,
     private val playbackRepository: PlaybackRepository
 ) {

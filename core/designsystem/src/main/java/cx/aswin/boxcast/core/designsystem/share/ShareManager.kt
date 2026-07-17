@@ -1,4 +1,4 @@
-package cx.aswin.boxcast.core.data
+package cx.aswin.boxcast.core.designsystem.share
 
 import android.content.Context
 import android.content.Intent

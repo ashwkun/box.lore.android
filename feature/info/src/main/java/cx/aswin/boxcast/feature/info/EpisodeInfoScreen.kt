@@ -1100,7 +1100,7 @@ fun EpisodeInfoScreen(
                             currentPositionMs = currentSuccessState?.resumePositionMs ?: 0L,
                             showTimestampOption = false,
                             onShare = { _, _, timestamp, target ->
-                                cx.aswin.boxcast.core.data.ShareManager.shareEpisode(
+                                cx.aswin.boxcast.core.designsystem.share.ShareManager.shareEpisode(
                                     context = context,
                                     episode = shareEpisode,
                                     podcastTitle = podcastTitle,

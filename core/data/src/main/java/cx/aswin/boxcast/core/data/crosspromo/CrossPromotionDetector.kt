@@ -4,11 +4,8 @@ import cx.aswin.boxcast.core.model.Episode
 import cx.aswin.boxcast.core.model.CrossPromotionConfidence
 import cx.aswin.boxcast.core.model.CrossPromotionIndicator
 import cx.aswin.boxcast.core.model.CrossPromotionResult
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class CrossPromotionDetector @Inject constructor() {
+class CrossPromotionDetector {
 
     private val strictDelimiterRegex = Regex(
         """^(?:\[|\(|\*)?(?:feed drop|trailer swap|promo drop|bonus drop|listen now|feed swap|feed share|promo swap|special preview|listen to|guest feed|companion show|network premiere|crossover|cross.?promo|promo episode)(?:\]|\)|\*)?\s*(?::|-|\|\||\|)\s*(.+)""",
