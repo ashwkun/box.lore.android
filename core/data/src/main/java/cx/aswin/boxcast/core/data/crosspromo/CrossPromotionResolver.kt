@@ -15,7 +15,7 @@ class CrossPromotionResolver @Inject constructor(
     suspend fun resolve(extractedName: String): Podcast? {
         if (extractedName.isBlank()) return null
         val cleanExtracted = extractedName.trim().lowercase()
-        
+
         synchronized(cacheLock) {
             if (resolutionCache.containsKey(cleanExtracted)) {
                 return resolutionCache[cleanExtracted]
@@ -40,25 +40,17 @@ class CrossPromotionResolver @Inject constructor(
 
         // 4. Clean query by removing season/series/part suffixes for better search indexing
         val searchQuery = seasonSuffixRegex.replace(cleanedName, "").trim()
-        if (searchQuery.isBlank()) return null
+        if (searchQuery.isBlank()) {
+            synchronized(cacheLock) {
+                resolutionCache[cleanExtracted] = null
+            }
+            return null
+        }
 
         val resolved = try {
             val results = podcastRepository.searchPodcasts(searchQuery)
-            val bestMatch = results.firstOrNull()
-            if (bestMatch != null) {
-                val normalizedTitle = normalizeForComparison(bestMatch.title)
-                val normalizedCleaned = normalizeForComparison(cleanedName)
-                if (normalizedTitle == normalizedCleaned || 
-                    normalizedTitle.contains(normalizedCleaned) || 
-                    normalizedCleaned.contains(normalizedTitle)) {
-                    bestMatch
-                } else {
-                    null
-                }
-            } else {
-                null
-            }
-        } catch (e: Exception) {
+            pickBestMatch(results, cleanedName, searchQuery)
+        } catch (_: Exception) {
             null
         }
 
@@ -68,8 +60,43 @@ class CrossPromotionResolver @Inject constructor(
         return resolved
     }
 
+    private fun pickBestMatch(
+        results: List<Podcast>,
+        cleanedName: String,
+        searchQuery: String
+    ): Podcast? {
+        if (results.isEmpty()) return null
+
+        val normalizedCleaned = normalizeForComparison(cleanedName)
+        val normalizedQuery = normalizeForComparison(searchQuery)
+
+        data class Scored(val podcast: Podcast, val score: Int)
+
+        val scored = results.take(8).mapNotNull { podcast ->
+            val title = normalizeForComparison(podcast.title)
+            val score = when {
+                title == normalizedCleaned || title == normalizedQuery -> 100
+                title.startsWith(normalizedCleaned) || normalizedCleaned.startsWith(title) -> 85
+                title.contains(normalizedCleaned) || normalizedCleaned.contains(title) -> 70
+                title.startsWith(normalizedQuery) || normalizedQuery.startsWith(title) -> 60
+                title.contains(normalizedQuery) || normalizedQuery.contains(title) -> 50
+                // Token overlap for multi-word shows
+                else -> {
+                    val titleTokens = title.split(' ').filter { it.length > 2 }.toSet()
+                    val queryTokens = normalizedCleaned.split(' ').filter { it.length > 2 }.toSet()
+                    if (queryTokens.isEmpty() || titleTokens.isEmpty()) return@mapNotNull null
+                    val overlap = queryTokens.intersect(titleTokens).size.toFloat() / queryTokens.size
+                    if (overlap >= 0.75f) (40 + (overlap * 20).toInt()) else return@mapNotNull null
+                }
+            }
+            Scored(podcast, score)
+        }
+
+        return scored.maxByOrNull { it.score }?.takeIf { it.score >= 50 }?.podcast
+    }
+
     private val quotedTextRegex = Regex(
-        """['"‘“]([^'"’“”]+)['"’“”]"""
+        """['"‘“]([^'"’”]+)[''’”]"""
     )
 
     private val noiseSuffixRegex = Regex(
@@ -91,7 +118,7 @@ class CrossPromotionResolver @Inject constructor(
             .replace(":", "")
             .replace("-", "")
             .replace(",", "")
-            .replace(Regex("\\s+"), " ")
+            .replace(Regex("""\s+"""), " ")
             .trim()
     }
 }

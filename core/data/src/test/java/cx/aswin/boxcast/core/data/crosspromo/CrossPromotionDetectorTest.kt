@@ -17,12 +17,13 @@ class CrossPromotionDetectorTest {
         title: String,
         duration: Int = 0,
         episodeType: String? = null,
-        episodeNumber: Int? = null
+        episodeNumber: Int? = null,
+        description: String = "Test description"
     ): Episode {
         return Episode(
             id = "test-id",
             title = title,
-            description = "Test description",
+            description = description,
             audioUrl = "http://example.com/audio.mp3",
             duration = duration,
             episodeType = episodeType,
@@ -183,6 +184,58 @@ class CrossPromotionDetectorTest {
             episodeType = "full",
             episodeNumber = 47
         )
+        val result = detector.detect(episode, "Host Podcast")
+        assertFalse(result.isCrossPromotion)
+    }
+
+    @Test
+    fun testGuestFeedAndCompanionPatterns() {
+        val guest = detector.detect(
+            createEpisode(title = "Guest Feed: Serial", duration = 120),
+            "Host Podcast"
+        )
+        assertTrue(guest.isCrossPromotion)
+        assertEquals("Serial", guest.extractedShowName)
+
+        val companion = detector.detect(
+            createEpisode(title = "Companion Show: Crime Junkie", duration = 90),
+            "Host Podcast"
+        )
+        assertTrue(companion.isCrossPromotion)
+        assertEquals("Crime Junkie", companion.extractedShowName)
+    }
+
+    @Test
+    fun testDescriptionSubscribeLanguage() {
+        val episode = createEpisode(
+            title = "A Special Preview",
+            duration = 95,
+            episodeType = "trailer",
+            episodeNumber = null,
+            description = "Subscribe to \"Lawless Planet\" wherever you get your podcasts."
+        )
+        val result = detector.detect(episode, "Host Podcast")
+        assertTrue(result.isCrossPromotion)
+        assertEquals("Lawless Planet", result.extractedShowName)
+        assertTrue(result.matchedIndicators.contains(CrossPromotionIndicator.DESCRIPTION_PROMO_LANGUAGE))
+    }
+
+    @Test
+    fun testDescriptionDoesNotPromoteHostShow() {
+        val episode = createEpisode(
+            title = "Season Trailer",
+            duration = 90,
+            episodeType = "trailer",
+            episodeNumber = null,
+            description = "Subscribe to Host Podcast for more episodes every week."
+        )
+        val result = detector.detect(episode, "Host Podcast")
+        assertFalse(result.isCrossPromotion)
+    }
+
+    @Test
+    fun testSeasonOnlyNameRejected() {
+        val episode = createEpisode(title = "New Season: Season 4", duration = 120)
         val result = detector.detect(episode, "Host Podcast")
         assertFalse(result.isCrossPromotion)
     }
