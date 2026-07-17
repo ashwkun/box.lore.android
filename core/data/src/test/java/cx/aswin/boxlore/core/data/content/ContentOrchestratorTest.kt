@@ -9,12 +9,12 @@ import cx.aswin.boxlore.core.network.model.RecommendationSeedV2
 import cx.aswin.boxlore.core.network.model.RecommendationsV2Request
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotSame
-import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
+import org.junit.jupiter.api.Test
 
 class ContentOrchestratorTest {
     @Test

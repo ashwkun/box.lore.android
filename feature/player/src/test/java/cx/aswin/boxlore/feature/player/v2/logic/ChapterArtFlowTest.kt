@@ -4,8 +4,8 @@ import cx.aswin.boxlore.feature.player.v2.chapterArtFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class ChapterArtFlowTest {
     @Test

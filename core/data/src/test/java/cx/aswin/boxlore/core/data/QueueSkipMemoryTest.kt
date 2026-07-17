@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.data
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /**
  * Pure JVM tests for the skip-memory store. Persistence is injected as lambdas, so
@@ -56,8 +56,8 @@ class QueueSkipMemoryTest {
         }
         val ids = memory.skippedEpisodeIds()
         assertEquals(QueueSkipMemory.MAX_ENTRIES, ids.size)
-        assertTrue("newest entry kept", "ep${QueueSkipMemory.MAX_ENTRIES + 49}" in ids)
-        assertFalse("oldest entry dropped", "ep0" in ids)
+        assertTrue("ep${QueueSkipMemory.MAX_ENTRIES + 49}" in ids, "newest entry kept")
+        assertFalse("ep0" in ids, "oldest entry dropped")
     }
 
     @Test

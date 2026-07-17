@@ -5,6 +5,11 @@ plugins {
 }
 
 android {
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
     namespace = "cx.aswin.boxlore.feature.player"
     compileSdk = 35
 
@@ -57,6 +62,7 @@ dependencies {
     implementation(libs.smooth.corner.rect)
     implementation(libs.reorderable)
 
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.vintage.engine)

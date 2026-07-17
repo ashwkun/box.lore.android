@@ -2,9 +2,9 @@ package cx.aswin.boxlore.core.data.content
 
 import cx.aswin.boxlore.core.model.PodcastGenres
 import cx.aswin.boxlore.core.network.model.HistoryItem
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class ContentSignalEnrichmentTest {
     @Test

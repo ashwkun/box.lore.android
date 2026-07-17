@@ -43,6 +43,9 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = false
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
     }
 }
 
@@ -86,6 +89,7 @@ dependencies {
     implementation(libs.androidx.work.runtime)
 
     // Testing (JUnit 5 + vintage for migration; no MockK)
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.vintage.engine)

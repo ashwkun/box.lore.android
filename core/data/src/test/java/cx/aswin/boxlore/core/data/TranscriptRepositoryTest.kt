@@ -1,8 +1,8 @@
 package cx.aswin.boxlore.core.data
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class TranscriptRepositoryTest {
 
@@ -67,6 +67,6 @@ class TranscriptRepositoryTest {
         val segments = TranscriptRepository.parseVtt(vttContent)
 
         assertEquals(1, segments.size)
-        assertTrue("Start time should be before end time after healing", segments[0].startMs < segments[0].endMs)
+        assertTrue(segments[0].startMs < segments[0].endMs, "Start time should be before end time after healing")
     }
 }

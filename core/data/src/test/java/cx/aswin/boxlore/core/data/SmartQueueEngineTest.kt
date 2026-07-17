@@ -6,10 +6,10 @@ import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.network.model.EpisodeItem
 import cx.aswin.boxlore.core.network.model.HistoryItem
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /**
  * JVM tests for the tiered refill engine, driven through a hand-rolled fake of
@@ -288,10 +288,7 @@ class SmartQueueEngineTest {
                 podcast("pod1", type = "serial"),
                 currentContextSourceId = discoverySource
             )
-            assertTrue(
-                "Tier 0 must not run for discovery source $discoverySource",
-                batch.none { it.source == SmartQueueEngine.SOURCE_SAME_PODCAST }
-            )
+            assertTrue(batch.none { it.source == SmartQueueEngine.SOURCE_SAME_PODCAST }, "Tier 0 must not run for discovery source $discoverySource")
         }
     }
 
@@ -329,7 +326,7 @@ class SmartQueueEngineTest {
         val batch = engine(sources).getNextEpisodes(currentItem(1), podcast("pod1", type = "serial"))
 
         val resumes = batch.filter { it.source == SmartQueueEngine.SOURCE_RESUME }
-        assertEquals("at most one resume nudge per batch", 1, resumes.size)
+        assertEquals(1, resumes.size, "at most one resume nudge per batch")
         assertEquals("101", resumes.first().episode.id.toString())
     }
 
@@ -417,14 +414,8 @@ class SmartQueueEngineTest {
         val batch = engine(sources).getNextEpisodes(currentItem(1), podcast("pod1", type = "serial"))
 
         val subs = batch.filter { it.source == SmartQueueEngine.SOURCE_SUBSCRIPTION }
-        assertTrue(
-            "malformed cached episode (blank audioUrl) must never be suggested",
-            subs.none { it.episode.id == 301L },
-        )
-        assertTrue(
-            "getQueueCandidates must be invoked as a fallback when the cache is unusable",
-            sources.queueCandidateRequests.any { it.first == "sub1" },
-        )
+        assertTrue(subs.none { it.episode.id == 301L }, "malformed cached episode (blank audioUrl) must never be suggested")
+        assertTrue(sources.queueCandidateRequests.any { it.first == "sub1" }, "getQueueCandidates must be invoked as a fallback when the cache is unusable")
         assertTrue(subs.any { it.episode.id == 302L })
     }
 
@@ -439,14 +430,8 @@ class SmartQueueEngineTest {
         val batch = engine(sources).getNextEpisodes(currentItem(1), podcast("pod1", type = "serial"))
 
         val subs = batch.filter { it.source == SmartQueueEngine.SOURCE_SUBSCRIPTION }
-        assertTrue(
-            "malformed cached episode (non-numeric id) must never be suggested",
-            subs.none { it.episode.id.toString() == "not-a-number" },
-        )
-        assertTrue(
-            "getQueueCandidates must be invoked as a fallback when the cache is unusable",
-            sources.queueCandidateRequests.any { it.first == "sub1" },
-        )
+        assertTrue(subs.none { it.episode.id.toString() == "not-a-number" }, "malformed cached episode (non-numeric id) must never be suggested")
+        assertTrue(sources.queueCandidateRequests.any { it.first == "sub1" }, "getQueueCandidates must be invoked as a fallback when the cache is unusable")
         assertTrue(subs.any { it.episode.id == 402L })
     }
 
@@ -702,10 +687,7 @@ class SmartQueueEngineTest {
 
         val batch = engine(sources).getNextEpisodes(currentItem(1), podcast("pod1", type = "serial"))
 
-        assertTrue(
-            "fallback batch of ${batch.size} must be <= ${DefaultSmartQueueEngine.FALLBACK_BATCH_TARGET}",
-            batch.size <= DefaultSmartQueueEngine.FALLBACK_BATCH_TARGET
-        )
+        assertTrue(batch.size <= DefaultSmartQueueEngine.FALLBACK_BATCH_TARGET, "fallback batch of ${batch.size} must be <= ${DefaultSmartQueueEngine.FALLBACK_BATCH_TARGET}")
         assertFalse(batch.isEmpty())
     }
 }

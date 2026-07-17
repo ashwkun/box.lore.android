@@ -5,6 +5,11 @@ plugins {
 }
 
 android {
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
     namespace = "cx.aswin.boxlore.feature.explore"
     compileSdk = 34
 
@@ -73,6 +78,7 @@ dependencies {
     // PostHog
     implementation(libs.posthog.android)
 
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.vintage.engine)

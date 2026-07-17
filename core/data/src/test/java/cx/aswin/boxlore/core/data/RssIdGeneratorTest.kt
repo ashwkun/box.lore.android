@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.data
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class RssIdGeneratorTest {
     @Test
@@ -45,10 +45,10 @@ class RssIdGeneratorTest {
         }
 
         rssIds.forEach { rssId ->
-            assertTrue("RSS id $rssId must be negative", rssId < 0L)
+            assertTrue(rssId < 0L, "RSS id $rssId must be negative")
             assertTrue(
-                "RSS id $rssId must never collide with a positive Podcast Index id",
                 rssId !in podcastIndexSampleIds,
+                "RSS id $rssId must never collide with a positive Podcast Index id",
             )
         }
     }

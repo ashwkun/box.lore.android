@@ -18,10 +18,10 @@ import cx.aswin.boxlore.core.network.model.ContentSectionIntentMetadataDto
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Response
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class GroupedContentSectionsTest {
     @Test

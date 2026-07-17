@@ -10,6 +10,11 @@ plugins {
 }
 
 android {
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
     namespace = "cx.aswin.boxlore"
     compileSdk = 36
 
@@ -155,6 +160,7 @@ dependencies {
     implementation("com.google.android.play:app-update-ktx:2.1.0")
 
     // Tests
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.vintage.engine)

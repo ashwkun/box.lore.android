@@ -3,11 +3,11 @@ package cx.aswin.boxlore.core.data.crosspromo
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.CrossPromotionConfidence
 import cx.aswin.boxlore.core.model.CrossPromotionIndicator
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class CrossPromotionDetectorTest {
 
@@ -52,12 +52,12 @@ class CrossPromotionDetectorTest {
             val result = detector.detect(episode, "Host Podcast")
             println("StrictDelimiter - TITLE: '$title', RESULT isCrossPromo: ${result.isCrossPromotion}, extractedShowName: '${result.extractedShowName}'")
             if (expectedShow != null) {
-                assertTrue("Should detect cross promo for: $title", result.isCrossPromotion)
+                assertTrue(result.isCrossPromotion, "Should detect cross promo for: $title")
                 assertEquals(CrossPromotionConfidence.HIGH, result.confidence)
                 assertEquals(expectedShow, result.extractedShowName)
                 assertTrue(result.matchedIndicators.contains(CrossPromotionIndicator.TITLE_DELIMITER_PATTERN))
             } else {
-                assertFalse("Should NOT detect cross promo for: $title", result.isCrossPromotion)
+                assertFalse(result.isCrossPromotion, "Should NOT detect cross promo for: $title")
             }
         }
     }

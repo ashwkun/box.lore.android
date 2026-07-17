@@ -4,11 +4,11 @@ import com.google.gson.Gson
 import cx.aswin.boxlore.core.data.ranking.database.AdaptiveModelEntity
 import cx.aswin.boxlore.core.data.ranking.database.PreferenceFacetEntity
 import cx.aswin.boxlore.core.data.ranking.database.RankingExposureEntity
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class AdaptiveRankingTest {
     @Test

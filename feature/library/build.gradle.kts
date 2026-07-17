@@ -5,6 +5,11 @@ plugins {
 }
 
 android {
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
     namespace = "cx.aswin.boxlore.feature.library"
     compileSdk = 35
 

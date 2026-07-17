@@ -5,6 +5,11 @@ plugins {
 }
 
 android {
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
     namespace = "cx.aswin.boxlore.core.network"
     compileSdk = 35
 
@@ -36,6 +41,7 @@ dependencies {
     implementation("androidx.annotation:annotation:1.7.1")
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.vintage.engine)
