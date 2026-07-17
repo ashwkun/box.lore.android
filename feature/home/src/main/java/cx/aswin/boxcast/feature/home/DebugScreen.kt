@@ -1,14 +1,11 @@
 package cx.aswin.boxcast.feature.home
 
 import android.app.Application
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -16,26 +13,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.CleaningServices
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -45,25 +41,37 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cx.aswin.boxcast.core.data.PlaybackRepository
 import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.data.database.PodcastEntity
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private enum class DebugTab(
+    val label: String,
+    val icon: ImageVector,
+) {
+    Learner("Learner", Icons.Rounded.AutoAwesome),
+    Sleep("Sleep", Icons.Rounded.Bedtime),
+    Playback("Playback", Icons.Rounded.PlayCircle),
+    Database("Database", Icons.Rounded.Storage),
+    Flags("Flags", Icons.Rounded.CleaningServices),
+}
 
 /**
  * Full-screen debug tools: sleep-prompt testing (including a night-window bypass), a live
@@ -104,6 +112,10 @@ fun DebugScreen(
     }
     val isInNightWindow = remember(nowTick) { playbackRepository.isInNightWindow() }
 
+    val tabs = remember { DebugTab.entries }
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val scope = rememberCoroutineScope()
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -122,114 +134,91 @@ fun DebugScreen(
         },
         containerColor = MaterialTheme.colorScheme.surface
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 220.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            item {
-                DebugSectionCard(
-                    title = "Adaptive Learner",
-                    icon = Icons.Rounded.AutoAwesome,
-                    isCollapsible = false,
-                ) {
-                    AdaptiveLearnerDebugSection(
-                        snapshot = learnerSnapshot,
-                        loading = learnerLoading,
-                        onRefresh = viewModel::refreshLearnerSnapshot,
-                    )
-                }
-            }
-
-            item {
-                DebugSectionCard("Sleep Prompt Testing", Icons.Rounded.Bedtime, isCollapsible = false) {
-                    SleepTestingSection(
-                        state = SleepTestingState(
-                            skipSleepWindow = skipSleepWindow,
-                            isInNightWindow = isInNightWindow,
-                            showLateNightNudge = playerState.showLateNightNudge,
-                            sleepTimerEnd = playerState.sleepTimerEnd,
-                            sleepAtEndOfEpisode = playerState.sleepAtEndOfEpisode
-                        ),
-                        actions = SleepTestingActions(
-                            onToggleSkipSleepWindow = viewModel::setSkipSleepWindow,
-                            onForcePromptNow = viewModel::forceSleepPromptNow,
-                            onClearSleepTimer = viewModel::clearSleepTimer,
-                            onResetSleepWindowGuard = viewModel::resetSleepWindowGuard
-                        )
-                    )
-                }
-            }
-
-            item {
-                DebugSectionCard("Playback State", Icons.Rounded.PlayCircle, isCollapsible = false) {
-                    PlaybackStateSection(
-                        episodeTitle = playerState.currentEpisode?.title,
-                        podcastTitle = playerState.currentPodcast?.title,
-                        isPlaying = playerState.isPlaying,
-                        isLoading = playerState.isLoading,
-                        position = playerState.position,
-                        duration = playerState.duration
-                    )
-                }
-            }
-
-            item {
-                DebugSectionCard("DB Inspector", Icons.Rounded.Storage, isCollapsible = true, initiallyExpanded = false) {
-                    DbInspectorSection(
-                        history = history,
-                        podcasts = podcasts,
-                        onDeleteHistoryItem = viewModel::deleteHistoryItem
-                    )
-                }
-            }
-
-            item {
-                DebugSectionCard("Flags & Cache", Icons.Rounded.CleaningServices, isCollapsible = true, initiallyExpanded = false) {
-                    FlagsCacheSection(
-                        onResetFeatureFlag = viewModel::resetFeatureFlag,
-                        onClearDismissedCuriosities = viewModel::clearDismissedCuriosities
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DebugSectionCard(
-    title: String,
-    icon: ImageVector,
-    isCollapsible: Boolean,
-    initiallyExpanded: Boolean = true,
-    content: @Composable () -> Unit,
-) {
-    var expanded by remember { mutableStateOf(initiallyExpanded) }
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-    ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
-            DebugSectionHeader(
-                title = title,
-                icon = icon,
-                isCollapsible = isCollapsible,
-                expanded = expanded,
-                onToggle = { expanded = !expanded },
-            )
-            AnimatedVisibility(visible = !isCollapsible || expanded) {
-                Column(modifier = Modifier.padding(top = 20.dp)) {
-                    content()
+            PrimaryScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                edgePadding = 12.dp,
+                containerColor = MaterialTheme.colorScheme.surface,
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        text = { Text(tab.label) },
+                        icon = {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    )
+                }
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
+            ) { page ->
+                when (tabs[page]) {
+                    DebugTab.Learner -> DebugTabScrollPane {
+                        AdaptiveLearnerDebugSection(
+                            snapshot = learnerSnapshot,
+                            loading = learnerLoading,
+                            onRefresh = viewModel::refreshLearnerSnapshot,
+                        )
+                    }
+
+                    DebugTab.Sleep -> DebugTabScrollPane {
+                        SleepTestingSection(
+                            state = SleepTestingState(
+                                skipSleepWindow = skipSleepWindow,
+                                isInNightWindow = isInNightWindow,
+                                showLateNightNudge = playerState.showLateNightNudge,
+                                sleepTimerEnd = playerState.sleepTimerEnd,
+                                sleepAtEndOfEpisode = playerState.sleepAtEndOfEpisode
+                            ),
+                            actions = SleepTestingActions(
+                                onToggleSkipSleepWindow = viewModel::setSkipSleepWindow,
+                                onForcePromptNow = viewModel::forceSleepPromptNow,
+                                onClearSleepTimer = viewModel::clearSleepTimer,
+                                onResetSleepWindowGuard = viewModel::resetSleepWindowGuard
+                            )
+                        )
+                    }
+
+                    DebugTab.Playback -> DebugTabScrollPane {
+                        PlaybackStateSection(
+                            episodeTitle = playerState.currentEpisode?.title,
+                            podcastTitle = playerState.currentPodcast?.title,
+                            isPlaying = playerState.isPlaying,
+                            isLoading = playerState.isLoading,
+                            position = playerState.position,
+                            duration = playerState.duration
+                        )
+                    }
+
+                    DebugTab.Database -> DebugTabScrollPane {
+                        DbInspectorSection(
+                            history = history,
+                            podcasts = podcasts,
+                            onDeleteHistoryItem = viewModel::deleteHistoryItem
+                        )
+                    }
+
+                    DebugTab.Flags -> DebugTabScrollPane {
+                        FlagsCacheSection(
+                            onResetFeatureFlag = viewModel::resetFeatureFlag,
+                            onClearDismissedCuriosities = viewModel::clearDismissedCuriosities
+                        )
+                    }
                 }
             }
         }
@@ -237,48 +226,13 @@ private fun DebugSectionCard(
 }
 
 @Composable
-private fun DebugSectionHeader(
-    title: String,
-    icon: ImageVector,
-    isCollapsible: Boolean,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (isCollapsible) {
-                    Modifier.clickable(onClick = onToggle)
-                } else {
-                    Modifier
-                },
-            ),
-        verticalAlignment = Alignment.CenterVertically,
+private fun DebugTabScrollPane(content: @Composable () -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-        Spacer(Modifier.size(12.dp))
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
-        if (isCollapsible) {
-            Icon(
-                imageVector = if (expanded) {
-                    Icons.Rounded.KeyboardArrowUp
-                } else {
-                    Icons.Rounded.KeyboardArrowDown
-                },
-                contentDescription = if (expanded) "Collapse" else "Expand",
-            )
-        }
+        item { content() }
     }
 }
 
@@ -298,7 +252,11 @@ private data class SleepTestingActions(
 )
 
 @Composable
-private fun StatusRow(label: String, value: String, valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
+private fun StatusRow(
+    label: String,
+    value: String,
+    valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -331,7 +289,6 @@ private fun SleepTestingSection(
             Switch(checked = state.skipSleepWindow, onCheckedChange = actions.onToggleSkipSleepWindow)
         }
 
-        Spacer(Modifier.height(2.dp))
 
         StatusRow("Night window (10:30 PM – 4 AM)", if (state.isInNightWindow) "Active" else "Inactive")
         StatusRow("Prompt currently shown", if (state.showLateNightNudge) "Yes" else "No")
@@ -343,8 +300,6 @@ private fun SleepTestingSection(
                 else -> "Off"
             }
         )
-
-        Spacer(Modifier.height(4.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -407,11 +362,10 @@ private fun DbInspectorSection(
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 420.dp),
+                .heightIn(max = 520.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (selectedTabIndex == 0) {

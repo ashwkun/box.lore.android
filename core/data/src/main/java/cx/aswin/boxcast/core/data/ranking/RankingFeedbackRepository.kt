@@ -179,12 +179,9 @@ class RankingFeedbackRepository private constructor(
 
         fun getIfInitialized(): RankingFeedbackRepository? = instance
 
-        private fun progressRatio(
-            listenSeconds: Long,
-            durationSeconds: Long,
-        ): Double {
-            if (durationSeconds <= 0) return 0.0
-            return listenSeconds.toDouble() / durationSeconds
+        private fun progressRatio(listenSeconds: Long, durationSeconds: Long): Double {
+            if (durationSeconds <= 0L) return 0.0
+            return listenSeconds.toDouble() / durationSeconds.toDouble()
         }
     }
 }

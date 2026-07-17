@@ -48,7 +48,9 @@ data class LearnerExposureDebug(
     val episodeId: String,
     val podcastId: String,
     val objective: String,
+    val surface: String,
     val source: String,
+    val entryPoint: String?,
     val reward: Double?,
     val listenSeconds: Long,
     val shownAt: Long,
@@ -377,15 +379,23 @@ class AdaptiveRankingRepository private constructor(
                 .thenBy { it.key },
         )
         val exposures = dao.getAllExposures()
-        val recentExposures = exposures
+        // Prefer resolved outcomes in the pulse window. Home continuously inserts pending
+        // exposures, which otherwise bury likes/plays under a flat "pending" strip.
+        val sortedExposures = exposures.sortedByDescending(RankingExposureEntity::shownAt)
+        val recentResolved = sortedExposures.filter { it.resolvedAt != null }.take(16)
+        val recentPending = sortedExposures.filter { it.resolvedAt == null }.take(8)
+        val recentExposures = (recentResolved + recentPending)
             .sortedByDescending(RankingExposureEntity::shownAt)
+            .distinctBy(RankingExposureEntity::exposureId)
             .take(24)
             .map { exposure ->
                 LearnerExposureDebug(
                     episodeId = exposure.episodeId,
                     podcastId = exposure.podcastId,
                     objective = exposure.objective,
+                    surface = exposure.surface,
                     source = exposure.source,
+                    entryPoint = exposure.entryPoint,
                     reward = exposure.reward,
                     listenSeconds = exposure.listenSeconds,
                     shownAt = exposure.shownAt,
@@ -401,14 +411,16 @@ class AdaptiveRankingRepository private constructor(
         val featureWeights = FeatureSlot.entries.map { slot ->
             LearnerFeatureWeightDebug(slot = slot, weight = theta[slot.ordinal])
         }
+        val pending = exposures.count { it.resolvedAt == null }
+        val resolved = exposures.count { it.resolvedAt != null }
         LearnerInspectorSnapshot(
             objectives = objectives,
             telemetry = telemetry,
             facets = facets,
             recentExposures = recentExposures,
             featureWeights = featureWeights,
-            pendingExposureCount = exposures.count { it.resolvedAt == null },
-            resolvedExposureCount = exposures.count { it.resolvedAt != null },
+            pendingExposureCount = pending,
+            resolvedExposureCount = resolved,
             capturedAt = now,
         )
     }
