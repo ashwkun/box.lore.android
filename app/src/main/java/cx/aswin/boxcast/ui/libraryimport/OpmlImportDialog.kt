@@ -126,6 +126,14 @@ sealed interface OpmlImportState {
 private val ImportHeroSize = 80.dp
 private val ImportCorner = RoundedCornerShape(24.dp)
 
+private fun canDismissImportState(state: OpmlImportState): Boolean = when (state) {
+    is OpmlImportState.ShowSelector,
+    is OpmlImportState.AskCompleted,
+    is OpmlImportState.Success,
+    is OpmlImportState.Error -> true
+    else -> false
+}
+
 @Composable
 fun OpmlImportDialog(
     state: OpmlImportState,
@@ -146,11 +154,7 @@ fun OpmlImportDialog(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri -> uri?.let { onImportOpmlSelected(it) } }
     )
-
-    val canDismiss = state is OpmlImportState.ShowSelector ||
-        state is OpmlImportState.AskCompleted ||
-        state is OpmlImportState.Success ||
-        state is OpmlImportState.Error
+    val canDismiss = canDismissImportState(state)
 
     Dialog(
         onDismissRequest = {
@@ -173,75 +177,127 @@ fun OpmlImportDialog(
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                 ) {
                     if (canDismiss) {
-                        IconButton(
+                        ImportCloseButton(
                             onClick = onDismissRequest,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(44.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = "Close",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    val progressHeroVisual = heroVisualFor(state)
-                    if (progressHeroVisual != null) {
-                        // Shared hero across loading → success so the checkmark continues the loader.
-                        ProgressFlowScaffold(
-                            hero = progressHeroVisual,
-                            state = state,
-                            onDone = onDismissRequest
+                            modifier = Modifier.align(Alignment.TopEnd)
                         )
-                    } else {
-                        AnimatedContent(
-                            targetState = state,
-                            modifier = Modifier.fillMaxSize(),
-                            transitionSpec = {
-                                (fadeIn(tween(280, easing = FastOutSlowInEasing)) +
-                                    scaleIn(
-                                        initialScale = 0.98f,
-                                        animationSpec = tween(280, easing = FastOutSlowInEasing)
-                                    )) togetherWith
-                                    (fadeOut(tween(180)) +
-                                        scaleOut(targetScale = 0.98f, animationSpec = tween(180)))
-                            },
-                            contentKey = { contentKeyFor(it) },
-                            label = "import_content"
-                        ) { current ->
-                            when (current) {
-                                is OpmlImportState.ShowSelector -> SelectorContent(
-                                    onJson = {
-                                        importJsonLauncher.launch(arrayOf("application/json"))
-                                    },
-                                    onOpml = { importOpmlLauncher.launch(arrayOf("*/*")) }
-                                )
-
-                                is OpmlImportState.AskCompleted -> AskCompletedContent(
-                                    state = current,
-                                    onSelectionChanged = onSelectionChanged,
-                                    onConfirmCompleted = onConfirmCompleted,
-                                    onSkipCompleted = onSkipCompleted
-                                )
-
-                                is OpmlImportState.Error -> ErrorContent(
-                                    message = current.message,
-                                    onClose = onDismissRequest
-                                )
-
-                                else -> Unit
-                            }
-                        }
                     }
+                    ImportDialogBody(
+                        state = state,
+                        onDismissRequest = onDismissRequest,
+                        onSelectionChanged = onSelectionChanged,
+                        onConfirmCompleted = onConfirmCompleted,
+                        onSkipCompleted = onSkipCompleted,
+                        onPickJson = {
+                            importJsonLauncher.launch(arrayOf("application/json"))
+                        },
+                        onPickOpml = { importOpmlLauncher.launch(arrayOf("*/*")) }
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ImportCloseButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier
+            .size(44.dp)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = CircleShape
+            )
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Close,
+            contentDescription = "Close",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ImportDialogBody(
+    state: OpmlImportState,
+    onDismissRequest: () -> Unit,
+    onSelectionChanged: (selectedIds: Set<String>) -> Unit,
+    onConfirmCompleted: () -> Unit,
+    onSkipCompleted: () -> Unit,
+    onPickJson: () -> Unit,
+    onPickOpml: () -> Unit
+) {
+    val progressHeroVisual = heroVisualFor(state)
+    if (progressHeroVisual != null) {
+        // Shared hero across loading → success so the checkmark continues the loader.
+        ProgressFlowScaffold(
+            hero = progressHeroVisual,
+            state = state,
+            onDone = onDismissRequest
+        )
+        return
+    }
+
+    AnimatedContent(
+        targetState = state,
+        modifier = Modifier.fillMaxSize(),
+        transitionSpec = {
+            (fadeIn(tween(280, easing = FastOutSlowInEasing)) +
+                scaleIn(
+                    initialScale = 0.98f,
+                    animationSpec = tween(280, easing = FastOutSlowInEasing)
+                )) togetherWith
+                (fadeOut(tween(180)) +
+                    scaleOut(targetScale = 0.98f, animationSpec = tween(180)))
+        },
+        contentKey = { contentKeyFor(it) },
+        label = "import_content"
+    ) { current ->
+        ImportInteractiveContent(
+            state = current,
+            onDismissRequest = onDismissRequest,
+            onSelectionChanged = onSelectionChanged,
+            onConfirmCompleted = onConfirmCompleted,
+            onSkipCompleted = onSkipCompleted,
+            onPickJson = onPickJson,
+            onPickOpml = onPickOpml
+        )
+    }
+}
+
+@Composable
+private fun ImportInteractiveContent(
+    state: OpmlImportState,
+    onDismissRequest: () -> Unit,
+    onSelectionChanged: (selectedIds: Set<String>) -> Unit,
+    onConfirmCompleted: () -> Unit,
+    onSkipCompleted: () -> Unit,
+    onPickJson: () -> Unit,
+    onPickOpml: () -> Unit
+) {
+    when (state) {
+        is OpmlImportState.ShowSelector -> SelectorContent(
+            onJson = onPickJson,
+            onOpml = onPickOpml
+        )
+
+        is OpmlImportState.AskCompleted -> AskCompletedContent(
+            state = state,
+            onSelectionChanged = onSelectionChanged,
+            onConfirmCompleted = onConfirmCompleted,
+            onSkipCompleted = onSkipCompleted
+        )
+
+        is OpmlImportState.Error -> ErrorContent(
+            message = state.message,
+            onClose = onDismissRequest
+        )
+
+        else -> Unit
     }
 }
 
@@ -816,20 +872,23 @@ private fun AskCompletedContent(
     }
 }
 
+private fun hasPostNotificationPermission(context: android.content.Context): Boolean {
+    if (Build.VERSION.SDK_INT < 33) return true
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
 @Composable
 private fun SuccessCopy(
     state: OpmlImportState.Success,
     onDone: () -> Unit
 ) {
     val context = LocalContext.current
-    val hasNotificationPermission = if (Build.VERSION.SDK_INT >= 33) {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-    } else {
-        true
-    }
+    val showNotificationPrompt = state.isJson &&
+        state.hasNotificationsEnabled &&
+        !hasPostNotificationPermission(context)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -841,11 +900,7 @@ private fun SuccessCopy(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = if (state.isJson) {
-                "Your backup is restored and ready to listen."
-            } else {
-                "Your shows are imported and ready to listen."
-            },
+            text = successSubtitle(state.isJson),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -853,96 +908,14 @@ private fun SuccessCopy(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+        ImportSuccessSummary(state = state)
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = ImportCorner,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Summary",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                SummaryRow(label = "Imported shows", value = "${state.importedCount}")
-                if (!state.isJson && state.completedCount > 0) {
-                    SummaryRow(label = "Marked played", value = "${state.completedCount}")
-                }
-            }
-        }
-
-        if (state.isJson && state.hasNotificationsEnabled && !hasNotificationPermission) {
+        if (showNotificationPrompt) {
             Spacer(modifier = Modifier.height(16.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = ImportCorner,
-                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.28f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.NotificationsActive,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(26.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Enable notifications",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "This backup includes shows with alerts or auto-downloads. Allow notifications so they can keep working in the background.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val requestPermissionLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.RequestPermission(),
-                        onResult = { granted ->
-                            AnalyticsHelper.trackNotificationPermissionDecided(granted)
-                        }
-                    )
-
-                    Button(
-                        onClick = {
-                            if (Build.VERSION.SDK_INT >= 33) {
-                                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Grant permission", color = MaterialTheme.colorScheme.onError)
-                    }
-                }
-            }
+            ImportNotificationPermissionCard()
         }
 
         Spacer(modifier = Modifier.height(28.dp))
-
         Button(
             onClick = onDone,
             modifier = Modifier
@@ -955,6 +928,103 @@ private fun SuccessCopy(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+        }
+    }
+}
+
+private fun successSubtitle(isJson: Boolean): String {
+    return if (isJson) {
+        "Your backup is restored and ready to listen."
+    } else {
+        "Your shows are imported and ready to listen."
+    }
+}
+
+@Composable
+private fun ImportSuccessSummary(state: OpmlImportState.Success) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ImportCorner,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Summary",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SummaryRow(label = "Imported shows", value = "${state.importedCount}")
+            if (!state.isJson && state.completedCount > 0) {
+                SummaryRow(label = "Marked played", value = "${state.completedCount}")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportNotificationPermissionCard() {
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            AnalyticsHelper.trackNotificationPermissionDecided(granted)
+        }
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = ImportCorner,
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.error.copy(alpha = 0.28f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.NotificationsActive,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(26.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Enable notifications",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "This backup includes shows with alerts or auto-downloads. Allow notifications so they can keep working in the background.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Grant permission", color = MaterialTheme.colorScheme.onError)
+            }
         }
     }
 }
