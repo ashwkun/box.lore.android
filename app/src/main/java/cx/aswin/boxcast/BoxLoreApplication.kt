@@ -16,6 +16,7 @@ import cx.aswin.boxcast.core.data.EngagementPromptCoordinator
 import cx.aswin.boxcast.core.data.UserPreferencesRepository
 import cx.aswin.boxcast.core.data.ranking.RankingFeedbackRepository
 import cx.aswin.boxcast.core.data.ranking.AdaptiveRankingRepository
+import cx.aswin.boxcast.core.data.ranking.LearningEventLog
 import cx.aswin.boxcast.core.network.NetworkModule
 import cx.aswin.boxcast.surveys.BoxcastPostHogSurveysDelegate
 import java.util.concurrent.TimeUnit
@@ -42,6 +43,13 @@ class BoxLoreApplication : Application() {
         // getInstance installs a no-op fallback if Room initialization fails, keeping
         // ranking optional without hiding unrelated startup programming errors here.
         RankingFeedbackRepository.getInstance(this)
+
+        // Live learner signal log: on by default in debug builds, off for release users
+        // unless they explicitly opt in via the debug screen toggle. A persisted choice wins.
+        LearningEventLog.configure(
+            getSharedPreferences(LearningEventLog.PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(LearningEventLog.ENABLED_PREF_KEY, BuildConfig.DEBUG),
+        )
 
         val config = PostHogAndroidConfig(
             apiKey = BuildConfig.POSTHOG_API_KEY,

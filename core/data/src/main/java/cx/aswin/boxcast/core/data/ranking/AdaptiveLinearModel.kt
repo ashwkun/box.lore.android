@@ -75,6 +75,10 @@ class AdaptiveLinearModel(
         )
     }
 
+    /** The prior→learned blend weight for a given number of resolved outcomes. */
+    fun learnedBlend(updateCount: Long): Double =
+        (updateCount.toDouble() / explorationThreshold).coerceIn(0.0, 1.0) * maximumLearnedBlend
+
     fun update(
         features: RankingFeatures,
         reward: Double,

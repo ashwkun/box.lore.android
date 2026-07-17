@@ -99,6 +99,9 @@ fun DebugScreen(
     val skipSleepWindow by viewModel.skipSleepWindow.collectAsState()
     val learnerSnapshot by viewModel.learnerSnapshot.collectAsState()
     val learnerLoading by viewModel.learnerLoading.collectAsState()
+    val learningEvents by viewModel.learningEvents.collectAsState()
+    val logEnabled by viewModel.logEnabled.collectAsState()
+    val shadowDiagnostics by viewModel.shadowDiagnostics.collectAsState()
     val history by viewModel.history.collectAsState(initial = emptyList())
     val podcasts by viewModel.podcasts.collectAsState(initial = emptyList())
 
@@ -171,6 +174,10 @@ fun DebugScreen(
                     DebugTab.Learner -> DebugTabScrollPane {
                         AdaptiveLearnerDebugSection(
                             snapshot = learnerSnapshot,
+                            events = learningEvents,
+                            logEnabled = logEnabled,
+                            onSetLogEnabled = viewModel::setLogEnabled,
+                            shadowDiagnostics = shadowDiagnostics,
                             loading = learnerLoading,
                             onRefresh = viewModel::refreshLearnerSnapshot,
                         )

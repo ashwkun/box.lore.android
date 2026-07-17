@@ -11,6 +11,10 @@ import cx.aswin.boxcast.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxcast.core.data.database.PodcastEntity
 import cx.aswin.boxcast.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxcast.core.data.ranking.LearnerInspectorSnapshot
+import cx.aswin.boxcast.core.data.ranking.LearningEvent
+import cx.aswin.boxcast.core.data.ranking.LearningEventLog
+import cx.aswin.boxcast.core.data.ranking.RankingShadowDiagnostics
+import cx.aswin.boxcast.core.data.ranking.RankingShadowSnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,8 +47,28 @@ class DebugViewModel(
     private val _learnerLoading = MutableStateFlow(false)
     val learnerLoading: StateFlow<Boolean> = _learnerLoading.asStateFlow()
 
+    /** Live, session-only feed of signals that mutated the ranking model. */
+    val learningEvents: StateFlow<List<LearningEvent>> = LearningEventLog.events
+
+    private val debugPrefs = application.getSharedPreferences(
+        LearningEventLog.PREFS_NAME,
+        android.content.Context.MODE_PRIVATE,
+    )
+
+    private val _logEnabled = MutableStateFlow(LearningEventLog.enabled)
+    val logEnabled: StateFlow<Boolean> = _logEnabled.asStateFlow()
+
+    private val _shadowDiagnostics = MutableStateFlow<List<RankingShadowSnapshot>>(emptyList())
+    val shadowDiagnostics: StateFlow<List<RankingShadowSnapshot>> = _shadowDiagnostics.asStateFlow()
+
     init {
         refreshLearnerSnapshot()
+    }
+
+    fun setLogEnabled(enabled: Boolean) {
+        debugPrefs.edit().putBoolean(LearningEventLog.ENABLED_PREF_KEY, enabled).apply()
+        LearningEventLog.configure(enabled)
+        _logEnabled.value = enabled
     }
 
     fun setSkipSleepWindow(enabled: Boolean) {
@@ -93,6 +117,9 @@ class DebugViewModel(
             _learnerSnapshot.value = runCatching {
                 adaptiveRankingRepository.learnerInspectorSnapshot()
             }.getOrNull()
+            _shadowDiagnostics.value = runCatching {
+                RankingShadowDiagnostics.snapshots()
+            }.getOrDefault(emptyList())
             _learnerLoading.value = false
         }
     }

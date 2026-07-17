@@ -163,6 +163,18 @@ class AdaptiveRankingRepository private constructor(
         if (insertCount == 1L || insertCount % EXPOSURE_PRUNE_INTERVAL == 0L) {
             pruneExposures(exposure.shownAt)
         }
+        LearningEventLog.record { id, ts ->
+            LearningEvent.Impression(
+                id = id,
+                timestamp = ts,
+                episodeId = exposure.episodeId,
+                podcastId = exposure.podcastId,
+                objective = exposure.objective.name,
+                surface = exposure.surface.name,
+                source = exposure.source.name,
+                entryPoint = exposure.entryPoint,
+            )
+        }
         return exposureId
     }
 
@@ -194,8 +206,26 @@ class AdaptiveRankingRepository private constructor(
                 listenSeconds = listenSeconds.coerceAtLeast(0),
             )
             if (changed == 0) return@withLock false
-            val updated = model.update(features, reward, loadState(objective))
+            val previous = loadState(objective)
+            val updated = model.update(features, reward, previous)
             dao.upsertModel(updated.toEntity(objective, resolvedAt))
+            LearningEventLog.record { id, ts ->
+                LearningEvent.ExposureResolved(
+                    id = id,
+                    timestamp = ts,
+                    objective = objective.name,
+                    matched = true,
+                    entryPoint = exposure.entryPoint,
+                    surface = exposure.surface,
+                    source = exposure.source,
+                    exposureAgeMillis = (resolvedAt - exposure.shownAt).coerceAtLeast(0),
+                    reward = reward.coerceIn(-1.0, 1.0),
+                    updateCountBefore = previous.updateCount,
+                    updateCountAfter = updated.updateCount,
+                    blendBefore = model.learnedBlend(previous.updateCount),
+                    blendAfter = model.learnedBlend(updated.updateCount),
+                )
+            }
             true
         }
     }
@@ -206,7 +236,26 @@ class AdaptiveRankingRepository private constructor(
         listenSeconds: Long = 0,
         resolvedAt: Long = System.currentTimeMillis(),
     ): Boolean {
-        val exposure = dao.getLatestUnresolvedExposure(episodeId) ?: return false
+        val exposure = dao.getLatestUnresolvedExposure(episodeId) ?: run {
+            LearningEventLog.record { id, ts ->
+                LearningEvent.ExposureResolved(
+                    id = id,
+                    timestamp = ts,
+                    objective = "",
+                    matched = false,
+                    entryPoint = null,
+                    surface = null,
+                    source = null,
+                    exposureAgeMillis = null,
+                    reward = reward.coerceIn(-1.0, 1.0),
+                    updateCountBefore = 0,
+                    updateCountAfter = 0,
+                    blendBefore = 0.0,
+                    blendAfter = 0.0,
+                )
+            }
+            return false
+        }
         return resolveExposure(exposure.exposureId, reward, listenSeconds, resolvedAt)
     }
 
@@ -285,6 +334,22 @@ class AdaptiveRankingRepository private constructor(
                 updatedAt = updated.updatedAt,
             ),
         )
+        LearningEventLog.record { id, ts ->
+            val before = existing.decayed(now)
+            LearningEvent.FacetUpdated(
+                id = id,
+                timestamp = ts,
+                facetType = type,
+                key = normalizedKey,
+                reward = reward,
+                affinityBefore = before.affinity(now),
+                affinityAfter = updated.affinity(now),
+                positiveBefore = before.positiveEvidence,
+                positiveAfter = updated.positiveEvidence,
+                negativeBefore = before.negativeEvidence,
+                negativeAfter = updated.negativeEvidence,
+            )
+        }
     }
 
     /**
@@ -292,6 +357,8 @@ class AdaptiveRankingRepository private constructor(
      * "Podcast") so older builds cannot orphan evidence or keep weighting invalid keys.
      */
     suspend fun pruneNonCanonicalGenreFacets() {
+        var mergedCount = 0
+        var removedCount = 0
         database.withTransaction {
             val genres = dao.getFacetsByType(PreferenceFacetType.GENRE.name)
             if (genres.isEmpty()) return@withTransaction
@@ -331,6 +398,18 @@ class AdaptiveRankingRepository private constructor(
             }
             for (key in deleteKeys) {
                 dao.deleteFacet(PreferenceFacetType.GENRE.name, key)
+            }
+            mergedCount = mergedCanonical.size
+            removedCount = deleteKeys.size
+        }
+        if (mergedCount > 0 || removedCount > 0) {
+            LearningEventLog.record { id, ts ->
+                LearningEvent.GenreFacetPruned(
+                    id = id,
+                    timestamp = ts,
+                    mergedCount = mergedCount,
+                    removedCount = removedCount,
+                )
             }
         }
     }
