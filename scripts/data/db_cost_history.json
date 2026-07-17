@@ -549,24 +549,29 @@
     "runs": 1
    },
    "import-podcasts": {
-    "reads": 141916,
+    "reads": 177395,
     "writes": 4600,
-    "runs": 4
+    "runs": 5
    },
    "sync-episodes": {
-    "reads": 50480,
-    "writes": 3802,
-    "runs": 4
+    "reads": 51225,
+    "writes": 5292,
+    "runs": 5
    },
    "vectorize-episodes": {
-    "reads": 102002,
-    "writes": 2491,
-    "runs": 4
+    "reads": 126156,
+    "writes": 2801,
+    "runs": 5
    },
    "vectorize-shows": {
     "reads": 20607,
     "writes": 920,
-    "runs": 4
+    "runs": 5
+   },
+   "cleanup-non-chart": {
+    "reads": 51479,
+    "writes": 0,
+    "runs": 1
    }
   }
  }
