@@ -35,12 +35,11 @@ sealed interface SettingsEvent {
  * running the subscription work on [viewModelScope] instead of a composable-scoped
  * [kotlinx.coroutines.CoroutineScope].
  */
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val rssRepository by lazy { RssPodcastRepository.getInstance(getApplication()) }
-    private val rankingFeedbackRepository by lazy {
-        RankingFeedbackRepository.getInstance(getApplication())
-    }
+class SettingsViewModel(
+    application: Application,
+    private val rssRepository: RssPodcastRepository,
+    private val rankingFeedbackRepository: RankingFeedbackRepository,
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SettingsRssUiState())
     val uiState: StateFlow<SettingsRssUiState> = _uiState.asStateFlow()

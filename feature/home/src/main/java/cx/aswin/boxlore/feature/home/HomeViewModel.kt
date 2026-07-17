@@ -225,21 +225,17 @@ private data class HomeClockContext(
 @Suppress("kotlin:S6310")
 class HomeViewModel(
     application: Application,
-    apiBaseUrl: String,
-    publicKey: String,
+    val podcastRepository: PodcastRepository,
     private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     private val engagementCoordinator: cx.aswin.boxlore.core.data.EngagementPromptCoordinator,
+    private val subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
+    private val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
+    private val rssRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
+    private val adaptiveRankingRepository: AdaptiveRankingRepository,
+    private val adaptiveScorer: AdaptiveCandidateScorer,
+    private val rankingFeedback: RankingFeedbackRepository,
+    private val database: cx.aswin.boxlore.core.data.database.BoxLoreDatabase,
 ) : AndroidViewModel(application) {
-    
-    val podcastRepository = PodcastRepository(baseUrl = apiBaseUrl, publicKey = publicKey, context = application)
-    private val database = cx.aswin.boxlore.core.data.database.BoxLoreDatabase.getDatabase(application)
-    private val adaptiveRankingRepository = AdaptiveRankingRepository.getInstance(application)
-    private val adaptiveScorer = AdaptiveCandidateScorer.getInstance(application)
-    private val rankingFeedback = RankingFeedbackRepository.getInstance(application)
-    private val subscriptionRepository = cx.aswin.boxlore.core.data.SubscriptionRepository(database.podcastDao())
-    private val rssRepository =
-        cx.aswin.boxlore.core.data.RssPodcastRepository.getInstance(application)
-    private val downloadRepository = cx.aswin.boxlore.core.data.DownloadRepository(application, database)
     val downloadedEpisodeIds: StateFlow<Set<String>> = downloadRepository.downloads
         .map { list -> list.map { it.episodeId }.toSet() }
         .stateIn(

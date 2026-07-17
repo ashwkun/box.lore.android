@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
@@ -24,12 +23,10 @@ import kotlinx.coroutines.launch
 class DebugViewModel(
     application: Application,
     private val playbackRepository: PlaybackRepository,
+    private val subscriptionRepository: SubscriptionRepository,
+    private val userPrefs: UserPreferencesRepository,
+    private val adaptiveRankingRepository: AdaptiveRankingRepository,
 ) : AndroidViewModel(application) {
-
-    private val database = BoxLoreDatabase.getDatabase(application)
-    private val subscriptionRepository = SubscriptionRepository(database.podcastDao())
-    private val userPrefs = UserPreferencesRepository(application)
-    private val adaptiveRankingRepository = AdaptiveRankingRepository.getInstance(application)
 
     val history: Flow<List<ListeningHistoryEntity>> = playbackRepository.getAllHistory()
     val podcasts: Flow<List<PodcastEntity>> = subscriptionRepository.getAllSubscribedPodcasts()

@@ -38,7 +38,8 @@ sealed interface LearnUiState {
 class LearnViewModel(
     private val podcastRepository: PodcastRepository,
     application: Application,
-    private val historyStore: LearnCuriosityHistoryStore = LearnCuriosityHistoryStore(application)
+    private val rankingFeedback: RankingFeedbackRepository,
+    private val historyStore: LearnCuriosityHistoryStore = LearnCuriosityHistoryStore(application),
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow<LearnUiState>(LearnUiState.Loading)
@@ -52,7 +53,6 @@ class LearnViewModel(
     private var playsCount = 0
     private var podcastsClickedCount = 0
     private var infosClickedCount = 0
-    private val rankingFeedback = RankingFeedbackRepository.getInstance(application)
     private val visibleSince = mutableMapOf<Long, Long>()
 
     fun onScreenResume() {

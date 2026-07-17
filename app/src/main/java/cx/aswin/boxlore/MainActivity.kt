@@ -1293,10 +1293,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 HomeRoute(
-                                    apiBaseUrl = apiBaseUrl,
-                                    publicKey = publicKey,
+                                    podcastRepository = podcastRepository,
                                     playbackRepository = playbackRepository,
-                                    engagementPromptCoordinator = (application as BoxLoreApplication).engagementPromptCoordinator,
+                                    engagementPromptCoordinator = application.engagementPromptCoordinator,
+                                    subscriptionRepository = subscriptionRepository,
+                                    downloadRepository = downloadRepository,
+                                    rssPodcastRepository = container.rssPodcastRepository,
+                                    adaptiveRankingRepository = container.adaptiveRankingRepository,
+                                    adaptiveCandidateScorer = container.adaptiveCandidateScorer,
+                                    rankingFeedbackRepository = container.rankingFeedbackRepository,
+                                    database = database,
                                     navController = navController,
                                     onPodcastClick = { podcast, entryPointStr, genreStr, depthVal ->
                                         var route = "podcast/${podcast.id}"
@@ -1408,7 +1414,8 @@ class MainActivity : ComponentActivity() {
                                             return cx.aswin.boxlore.feature.explore.LearnViewModel(
                                                 podcastRepository = podcastRepository,
                                                 application = application,
-                                                historyStore = learnHistoryStore
+                                                rankingFeedback = container.rankingFeedbackRepository,
+                                                historyStore = learnHistoryStore,
                                             ) as T
                                         }
                                     }
@@ -1541,6 +1548,8 @@ class MainActivity : ComponentActivity() {
                                     scope.launch { persist(value) }
                                 }
                                 cx.aswin.boxlore.feature.home.settings.SettingsScreen(
+                                    rssPodcastRepository = container.rssPodcastRepository,
+                                    rankingFeedbackRepository = container.rankingFeedbackRepository,
                                     config = cx.aswin.boxlore.feature.home.settings.SettingsScreenConfig(
                                         onBack = { navController.popBackStack() },
                                         onResetAnalytics = {
@@ -1669,6 +1678,9 @@ class MainActivity : ComponentActivity() {
                             composable("debug") {
                                 cx.aswin.boxlore.feature.home.DebugScreen(
                                     playbackRepository = playbackRepository,
+                                    subscriptionRepository = subscriptionRepository,
+                                    userPreferencesRepository = userPrefs,
+                                    adaptiveRankingRepository = container.adaptiveRankingRepository,
                                     onBack = { navController.popBackStack() }
                                 )
                             }
@@ -1704,13 +1716,14 @@ class MainActivity : ComponentActivity() {
                                         @Suppress("UNCHECKED_CAST")
                                         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                                             return cx.aswin.boxlore.feature.explore.ExploreViewModel(
-                                                application,
-                                                podcastRepository,
-                                                subscriptionRepository, // Updated to take repo
-                                                userPrefs,
-                                                playbackRepository,
+                                                application = application,
+                                                podcastRepository = podcastRepository,
+                                                subscriptionRepository = subscriptionRepository,
+                                                userPrefs = userPrefs,
+                                                playbackRepository = playbackRepository,
+                                                adaptiveScorer = container.adaptiveCandidateScorer,
                                                 initialCategory = category,
-                                                initialTab = tab
+                                                initialTab = tab,
                                             ) as T
                                         }
                                     }
@@ -2058,16 +2071,18 @@ class MainActivity : ComponentActivity() {
                                         @Suppress("UNCHECKED_CAST")
                                         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                                             return cx.aswin.boxlore.feature.info.PodcastInfoViewModel(
-                                                application, 
-                                                apiBaseUrl, 
-                                                publicKey, 
-                                                playbackRepository, // Pass Shared Instance
-                                                downloadRepository,
-                                                queueManager,
-                                                entryPoint,
-                                                genre,
-                                                depth,
-                                                query
+                                                application = application,
+                                                repository = podcastRepository,
+                                                playbackRepository = playbackRepository,
+                                                downloadRepository = downloadRepository,
+                                                queueManager = queueManager,
+                                                subscriptionRepository = subscriptionRepository,
+                                                rssRepository = container.rssPodcastRepository,
+                                                database = database,
+                                                entryPoint = entryPoint,
+                                                genreFilter = genre,
+                                                scrollDepth = depth,
+                                                searchQuery = query,
                                             ) as T
                                         }
                                     }
@@ -2154,13 +2169,13 @@ class MainActivity : ComponentActivity() {
                                         @Suppress("UNCHECKED_CAST")
                                         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                                             return cx.aswin.boxlore.feature.info.EpisodeInfoViewModel(
-                                                application, 
-                                                apiBaseUrl, 
-                                                publicKey, 
-                                                playbackRepository, // Pass Shared Instance
-                                                downloadRepository,
-                                                queueManager,
-                                                userPrefs
+                                                application = application,
+                                                podcastRepository = podcastRepository,
+                                                playbackRepository = playbackRepository,
+                                                downloadRepository = downloadRepository,
+                                                queueManager = queueManager,
+                                                userPrefs = userPrefs,
+                                                database = database,
                                             ) as T
                                         }
                                     }
@@ -2293,13 +2308,13 @@ class MainActivity : ComponentActivity() {
                                         @Suppress("UNCHECKED_CAST")
                                         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                                             return cx.aswin.boxlore.feature.info.EpisodeInfoViewModel(
-                                                application, 
-                                                apiBaseUrl, 
-                                                publicKey, 
-                                                playbackRepository,
-                                                downloadRepository,
-                                                queueManager,
-                                                userPrefs
+                                                application = application,
+                                                podcastRepository = podcastRepository,
+                                                playbackRepository = playbackRepository,
+                                                downloadRepository = downloadRepository,
+                                                queueManager = queueManager,
+                                                userPrefs = userPrefs,
+                                                database = database,
                                             ) as T
                                         }
                                     }

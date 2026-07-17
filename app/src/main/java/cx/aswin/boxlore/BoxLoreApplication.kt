@@ -16,7 +16,6 @@ import com.posthog.android.PostHogAndroidConfig
 import cx.aswin.boxlore.core.data.EngagementPromptCoordinator
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
-import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.network.NetworkModule
 import cx.aswin.boxlore.surveys.BoxcastPostHogSurveysDelegate
 import java.util.concurrent.TimeUnit
@@ -127,7 +126,7 @@ class BoxLoreApplication : Application(), Configuration.Provider {
     private fun reportAdaptiveRankingStatus() {
         applicationScope.launch {
             try {
-                val statuses = AdaptiveRankingRepository.getInstance(this@BoxLoreApplication)
+                val statuses = container.adaptiveRankingRepository
                     .aggregateTelemetry()
                 cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
                     .trackAdaptiveRankingStatus(statuses)

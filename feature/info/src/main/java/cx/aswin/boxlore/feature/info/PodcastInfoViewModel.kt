@@ -49,26 +49,18 @@ sealed interface PodcastInfoUiState {
 @Suppress("kotlin:S6310")
 class PodcastInfoViewModel(
     application: Application,
-    private val apiBaseUrl: String,
-    private val publicKey: String,
+    private val repository: PodcastRepository,
     private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
     private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
+    private val subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
+    private val rssRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
+    private val database: cx.aswin.boxlore.core.data.database.BoxLoreDatabase,
     private val entryPoint: String?,
     private val genreFilter: String?,
     private val scrollDepth: Int?,
-    private val searchQuery: String?
+    private val searchQuery: String?,
 ) : AndroidViewModel(application) {
-
-    private val repository = PodcastRepository(
-        baseUrl = apiBaseUrl,
-        publicKey = publicKey,
-        context = application
-    )
-    private val database = cx.aswin.boxlore.core.data.database.BoxLoreDatabase.getDatabase(application)
-    private val subscriptionRepository = cx.aswin.boxlore.core.data.SubscriptionRepository(database.podcastDao())
-    private val rssRepository =
-        cx.aswin.boxlore.core.data.RssPodcastRepository.getInstance(application)
 
     private val _uiState = MutableStateFlow<PodcastInfoUiState>(PodcastInfoUiState.Loading)
 

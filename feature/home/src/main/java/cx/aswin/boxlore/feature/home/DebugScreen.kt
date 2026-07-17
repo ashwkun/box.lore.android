@@ -82,6 +82,9 @@ private enum class DebugTab(
 @Composable
 fun DebugScreen(
     playbackRepository: PlaybackRepository,
+    subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
+    userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    adaptiveRankingRepository: cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -90,7 +93,13 @@ fun DebugScreen(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return DebugViewModel(application, playbackRepository) as T
+                return DebugViewModel(
+                    application = application,
+                    playbackRepository = playbackRepository,
+                    subscriptionRepository = subscriptionRepository,
+                    userPrefs = userPreferencesRepository,
+                    adaptiveRankingRepository = adaptiveRankingRepository,
+                ) as T
             }
         }
     )

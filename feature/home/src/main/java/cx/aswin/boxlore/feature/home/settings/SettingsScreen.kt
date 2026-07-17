@@ -116,6 +116,8 @@ data class PlaybackSettings(
 @Composable
 fun SettingsScreen(
     config: SettingsScreenConfig,
+    rssPodcastRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
+    rankingFeedbackRepository: cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository,
     regionSettings: RegionSettings = RegionSettings(),
     appearanceSettings: AppearanceSettings = AppearanceSettings(),
     playbackSettings: PlaybackSettings = PlaybackSettings(),
@@ -138,7 +140,11 @@ fun SettingsScreen(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return SettingsViewModel(application) as T
+                return SettingsViewModel(
+                    application = application,
+                    rssRepository = rssPodcastRepository,
+                    rankingFeedbackRepository = rankingFeedbackRepository,
+                ) as T
             }
         },
     )

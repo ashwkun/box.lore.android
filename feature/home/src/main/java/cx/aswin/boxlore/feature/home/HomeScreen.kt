@@ -221,10 +221,16 @@ data class HomeScreenCallbacks(
 
 @Composable
 fun HomeRoute(
-    apiBaseUrl: String,
-    publicKey: String,
+    podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
     playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     engagementPromptCoordinator: cx.aswin.boxlore.core.data.EngagementPromptCoordinator,
+    subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
+    downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
+    rssPodcastRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
+    adaptiveRankingRepository: cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository,
+    adaptiveCandidateScorer: cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer,
+    rankingFeedbackRepository: cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository,
+    database: cx.aswin.boxlore.core.data.database.BoxLoreDatabase,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null, // Navigate to EpisodeInfo
@@ -248,11 +254,17 @@ fun HomeRoute(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return HomeViewModel(
-                    application,
-                    apiBaseUrl,
-                    publicKey,
-                    playbackRepository,
-                    engagementPromptCoordinator,
+                    application = application,
+                    podcastRepository = podcastRepository,
+                    playbackRepository = playbackRepository,
+                    engagementCoordinator = engagementPromptCoordinator,
+                    subscriptionRepository = subscriptionRepository,
+                    downloadRepository = downloadRepository,
+                    rssRepository = rssPodcastRepository,
+                    adaptiveRankingRepository = adaptiveRankingRepository,
+                    adaptiveScorer = adaptiveCandidateScorer,
+                    rankingFeedback = rankingFeedbackRepository,
+                    database = database,
                 ) as T
             }
         }

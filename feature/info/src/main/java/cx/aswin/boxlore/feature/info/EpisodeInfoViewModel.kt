@@ -42,15 +42,13 @@ sealed interface EpisodeInfoUiState {
 
 class EpisodeInfoViewModel(
     application: Application,
-    private val apiBaseUrl: String,
-    private val publicKey: String,
+    private val podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
     private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
     private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
-    private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository
+    private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    private val database: cx.aswin.boxlore.core.data.database.BoxLoreDatabase,
 ) : AndroidViewModel(application) {
-
-    private val database = cx.aswin.boxlore.core.data.database.BoxLoreDatabase.getDatabase(application)
 
     private val _uiState = MutableStateFlow<EpisodeInfoUiState>(EpisodeInfoUiState.Loading)
     val uiState: StateFlow<EpisodeInfoUiState> = _uiState.asStateFlow()
@@ -167,7 +165,6 @@ class EpisodeInfoViewModel(
         viewModelScope.launch {
             _uiState.value = EpisodeInfoUiState.Loading
             try {
-                val repository = cx.aswin.boxlore.core.data.PodcastRepository(apiBaseUrl, publicKey, getApplication())
                 
                 var finalPodcastId = podcastId
                 var finalPodcastTitle = podcastTitle
@@ -203,7 +200,7 @@ class EpisodeInfoViewModel(
                 }
 
                 if (finalPodcastId.isEmpty() || finalEpisodeTitle.isEmpty() || finalEpisodeAudioUrl.isEmpty()) {
-                    val fullEpisode = repository.getEpisode(episodeId)
+                    val fullEpisode = podcastRepository.getEpisode(episodeId)
                     if (fullEpisode != null) {
                         currentEpisode = fullEpisode
                         if (finalPodcastId.isEmpty()) finalPodcastId = fullEpisode.podcastId ?: "unknown"
@@ -244,7 +241,7 @@ class EpisodeInfoViewModel(
 
                 // If finalPodcastTitle is empty/generic, try to fetch podcast details from network
                 if (finalPodcastId.isNotEmpty() && (finalPodcastTitle.isEmpty() || finalPodcastTitle == "Podcast")) {
-                    val podcast = repository.getPodcastDetails(finalPodcastId)
+                    val podcast = podcastRepository.getPodcastDetails(finalPodcastId)
                     if (podcast != null) {
                         finalPodcastTitle = podcast.title
                     }
@@ -281,7 +278,7 @@ class EpisodeInfoViewModel(
                 
                 // 2. Fetch full details if we haven't already
                 if (finalEpisodeDescription.isEmpty()) {
-                    val fullEpisode = repository.getEpisode(episodeId)
+                    val fullEpisode = podcastRepository.getEpisode(episodeId)
                     if (fullEpisode != null) {
                         val netImage = fullEpisode.imageUrl
                         currentEpisode = fullEpisode.copy(
@@ -307,7 +304,7 @@ class EpisodeInfoViewModel(
                     }
                 } else {
                     // Fetch network episode anyway to ensure we have any extra metadata
-                    val fullEpisode = repository.getEpisode(episodeId)
+                    val fullEpisode = podcastRepository.getEpisode(episodeId)
                     if (fullEpisode != null) {
                         val netImage = fullEpisode.imageUrl
                         currentEpisode = fullEpisode.copy(
@@ -351,14 +348,13 @@ class EpisodeInfoViewModel(
         viewModelScope.launch {
             try {
                 android.util.Log.d("EpisodeInfo", "Fetching related episodes for podcastId: $podcastId")
-                val repository = cx.aswin.boxlore.core.data.PodcastRepository(apiBaseUrl, publicKey, getApplication())
                 
                 // Fetch podcast to get genre
-                val podcast = repository.getPodcastDetails(podcastId)
+                val podcast = podcastRepository.getPodcastDetails(podcastId)
                 val genre = podcast?.genre ?: ""
                 
                 // Use getEpisodesPaginated which is the correct method used elsewhere
-                val page = repository.getEpisodesPaginated(podcastId, 15, 0, "newest")
+                val page = podcastRepository.getEpisodesPaginated(podcastId, 15, 0, "newest")
                 android.util.Log.d("EpisodeInfo", "Fetched ${page.episodes.size} episodes, genre: $genre")
                 val relatedEps = page.episodes
                     .filter { it.id != episodeId }
@@ -390,15 +386,14 @@ class EpisodeInfoViewModel(
         viewModelScope.launch {
             try {
                 android.util.Log.d("EpisodeInfo", "Fetching similar episodes for episodeId: $episodeId, title: $episodeTitle")
-                val repository = cx.aswin.boxlore.core.data.PodcastRepository(apiBaseUrl, publicKey, getApplication())
                 
                 // Fetch the podcast details to get categories and author
-                val podcast = repository.getPodcastDetails(podcastId)
+                val podcast = podcastRepository.getPodcastDetails(podcastId)
                 val categories = podcast?.genre ?: ""
                 val author = podcast?.artist ?: ""
 
                 val region = userPrefs.regionStream.first().takeIf { it.isNotBlank() } ?: "us"
-                val similarEps = repository.getSimilarEpisodes(
+                val similarEps = podcastRepository.getSimilarEpisodes(
                     episodeId = episodeId,
                     podcastId = podcastId,
                     title = episodeTitle,
@@ -648,8 +643,7 @@ class EpisodeInfoViewModel(
 
                 if (result.isCrossPromotion && extractedName != null) {
                     android.util.Log.d("EpisodeInfo", "Cross promotion detected: $extractedName")
-                    val repository = cx.aswin.boxlore.core.data.PodcastRepository(apiBaseUrl, publicKey, getApplication())
-                    val resolver = cx.aswin.boxlore.core.data.crosspromo.CrossPromotionResolver(repository)
+                        val resolver = cx.aswin.boxlore.core.data.crosspromo.CrossPromotionResolver(podcastRepository)
                     val targetPodcast = resolver.resolve(extractedName)
 
                     val finalSuccess = _uiState.value as? EpisodeInfoUiState.Success

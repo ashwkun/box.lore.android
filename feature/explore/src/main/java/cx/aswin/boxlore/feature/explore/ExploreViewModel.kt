@@ -67,10 +67,10 @@ class ExploreViewModel(
     private val subscriptionRepository: SubscriptionRepository,
     private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
     private val playbackRepository: PlaybackRepository,
+    private val adaptiveScorer: AdaptiveCandidateScorer,
     initialCategory: String? = null,
-    initialTab: String? = null
+    initialTab: String? = null,
 ) : androidx.lifecycle.AndroidViewModel(application) {
-    private val adaptiveScorer = AdaptiveCandidateScorer.getInstance(application)
 
     private val _uiState = MutableStateFlow<ExploreUiState>(
         ExploreUiState.Success(
