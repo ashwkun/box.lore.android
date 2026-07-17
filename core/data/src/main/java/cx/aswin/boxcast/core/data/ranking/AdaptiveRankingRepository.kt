@@ -402,15 +402,18 @@ class AdaptiveRankingRepository private constructor(
             mergedCount = mergedCanonical.size
             removedCount = deleteKeys.size
         }
-        if (mergedCount > 0 || removedCount > 0) {
-            LearningEventLog.record { id, ts ->
-                LearningEvent.GenreFacetPruned(
-                    id = id,
-                    timestamp = ts,
-                    mergedCount = mergedCount,
-                    removedCount = removedCount,
-                )
-            }
+        recordGenreFacetPruned(mergedCount, removedCount)
+    }
+
+    private fun recordGenreFacetPruned(mergedCount: Int, removedCount: Int) {
+        if (mergedCount == 0 && removedCount == 0) return
+        LearningEventLog.record { id, ts ->
+            LearningEvent.GenreFacetPruned(
+                id = id,
+                timestamp = ts,
+                mergedCount = mergedCount,
+                removedCount = removedCount,
+            )
         }
     }
 
