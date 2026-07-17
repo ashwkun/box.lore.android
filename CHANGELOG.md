@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Upgrade @libsql/client from 0.17.0 to 0.17.4 in scripts ([#894](https://github.com/ashwkun/boxlore/pull/894)) <!-- impact:no-user-impact -->
 ## [v0.0.10] - 2026-07-17
 
 ### Added

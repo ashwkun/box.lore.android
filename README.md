@@ -53,7 +53,7 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 <!-- upcoming-changes:start -->
 <div align="center">
 
-<details>
+<details open>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
 <p align="left">
 New features and improvements for the next release are currently in development.
