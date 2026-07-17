@@ -6,6 +6,18 @@
             "**/.*",
             "**/node_modules/**"
         ],
+        "redirects": [
+            {
+                "source": "/boxlore/avatarlab",
+                "destination": "/avatarlab/",
+                "type": 301
+            },
+            {
+                "source": "/boxlore/avatarlab/:path*",
+                "destination": "/avatarlab/:path",
+                "type": 301
+            }
+        ],
         "rewrites": [
             {
                 "source": "**",

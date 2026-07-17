@@ -45,9 +45,9 @@ proxy/
 admin-panel/
 telemetry-worker/
 
-# Avatar Lab source: github.com/ashwkun/avatarlab
-# Local Firebase copy under docs/web is deploy output only — do not commit.
-docs/web/boxlore/avatarlab/
+# Hosting site lives in private repo ashwkun/aswin-cx (local docs/web may remain for deploy).
+# Only the web site — not the rest of docs/.
+docs/web/
 
 # Transformers model cache
 .cache/

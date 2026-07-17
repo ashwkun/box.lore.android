@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /boxlore/
-Disallow: /
-
-Sitemap: https://aswin.cx/sitemap.xml
