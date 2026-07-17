@@ -9,15 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.0.10] - 2026-07-17
+
 ### Added
-- Added recommendation‑driven discovery sections on Home replacing time‑of‑day rails; Adaptive Learner debug inspector with genre‑affinity graphs (excluding placeholder Podcast); bounded aggregate summaries (genre affinity, duration, maturity, novelty, recent‑section) for personalization; stale‑while‑revalidate caching for discovery rails with skeleton placeholders. ([#882](https://github.com/ashwkun/boxlore/pull/882)) <!-- impact:user-impact-high+backend-change -->
-- Added Shared ImportLoaderView with morphing animation to success checkmark for library import flow. ([#883](https://github.com/ashwkun/boxlore/pull/883)) <!-- impact:user-impact-low -->
+- Recommendation‑driven discovery sections on Home replace time‑of‑day rails; Adaptive Learner debug inspector with genre‑affinity graphs (excluding placeholder Podcast); bounded aggregate summaries (genre affinity, duration, maturity, novelty, recent‑section) for personalization; stale‑while‑revalidate caching for discovery rails with skeleton placeholders. ([#882](https://github.com/ashwkun/boxlore/pull/882)) <!-- impact:user-impact-high+backend-change -->
+- Shared ImportLoaderView with morphing animation to success checkmark added for library import flow. ([#883](https://github.com/ashwkun/boxlore/pull/883)) <!-- impact:user-impact-low -->
 ### Changed
-- Changed visual hierarchy and spacing for top‑level, child, and nested section headers; enabled daypart rotation via ordering and short‑lived retention of recently visible sections; updated network loading logic to preserve in‑flight section loads and prevent data clearing on empty refresh; upgraded Gradle wrapper and enabled R8 compatibility for release builds. ([#882](https://github.com/ashwkun/boxlore/pull/882)) <!-- impact:user-impact-high+backend-change -->
-- Changed library import flow UI with clearer selector, progress, and success screens; widened cross‑promotion detection with additional title patterns, description cues, and improved match scoring; extracted import UI from MainActivity into ui.libraryimport package. ([#883](https://github.com/ashwkun/boxlore/pull/883)) <!-- impact:user-impact-low -->
-- Changed documentation: rewrote recommendation‑system guide covering UI rails, on‑device bandit logic, API contracts, and diagnostics; removed obsolete recommendation_logic documentation. ([#880](https://github.com/ashwkun/boxlore/pull/880)) <!-- impact:no-user-impact -->
+- Visual hierarchy and spacing adjusted for top‑level, child, and nested section headers; daypart rotation enabled via ordering and short‑lived retention of recently visible sections; network loading logic updated to preserve in‑flight section loads and prevent data clearing on empty refresh; Gradle wrapper upgraded and R8 compatibility enabled for release builds. ([#882](https://github.com/ashwkun/boxlore/pull/882)) <!-- impact:user-impact-high+backend-change -->
+- Library import flow UI refined with clearer selector, progress, and success screens; cross‑promotion detection widened via additional title patterns, description cues, and improved match scoring; import UI extracted from MainActivity into ui.libraryimport package. ([#883](https://github.com/ashwkun/boxlore/pull/883)) <!-- impact:user-impact-low -->
+- Documentation rewritten for recommendation‑system guide covering UI rails, on‑device bandit logic, API contracts, and diagnostics; obsolete recommendation_logic documentation removed. ([#880](https://github.com/ashwkun/boxlore/pull/880)) <!-- impact:no-user-impact -->
 ### Fixed
-- Fixed exclusion of placeholder Podcast genre from on‑device learner calculations; fixed blank gaps under greeting by painting cached rails immediately. ([#882](https://github.com/ashwkun/boxlore/pull/882)) <!-- impact:user-impact-high+backend-change -->
+- Exclusion of placeholder Podcast genre from on‑device learner calculations fixed; blank gaps under greeting eliminated by painting cached rails immediately. ([#882](https://github.com/ashwkun/boxlore/pull/882)) <!-- impact:user-impact-high+backend-change -->
+
 ## [v0.0.9] - 2026-07-16
 
 ### Added
