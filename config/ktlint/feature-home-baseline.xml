@@ -46,27 +46,27 @@
         <error line="1243" column="5" source="standard:function-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/HomeViewModel.kt">
-        <error line="258" column="17" source="standard:backing-property-naming" />
-        <error line="259" column="17" source="standard:backing-property-naming" />
-        <error line="260" column="17" source="standard:backing-property-naming" />
-        <error line="261" column="17" source="standard:backing-property-naming" />
         <error line="262" column="17" source="standard:backing-property-naming" />
         <error line="263" column="17" source="standard:backing-property-naming" />
         <error line="264" column="17" source="standard:backing-property-naming" />
         <error line="265" column="17" source="standard:backing-property-naming" />
+        <error line="266" column="17" source="standard:backing-property-naming" />
         <error line="267" column="17" source="standard:backing-property-naming" />
         <error line="268" column="17" source="standard:backing-property-naming" />
         <error line="269" column="17" source="standard:backing-property-naming" />
-        <error line="270" column="17" source="standard:backing-property-naming" />
         <error line="271" column="17" source="standard:backing-property-naming" />
         <error line="272" column="17" source="standard:backing-property-naming" />
         <error line="273" column="17" source="standard:backing-property-naming" />
-        <error line="522" column="17" source="standard:backing-property-naming" />
-        <error line="523" column="17" source="standard:backing-property-naming" />
-        <error line="524" column="17" source="standard:backing-property-naming" />
-        <error line="525" column="17" source="standard:backing-property-naming" />
+        <error line="274" column="17" source="standard:backing-property-naming" />
+        <error line="275" column="17" source="standard:backing-property-naming" />
+        <error line="276" column="17" source="standard:backing-property-naming" />
+        <error line="277" column="17" source="standard:backing-property-naming" />
         <error line="526" column="17" source="standard:backing-property-naming" />
+        <error line="527" column="17" source="standard:backing-property-naming" />
+        <error line="528" column="17" source="standard:backing-property-naming" />
+        <error line="529" column="17" source="standard:backing-property-naming" />
         <error line="530" column="17" source="standard:backing-property-naming" />
+        <error line="534" column="17" source="standard:backing-property-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/components/BecauseYouLikeSection.kt">
         <error line="4" column="1" source="standard:no-wildcard-imports" />
@@ -206,9 +206,9 @@
         <error line="145" column="14" source="standard:function-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/settings/dialogs/ResetAnalyticsDialog.kt">
-        <error line="21" column="14" source="standard:function-naming" />
-        <error line="40" column="141" source="standard:max-line-length" />
-        <error line="64" column="141" source="standard:max-line-length" />
+        <error line="27" column="14" source="standard:function-naming" />
+        <error line="46" column="141" source="standard:max-line-length" />
+        <error line="70" column="141" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/settings/pages/AboutSettingsPage.kt">
         <error line="51" column="14" source="standard:function-naming" />
@@ -250,5 +250,12 @@
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/settings/pages/SettingsHub.kt">
         <error line="17" column="14" source="standard:function-naming" />
+    </file>
+    <file name="src/test/java/cx/aswin/boxlore/feature/home/logic/HomeMappingLogicTest.kt">
+        <error line="12" column="25" source="standard:chain-method-continuation" />
+    </file>
+    <file name="src/test/java/cx/aswin/boxlore/feature/home/settings/SettingsViewModelDialogTest.kt">
+        <error line="86" column="57" source="standard:function-signature" />
+        <error line="87" column="63" source="standard:chain-method-continuation" />
     </file>
 </baseline>

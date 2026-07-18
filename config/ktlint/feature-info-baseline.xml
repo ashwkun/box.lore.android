@@ -20,40 +20,39 @@
         <error line="312" column="141" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/info/PodcastInfoScreen.kt">
+        <error line="7" column="1" source="standard:no-unused-imports" />
+        <error line="9" column="1" source="standard:no-unused-imports" />
+        <error line="59" column="1" source="standard:no-unused-imports" />
+        <error line="60" column="1" source="standard:no-unused-imports" />
+        <error line="61" column="1" source="standard:no-unused-imports" />
+        <error line="68" column="1" source="standard:no-unused-imports" />
         <error line="73" column="1" source="standard:no-wildcard-imports" />
-        <error line="168" column="13" source="standard:function-naming" />
-        <error line="232" column="5" source="standard:function-naming" />
-        <error line="522" column="21" source="standard:function-naming" />
-        <error line="1226" column="13" source="standard:function-naming" />
-        <error line="1253" column="13" source="standard:function-naming" />
-        <error line="1280" column="13" source="standard:function-naming" />
-        <error line="1307" column="13" source="standard:function-naming" />
-        <error line="1335" column="13" source="standard:function-naming" />
-        <error line="1362" column="13" source="standard:function-naming" />
-        <error line="1393" column="13" source="standard:function-naming" />
-        <error line="1484" column="13" source="standard:function-naming" />
-        <error line="1543" column="141" source="standard:max-line-length" />
-        <error line="1557" column="13" source="standard:function-naming" />
-        <error line="1591" column="13" source="standard:function-naming" />
-        <error line="1628" column="13" source="standard:function-naming" />
-        <error line="1671" column="13" source="standard:function-naming" />
-        <error line="1844" column="141" source="standard:max-line-length" />
-        <error line="1845" column="141" source="standard:max-line-length" />
-        <error line="1881" column="13" source="standard:function-naming" />
-        <error line="1998" column="13" source="standard:function-naming" />
-        <error line="2086" column="13" source="standard:function-naming" />
-        <error line="2216" column="13" source="standard:function-naming" />
-        <error line="2280" column="5" source="standard:function-naming" />
-        <error line="2574" column="13" source="standard:function-naming" />
-        <error line="2605" column="13" source="standard:function-naming" />
-        <error line="2744" column="141" source="standard:max-line-length" />
-        <error line="2887" column="141" source="standard:max-line-length" />
-        <error line="2938" column="141" source="standard:max-line-length" />
-        <error line="3013" column="5" source="standard:function-naming" />
-        <error line="3261" column="5" source="standard:function-naming" />
-        <error line="3373" column="5" source="standard:function-naming" />
-        <error line="3537" column="13" source="standard:function-naming" />
-        <error line="3583" column="5" source="standard:function-naming" />
+        <error line="75" column="1" source="standard:no-unused-imports" />
+        <error line="77" column="1" source="standard:no-unused-imports" />
+        <error line="105" column="1" source="standard:no-unused-imports" />
+        <error line="143" column="1" source="standard:no-unused-imports" />
+        <error line="146" column="1" source="standard:no-unused-imports" />
+        <error line="152" column="1" source="standard:no-unused-imports" />
+        <error line="174" column="5" source="standard:function-naming" />
+        <error line="464" column="21" source="standard:function-naming" />
+        <error line="951" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="1014" column="141" source="standard:max-line-length" />
+        <error line="1015" column="141" source="standard:max-line-length" />
+        <error line="1051" column="13" source="standard:function-naming" />
+        <error line="1168" column="13" source="standard:function-naming" />
+        <error line="1256" column="13" source="standard:function-naming" />
+        <error line="1386" column="13" source="standard:function-naming" />
+        <error line="1450" column="5" source="standard:function-naming" />
+        <error line="1744" column="13" source="standard:function-naming" />
+        <error line="1775" column="13" source="standard:function-naming" />
+        <error line="1914" column="141" source="standard:max-line-length" />
+        <error line="2057" column="141" source="standard:max-line-length" />
+        <error line="2108" column="141" source="standard:max-line-length" />
+        <error line="2183" column="5" source="standard:function-naming" />
+        <error line="2431" column="5" source="standard:function-naming" />
+        <error line="2543" column="5" source="standard:function-naming" />
+        <error line="2706" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="2708" column="5" source="standard:function-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/info/PodcastInfoViewModel.kt">
         <error line="69" column="17" source="standard:backing-property-naming" />
@@ -100,8 +99,42 @@
         <error line="155" column="13" source="standard:function-naming" />
         <error line="245" column="13" source="standard:function-naming" />
     </file>
+    <file name="src/main/java/cx/aswin/boxlore/feature/info/components/PodcastInfoMetadataChips.kt">
+        <error line="18" column="1" source="standard:no-wildcard-imports" />
+        <error line="39" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="250" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="252" column="14" source="standard:function-naming" />
+        <error line="306" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="308" column="14" source="standard:function-naming" />
+        <error line="335" column="14" source="standard:function-naming" />
+        <error line="362" column="14" source="standard:function-naming" />
+        <error line="389" column="14" source="standard:function-naming" />
+        <error line="417" column="14" source="standard:function-naming" />
+        <error line="444" column="14" source="standard:function-naming" />
+        <error line="475" column="14" source="standard:function-naming" />
+        <error line="561" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/info/components/PodcastPlaybackSettingsSheet.kt">
         <error line="49" column="5" source="standard:function-naming" />
         <error line="128" column="13" source="standard:function-naming" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/feature/info/sections/PodcastInfoDescriptionSection.kt">
+        <error line="46" column="29" source="standard:chain-method-continuation" />
+        <error line="46" column="85" source="standard:chain-method-continuation" />
+        <error line="46" column="96" source="standard:chain-method-continuation" />
+        <error line="49" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="51" column="14" source="standard:function-naming" />
+        <error line="110" column="141" source="standard:max-line-length" />
+        <error line="124" column="14" source="standard:function-naming" />
+        <error line="158" column="14" source="standard:function-naming" />
+        <error line="195" column="14" source="standard:function-naming" />
+        <error line="233" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="235" column="14" source="standard:function-naming" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/feature/info/sections/PodcastInfoHeroSection.kt">
+        <error line="27" column="1" source="standard:no-unused-imports" />
+        <error line="36" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="38" column="14" source="standard:function-naming" />
+        <error line="149" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
 </baseline>

@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
     <file name="src/main/java/cx/aswin/boxlore/core/data/PlaybackRepository.kt">
-        <error line="113" column="17" source="standard:property-naming" />
-        <error line="114" column="17" source="standard:property-naming" />
-        <error line="115" column="17" source="standard:property-naming" />
-        <error line="144" column="17" source="standard:property-naming" />
-        <error line="248" column="141" source="standard:max-line-length" />
-        <error line="249" column="141" source="standard:max-line-length" />
-        <error line="281" column="141" source="standard:max-line-length" />
-        <error line="348" column="141" source="standard:max-line-length" />
-        <error line="391" column="141" source="standard:max-line-length" />
-        <error line="431" column="141" source="standard:max-line-length" />
-        <error line="469" column="141" source="standard:max-line-length" />
-        <error line="570" column="141" source="standard:max-line-length" />
-        <error line="675" column="141" source="standard:max-line-length" />
-        <error line="710" column="141" source="standard:max-line-length" />
-        <error line="733" column="141" source="standard:max-line-length" />
-        <error line="994" column="141" source="standard:max-line-length" />
-        <error line="1035" column="141" source="standard:max-line-length" />
-        <error line="1036" column="141" source="standard:max-line-length" />
+        <error line="109" column="17" source="standard:property-naming" />
+        <error line="110" column="17" source="standard:property-naming" />
+        <error line="111" column="17" source="standard:property-naming" />
+        <error line="140" column="17" source="standard:property-naming" />
+        <error line="244" column="141" source="standard:max-line-length" />
+        <error line="245" column="141" source="standard:max-line-length" />
+        <error line="277" column="141" source="standard:max-line-length" />
+        <error line="344" column="141" source="standard:max-line-length" />
+        <error line="387" column="141" source="standard:max-line-length" />
+        <error line="427" column="141" source="standard:max-line-length" />
+        <error line="465" column="141" source="standard:max-line-length" />
+        <error line="566" column="141" source="standard:max-line-length" />
+        <error line="671" column="141" source="standard:max-line-length" />
+        <error line="706" column="141" source="standard:max-line-length" />
+        <error line="729" column="141" source="standard:max-line-length" />
+        <error line="990" column="141" source="standard:max-line-length" />
+        <error line="1031" column="141" source="standard:max-line-length" />
+        <error line="1032" column="141" source="standard:max-line-length" />
+        <error line="1951" column="36" source="standard:chain-method-continuation" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/core/data/QueueManager.kt">
         <error line="13" column="17" source="standard:property-naming" />

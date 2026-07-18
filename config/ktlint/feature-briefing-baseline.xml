@@ -436,8 +436,6 @@
         <error line="222" column="76" source="standard:function-signature" />
         <error line="226" column="88" source="standard:chain-method-continuation" />
         <error line="227" column="1" source="standard:no-trailing-spaces" />
-        <error line="247" column="66" source="standard:function-expression-body" />
-        <error line="253" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="268" column="32" source="standard:trailing-comma-on-declaration-site" />
+        <error line="261" column="32" source="standard:trailing-comma-on-declaration-site" />
     </file>
 </baseline>
