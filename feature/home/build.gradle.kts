@@ -42,6 +42,13 @@ android {
             it.useJUnitPlatform()
         }
     }
+
+    packaging {
+        resources {
+            // okhttp-coroutines + jspecify both ship this OSGi manifest path
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
 }
 
 dependencies {
