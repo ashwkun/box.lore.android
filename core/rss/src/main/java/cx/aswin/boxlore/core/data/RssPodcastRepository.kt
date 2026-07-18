@@ -572,14 +572,44 @@ class RssPodcastRepository private constructor(
         @Volatile
         private var INSTANCE: RssPodcastRepository? = null
 
+        /**
+         * Composition-root factory. Prefer [AppContainer]; call [install] after create.
+         */
+        fun create(
+            context: Context,
+            database: BoxLoreDatabase = BoxLoreDatabase.getDatabase(context.applicationContext),
+            feedClient: RssFeedClient = RssFeedClient(),
+        ): RssPodcastRepository =
+            RssPodcastRepository(
+                appContext = context.applicationContext,
+                database = database,
+                feedClient = feedClient,
+            )
+
+        fun install(instance: RssPodcastRepository) {
+            INSTANCE = instance
+        }
+
+        /**
+         * Legacy accessor — returns the AppContainer-installed instance when present.
+         * Production call sites must use [SharedAppDependenciesHolder] / AppContainer.
+         */
         fun getInstance(context: Context): RssPodcastRepository =
             INSTANCE ?: synchronized(this) {
-                INSTANCE ?: RssPodcastRepository(
-                    appContext = context.applicationContext,
-                    database = BoxLoreDatabase.getDatabase(context.applicationContext),
-                    feedClient = RssFeedClient(),
-                ).also { INSTANCE = it }
+                INSTANCE ?: create(context).also { INSTANCE = it }
             }
+
+        /** Hermetic test factory (JVM / MockWebServer catalog tests). */
+        fun createForTests(
+            context: Context,
+            database: BoxLoreDatabase,
+            feedClient: RssFeedClient = RssFeedClient(),
+        ): RssPodcastRepository = create(context, database, feedClient)
+
+        /** Clears the process singleton between JVM tests that call [getInstance]. */
+        fun clearInstanceForTests() {
+            INSTANCE = null
+        }
     }
 }
 

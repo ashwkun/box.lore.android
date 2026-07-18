@@ -44,8 +44,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
 
-    // Media3 (player + Android Auto session + download service)
-    implementation(libs.androidx.media3.exoplayer)
+    // Media3 (player + Android Auto session + download service).
+    // api: MediaDownloadService extends DownloadService; :app AppContainer references the class.
+    api(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.ui)
 

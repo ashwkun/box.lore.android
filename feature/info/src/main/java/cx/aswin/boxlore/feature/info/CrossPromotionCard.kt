@@ -28,7 +28,7 @@ import cx.aswin.boxlore.core.model.ResolvedCrossPromotion
 fun CrossPromotionCard(
     crossPromotion: ResolvedCrossPromotion,
     onPodcastClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val podcast = crossPromotion.targetPodcast ?: return
 
@@ -37,109 +37,118 @@ fun CrossPromotionCard(
 
     OutlinedCard(
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = surfaceColor
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .expressiveClickable { onPodcastClick(podcast.id) }
+        colors =
+            CardDefaults.outlinedCardColors(
+                containerColor = surfaceColor,
+            ),
+        border =
+            BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+            ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .expressiveClickable { onPodcastClick(podcast.id) },
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
         ) {
             // Header label with icon
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Podcasts,
                     contentDescription = null,
                     tint = primaryColor,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
                 Text(
                     text = "FEATURED SHOW",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    ),
-                    color = primaryColor
+                    style =
+                        MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                        ),
+                    color = primaryColor,
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(6.dp))
 
             // Explanation text
             Text(
                 text = "This episode appears to be a promotional preview for the podcast below. Explore the featured show:",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 13.sp,
-                    lineHeight = 17.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style =
+                    MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 13.sp,
+                        lineHeight = 17.sp,
+                    ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
             )
             Spacer(modifier = Modifier.height(12.dp))
 
             // Podcast details row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 // Podcast Artwork
                 OptimizedImage(
                     url = podcast.imageUrl,
                     proxyWidth = 200,
                     contentDescription = podcast.title,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(MaterialTheme.shapes.medium),
-                    contentScale = ContentScale.Crop
+                    modifier =
+                        Modifier
+                            .size(56.dp)
+                            .clip(MaterialTheme.shapes.medium),
+                    contentScale = ContentScale.Crop,
                 )
 
                 Spacer(modifier = Modifier.width(14.dp))
 
                 // Metadata Column
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text(
                         text = podcast.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        ),
+                        style =
+                            MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                            ),
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
-                        modifier = Modifier.basicMarquee()
+                        modifier = Modifier.basicMarquee(),
                     )
-                    
+
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    val subtext = if (podcast.genre.isNotEmpty() && podcast.genre.lowercase() != "podcast") {
-                        "${podcast.artist} • ${podcast.genre}"
-                    } else {
-                        podcast.artist
-                    }
+                    val subtext =
+                        if (podcast.genre.isNotEmpty() && podcast.genre.lowercase() != "podcast") {
+                            "${podcast.artist} • ${podcast.genre}"
+                        } else {
+                            podcast.artist
+                        }
 
                     Text(
                         text = subtext,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
@@ -148,18 +157,19 @@ fun CrossPromotionCard(
                 // View Arrow Button
                 IconButton(
                     onClick = { onPodcastClick(podcast.id) },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = CircleShape
-                        )
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = CircleShape,
+                            ),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = "View",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -167,20 +177,22 @@ fun CrossPromotionCard(
             // Full-width Description block (placed outside the row, stripped of HTML)
             val desc = podcast.description
             if (!desc.isNullOrBlank()) {
-                val cleanDesc = remember(desc) {
-                    Html.fromHtml(desc, Html.FROM_HTML_MODE_LEGACY).toString().trim()
-                }
+                val cleanDesc =
+                    remember(desc) {
+                        Html.fromHtml(desc, Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                    }
                 if (cleanDesc.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = cleanDesc,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        ),
+                        style =
+                            MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                            ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                         maxLines = 4,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/main/java/cx/aswin/boxlore/core/data/PlaybackRepository.kt">
+        <error line="113" column="17" source="standard:property-naming" />
+        <error line="114" column="17" source="standard:property-naming" />
+        <error line="115" column="17" source="standard:property-naming" />
+        <error line="144" column="17" source="standard:property-naming" />
+        <error line="248" column="141" source="standard:max-line-length" />
+        <error line="249" column="141" source="standard:max-line-length" />
+        <error line="281" column="141" source="standard:max-line-length" />
+        <error line="348" column="141" source="standard:max-line-length" />
+        <error line="391" column="141" source="standard:max-line-length" />
+        <error line="431" column="141" source="standard:max-line-length" />
+        <error line="469" column="141" source="standard:max-line-length" />
+        <error line="570" column="141" source="standard:max-line-length" />
+        <error line="675" column="141" source="standard:max-line-length" />
+        <error line="710" column="141" source="standard:max-line-length" />
+        <error line="733" column="141" source="standard:max-line-length" />
+        <error line="994" column="141" source="standard:max-line-length" />
+        <error line="1035" column="141" source="standard:max-line-length" />
+        <error line="1036" column="141" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/QueueManager.kt">
+        <error line="13" column="17" source="standard:property-naming" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/QueueRepository.kt">
+        <error line="22" column="17" source="standard:property-naming" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/service/AutoCollageGenerator.kt">
+        <error line="4" column="1" source="standard:no-wildcard-imports" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/service/BoxLorePlaybackService.kt">
+        <error line="101" column="17" source="standard:property-naming" />
+        <error line="1501" column="5" source="standard:no-consecutive-comments" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/service/auto/AutoBrowseLibraryCallback.kt">
+        <error line="44" column="17" source="standard:property-naming" />
+        <error line="45" column="17" source="standard:property-naming" />
+        <error line="46" column="17" source="standard:property-naming" />
+        <error line="47" column="17" source="standard:property-naming" />
+        <error line="48" column="17" source="standard:property-naming" />
+        <error line="49" column="17" source="standard:property-naming" />
+        <error line="50" column="17" source="standard:property-naming" />
+        <error line="51" column="17" source="standard:property-naming" />
+        <error line="52" column="17" source="standard:property-naming" />
+        <error line="53" column="17" source="standard:property-naming" />
+        <error line="54" column="17" source="standard:property-naming" />
+        <error line="55" column="17" source="standard:property-naming" />
+        <error line="56" column="17" source="standard:property-naming" />
+        <error line="58" column="17" source="standard:property-naming" />
+        <error line="59" column="17" source="standard:property-naming" />
+        <error line="60" column="17" source="standard:property-naming" />
+        <error line="61" column="17" source="standard:property-naming" />
+        <error line="66" column="17" source="standard:property-naming" />
+        <error line="71" column="17" source="standard:property-naming" />
+        <error line="1022" column="141" source="standard:max-line-length" />
+    </file>
+</baseline>

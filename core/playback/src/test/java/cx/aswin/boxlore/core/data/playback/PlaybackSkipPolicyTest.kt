@@ -8,12 +8,13 @@ import org.junit.jupiter.api.Test
 class PlaybackSkipPolicyTest {
     @Test
     fun explicitPositionWinsOverResumeAndBeginningSkip() {
-        val result = PlaybackSkipPolicy.resolveInitialPosition(
-            explicitPositionMs = 1_000L,
-            savedProgressMs = 45_000L,
-            isCompleted = false,
-            skipBeginningMs = 30_000L,
-        )
+        val result =
+            PlaybackSkipPolicy.resolveInitialPosition(
+                explicitPositionMs = 1_000L,
+                savedProgressMs = 45_000L,
+                isCompleted = false,
+                skipBeginningMs = 30_000L,
+            )
 
         assertEquals(1_000L, result.positionMs)
         assertEquals(PlaybackSkipPolicy.InitialPositionReason.EXPLICIT, result.reason)
@@ -21,12 +22,13 @@ class PlaybackSkipPolicyTest {
 
     @Test
     fun meaningfulResumeWinsEvenInsideBeginningWindow() {
-        val result = PlaybackSkipPolicy.resolveInitialPosition(
-            explicitPositionMs = null,
-            savedProgressMs = 3_000L,
-            isCompleted = false,
-            skipBeginningMs = 30_000L,
-        )
+        val result =
+            PlaybackSkipPolicy.resolveInitialPosition(
+                explicitPositionMs = null,
+                savedProgressMs = 3_000L,
+                isCompleted = false,
+                skipBeginningMs = 30_000L,
+            )
 
         assertEquals(3_000L, result.positionMs)
         assertEquals(PlaybackSkipPolicy.InitialPositionReason.RESUME, result.reason)
@@ -34,12 +36,13 @@ class PlaybackSkipPolicyTest {
 
     @Test
     fun tinyProgressIsTreatedAsFreshStart() {
-        val result = PlaybackSkipPolicy.resolveInitialPosition(
-            explicitPositionMs = null,
-            savedProgressMs = 2_000L,
-            isCompleted = false,
-            skipBeginningMs = 30_000L,
-        )
+        val result =
+            PlaybackSkipPolicy.resolveInitialPosition(
+                explicitPositionMs = null,
+                savedProgressMs = 2_000L,
+                isCompleted = false,
+                skipBeginningMs = 30_000L,
+            )
 
         assertEquals(30_000L, result.positionMs)
         assertEquals(PlaybackSkipPolicy.InitialPositionReason.SKIP_BEGINNING, result.reason)
@@ -47,12 +50,13 @@ class PlaybackSkipPolicyTest {
 
     @Test
     fun nullablePodcastOverridesFallBackIndependently() {
-        val result = PlaybackSkipPolicy.resolveEffectiveTrim(
-            globalSkipBeginningMs = 15_000L,
-            globalSkipEndingMs = 30_000L,
-            podcastSkipBeginningOverrideMs = 0L,
-            podcastSkipEndingOverrideMs = null,
-        )
+        val result =
+            PlaybackSkipPolicy.resolveEffectiveTrim(
+                globalSkipBeginningMs = 15_000L,
+                globalSkipEndingMs = 30_000L,
+                podcastSkipBeginningOverrideMs = 0L,
+                podcastSkipEndingOverrideMs = null,
+            )
 
         assertEquals(0L, result.skipBeginningMs)
         assertEquals(30_000L, result.skipEndingMs)
@@ -116,6 +120,26 @@ class PlaybackSkipPolicyTest {
                 positionMs = 1_000_000L,
                 durationMs = 1_200_000L,
                 effectiveSkipEndingMs = 30_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun effectiveEndingTrimRequiresSafePlayableWindow() {
+        assertEquals(
+            30_000L,
+            PlaybackSkipPolicy.effectiveEndingTrimForCompletion(
+                durationMs = 120_000L,
+                skipBeginningMs = 30_000L,
+                skipEndingMs = 30_000L,
+            ),
+        )
+        assertEquals(
+            0L,
+            PlaybackSkipPolicy.effectiveEndingTrimForCompletion(
+                durationMs = 60_000L,
+                skipBeginningMs = 30_000L,
+                skipEndingMs = 15_000L,
             ),
         )
     }

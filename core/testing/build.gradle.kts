@@ -18,6 +18,15 @@ android {
             jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
         }
     }
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+            // Konsist / filesystem architecture guards need the repo root.
+            it.workingDir = rootProject.projectDir
+            it.systemProperty("boxlore.projectRoot", rootProject.projectDir.absolutePath)
+        }
+    }
 }
 
 dependencies {
@@ -28,4 +37,8 @@ dependencies {
     api(libs.okhttp.mockwebserver)
 
     implementation(libs.androidx.core.ktx)
+
+    testImplementation(libs.konsist)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

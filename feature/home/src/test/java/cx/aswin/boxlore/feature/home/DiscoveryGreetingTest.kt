@@ -1,16 +1,15 @@
 package cx.aswin.boxlore.feature.home
 
 import cx.aswin.boxlore.core.data.content.ContentDaypart
-import java.time.LocalDate
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 /**
  * Narrow Home greeting path extracted from [HomeViewModel] (pure helper; no Application).
  * Full Home VM bootstrap/category still needs Robolectric + heavy repository fakes (deferred).
  */
 class DiscoveryGreetingTest {
-
     private val weekday = LocalDate.of(2026, 7, 15) // Wednesday
     private val friday = LocalDate.of(2026, 7, 17)
     private val saturday = LocalDate.of(2026, 7, 18)

@@ -241,6 +241,20 @@ class DownloadRepository(
     }
     
     val downloads: Flow<List<DownloadedEpisodeEntity>> = database.downloadedEpisodeDao().getAllDownloads()
+
+    /** Completed download episode ids — prefer over filtering [downloads] by Room status in features. */
+    val completedDownloadIds: Flow<Set<String>> = downloads.map { list ->
+        list.filter { it.status == DownloadedEpisodeEntity.STATUS_COMPLETED }
+            .map { it.episodeId }
+            .toSet()
+    }
+
+    /** Actively downloading episode ids — prefer over filtering [downloads] by Room status in features. */
+    val downloadingEpisodeIds: Flow<Set<String>> = downloads.map { list ->
+        list.filter { it.status == DownloadedEpisodeEntity.STATUS_DOWNLOADING }
+            .map { it.episodeId }
+            .toSet()
+    }
     
     fun isDownloaded(episodeId: String): Flow<Boolean> = database.downloadedEpisodeDao().isDownloadedFlow(episodeId).map { it > 0 }
     
@@ -256,13 +270,10 @@ class DownloadRepository(
 
         private const val STREAM_CACHE_MAX_BYTES = 250L * 1024 * 1024 // 250 MB
 
-        /** FQCN of MediaDownloadService in `:core:playback` — avoid data→playback compile edge. */
-        private const val MEDIA_DOWNLOAD_SERVICE_FQCN =
-            "cx.aswin.boxlore.core.data.service.MediaDownloadService"
-
-        @Suppress("UNCHECKED_CAST")
         fun mediaDownloadServiceClass(): Class<out DownloadService> =
-            Class.forName(MEDIA_DOWNLOAD_SERVICE_FQCN) as Class<out DownloadService>
+            cx.aswin.boxlore.core.data.ports.DownloadServiceLauncherHolder
+                .require()
+                .mediaDownloadServiceClass()
 
         fun getDownloadManager(context: Context): DownloadManager {
             return downloadManager ?: synchronized(this) {

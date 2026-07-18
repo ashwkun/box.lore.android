@@ -205,9 +205,17 @@ class RankingFeedbackRepository private constructor(
         @Volatile
         private var instance: RankingFeedbackRepository? = null
 
+        fun create(adaptiveRankingRepository: AdaptiveRankingRepository?): RankingFeedbackRepository =
+            RankingFeedbackRepository(adaptiveRankingRepository)
+
+        fun install(value: RankingFeedbackRepository) {
+            instance = value
+        }
+
+        /** Prefer AppContainer / SharedAppDependenciesHolder in production. */
         fun getInstance(context: Context): RankingFeedbackRepository {
             return instance ?: synchronized(this) {
-                instance ?: RankingFeedbackRepository(
+                instance ?: create(
                     runCatching {
                         AdaptiveRankingRepository.getInstance(context.applicationContext)
                     }.onFailure { error ->

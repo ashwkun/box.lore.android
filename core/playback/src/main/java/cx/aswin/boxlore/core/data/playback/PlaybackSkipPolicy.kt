@@ -33,25 +33,26 @@ object PlaybackSkipPolicy {
 
     fun sanitizeTrim(valueMs: Long): Long = PlaybackSkipBounds.sanitizeTrim(valueMs)
 
-    fun sanitizeSeekBackward(valueMs: Long): Long =
-        PlaybackSkipBounds.sanitizeSeekBackward(valueMs)
+    fun sanitizeSeekBackward(valueMs: Long): Long = PlaybackSkipBounds.sanitizeSeekBackward(valueMs)
 
-    fun sanitizeSeekForward(valueMs: Long): Long =
-        PlaybackSkipBounds.sanitizeSeekForward(valueMs)
+    fun sanitizeSeekForward(valueMs: Long): Long = PlaybackSkipBounds.sanitizeSeekForward(valueMs)
 
     fun resolveEffectiveTrim(
         globalSkipBeginningMs: Long,
         globalSkipEndingMs: Long,
         podcastSkipBeginningOverrideMs: Long?,
         podcastSkipEndingOverrideMs: Long?,
-    ): EffectiveTrim = EffectiveTrim(
-        skipBeginningMs = sanitizeTrim(
-            podcastSkipBeginningOverrideMs ?: globalSkipBeginningMs,
-        ),
-        skipEndingMs = sanitizeTrim(
-            podcastSkipEndingOverrideMs ?: globalSkipEndingMs,
-        ),
-    )
+    ): EffectiveTrim =
+        EffectiveTrim(
+            skipBeginningMs =
+                sanitizeTrim(
+                    podcastSkipBeginningOverrideMs ?: globalSkipBeginningMs,
+                ),
+            skipEndingMs =
+                sanitizeTrim(
+                    podcastSkipEndingOverrideMs ?: globalSkipEndingMs,
+                ),
+        )
 
     fun resolveInitialPosition(
         explicitPositionMs: Long?,
@@ -87,10 +88,29 @@ object PlaybackSkipPolicy {
             durationMs - beginning - ending >= MIN_PLAYABLE_CONTENT_MS
     }
 
-    fun outroBoundaryMs(durationMs: Long, skipEndingMs: Long): Long? {
+    fun outroBoundaryMs(
+        durationMs: Long,
+        skipEndingMs: Long,
+    ): Long? {
         val ending = sanitizeTrim(skipEndingMs)
         if (durationMs <= 0L || ending <= 0L) return null
         return (durationMs - ending).takeIf { it >= 0L }
+    }
+
+    fun effectiveEndingTrimForCompletion(
+        durationMs: Long,
+        skipBeginningMs: Long,
+        skipEndingMs: Long,
+    ): Long {
+        val ending = sanitizeTrim(skipEndingMs)
+        return ending.takeIf {
+            it > 0L &&
+                hasSafePlayableWindow(
+                    durationMs = durationMs,
+                    skipBeginningMs = skipBeginningMs,
+                    skipEndingMs = it,
+                )
+        } ?: 0L
     }
 
     fun isNaturalOutroCrossing(

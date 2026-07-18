@@ -30,11 +30,12 @@ internal data class AutoPlayableSpec(
 
 @OptIn(UnstableApi::class)
 internal object AutoMediaItemFactory {
-    private val episodeCommands = listOf(
-        AutoBrowseContract.COMMAND_TOGGLE_LIKE,
-        AutoBrowseContract.COMMAND_ADD_TO_QUEUE,
-        AutoBrowseContract.COMMAND_MARK_COMPLETE,
-    )
+    private val episodeCommands =
+        listOf(
+            AutoBrowseContract.COMMAND_TOGGLE_LIKE,
+            AutoBrowseContract.COMMAND_ADD_TO_QUEUE,
+            AutoBrowseContract.COMMAND_MARK_COMPLETE,
+        )
 
     fun browsable(
         id: String,
@@ -45,23 +46,26 @@ internal object AutoMediaItemFactory {
         childStyleExtras: Bundle = AutoBrowseContract.listChildrenExtras(),
         singleItemStyle: Int? = null,
     ): MediaItem {
-        val extras = if (singleItemStyle == null) {
-            childStyleExtras
-        } else {
-            AutoBrowseContract.mergeExtras(
-                childStyleExtras,
-                Bundle().apply {
-                    putInt(
-                        MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM,
-                        singleItemStyle,
-                    )
-                },
-            )
-        }
-        return MediaItem.Builder()
+        val extras =
+            if (singleItemStyle == null) {
+                childStyleExtras
+            } else {
+                AutoBrowseContract.mergeExtras(
+                    childStyleExtras,
+                    Bundle().apply {
+                        putInt(
+                            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM,
+                            singleItemStyle,
+                        )
+                    },
+                )
+            }
+        return MediaItem
+            .Builder()
             .setMediaId(id)
             .setMediaMetadata(
-                MediaMetadata.Builder()
+                MediaMetadata
+                    .Builder()
                     .setTitle(title)
                     .setSubtitle(subtitle)
                     .setArtist(subtitle)
@@ -71,32 +75,34 @@ internal object AutoMediaItemFactory {
                     .setMediaType(mediaType)
                     .setExtras(extras)
                     .build(),
-            )
-            .build()
+            ).build()
     }
 
     fun playable(spec: AutoPlayableSpec): MediaItem {
-        val extras = AutoBrowseContract.itemExtras(
-            source = spec.source,
-            groupTitle = spec.groupTitle,
-            progress = spec.progress,
-            isCompleted = spec.isCompleted,
-            downloadStatus = if (spec.isDownloaded) {
-                MediaConstants.EXTRAS_VALUE_STATUS_DOWNLOADED
-            } else {
-                null
-            },
-        )
-        return MediaItem.Builder()
+        val extras =
+            AutoBrowseContract.itemExtras(
+                source = spec.source,
+                groupTitle = spec.groupTitle,
+                progress = spec.progress,
+                isCompleted = spec.isCompleted,
+                downloadStatus =
+                    if (spec.isDownloaded) {
+                        MediaConstants.EXTRAS_VALUE_STATUS_DOWNLOADED
+                    } else {
+                        null
+                    },
+            )
+        return MediaItem
+            .Builder()
             .setMediaId(spec.mediaId)
             .apply {
                 if (!spec.uri.isNullOrBlank() && spec.uri != "CACHED") setUri(spec.uri)
                 if (!spec.customCacheKey.isNullOrBlank()) {
                     setCustomCacheKey(spec.customCacheKey)
                 }
-            }
-            .setMediaMetadata(
-                MediaMetadata.Builder()
+            }.setMediaMetadata(
+                MediaMetadata
+                    .Builder()
                     .setTitle(spec.title)
                     .setSubtitle(spec.subtitle)
                     .setArtist(spec.podcastTitle)
@@ -109,8 +115,7 @@ internal object AutoMediaItemFactory {
                     .setSupportedCommands(spec.supportedCommands ?: episodeCommands)
                     .setExtras(extras)
                     .build(),
-            )
-            .build()
+            ).build()
     }
 
     fun fromHistory(
@@ -120,11 +125,12 @@ internal object AutoMediaItemFactory {
         subtitle: String,
         groupTitle: String,
     ): MediaItem {
-        val progress = if (history.durationMs > 0) {
-            history.progressMs.toDouble() / history.durationMs.toDouble()
-        } else {
-            0.0
-        }
+        val progress =
+            if (history.durationMs > 0) {
+                history.progressMs.toDouble() / history.durationMs.toDouble()
+            } else {
+                0.0
+            }
         return playable(
             AutoPlayableSpec(
                 mediaId = "episode:${history.episodeId}",
@@ -151,44 +157,49 @@ internal object AutoMediaItemFactory {
         groupTitle: String? = null,
         mediaIdPrefix: String = "episode:",
         isDownloaded: Boolean = false,
-    ): MediaItem = playable(
-        AutoPlayableSpec(
-            mediaId = "$mediaIdPrefix${episode.id}",
-            title = episode.title,
-            podcastTitle = podcastTitle,
-            subtitle = buildDurationSubtitle(podcastTitle, episode.duration.toLong() * 1_000L),
-            artworkUri = artworkUri,
-            uri = episode.audioUrl,
-            durationMs = episode.duration.toLong() * 1_000L,
-            source = source,
-            groupTitle = groupTitle,
-            isDownloaded = isDownloaded,
-            customCacheKey = episode.id,
-        ),
-    )
+    ): MediaItem =
+        playable(
+            AutoPlayableSpec(
+                mediaId = "$mediaIdPrefix${episode.id}",
+                title = episode.title,
+                podcastTitle = podcastTitle,
+                subtitle = buildDurationSubtitle(podcastTitle, episode.duration.toLong() * 1_000L),
+                artworkUri = artworkUri,
+                uri = episode.audioUrl,
+                durationMs = episode.duration.toLong() * 1_000L,
+                source = source,
+                groupTitle = groupTitle,
+                isDownloaded = isDownloaded,
+                customCacheKey = episode.id,
+            ),
+        )
 
     fun fromDownload(
         download: DownloadedEpisodeEntity,
         artworkUri: Uri?,
         uri: String?,
         groupTitle: String,
-    ): MediaItem = playable(
-        AutoPlayableSpec(
-            mediaId = "episode:${download.episodeId}",
-            title = download.episodeTitle,
-            podcastTitle = download.podcastName,
-            subtitle = buildDurationSubtitle(download.podcastName, download.durationMs),
-            artworkUri = artworkUri,
-            uri = uri,
-            durationMs = download.durationMs,
-            source = AutoBrowseContract.SOURCE_DOWNLOADS,
-            groupTitle = groupTitle,
-            isDownloaded = true,
-            customCacheKey = download.episodeId,
-        ),
-    )
+    ): MediaItem =
+        playable(
+            AutoPlayableSpec(
+                mediaId = "episode:${download.episodeId}",
+                title = download.episodeTitle,
+                podcastTitle = download.podcastName,
+                subtitle = buildDurationSubtitle(download.podcastName, download.durationMs),
+                artworkUri = artworkUri,
+                uri = uri,
+                durationMs = download.durationMs,
+                source = AutoBrowseContract.SOURCE_DOWNLOADS,
+                groupTitle = groupTitle,
+                isDownloaded = true,
+                customCacheKey = download.episodeId,
+            ),
+        )
 
-    fun buildDurationSubtitle(podcastTitle: String?, durationMs: Long): String {
+    fun buildDurationSubtitle(
+        podcastTitle: String?,
+        durationMs: Long,
+    ): String {
         val duration = formatDuration(durationMs)
         return listOfNotNull(
             podcastTitle?.takeIf(String::isNotBlank),

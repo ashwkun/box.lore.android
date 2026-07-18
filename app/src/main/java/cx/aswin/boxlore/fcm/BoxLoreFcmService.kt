@@ -12,7 +12,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.BoxLoreApplication
 import cx.aswin.boxlore.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +27,10 @@ import cx.aswin.boxlore.ui.announcement.shouldSuppressWhatsNewOnPlay
 class BoxLoreFcmService : FirebaseMessagingService() {
 
     private val CHANNEL_ID = "boxlore_announcements_v2"
+
+    private fun userPreferences(): UserPreferencesRepository =
+        (application as? BoxLoreApplication)?.userPreferencesRepository
+            ?: SharedAppDependenciesHolder.require().userPreferencesRepository
 
     // Firebase Messaging still delivers rotation callbacks here; TokenWatcher migration is follow-up.
     @Suppress("DEPRECATION")
@@ -184,7 +190,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             android.util.Log.i("BoxLore_BackgroundTrace", "[FCM] Received new_episode trigger for podcastId: $podcastId, episodeId: $episodeId")
             
             CoroutineScope(Dispatchers.IO).launch {
-                val userPrefs = UserPreferencesRepository(applicationContext)
+                val userPrefs = userPreferences()
                 val wifiOnly = userPrefs.autoDownloadWifiOnlyStream.first()
                 val requiredNetwork = if (wifiOnly) androidx.work.NetworkType.UNMETERED else androidx.work.NetworkType.CONNECTED
                 
@@ -241,7 +247,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             return
         }
 
-        val prefs = UserPreferencesRepository(applicationContext)
+        val prefs = userPreferences()
         CoroutineScope(Dispatchers.IO).launch {
             val announcement = UserPreferencesRepository.Announcement(
                 title = title,

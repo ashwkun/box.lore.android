@@ -6,10 +6,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,44 +26,28 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.animation.animateContentSize
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.rounded.Podcasts
-import androidx.compose.material.icons.rounded.Subscriptions
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.ui.res.painterResource
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.Label
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarToday
-import androidx.compose.material.icons.rounded.Tag
 import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Subscriptions
+import androidx.compose.material.icons.rounded.Tag
 import androidx.compose.material.icons.rounded.Videocam
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,7 +62,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -93,22 +76,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import cx.aswin.boxlore.core.designsystem.component.HtmlText
-import cx.aswin.boxlore.core.designsystem.components.AnimatedShapesFallback
 import cx.aswin.boxlore.core.designsystem.components.BoxLoreLoader
+import cx.aswin.boxlore.core.designsystem.components.ControlStyle
 import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
-import cx.aswin.boxlore.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxlore.core.designsystem.theme.m3Shimmer
-import cx.aswin.boxlore.core.designsystem.components.ControlStyle
-import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import kotlinx.coroutines.delay
-import androidx.compose.ui.layout.layout
 
 // Color extraction helper
 private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
@@ -140,7 +118,7 @@ fun EpisodeInfoScreen(
     showMarkPlayedTip: Boolean = false,
     onMarkPlayedTipDismissed: () -> Unit = {},
     bottomContentPadding: Dp = 0.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val likedEpisodeIds by viewModel.likedEpisodeIds.collectAsState()
@@ -155,18 +133,19 @@ fun EpisodeInfoScreen(
     val accentColor by animateColorAsState(
         targetValue = if (extractedColor != Color.Transparent) extractedColor else MaterialTheme.colorScheme.primary,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "accent_color"
+        label = "accent_color",
     )
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
-                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
-                else -> {}
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                when (event) {
+                    androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.trackScreenExit()
+                    androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onScreenResume()
+                    else -> {}
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
@@ -184,7 +163,7 @@ fun EpisodeInfoScreen(
             episodeDuration = episodeDuration,
             podcastId = podcastId,
             podcastTitle = podcastTitle,
-            entryPointContext = entryPointContext
+            entryPointContext = entryPointContext,
         )
     }
 
@@ -197,7 +176,9 @@ fun EpisodeInfoScreen(
         derivedStateOf {
             if (listState.firstVisibleItemIndex == 0) {
                 listState.firstVisibleItemScrollOffset.toFloat()
-            } else 1000f // Fully collapsed
+            } else {
+                1000f // Fully collapsed
+            }
         }
     }
 
@@ -214,20 +195,22 @@ fun EpisodeInfoScreen(
     val headerColor by animateColorAsState(
         targetValue = surfaceColor.copy(alpha = scrollFraction),
         animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "headerColor"
+        label = "headerColor",
     )
 
     // Title animation - header only fade-in
     val titleSizeStart = MaterialTheme.typography.titleLarge.fontSize
     val titleSizeEnd = MaterialTheme.typography.titleMedium.fontSize
-    val titleFontSize = androidx.compose.ui.unit.lerp(titleSizeStart, titleSizeEnd, scrollFraction)
+    val titleFontSize =
+        androidx.compose.ui.unit
+            .lerp(titleSizeStart, titleSizeEnd, scrollFraction)
 
     // Y position fixed in header
     val headerTitleYPx = with(density) { (statusBarHeight + 18.dp).toPx() }
     val titleTranslationY by animateFloatAsState(
         targetValue = headerTitleYPx,
         animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.85f),
-        label = "titleY"
+        label = "titleY",
     )
 
     // MaxLines: 1 when in header
@@ -239,14 +222,14 @@ fun EpisodeInfoScreen(
     val titleHorizontalPadding by animateDpAsState(
         targetValue = 64.dp,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "titlePadding"
+        label = "titlePadding",
     )
 
     when (val state = uiState) {
         is EpisodeInfoUiState.Loading -> {
             Box(
                 modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 BoxLoreLoader.Expressive(size = 80.dp)
             }
@@ -254,19 +237,22 @@ fun EpisodeInfoScreen(
         is EpisodeInfoUiState.Error -> {
             Box(
                 modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text("Failed to load episode", color = MaterialTheme.colorScheme.error)
             }
         }
         is EpisodeInfoUiState.Success -> {
             // Color extraction
-            val painter = rememberAsyncImagePainter(
-                model = ImageRequest.Builder(context)
-                    .data(state.episode.podcastImageUrl?.ifEmpty { state.episode.imageUrl?.ifEmpty { null } })
-                    .allowHardware(false)
-                    .build()
-            )
+            val painter =
+                rememberAsyncImagePainter(
+                    model =
+                        ImageRequest
+                            .Builder(context)
+                            .data(state.episode.podcastImageUrl?.ifEmpty { state.episode.imageUrl?.ifEmpty { null } })
+                            .allowHardware(false)
+                            .build(),
+                )
             LaunchedEffect(painter.state) {
                 val painterState = painter.state
                 if (painterState is AsyncImagePainter.State.Success) {
@@ -280,69 +266,75 @@ fun EpisodeInfoScreen(
             Box(modifier = modifier.fillMaxSize()) {
                 // Blurred Background Header
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(collapsedHeaderHeight + 240.dp)
-                        .graphicsLayer {
-                            translationY = -scrollOffset * 0.5f
-                            alpha = 1f - scrollFraction
-                        }
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(collapsedHeaderHeight + 240.dp)
+                            .graphicsLayer {
+                                translationY = -scrollOffset * 0.5f
+                                alpha = 1f - scrollFraction
+                            },
                 ) {
                     OptimizedImage(
                         url = state.episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
                         proxyWidth = 200,
                         contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(0.5f)
-                            .blur(50.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
-                        contentScale = ContentScale.Crop
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .alpha(0.5f)
+                                .blur(50.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                        contentScale = ContentScale.Crop,
                     )
                     // Gradient overlay to blend into the background
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    colors = listOf(
-                                        androidx.compose.ui.graphics.Color.Transparent,
-                                        MaterialTheme.colorScheme.background
-                                    )
-                                )
-                            )
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        colors =
+                                            listOf(
+                                                androidx.compose.ui.graphics.Color.Transparent,
+                                                MaterialTheme.colorScheme.background,
+                                            ),
+                                    ),
+                                ),
                     )
                 }
                 // Content List
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        top = collapsedHeaderHeight + 16.dp,
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomContentPadding + 160.dp // Extra for miniplayer
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    contentPadding =
+                        PaddingValues(
+                            top = collapsedHeaderHeight + 16.dp,
+                            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomContentPadding + 160.dp, // Extra for miniplayer
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     // HERO SECTION (Artwork + Title + Podcast Link + Metadata)
                     item {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             // Artwork
                             Box(modifier = Modifier.size(180.dp)) {
                                 Surface(
                                     modifier = Modifier.fillMaxSize(),
                                     shape = MaterialTheme.shapes.extraLarge, // Match PodcastInfoScreen
-                                    shadowElevation = 8.dp
+                                    shadowElevation = 8.dp,
                                 ) {
                                     OptimizedImage(
                                         url = state.episode.imageUrl?.ifEmpty { null },
                                         proxyWidth = 600, // 180dp * ~3x density
                                         contentDescription = state.episode.title,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Crop,
                                     )
                                 }
 
@@ -350,19 +342,20 @@ fun EpisodeInfoScreen(
                                     Surface(
                                         shape = CircleShape,
                                         color = Color.Black.copy(alpha = 0.55f),
-                                        modifier = Modifier
-                                            .padding(8.dp)
-                                            .align(Alignment.TopEnd)
+                                        modifier =
+                                            Modifier
+                                                .padding(8.dp)
+                                                .align(Alignment.TopEnd),
                                     ) {
                                         Box(
                                             modifier = Modifier.padding(6.dp),
-                                            contentAlignment = Alignment.Center
+                                            contentAlignment = Alignment.Center,
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.Videocam,
                                                 contentDescription = "Video",
                                                 tint = Color.White,
-                                                modifier = Modifier.size(16.dp)
+                                                modifier = Modifier.size(16.dp),
                                             )
                                         }
                                     }
@@ -378,7 +371,7 @@ fun EpisodeInfoScreen(
                                 color = MaterialTheme.colorScheme.onBackground,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp),
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -387,12 +380,12 @@ fun EpisodeInfoScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .expressiveClickable {
-                                        viewModel.onPodcastLinkClicked()
-                                        onPodcastClick(state.podcastId)
-                                    }
-                                    .padding(vertical = 4.dp, horizontal = 8.dp)
+                                modifier =
+                                    Modifier
+                                        .expressiveClickable {
+                                            viewModel.onPodcastLinkClicked()
+                                            onPodcastClick(state.podcastId)
+                                        }.padding(vertical = 4.dp, horizontal = 8.dp),
                             ) {
                                 Text(
                                     text = state.podcastTitle,
@@ -401,14 +394,14 @@ fun EpisodeInfoScreen(
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false) // shrink text, never push > off screen
+                                    modifier = Modifier.weight(1f, fill = false), // shrink text, never push > off screen
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                     contentDescription = "Go to podcast",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
 
@@ -438,7 +431,7 @@ fun EpisodeInfoScreen(
                             androidx.compose.foundation.lazy.LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                                 contentPadding = PaddingValues(horizontal = 0.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
                                 // Video Pill
                                 if (state.episode.enclosureType?.startsWith("video/") == true) {
@@ -449,13 +442,13 @@ fun EpisodeInfoScreen(
                                         ) {
                                             Box(
                                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                contentAlignment = Alignment.Center
+                                                contentAlignment = Alignment.Center,
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Rounded.Videocam,
                                                     contentDescription = "Video",
                                                     modifier = Modifier.size(16.dp),
-                                                    tint = accentColor
+                                                    tint = accentColor,
                                                 )
                                             }
                                         }
@@ -471,19 +464,19 @@ fun EpisodeInfoScreen(
                                         Row(
                                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Icon(
                                                 imageVector = androidx.compose.material.icons.Icons.Rounded.Schedule,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.primary
+                                                tint = MaterialTheme.colorScheme.primary,
                                             )
                                             Text(
                                                 text = formatDuration(episodeDuration),
                                                 style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.primary,
-                                                fontWeight = FontWeight.Medium
+                                                fontWeight = FontWeight.Medium,
                                             )
                                         }
                                     }
@@ -500,19 +493,19 @@ fun EpisodeInfoScreen(
                                             Row(
                                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 Icon(
                                                     imageVector = androidx.compose.material.icons.Icons.Rounded.CalendarToday,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                 )
                                                 Text(
                                                     text = dateText,
                                                     style = MaterialTheme.typography.labelMedium,
                                                     color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Medium
+                                                    fontWeight = FontWeight.Medium,
                                                 )
                                             }
                                         }
@@ -522,14 +515,15 @@ fun EpisodeInfoScreen(
                                 // Season/Episode Pill
                                 val season = state.episode.seasonNumber
                                 val episode = state.episode.episodeNumber
-                                val seLabel = buildString {
-                                    if (season != null && season > 0) {
-                                        append("S$season ")
-                                    }
-                                    if (episode != null && episode > 0) {
-                                        append("E$episode")
-                                    }
-                                }.trim()
+                                val seLabel =
+                                    buildString {
+                                        if (season != null && season > 0) {
+                                            append("S$season ")
+                                        }
+                                        if (episode != null && episode > 0) {
+                                            append("E$episode")
+                                        }
+                                    }.trim()
                                 if (seLabel.isNotEmpty()) {
                                     item {
                                         Surface(
@@ -539,19 +533,19 @@ fun EpisodeInfoScreen(
                                             Row(
                                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 Icon(
                                                     imageVector = androidx.compose.material.icons.Icons.Rounded.Tag,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                 )
                                                 Text(
                                                     text = seLabel,
                                                     style = MaterialTheme.typography.labelMedium,
                                                     color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Medium
+                                                    fontWeight = FontWeight.Medium,
                                                 )
                                             }
                                         }
@@ -568,19 +562,19 @@ fun EpisodeInfoScreen(
                                             Row(
                                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 Icon(
                                                     imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Label,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                 )
                                                 Text(
                                                     text = state.episode.episodeType!!.replaceFirstChar { it.uppercase() },
                                                     style = MaterialTheme.typography.labelMedium,
                                                     color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Medium
+                                                    fontWeight = FontWeight.Medium,
                                                 )
                                             }
                                         }
@@ -593,13 +587,21 @@ fun EpisodeInfoScreen(
                     // ACTION ROW (Play Button + Progress) - Flat design
                     item {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                                .padding(top = 16.dp)
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = 16.dp),
                         ) {
                             // Prepare Progress Data
-                            val progress = if (state.durationMs > 0) (state.resumePositionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
+                            val progress =
+                                if (state.durationMs >
+                                    0
+                                ) {
+                                    (state.resumePositionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+                                } else {
+                                    0f
+                                }
                             val remainingSeconds = if (state.durationMs > 0) (state.durationMs - state.resumePositionMs) / 1000 else 0
 
                             fun formatRemaining(totalSeconds: Long): String? {
@@ -617,8 +619,9 @@ fun EpisodeInfoScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
                             ) {
                                 // Action Buttons Row (Material3 Tonal) on the Left
                                 cx.aswin.boxlore.core.designsystem.components.AdvancedPlayerControls(
@@ -638,7 +641,7 @@ fun EpisodeInfoScreen(
                                     isPlayed = isCompleted,
                                     onMarkPlayedClick = { viewModel.onToggleCompletion() },
                                     controlSize = 40.dp, // Smaller size to fit all 4 buttons + Play button
-                                    modifier = Modifier.wrapContentWidth(unbounded = true) // Guarantee it won't shrink
+                                    modifier = Modifier.wrapContentWidth(unbounded = true), // Guarantee it won't shrink
                                 )
 
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -646,17 +649,19 @@ fun EpisodeInfoScreen(
                                 // Prominent Play Button (Right)
                                 cx.aswin.boxlore.core.designsystem.components.ExpressivePlayButton(
                                     onClick = { viewModel.onMainActionClick(entryPointContext) },
-                                    state = cx.aswin.boxlore.core.designsystem.components.ExpressivePlayButtonState(
-                                        isPlaying = isPlaying,
-                                        isResume = state.resumePositionMs > 0,
-                                        isLoading = state.isPlaybackLoading,
-                                        progress = progress,
-                                        timeText = formatRemaining(remainingSeconds),
-                                    ),
+                                    state =
+                                        cx.aswin.boxlore.core.designsystem.components.ExpressivePlayButtonState(
+                                            isPlaying = isPlaying,
+                                            isResume = state.resumePositionMs > 0,
+                                            isLoading = state.isPlaybackLoading,
+                                            progress = progress,
+                                            timeText = formatRemaining(remainingSeconds),
+                                        ),
                                     accentColor = accentColor, // Use extracted album art color
-                                    modifier = Modifier
-                                        .height(56.dp)
-                                        .weight(1f) // Takes up remaining width (lots of area for Resume text)
+                                    modifier =
+                                        Modifier
+                                            .height(56.dp)
+                                            .weight(1f), // Takes up remaining width (lots of area for Resume text)
                                 )
                             }
                         }
@@ -675,27 +680,37 @@ fun EpisodeInfoScreen(
 
                             androidx.compose.animation.AnimatedVisibility(
                                 visible = tipVisible,
-                                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) +
-                                        androidx.compose.animation.slideInVertically(initialOffsetY = { -it/2 }),
-                                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(500))
+                                enter =
+                                    androidx.compose.animation.fadeIn(
+                                        androidx.compose.animation.core
+                                            .tween(300),
+                                    ) +
+                                        androidx.compose.animation.slideInVertically(initialOffsetY = { -it / 2 }),
+                                exit =
+                                    androidx.compose.animation.fadeOut(
+                                        androidx.compose.animation.core
+                                            .tween(500),
+                                    ),
                             ) {
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 24.dp, bottom = 8.dp), // Align with the controls on the left
-                                    contentAlignment = Alignment.CenterStart
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 24.dp, bottom = 8.dp),
+                                    // Align with the controls on the left
+                                    contentAlignment = Alignment.CenterStart,
                                 ) {
                                     Surface(
                                         shape = MaterialTheme.shapes.small,
                                         color = MaterialTheme.colorScheme.primaryContainer,
-                                        shadowElevation = 4.dp
+                                        shadowElevation = 4.dp,
                                     ) {
                                         Text(
                                             text = "↑ Tap to mark completed",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                         )
                                     }
                                 }
@@ -709,8 +724,9 @@ fun EpisodeInfoScreen(
                             CrossPromotionCard(
                                 crossPromotion = crossPromo,
                                 onPodcastClick = onPodcastClick,
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp)
+                                modifier =
+                                    Modifier
+                                        .padding(horizontal = 16.dp),
                             )
                         }
                     }
@@ -724,7 +740,7 @@ fun EpisodeInfoScreen(
                                 location = state.location,
                                 license = state.license,
                                 persons = state.episode.persons,
-                                onSeekTo = viewModel::seekToPosition
+                                onSeekTo = viewModel::seekToPosition,
                             )
                         }
                     }
@@ -733,44 +749,49 @@ fun EpisodeInfoScreen(
                     if (state.similarEpisodesLoading || state.similarEpisodes.isNotEmpty()) {
                         item {
                             androidx.compose.material3.OutlinedCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                ),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                colors =
+                                    androidx.compose.material3.CardDefaults.outlinedCardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    ),
                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                                shape = MaterialTheme.shapes.extraLarge
+                                shape = MaterialTheme.shapes.extraLarge,
                             ) {
                                 Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 16.dp)
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 16.dp),
                                 ) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp)
-                                            .padding(bottom = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp)
+                                                .padding(bottom = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.AutoAwesome,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
+                                            modifier = Modifier.size(22.dp),
                                         )
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Text(
                                             text = "More Like This",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                letterSpacing = (-0.1).sp
-                                            ),
+                                            style =
+                                                MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = (-0.1).sp,
+                                                ),
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.weight(1f),
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            overflow = TextOverflow.Ellipsis,
                                         )
                                     }
 
@@ -778,7 +799,7 @@ fun EpisodeInfoScreen(
                                     LazyRow(
                                         state = similarListState,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        contentPadding = PaddingValues(horizontal = 16.dp)
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
                                     ) {
                                         if (state.similarEpisodesLoading) {
                                             items(4) {
@@ -787,32 +808,35 @@ fun EpisodeInfoScreen(
 
                                                 Column(
                                                     modifier = Modifier.width(120.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
                                                 ) {
                                                     Box(
-                                                        modifier = Modifier
-                                                            .size(120.dp)
-                                                            .clip(MaterialTheme.shapes.medium)
-                                                            .background(baseColor)
-                                                            .m3Shimmer(baseColor, highlightColor)
+                                                        modifier =
+                                                            Modifier
+                                                                .size(120.dp)
+                                                                .clip(MaterialTheme.shapes.medium)
+                                                                .background(baseColor)
+                                                                .m3Shimmer(baseColor, highlightColor),
                                                     )
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     Box(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(14.dp)
-                                                            .clip(MaterialTheme.shapes.small)
-                                                            .background(baseColor)
-                                                            .m3Shimmer(baseColor, highlightColor)
+                                                        modifier =
+                                                            Modifier
+                                                                .fillMaxWidth()
+                                                                .height(14.dp)
+                                                                .clip(MaterialTheme.shapes.small)
+                                                                .background(baseColor)
+                                                                .m3Shimmer(baseColor, highlightColor),
                                                     )
                                                     Spacer(modifier = Modifier.height(4.dp))
                                                     Box(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(0.7f)
-                                                            .height(14.dp)
-                                                            .clip(MaterialTheme.shapes.small)
-                                                            .background(baseColor)
-                                                            .m3Shimmer(baseColor, highlightColor)
+                                                        modifier =
+                                                            Modifier
+                                                                .fillMaxWidth(0.7f)
+                                                                .height(14.dp)
+                                                                .clip(MaterialTheme.shapes.small)
+                                                                .background(baseColor)
+                                                                .m3Shimmer(baseColor, highlightColor),
                                                     )
                                                 }
                                             }
@@ -820,52 +844,57 @@ fun EpisodeInfoScreen(
                                             items(state.similarEpisodes) { episode ->
                                                 androidx.compose.material3.OutlinedCard(
                                                     shape = RoundedCornerShape(16.dp),
-                                                    colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                                                    ),
+                                                    colors =
+                                                        androidx.compose.material3.CardDefaults.outlinedCardColors(
+                                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                                        ),
                                                     border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                                                    modifier = Modifier
-                                                        .width(140.dp)
-                                                        .expressiveClickable {
-                                                            onEpisodeClick(episode)
-                                                        }
+                                                    modifier =
+                                                        Modifier
+                                                            .width(140.dp)
+                                                            .expressiveClickable {
+                                                                onEpisodeClick(episode)
+                                                            },
                                                 ) {
                                                     Column {
                                                         OptimizedImage(
                                                             url = episode.imageUrl?.ifEmpty { episode.podcastImageUrl },
                                                             proxyWidth = 300,
                                                             contentDescription = episode.title,
-                                                            modifier = Modifier
-                                                                .size(140.dp)
-                                                                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                                                            contentScale = ContentScale.Crop
+                                                            modifier =
+                                                                Modifier
+                                                                    .size(140.dp)
+                                                                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                                                            contentScale = ContentScale.Crop,
                                                         )
                                                         Column(
                                                             modifier = Modifier.padding(10.dp),
-                                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                            verticalArrangement = Arrangement.spacedBy(4.dp),
                                                         ) {
                                                             Text(
                                                                 text = episode.title,
-                                                                style = MaterialTheme.typography.labelMedium.copy(
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    lineHeight = 14.sp
-                                                                ),
+                                                                style =
+                                                                    MaterialTheme.typography.labelMedium.copy(
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        lineHeight = 14.sp,
+                                                                    ),
                                                                 color = MaterialTheme.colorScheme.onSurface,
                                                                 minLines = 2,
                                                                 maxLines = 2,
-                                                                overflow = TextOverflow.Ellipsis
+                                                                overflow = TextOverflow.Ellipsis,
                                                             )
                                                             val podTitle = episode.podcastTitle
                                                             if (!podTitle.isNullOrEmpty()) {
                                                                 Text(
                                                                     text = podTitle,
-                                                                    style = MaterialTheme.typography.bodySmall.copy(
-                                                                        fontSize = 11.sp,
-                                                                        fontWeight = FontWeight.Medium
-                                                                    ),
+                                                                    style =
+                                                                        MaterialTheme.typography.bodySmall.copy(
+                                                                            fontSize = 11.sp,
+                                                                            fontWeight = FontWeight.Medium,
+                                                                        ),
                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                     maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis
+                                                                    overflow = TextOverflow.Ellipsis,
                                                                 )
                                                             }
                                                         }
@@ -882,55 +911,59 @@ fun EpisodeInfoScreen(
                     // UNIFIED "MORE FROM PODCAST" SECTION -> Card
                     item {
                         androidx.compose.material3.OutlinedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            ),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                            colors =
+                                androidx.compose.material3.CardDefaults.outlinedCardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                ),
                             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                            shape = MaterialTheme.shapes.extraLarge
+                            shape = MaterialTheme.shapes.extraLarge,
                         ) {
                             Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 16.dp)
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
                             ) {
                                 Row(
-                                     modifier = Modifier
-                                         .fillMaxWidth()
-                                         .expressiveClickable {
-                                             viewModel.onPodcastLinkClicked()
-                                             onPodcastClick(state.podcastId)
-                                         }
-                                         .padding(horizontal = 20.dp)
-                                         .padding(bottom = 12.dp),
-                                     verticalAlignment = Alignment.CenterVertically
-                                 ) {
-                                     Icon(
-                                         imageVector = Icons.Rounded.Subscriptions,
-                                         contentDescription = null,
-                                         tint = MaterialTheme.colorScheme.primary,
-                                         modifier = Modifier.size(20.dp)
-                                     )
-                                     Spacer(modifier = Modifier.width(10.dp))
-                                     Text(
-                                         text = "More from ${state.podcastTitle}",
-                                         style = MaterialTheme.typography.titleMedium.copy(
-                                             fontWeight = FontWeight.Bold,
-                                             letterSpacing = (-0.1).sp
-                                         ),
-                                         color = MaterialTheme.colorScheme.onSurface,
-                                         modifier = Modifier.weight(1f),
-                                         maxLines = 1,
-                                         overflow = TextOverflow.Ellipsis
-                                     )
-                                     Icon(
-                                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                         contentDescription = "Go to podcast",
-                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                     )
-                                 }
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .expressiveClickable {
+                                                viewModel.onPodcastLinkClicked()
+                                                onPodcastClick(state.podcastId)
+                                            }.padding(horizontal = 20.dp)
+                                            .padding(bottom = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Subscriptions,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "More from ${state.podcastTitle}",
+                                        style =
+                                            MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = (-0.1).sp,
+                                            ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                        contentDescription = "Go to podcast",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
 
                                 // Horizontal episodes row
                                 val relatedListState = rememberLazyListState()
@@ -942,7 +975,7 @@ fun EpisodeInfoScreen(
                                 LazyRow(
                                     state = relatedListState,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 16.dp)
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
                                 ) {
                                     if (state.relatedEpisodesLoading) {
                                         // Skeleton loaders
@@ -952,82 +985,89 @@ fun EpisodeInfoScreen(
 
                                             Column(
                                                 modifier = Modifier.width(120.dp),
-                                                horizontalAlignment = Alignment.CenterHorizontally
+                                                horizontalAlignment = Alignment.CenterHorizontally,
                                             ) {
                                                 // Skeleton artwork with shimmer
                                                 Box(
-                                                    modifier = Modifier
-                                                        .size(120.dp)
-                                                        .clip(MaterialTheme.shapes.medium)
-                                                        .background(baseColor)
-                                                        .m3Shimmer(baseColor, highlightColor)
+                                                    modifier =
+                                                        Modifier
+                                                            .size(120.dp)
+                                                            .clip(MaterialTheme.shapes.medium)
+                                                            .background(baseColor)
+                                                            .m3Shimmer(baseColor, highlightColor),
                                                 )
 
                                                 Spacer(modifier = Modifier.height(8.dp))
 
                                                 // Skeleton text with shimmer
                                                 Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(14.dp)
-                                                        .clip(MaterialTheme.shapes.small)
-                                                        .background(baseColor)
-                                                        .m3Shimmer(baseColor, highlightColor)
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .height(14.dp)
+                                                            .clip(MaterialTheme.shapes.small)
+                                                            .background(baseColor)
+                                                            .m3Shimmer(baseColor, highlightColor),
                                                 )
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth(0.7f)
-                                                        .height(14.dp)
-                                                        .clip(MaterialTheme.shapes.small)
-                                                        .background(baseColor)
-                                                        .m3Shimmer(baseColor, highlightColor)
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth(0.7f)
+                                                            .height(14.dp)
+                                                            .clip(MaterialTheme.shapes.small)
+                                                            .background(baseColor)
+                                                            .m3Shimmer(baseColor, highlightColor),
                                                 )
                                             }
                                         }
                                     } else if (state.relatedEpisodes.isNotEmpty()) {
-                                         items(state.relatedEpisodes) { episode ->
-                                             androidx.compose.material3.OutlinedCard(
-                                                 shape = RoundedCornerShape(16.dp),
-                                                 colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-                                                     containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                                                 ),
-                                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                                                 modifier = Modifier
-                                                     .width(140.dp)
-                                                     .expressiveClickable {
-                                                         viewModel.onRelatedEpisodeClicked()
-                                                         onEpisodeClick(episode)
-                                                     }
-                                             ) {
-                                                 Column {
-                                                     // Episode Artwork
-                                                     OptimizedImage(
-                                                         url = episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
-                                                         proxyWidth = 300, // 140dp thumbnails
-                                                         contentDescription = episode.title,
-                                                         modifier = Modifier
-                                                             .size(140.dp)
-                                                             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                                                         contentScale = ContentScale.Crop
-                                                     )
+                                        items(state.relatedEpisodes) { episode ->
+                                            androidx.compose.material3.OutlinedCard(
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors =
+                                                    androidx.compose.material3.CardDefaults.outlinedCardColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                                    ),
+                                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                                                modifier =
+                                                    Modifier
+                                                        .width(140.dp)
+                                                        .expressiveClickable {
+                                                            viewModel.onRelatedEpisodeClicked()
+                                                            onEpisodeClick(episode)
+                                                        },
+                                            ) {
+                                                Column {
+                                                    // Episode Artwork
+                                                    OptimizedImage(
+                                                        url = episode.imageUrl?.ifEmpty { state.episode.podcastImageUrl },
+                                                        proxyWidth = 300, // 140dp thumbnails
+                                                        contentDescription = episode.title,
+                                                        modifier =
+                                                            Modifier
+                                                                .size(140.dp)
+                                                                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                                                        contentScale = ContentScale.Crop,
+                                                    )
 
-                                                     // Title in card footer - minLines for even sizing
-                                                     Text(
-                                                         text = episode.title,
-                                                         style = MaterialTheme.typography.labelMedium.copy(
-                                                             fontWeight = FontWeight.SemiBold,
-                                                             lineHeight = 14.sp
-                                                         ),
-                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                         minLines = 3,
-                                                         maxLines = 3,
-                                                         overflow = TextOverflow.Ellipsis,
-                                                         modifier = Modifier.padding(12.dp)
-                                                     )
-                                                 }
-                                             }
-                                         }
+                                                    // Title in card footer - minLines for even sizing
+                                                    Text(
+                                                        text = episode.title,
+                                                        style =
+                                                            MaterialTheme.typography.labelMedium.copy(
+                                                                fontWeight = FontWeight.SemiBold,
+                                                                lineHeight = 14.sp,
+                                                            ),
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        minLines = 3,
+                                                        maxLines = 3,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.padding(12.dp),
+                                                    )
+                                                }
+                                            }
+                                        }
                                     } else {
                                         // No episodes message
                                         item {
@@ -1035,7 +1075,7 @@ fun EpisodeInfoScreen(
                                                 text = "No other episodes available",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(vertical = 16.dp)
+                                                modifier = Modifier.padding(vertical = 16.dp),
                                             )
                                         }
                                     }
@@ -1043,92 +1083,95 @@ fun EpisodeInfoScreen(
                             }
                         }
                     }
-                    }
                 }
+            }
 
-                // HEADER OVERLAY (Back button + animated background)
-                Box(
-                    modifier = Modifier
+            // HEADER OVERLAY (Back button + animated background)
+            Box(
+                modifier =
+                    Modifier
                         .fillMaxWidth()
                         .height(collapsedHeaderHeight)
                         .background(headerColor)
-                        .statusBarsPadding()
+                        .statusBarsPadding(),
+            ) {
+                // Back Button
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
                 ) {
-                    // Back Button
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
 
-                    // Share Button
-                    var showShareSheet by remember { mutableStateOf(false) }
-                    IconButton(
-                        onClick = { showShareSheet = true },
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Share,
-                            contentDescription = "Share",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                // Share Button
+                var showShareSheet by remember { mutableStateOf(false) }
+                IconButton(
+                    onClick = { showShareSheet = true },
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Share,
+                        contentDescription = "Share",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
 
-                    if (showShareSheet) {
-                        val currentSuccessState = uiState as? cx.aswin.boxlore.feature.info.EpisodeInfoUiState.Success
-                        val shareEpisode = currentSuccessState?.episode ?: cx.aswin.boxlore.core.model.Episode(
+                if (showShareSheet) {
+                    val currentSuccessState = uiState as? cx.aswin.boxlore.feature.info.EpisodeInfoUiState.Success
+                    val shareEpisode =
+                        currentSuccessState?.episode ?: cx.aswin.boxlore.core.model.Episode(
                             id = episodeId,
                             title = episodeTitle,
                             description = episodeDescription,
                             audioUrl = episodeAudioUrl,
                             imageUrl = episodeImageUrl,
-                            duration = episodeDuration
+                            duration = episodeDuration,
                         )
-                        cx.aswin.boxlore.core.designsystem.components.ShareBottomSheet(
-                            id = shareEpisode.id,
-                            type = "episode",
-                            title = shareEpisode.title,
-                            subtitle = podcastTitle,
-                            imageUrl = shareEpisode.imageUrl ?: shareEpisode.podcastImageUrl,
-                            onDismissRequest = { showShareSheet = false },
-                            durationMs = shareEpisode.duration * 1000L,
-                            currentPositionMs = currentSuccessState?.resumePositionMs ?: 0L,
-                            showTimestampOption = false,
-                            onShare = { _, _, timestamp, target ->
-                                cx.aswin.boxlore.core.designsystem.share.ShareManager.shareEpisode(
-                                    context = context,
-                                    episode = shareEpisode,
-                                    podcastTitle = podcastTitle,
-                                    timestampMs = timestamp,
-                                    target = target
-                                )
-                            }
-                        )
-                    }
+                    cx.aswin.boxlore.core.designsystem.components.ShareBottomSheet(
+                        id = shareEpisode.id,
+                        type = "episode",
+                        title = shareEpisode.title,
+                        subtitle = podcastTitle,
+                        imageUrl = shareEpisode.imageUrl ?: shareEpisode.podcastImageUrl,
+                        onDismissRequest = { showShareSheet = false },
+                        durationMs = shareEpisode.duration * 1000L,
+                        currentPositionMs = currentSuccessState?.resumePositionMs ?: 0L,
+                        showTimestampOption = false,
+                        onShare = { _, _, timestamp, target ->
+                            cx.aswin.boxlore.core.designsystem.share.ShareManager.shareEpisode(
+                                context = context,
+                                episode = shareEpisode,
+                                podcastTitle = podcastTitle,
+                                timestampMs = timestamp,
+                                target = target,
+                            )
+                        },
+                    )
                 }
+            }
 
-                // FLOATING TITLE - physically moves from body to header
-                Text(
-                    text = episodeTitle,
-                    fontSize = titleFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = titleMaxLines,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
+            // FLOATING TITLE - physically moves from body to header
+            Text(
+                text = episodeTitle,
+                fontSize = titleFontSize,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = titleMaxLines,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
                         .fillMaxWidth()
                         .padding(horizontal = titleHorizontalPadding)
                         .graphicsLayer {
                             translationY = titleTranslationY
                             alpha = titleAlpha
-                        }
-                )
-            }
+                        },
+            )
         }
     }
+}

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.domain.RssSubscriptionResult
 import cx.aswin.boxlore.core.domain.ports.RankingResetPort
 import cx.aswin.boxlore.core.domain.ports.RssSubscriptionPort
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +12,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 /** RSS "add feed" and Podcast Index match-confirmation state owned by [SettingsViewModel]. */
 data class SettingsRssUiState(
@@ -26,7 +26,9 @@ data class SettingsRssUiState(
 
 /** One-off UI events (e.g. toasts) that [SettingsScreen] surfaces on behalf of the ViewModel. */
 sealed interface SettingsEvent {
-    data class ShowToast(val message: String) : SettingsEvent
+    data class ShowToast(
+        val message: String,
+    ) : SettingsEvent
 }
 
 /**
@@ -40,7 +42,6 @@ class SettingsViewModel(
     private val rssRepository: RssSubscriptionPort,
     private val rankingFeedbackRepository: RankingResetPort,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(SettingsRssUiState())
     val uiState: StateFlow<SettingsRssUiState> = _uiState.asStateFlow()
 
@@ -81,11 +82,12 @@ class SettingsViewModel(
             try {
                 val subscription = rssRepository.addSubscription(url)
                 if (subscription.potentialPodcastIndexMatch != null) {
-                    _uiState.value = _uiState.value.copy(
-                        showAddRssDialog = false,
-                        rssUrl = "",
-                        pendingRssMatch = subscription,
-                    )
+                    _uiState.value =
+                        _uiState.value.copy(
+                            showAddRssDialog = false,
+                            rssUrl = "",
+                            pendingRssMatch = subscription,
+                        )
                 } else {
                     _uiState.value = _uiState.value.copy(showAddRssDialog = false, rssUrl = "")
                     _events.emit(SettingsEvent.ShowToast(subscriptionAddedMessage(subscription)))
@@ -135,20 +137,22 @@ class SettingsViewModel(
     }
 }
 
-private fun subscriptionAddedMessage(subscription: RssSubscriptionResult): String = when {
-    subscription.linkedPodcastIndexId != null ->
-        "Switched ${subscription.podcast.title} to its RSS source."
-    subscription.automaticUpdateChecksSupported ->
-        "Added ${subscription.podcast.title} (${subscription.episodeCount} episodes)."
-    else ->
-        "Added ${subscription.podcast.title}. To check for new episodes, open the podcast and refresh."
-}
+private fun subscriptionAddedMessage(subscription: RssSubscriptionResult): String =
+    when {
+        subscription.linkedPodcastIndexId != null ->
+            "Switched ${subscription.podcast.title} to its RSS source."
+        subscription.automaticUpdateChecksSupported ->
+            "Added ${subscription.podcast.title} (${subscription.episodeCount} episodes)."
+        else ->
+            "Added ${subscription.podcast.title}. To check for new episodes, open the podcast and refresh."
+    }
 
-private fun Throwable.toRssErrorMessage(): String = when (this) {
-    is IllegalArgumentException ->
-        "Check that this is a valid HTTPS podcast RSS feed."
-    is IOException ->
-        "The RSS feed could not be downloaded. Check your connection and try again."
-    else ->
-        "We couldn't add this RSS feed."
-}
+private fun Throwable.toRssErrorMessage(): String =
+    when (this) {
+        is IllegalArgumentException ->
+            "Check that this is a valid HTTPS podcast RSS feed."
+        is IOException ->
+            "The RSS feed could not be downloaded. Check your connection and try again."
+        else ->
+            "We couldn't add this RSS feed."
+    }

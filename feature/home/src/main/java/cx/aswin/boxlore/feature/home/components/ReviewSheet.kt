@@ -1,8 +1,5 @@
 package cx.aswin.boxlore.feature.home.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -193,7 +190,7 @@ enum class ReviewPromptVariant {
 @Composable
 fun PostReviewSheet(
     onDismissRequest: () -> Unit,
-    onNavigateToFeedback: () -> Unit
+    onNavigateToFeedback: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -202,70 +199,73 @@ fun PostReviewSheet(
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
+        tonalElevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.tertiaryContainer,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(56.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.Favorite,
                         contentDescription = null,
                         modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(20.dp))
-            
+
             Text(
                 text = "Glad you're enjoying boxlore",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = "If you didn't get a chance to leave a rating, no worries. We also love hearing your feature ideas!",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
-            
+
             Spacer(modifier = Modifier.height(28.dp))
-            
+
             Button(
                 onClick = onNavigateToFeedback,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Lightbulb,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Share an idea", style = MaterialTheme.typography.labelLarge)
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
 
             val context = androidx.compose.ui.platform.LocalContext.current
@@ -274,37 +274,49 @@ fun PostReviewSheet(
                     onDismissRequest()
                     val pkgName = context.packageName
                     try {
-                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkgName")))
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("market://details?id=$pkgName"),
+                            ),
+                        )
                     } catch (e: Exception) {
-                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkgName")))
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkgName"),
+                            ),
+                        )
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                shape = RoundedCornerShape(16.dp),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Star,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Rate on Google Play", style = MaterialTheme.typography.labelLarge)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             TextButton(
                 onClick = onDismissRequest,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
             ) {
                 Text(
                     text = "Maybe later",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -320,7 +332,7 @@ fun FeedbackSheet(
     appVersion: String,
     onSubmit: suspend (category: String, message: String, version: String, email: String) -> Boolean,
     onRateInstead: () -> Unit,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
 ) {
     var message by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -328,10 +340,10 @@ fun FeedbackSheet(
     var isSubmitting by remember { mutableStateOf(false) }
     var isSuccess by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    
+
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    
+
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
             kotlinx.coroutines.delay(1800)
@@ -345,58 +357,60 @@ fun FeedbackSheet(
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
-        modifier = Modifier.imePadding()
+        modifier = Modifier.imePadding(),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 24.dp),
         ) {
             // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Share your thoughts",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 IconButton(onClick = onDismissRequest) {
                     Icon(
                         Icons.Rounded.Close,
                         contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(20.dp))
-            
+
             if (isSuccess) {
                 // Success state
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Rounded.ThumbUp,
                                     contentDescription = null,
                                     modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                             }
                         }
@@ -405,7 +419,7 @@ fun FeedbackSheet(
                             text = "Sent — thank you!",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -414,129 +428,137 @@ fun FeedbackSheet(
                 Text(
                     text = "What's this about?",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                
+
                 Spacer(modifier = Modifier.height(10.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val categories = listOf(
-                        "feature" to "Feature idea",
-                        "bug" to "Bug report",
-                        "other" to "Other"
-                    )
-                    
+                    val categories =
+                        listOf(
+                            "feature" to "Feature idea",
+                            "bug" to "Bug report",
+                            "other" to "Other",
+                        )
+
                     categories.forEach { (id, label) ->
                         FilterChip(
                             selected = selectedCategory == id,
                             onClick = { selectedCategory = id },
                             label = { Text(label, style = MaterialTheme.typography.labelMedium) },
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Message input
                 OutlinedTextField(
                     value = message,
                     onValueChange = { if (it.length <= 2000) message = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp),
-                    placeholder = { 
-                         Text(
-                             text = when (selectedCategory) {
-                                 "feature" -> "Describe the feature you'd like to see..."
-                                 "bug" -> "What happened and how can we reproduce it?"
-                                 else -> "Tell us what's on your mind..."
-                             },
-                             style = MaterialTheme.typography.bodyMedium,
-                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                         ) 
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                    placeholder = {
+                        Text(
+                            text =
+                                when (selectedCategory) {
+                                    "feature" -> "Describe the feature you'd like to see..."
+                                    "bug" -> "What happened and how can we reproduce it?"
+                                    else -> "Tell us what's on your mind..."
+                                },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
                     },
                     shape = RoundedCornerShape(16.dp),
                     textStyle = MaterialTheme.typography.bodyMedium,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        ),
                 )
-                
+
                 // Character count
                 Text(
                     text = "${message.length}/2000",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    textAlign = TextAlign.End
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                    textAlign = TextAlign.End,
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text(
-                    text = when (selectedCategory) {
-                        "feature" -> "Mind sharing your email? We'd love to follow up and chat more about your idea."
-                        "bug" -> "Mind sharing your email? We may need a few more details to help squash this bug."
-                        else -> "Mind sharing your email? We really appreciate the feedback and may reach out."
-                    },
+                    text =
+                        when (selectedCategory) {
+                            "feature" -> "Mind sharing your email? We'd love to follow up and chat more about your idea."
+                            "bug" -> "Mind sharing your email? We may need a few more details to help squash this bug."
+                            else -> "Mind sharing your email? We really appreciate the feedback and may reach out."
+                        },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = MaterialTheme.typography.labelMedium.lineHeight
+                    lineHeight = MaterialTheme.typography.labelMedium.lineHeight,
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // Email input (optional)
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    placeholder = { 
-                         Text(
-                             text = "you@example.com (optional)",
-                             style = MaterialTheme.typography.bodyMedium,
-                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                         ) 
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                    placeholder = {
+                        Text(
+                            text = "you@example.com (optional)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
                     },
                     shape = RoundedCornerShape(16.dp),
                     textStyle = MaterialTheme.typography.bodyMedium,
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        ),
                 )
-                
+
                 if (errorMsg != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = errorMsg!!,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Text(
                     text = "Feedback is 100% anonymous — no account info is shared.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Submit button
                 Button(
                     onClick = {
@@ -544,10 +566,10 @@ fun FeedbackSheet(
                             errorMsg = "Please write a message first"
                             return@Button
                         }
-                        
+
                         isSubmitting = true
                         errorMsg = null
-                        
+
                         scope.launch {
                             val success = onSubmit(selectedCategory, message.trim(), appVersion, email.trim())
                             if (success) {
@@ -558,20 +580,22 @@ fun FeedbackSheet(
                             }
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                     enabled = !isSubmitting && message.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Sending...", style = MaterialTheme.typography.labelLarge)
@@ -579,20 +603,21 @@ fun FeedbackSheet(
                         Text("Send feedback", style = MaterialTheme.typography.labelLarge)
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 OutlinedButton(
                     onClick = onRateInstead,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Star,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Rate on Google Play", style = MaterialTheme.typography.labelLarge)

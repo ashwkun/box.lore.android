@@ -1,14 +1,14 @@
 package cx.aswin.boxlore.core.data
 
-import cx.aswin.boxlore.core.network.model.EpisodeItem
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
+import cx.aswin.boxlore.core.network.model.EpisodeItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class QueueManager(
     private val queueRepository: QueueRepository,
-    private val playbackRepository: PlaybackRepository
+    private val playbackRepository: PlaybackRepository,
 ) {
     private val TAG = "QueueManager"
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -23,32 +23,36 @@ class QueueManager(
      * forwarded separately as sourceContext so analytics keeps the precise origin (e.g.
      * "episode_info_screen", "home_hero_new_episodes_grid") instead of collapsing to GENERIC.
      */
-    private fun resolveEntryPoint(entryPointContext: android.os.Bundle?): PlaybackEntryPoint {
-        return when (entryPointContext?.getString("entry_point")) {
+    private fun resolveEntryPoint(entryPointContext: android.os.Bundle?): PlaybackEntryPoint =
+        when (entryPointContext?.getString("entry_point")) {
             "home_mixtape" -> PlaybackEntryPoint.HOME_MIXTAPE
             "learn" -> PlaybackEntryPoint.LEARN
             else -> PlaybackEntryPoint.GENERIC
         }
-    }
 
-    fun playEpisode(episode: EpisodeItem, podcast: cx.aswin.boxlore.core.model.Podcast?, preferredSort: String? = null, entryPointContext: android.os.Bundle? = null) {
+    fun playEpisode(
+        episode: EpisodeItem,
+        podcast: cx.aswin.boxlore.core.model.Podcast?,
+        preferredSort: String? = null,
+        entryPointContext: android.os.Bundle? = null,
+    ) {
         scope.launch {
             android.util.Log.d(TAG, "playEpisode called: ${episode.title}, sort=$preferredSort")
-            
+
             if (podcast != null) {
                 // 1. Clear current queue for a fresh start
                 queueRepository.clearQueue()
-                
+
                 // 2. Add selected episode & Persist
                 queueRepository.addToQueue(episode, podcast)
-                
+
                 // 3. Start playback IMMEDIATELY with just the current episode
                 // The playback service auto-fills more episodes when the queue runs low
                 val domainEpisode = episode.toDomain(podcast)
                 val entryPoint = resolveEntryPoint(entryPointContext)
                 playbackRepository.playQueue(listOf(domainEpisode), podcast, 0, entryPoint, sourceContext = entryPointContext)
             } else {
-                 android.util.Log.e(TAG, "Podcast is null!")
+                android.util.Log.e(TAG, "Podcast is null!")
             }
         }
     }
@@ -56,9 +60,12 @@ class QueueManager(
     fun addToQueue(
         episode: EpisodeItem,
         podcast: cx.aswin.boxlore.core.model.Podcast?,
-        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC
+        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC,
     ) {
-        android.util.Log.d(TAG, "addToQueue called: episodeId=${episode.id}, title=${episode.title}, podcast=${podcast?.title}, entryPoint=$entryPoint")
+        android.util.Log.d(
+            TAG,
+            "addToQueue called: episodeId=${episode.id}, title=${episode.title}, podcast=${podcast?.title}, entryPoint=$entryPoint",
+        )
         scope.launch {
             if (podcast != null) {
                 // Lore items carry their own contextType so queue-type detection is
@@ -67,7 +74,7 @@ class QueueManager(
 
                 // Persist
                 queueRepository.addToQueue(episode, podcast, contextType = contextType)
-                
+
                 // Add to Player (carry provenance so the queue sheet can label the row)
                 val domainEpisode = episode.toDomain(podcast).copy(contextType = contextType)
                 playbackRepository.addToQueue(domainEpisode, podcast, entryPoint)
@@ -77,11 +84,11 @@ class QueueManager(
             }
         }
     }
-    
+
     fun addToQueue(
         episode: cx.aswin.boxlore.core.model.Episode,
         podcast: cx.aswin.boxlore.core.model.Podcast?,
-        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC
+        entryPoint: PlaybackEntryPoint = PlaybackEntryPoint.GENERIC,
     ) {
         val item = episode.toEpisodeItem(podcast)
         addToQueue(item, podcast, entryPoint)
@@ -93,7 +100,7 @@ class QueueManager(
         podcast: cx.aswin.boxlore.core.model.Podcast?,
         preferredSort: String? = null,
         entryPointContext: android.os.Bundle? = null,
-        initialPositionMs: Long? = null
+        initialPositionMs: Long? = null,
     ) {
         val currentQueue = playbackRepository.playerState.value.queue
         val currentPodcast = playbackRepository.playerState.value.currentPodcast
@@ -111,18 +118,22 @@ class QueueManager(
 
         // Check if we can just skip to the episode in the existing queue
         if (podcast != null && currentPodcast?.id == podcast.id) {
-             val index = currentQueue.indexOfFirst { it.id == episode.id }
-             if (index != -1) {
-                 playbackRepository.skipToEpisode(index, entryPoint, sourceContext = entryPointContext)
-                 return
-             }
+            val index = currentQueue.indexOfFirst { it.id == episode.id }
+            if (index != -1) {
+                playbackRepository.skipToEpisode(index, entryPoint, sourceContext = entryPointContext)
+                return
+            }
         }
 
         val item = episode.toEpisodeItem(podcast)
         playEpisode(item, podcast, preferredSort, entryPointContext)
     }
 
-    fun playEpisodes(episodes: List<cx.aswin.boxlore.core.model.Episode>, fallbackPodcast: cx.aswin.boxlore.core.model.Podcast, startIndex: Int = 0) {
+    fun playEpisodes(
+        episodes: List<cx.aswin.boxlore.core.model.Episode>,
+        fallbackPodcast: cx.aswin.boxlore.core.model.Podcast,
+        startIndex: Int = 0,
+    ) {
         scope.launch {
             android.util.Log.d(TAG, "playEpisodes called: count=${episodes.size}, startIndex=$startIndex")
             if (episodes.isNotEmpty()) {
@@ -133,8 +144,8 @@ class QueueManager(
         }
     }
 
-    private fun cx.aswin.boxlore.core.model.Episode.toEpisodeItem(podcast: cx.aswin.boxlore.core.model.Podcast?): EpisodeItem {
-        return EpisodeItem(
+    private fun cx.aswin.boxlore.core.model.Episode.toEpisodeItem(podcast: cx.aswin.boxlore.core.model.Podcast?): EpisodeItem =
+        EpisodeItem(
             id = this.id.toLongOrNull() ?: 0L,
             title = this.title,
             description = this.description,
@@ -146,31 +157,40 @@ class QueueManager(
             // Podcast 2.0
             chaptersUrl = this.chaptersUrl,
             transcriptUrl = this.transcriptUrl,
-            persons = this.persons?.map { cx.aswin.boxlore.core.network.model.PersonItem(name = it.name, role = it.role, img = it.img, href = it.href) },
-            transcripts = this.transcripts?.map { cx.aswin.boxlore.core.network.model.TranscriptItem(url = it.url, type = it.type) },
+            persons =
+                this.persons?.map {
+                    cx.aswin.boxlore.core.network.model
+                        .PersonItem(name = it.name, role = it.role, img = it.img, href = it.href)
+                },
+            transcripts =
+                this.transcripts?.map {
+                    cx.aswin.boxlore.core.network.model
+                        .TranscriptItem(url = it.url, type = it.type)
+                },
             episodeType = this.episodeType,
-            enclosureType = this.enclosureType
+            enclosureType = this.enclosureType,
         )
-    }
 
     /**
      * Canonical conversion: EpisodeItem + Podcast -> Domain Episode
      * Ensures ALL podcast metadata fields are populated.
      */
     private fun EpisodeItem.toDomain(podcast: cx.aswin.boxlore.core.model.Podcast): cx.aswin.boxlore.core.model.Episode {
-        val resolvedTranscriptUrl = this.transcripts?.firstOrNull { 
-            it.type == "application/srt" || 
-            it.type == "text/vtt" || 
-            it.type == "application/x-subrip" ||
-            it.url.contains(".srt", ignoreCase = true) ||
-            it.url.contains(".vtt", ignoreCase = true)
-        }?.url
-        ?: this.transcriptUrl?.takeIf { 
-            it.contains(".srt", ignoreCase = true) || 
-            it.contains(".vtt", ignoreCase = true) 
-        }
-        ?: this.transcriptUrl
-        ?: this.transcripts?.firstOrNull()?.url
+        val resolvedTranscriptUrl =
+            this.transcripts
+                ?.firstOrNull {
+                    it.type == "application/srt" ||
+                        it.type == "text/vtt" ||
+                        it.type == "application/x-subrip" ||
+                        it.url.contains(".srt", ignoreCase = true) ||
+                        it.url.contains(".vtt", ignoreCase = true)
+                }?.url
+                ?: this.transcriptUrl?.takeIf {
+                    it.contains(".srt", ignoreCase = true) ||
+                        it.contains(".vtt", ignoreCase = true)
+                }
+                ?: this.transcriptUrl
+                ?: this.transcripts?.firstOrNull()?.url
         return cx.aswin.boxlore.core.model.Episode(
             id = this.id.toString(),
             title = this.title,
@@ -187,10 +207,22 @@ class QueueManager(
             // Podcast 2.0
             chaptersUrl = this.chaptersUrl,
             transcriptUrl = resolvedTranscriptUrl,
-            persons = this.persons?.map { cx.aswin.boxlore.core.model.Person(name = it.name, role = it.role, img = it.img, href = it.href) },
-            transcripts = this.transcripts?.map { cx.aswin.boxlore.core.model.Transcript(url = it.url, type = it.type) },
+            persons =
+                this.persons?.map {
+                    cx.aswin.boxlore.core.model.Person(
+                        name = it.name,
+                        role = it.role,
+                        img = it.img,
+                        href = it.href,
+                    )
+                },
+            transcripts =
+                this.transcripts?.map {
+                    cx.aswin.boxlore.core.model
+                        .Transcript(url = it.url, type = it.type)
+                },
             episodeType = this.episodeType,
-            enclosureType = this.enclosureType
+            enclosureType = this.enclosureType,
         )
     }
 }

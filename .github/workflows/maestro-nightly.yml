@@ -1,0 +1,107 @@
+name: Maestro Nightly
+
+# Nightly device-farm smoke (not a PR required check). Validates Maestro flow
+# presence/syntax every run; optional Maestro Cloud upload when secrets exist.
+on:
+  schedule:
+    # 05:15 UTC daily
+    - cron: "15 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  validate-flows:
+    name: Validate Maestro flows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      run_cloud: ${{ steps.secrets.outputs.run_cloud }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Assert Maestro YAML flows exist
+        run: |
+          set -euo pipefail
+          mapfile -t flows < <(find maestro -maxdepth 1 -type f -name '*.yaml' | sort)
+          if [[ ${#flows[@]} -eq 0 ]]; then
+            echo "No maestro/*.yaml flows found"
+            exit 1
+          fi
+          echo "Found ${#flows[@]} flow(s):"
+          printf ' - %s\n' "${flows[@]}"
+          for f in "${flows[@]}"; do
+            # Lightweight syntax/presence checks (no device required).
+            grep -qE '^appId:' "$f" || { echo "$f missing appId:"; exit 1; }
+            grep -qE '^---$' "$f" || { echo "$f missing document separator ---"; exit 1; }
+            # Reject empty bodies after the separator.
+            awk 'found{body=1} /^---$/{found=1} END{exit !(found && body)}' "$f" \
+              || { echo "$f has no steps after ---"; exit 1; }
+          done
+          echo "Maestro flow presence/syntax checks passed."
+
+      - name: Detect Maestro Cloud secrets
+        id: secrets
+        env:
+          MAESTRO_CLOUD_API_KEY: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+          MAESTRO_PROJECT_ID: ${{ secrets.MAESTRO_PROJECT_ID }}
+        run: |
+          if [[ -n "${MAESTRO_CLOUD_API_KEY}" && -n "${MAESTRO_PROJECT_ID}" ]]; then
+            echo "run_cloud=true" >> "$GITHUB_OUTPUT"
+            echo "Maestro Cloud secrets present — device job will run."
+          else
+            echo "run_cloud=false" >> "$GITHUB_OUTPUT"
+            cat <<'EOF'
+          Maestro Cloud device run will be skipped.
+
+          Full remote device execution requires repository secrets:
+            - MAESTRO_CLOUD_API_KEY
+            - MAESTRO_PROJECT_ID
+
+          Until those are configured, this nightly only validates that
+          maestro/*.yaml flows exist and pass lightweight syntax checks.
+          See maestro/README.md and docs/TESTING.md.
+          EOF
+          fi
+
+  maestro-cloud:
+    name: Maestro Cloud (optional)
+    needs: validate-flows
+    if: needs.validate-flows.outputs.run_cloud == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Write CI stub google-services.json
+        uses: ./.github/actions/write-ci-google-services
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - name: Run Maestro Cloud
+        uses: mobile-dev-inc/action-maestro-cloud@v3.0.1
+        with:
+          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+          project-id: ${{ secrets.MAESTRO_PROJECT_ID }}
+          app-file: app/build/outputs/apk/debug/app-debug.apk
+          workspace: maestro
+
+      - name: Scrub google-services.json
+        if: always()
+        run: rm -f app/google-services.json

@@ -10,6 +10,7 @@ plugins {
 
 android {
     testOptions {
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.useJUnitPlatform()
         }
@@ -95,6 +96,7 @@ android {
 dependencies {
     // Core Modules
     implementation(projects.core.designsystem)
+    implementation(projects.core.domain)
     implementation(projects.core.data)
     implementation(projects.core.downloads)
     implementation(projects.core.playback)
@@ -169,6 +171,7 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.robolectric)
+    testImplementation("androidx.test:core:1.6.1")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -64,9 +64,17 @@ class RankingRuntimeControls private constructor(context: Context) {
         @Volatile
         private var instance: RankingRuntimeControls? = null
 
+        fun create(context: Context): RankingRuntimeControls =
+            RankingRuntimeControls(context.applicationContext)
+
+        fun install(value: RankingRuntimeControls) {
+            instance = value
+        }
+
+        /** Prefer AppContainer in production. */
         fun getInstance(context: Context): RankingRuntimeControls {
             return instance ?: synchronized(this) {
-                instance ?: RankingRuntimeControls(context).also { instance = it }
+                instance ?: create(context).also { instance = it }
             }
         }
 

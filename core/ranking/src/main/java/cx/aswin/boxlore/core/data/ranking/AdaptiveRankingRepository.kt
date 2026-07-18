@@ -603,11 +603,19 @@ class AdaptiveRankingRepository private constructor(
         @Volatile
         private var instance: AdaptiveRankingRepository? = null
 
+        fun create(
+            context: Context,
+            database: AdaptiveRankingDatabase = AdaptiveRankingDatabase.getDatabase(context.applicationContext),
+        ): AdaptiveRankingRepository = AdaptiveRankingRepository(database)
+
+        fun install(value: AdaptiveRankingRepository) {
+            instance = value
+        }
+
+        /** Prefer AppContainer / SharedAppDependenciesHolder in production. */
         fun getInstance(context: Context): AdaptiveRankingRepository {
             return instance ?: synchronized(this) {
-                instance ?: AdaptiveRankingRepository(
-                    AdaptiveRankingDatabase.getDatabase(context.applicationContext),
-                ).also { instance = it }
+                instance ?: create(context).also { instance = it }
             }
         }
     }

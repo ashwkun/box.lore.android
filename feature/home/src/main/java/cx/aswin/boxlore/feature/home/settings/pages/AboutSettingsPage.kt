@@ -72,9 +72,10 @@ internal fun AboutSettingsPage(
                         textAlign = TextAlign.Center,
                     )
                     Text(
-                        text = "boxlore’s podcast catalog comes from Podcast Index — " +
-                            "an open directory that makes indie podcast discovery possible. " +
-                            "We’re grateful they exist.",
+                        text =
+                            "boxlore’s podcast catalog comes from Podcast Index — " +
+                                "an open directory that makes indie podcast discovery possible. " +
+                                "We’re grateful they exist.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -88,10 +89,11 @@ internal fun AboutSettingsPage(
                         Image(
                             painter = painterResource(R.drawable.ic_podcast_index_logo),
                             contentDescription = "Podcast Index logo",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 28.dp, vertical = 24.dp)
-                                .height(72.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 28.dp, vertical = 24.dp)
+                                    .height(72.dp),
                             contentScale = ContentScale.Fit,
                         )
                     }
@@ -100,10 +102,11 @@ internal fun AboutSettingsPage(
                         onClick = onVisitPodcastIndex,
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.Launch,
@@ -146,9 +149,10 @@ private fun SpecRow(
     monospace: Boolean = false,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

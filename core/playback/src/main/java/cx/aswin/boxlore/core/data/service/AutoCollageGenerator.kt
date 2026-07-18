@@ -20,13 +20,12 @@ import java.net.URL
  *
  * Layout adapts to the number of available images:
  * - 4 images → 2×2 grid
- * - 3 images → 1 large left + 2 stacked right 
+ * - 3 images → 1 large left + 2 stacked right
  * - 2 images → side-by-side split
  * - 1 image  → full-bleed single cover
  * - 0 images → branded gradient with category label
  */
 object AutoCollageGenerator {
-
     private const val TAG = "AutoCollage"
     private const val COLLAGE_SIZE = 512 // px, square
 
@@ -38,55 +37,58 @@ object AutoCollageGenerator {
         context: Context,
         folderImages: Map<String, List<String>>, // folderId → list of image URLs (max 4)
         folderContentKeys: Map<String, List<String>> = emptyMap(),
-    ): Map<String, Uri> = withContext(Dispatchers.IO) {
-        val results = mutableMapOf<String, Uri>()
-        val cacheDir = File(context.cacheDir, "auto_collages").apply { mkdirs() }
+    ): Map<String, Uri> =
+        withContext(Dispatchers.IO) {
+            val results = mutableMapOf<String, Uri>()
+            val cacheDir = File(context.cacheDir, "auto_collages").apply { mkdirs() }
 
-        for ((folderId, imageUrls) in folderImages) {
-            try {
-                val safeName = folderId.replace(Regex("[^a-zA-Z0-9_]"), "_")
-                val outFile = File(cacheDir, "${safeName}.png")
-                val signatureFile = File(cacheDir, "${safeName}.signature")
-                val uri = AutoCollageProvider.getUri(context, "${safeName}.png")
-                val contentKeys = folderContentKeys[folderId].orEmpty()
-                val signatureValues = contentKeys.ifEmpty { imageUrls }
-                val signature = buildString {
-                    append("collage-v3\n")
-                    append(
-                        signatureValues
-                            .take(4)
-                            .filter(String::isNotBlank)
-                            .joinToString("\n"),
-                    )
-                }.hashCode().toString()
-                val isFresh = outFile.exists() &&
-                    System.currentTimeMillis() - outFile.lastModified() < 6 * 60 * 60 * 1_000L &&
-                    signatureFile.isFile &&
-                    signatureFile.readText() == signature
-                if (isFresh) {
-                    results[folderId] = uri
-                    continue
-                }
-
-                val bitmap = createCollageBitmap(imageUrls, folderId, context)
-                if (bitmap != null) {
-                    FileOutputStream(outFile).use { out ->
-                        bitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
+            for ((folderId, imageUrls) in folderImages) {
+                try {
+                    val safeName = folderId.replace(Regex("[^a-zA-Z0-9_]"), "_")
+                    val outFile = File(cacheDir, "$safeName.png")
+                    val signatureFile = File(cacheDir, "$safeName.signature")
+                    val uri = AutoCollageProvider.getUri(context, "$safeName.png")
+                    val contentKeys = folderContentKeys[folderId].orEmpty()
+                    val signatureValues = contentKeys.ifEmpty { imageUrls }
+                    val signature =
+                        buildString {
+                            append("collage-v3\n")
+                            append(
+                                signatureValues
+                                    .take(4)
+                                    .filter(String::isNotBlank)
+                                    .joinToString("\n"),
+                            )
+                        }.hashCode().toString()
+                    val isFresh =
+                        outFile.exists() &&
+                            System.currentTimeMillis() - outFile.lastModified() < 6 * 60 * 60 * 1_000L &&
+                            signatureFile.isFile &&
+                            signatureFile.readText() == signature
+                    if (isFresh) {
+                        results[folderId] = uri
+                        continue
                     }
-                    runCatching { signatureFile.writeText(signature) }
-                    bitmap.recycle()
 
-                    // Use our custom exported ContentProvider URI
-                    results[folderId] = uri
-                    Log.d(TAG, "Generated collage for $folderId → $uri")
+                    val bitmap = createCollageBitmap(imageUrls, folderId, context)
+                    if (bitmap != null) {
+                        FileOutputStream(outFile).use { out ->
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
+                        }
+                        runCatching { signatureFile.writeText(signature) }
+                        bitmap.recycle()
+
+                        // Use our custom exported ContentProvider URI
+                        results[folderId] = uri
+                        Log.d(TAG, "Generated collage for $folderId → $uri")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to generate collage for $folderId", e)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to generate collage for $folderId", e)
             }
-        }
 
-        results
-    }
+            results
+        }
 
     /**
      * Create a single collage bitmap from a list of image URLs.
@@ -95,45 +97,54 @@ object AutoCollageGenerator {
     private suspend fun createCollageBitmap(
         imageUrls: List<String>,
         folderId: String,
-        context: Context
-    ): Bitmap? = coroutineScope {
-        val size = COLLAGE_SIZE
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+        context: Context,
+    ): Bitmap? =
+        coroutineScope {
+            val size = COLLAGE_SIZE
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
 
-        // Download images in parallel (with timeout protection)
-        val urls = imageUrls.take(4).filter { it.isNotBlank() }
-        val bitmaps = urls.map { url ->
-            async(Dispatchers.IO) { downloadBitmap(url) }
-        }.awaitAll().filterNotNull()
+            // Download images in parallel (with timeout protection)
+            val urls = imageUrls.take(4).filter { it.isNotBlank() }
+            val bitmaps =
+                urls
+                    .map { url ->
+                        async(Dispatchers.IO) { downloadBitmap(url) }
+                    }.awaitAll()
+                    .filterNotNull()
 
-        when (bitmaps.size) {
-            0 -> drawBrandedFallback(canvas, size, folderId)
-            1 -> drawSingleCover(canvas, size, bitmaps[0])
-            2 -> drawTwoSplit(canvas, size, bitmaps)
-            3 -> drawThreeLayout(canvas, size, bitmaps)
-            else -> drawFourGrid(canvas, size, bitmaps)
+            when (bitmaps.size) {
+                0 -> drawBrandedFallback(canvas, size, folderId)
+                1 -> drawSingleCover(canvas, size, bitmaps[0])
+                2 -> drawTwoSplit(canvas, size, bitmaps)
+                3 -> drawThreeLayout(canvas, size, bitmaps)
+                else -> drawFourGrid(canvas, size, bitmaps)
+            }
+            when {
+                folderId.contains("drive_mix") -> drawLabelBadge(canvas, size, "MIX")
+                folderId.contains("continue") -> drawLabelBadge(canvas, size, "RESUME")
+            }
+
+            // Recycle source bitmaps
+            bitmaps.forEach { it.recycle() }
+            bitmap
         }
-        when {
-            folderId.contains("drive_mix") -> drawLabelBadge(canvas, size, "MIX")
-            folderId.contains("continue") -> drawLabelBadge(canvas, size, "RESUME")
-        }
 
-        // Recycle source bitmaps
-        bitmaps.forEach { it.recycle() }
-        bitmap
-    }
-
-    private fun drawLabelBadge(canvas: Canvas, size: Int, label: String) {
+    private fun drawLabelBadge(
+        canvas: Canvas,
+        size: Int,
+        label: String,
+    ) {
         val padding = size * 0.04f
         val badgeWidth = size * if (label.length > 3) 0.42f else 0.28f
         val badgeHeight = size * 0.14f
-        val badge = RectF(
-            size - badgeWidth - padding,
-            size - badgeHeight - padding,
-            size - padding,
-            size - padding,
-        )
+        val badge =
+            RectF(
+                size - badgeWidth - padding,
+                size - badgeHeight - padding,
+                size - padding,
+                size - padding,
+            )
         canvas.drawRoundRect(
             badge,
             size * 0.035f,
@@ -142,12 +153,13 @@ object AutoCollageGenerator {
                 color = Color.parseColor("#D91A1A2E")
             },
         )
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = size * 0.065f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textAlign = Paint.Align.CENTER
-        }
+        val textPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = size * 0.065f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
         val centerY = badge.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f
         canvas.drawText(label, badge.centerX(), centerY, textPaint)
     }
@@ -155,12 +167,20 @@ object AutoCollageGenerator {
     // ============= Layout Renderers =============
 
     /** Full-bleed single image */
-    private fun drawSingleCover(canvas: Canvas, size: Int, bmp: Bitmap) {
+    private fun drawSingleCover(
+        canvas: Canvas,
+        size: Int,
+        bmp: Bitmap,
+    ) {
         drawCenterCrop(canvas, bmp, Rect(0, 0, size, size))
     }
 
     /** Side-by-side vertical split */
-    private fun drawTwoSplit(canvas: Canvas, size: Int, bitmaps: List<Bitmap>) {
+    private fun drawTwoSplit(
+        canvas: Canvas,
+        size: Int,
+        bitmaps: List<Bitmap>,
+    ) {
         val halfW = size / 2
         val gap = 3 // thin gap between images
 
@@ -172,7 +192,11 @@ object AutoCollageGenerator {
     }
 
     /** 1 large left + 2 stacked right */
-    private fun drawThreeLayout(canvas: Canvas, size: Int, bitmaps: List<Bitmap>) {
+    private fun drawThreeLayout(
+        canvas: Canvas,
+        size: Int,
+        bitmaps: List<Bitmap>,
+    ) {
         val halfW = size / 2
         val halfH = size / 2
         val gap = 3
@@ -188,17 +212,22 @@ object AutoCollageGenerator {
     }
 
     /** Classic 2×2 grid */
-    private fun drawFourGrid(canvas: Canvas, size: Int, bitmaps: List<Bitmap>) {
+    private fun drawFourGrid(
+        canvas: Canvas,
+        size: Int,
+        bitmaps: List<Bitmap>,
+    ) {
         val halfW = size / 2
         val halfH = size / 2
         val gap = 3
 
-        val positions = listOf(
-            0f to 0f,
-            (halfW + gap).toFloat() to 0f,
-            0f to (halfH + gap).toFloat(),
-            (halfW + gap).toFloat() to (halfH + gap).toFloat()
-        )
+        val positions =
+            listOf(
+                0f to 0f,
+                (halfW + gap).toFloat() to 0f,
+                0f to (halfH + gap).toFloat(),
+                (halfW + gap).toFloat() to (halfH + gap).toFloat(),
+            )
 
         for (i in 0 until minOf(4, bitmaps.size)) {
             val (x, y) = positions[i]
@@ -211,51 +240,67 @@ object AutoCollageGenerator {
     }
 
     /** Branded gradient fallback when no images available */
-    private fun drawBrandedFallback(canvas: Canvas, size: Int, folderId: String) {
+    private fun drawBrandedFallback(
+        canvas: Canvas,
+        size: Int,
+        folderId: String,
+    ) {
         // Dark gradient background
-        val gradient = LinearGradient(
-            0f, 0f, size.toFloat(), size.toFloat(),
-            Color.parseColor("#1a1a2e"), Color.parseColor("#16213e"),
-            Shader.TileMode.CLAMP
-        )
+        val gradient =
+            LinearGradient(
+                0f,
+                0f,
+                size.toFloat(),
+                size.toFloat(),
+                Color.parseColor("#1a1a2e"),
+                Color.parseColor("#16213e"),
+                Shader.TileMode.CLAMP,
+            )
         val bgPaint = Paint().apply { shader = gradient }
         canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), bgPaint)
 
         // Stable text glyphs render consistently across head units.
-        val label = when {
-            folderId.contains("continue") -> "PLAY"
-            folderId.contains("download") -> "OFFLINE"
-            folderId.contains("drive_mix") -> "MIX"
-            folderId.contains("time_picks") -> "NOW"
-            folderId.contains("genres") -> "GENRES"
-            folderId.contains("discover") -> "DISCOVER"
-            folderId.contains("library") -> "LIBRARY"
-            else -> "BOXLORE"
-        }
-        val textPaint = Paint().apply {
-            color = Color.WHITE
-            textSize = size * 0.1f
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            isAntiAlias = true
-        }
+        val label =
+            when {
+                folderId.contains("continue") -> "PLAY"
+                folderId.contains("download") -> "OFFLINE"
+                folderId.contains("drive_mix") -> "MIX"
+                folderId.contains("time_picks") -> "NOW"
+                folderId.contains("genres") -> "GENRES"
+                folderId.contains("discover") -> "DISCOVER"
+                folderId.contains("library") -> "LIBRARY"
+                else -> "BOXLORE"
+            }
+        val textPaint =
+            Paint().apply {
+                color = Color.WHITE
+                textSize = size * 0.1f
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                isAntiAlias = true
+            }
         canvas.drawText(label, size / 2f, size / 2f + textSize(textPaint) / 3f, textPaint)
     }
 
     private fun textSize(paint: Paint): Float = paint.textSize
 
-    private fun drawCenterCrop(canvas: Canvas, bitmap: Bitmap, destination: Rect) {
+    private fun drawCenterCrop(
+        canvas: Canvas,
+        bitmap: Bitmap,
+        destination: Rect,
+    ) {
         val sourceRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
         val destinationRatio = destination.width().toFloat() / destination.height().toFloat()
-        val source = if (sourceRatio > destinationRatio) {
-            val width = (bitmap.height * destinationRatio).toInt()
-            val left = (bitmap.width - width) / 2
-            Rect(left, 0, left + width, bitmap.height)
-        } else {
-            val height = (bitmap.width / destinationRatio).toInt()
-            val top = (bitmap.height - height) / 2
-            Rect(0, top, bitmap.width, top + height)
-        }
+        val source =
+            if (sourceRatio > destinationRatio) {
+                val width = (bitmap.height * destinationRatio).toInt()
+                val left = (bitmap.width - width) / 2
+                Rect(left, 0, left + width, bitmap.height)
+            } else {
+                val height = (bitmap.width / destinationRatio).toInt()
+                val top = (bitmap.height - height) / 2
+                Rect(0, top, bitmap.width, top + height)
+            }
         canvas.drawBitmap(bitmap, source, destination, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
     }
 
@@ -281,11 +326,12 @@ object AutoCollageGenerator {
 
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val inputStream = conn.inputStream
-                val opts = BitmapFactory.Options().apply {
-                    // Downsample to save memory (max 256px per source)
-                    inSampleSize = 1
-                    inJustDecodeBounds = true
-                }
+                val opts =
+                    BitmapFactory.Options().apply {
+                        // Downsample to save memory (max 256px per source)
+                        inSampleSize = 1
+                        inJustDecodeBounds = true
+                    }
                 // Two-pass decode: measure first, then downsample
                 BitmapFactory.decodeStream(inputStream, null, opts)
                 inputStream.close()
@@ -301,10 +347,11 @@ object AutoCollageGenerator {
                 conn2.instanceFollowRedirects = true
                 conn2.doInput = true
                 conn2.connect()
-                
-                val decodeOpts = BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize
-                }
+
+                val decodeOpts =
+                    BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                    }
                 val bmp = BitmapFactory.decodeStream(conn2.inputStream, null, decodeOpts)
                 conn2.disconnect()
                 bmp

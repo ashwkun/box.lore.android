@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/main/java/cx/aswin/boxlore/core/model/AutoTranscriptState.kt">
+        <error line="11" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="13" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="15" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="17" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="19" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="20" column="11" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/Briefing.kt">
+        <error line="16" column="52" source="standard:trailing-comma-on-declaration-site" />
+        <error line="22" column="20" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/CrossPromotion.kt">
+        <error line="9" column="9" source="standard:trailing-comma-on-declaration-site" />
+        <error line="20" column="27" source="standard:trailing-comma-on-declaration-site" />
+        <error line="28" column="57" source="standard:trailing-comma-on-declaration-site" />
+        <error line="36" column="57" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/Episode.kt">
+        <error line="14" column="35" source="standard:parameter-list-spacing" />
+        <error line="14" column="36" source="standard:no-multi-spaces" />
+        <error line="26" column="37" source="standard:parameter-list-spacing" />
+        <error line="26" column="38" source="standard:no-multi-spaces" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/PlaybackEntryPoint.kt">
+        <error line="6" column="10" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/Podcast.kt">
+        <error line="26" column="32" source="standard:parameter-list-spacing" />
+        <error line="26" column="33" source="standard:no-multi-spaces" />
+        <error line="28" column="35" source="standard:parameter-list-spacing" />
+        <error line="28" column="36" source="standard:no-multi-spaces" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/Podcast2Types.kt">
+        <error line="9" column="30" source="standard:parameter-list-spacing" />
+        <error line="9" column="31" source="standard:no-multi-spaces" />
+        <error line="12" column="29" source="standard:trailing-comma-on-declaration-site" />
+        <error line="19" column="21" source="standard:trailing-comma-on-declaration-site" />
+        <error line="19" column="22" source="standard:no-multi-spaces" />
+        <error line="19" column="23" source="standard:value-parameter-comment" />
+        <error line="25" column="27" source="standard:parameter-list-spacing" />
+        <error line="25" column="28" source="standard:no-multi-spaces" />
+        <error line="29" column="47" source="standard:trailing-comma-on-declaration-site" />
+        <error line="37" column="29" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/PodcastGenres.kt">
+        <error line="27" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="49" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="71" column="49" source="standard:function-expression-body" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/ShareLinkBuilder.kt">
+        <error line="12" column="28" source="standard:trailing-comma-on-declaration-site" />
+        <error line="31" column="28" source="standard:trailing-comma-on-declaration-site" />
+        <error line="32" column="17" source="standard:multiline-expression-wrapping" />
+        <error line="32" column="17" source="standard:function-signature" />
+        <error line="39" column="26" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/model/ShareTarget.kt">
+        <error line="5" column="20" source="standard:trailing-comma-on-declaration-site" />
+    </file>
+</baseline>

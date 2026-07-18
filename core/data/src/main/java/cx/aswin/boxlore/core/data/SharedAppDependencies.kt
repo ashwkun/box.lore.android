@@ -4,6 +4,7 @@ import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.data.ranking.RankingRuntimeControls
 import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
 
 /**
@@ -26,6 +27,7 @@ interface SharedAppDependencies {
     val adaptiveCandidateScorer: AdaptiveCandidateScorer
     val rankingFeedbackRepository: RankingFeedbackRepository
     val adaptiveRankingRepository: AdaptiveRankingRepository
+    val rankingRuntimeControls: RankingRuntimeControls
     val historyRecommendationSource: HistoryRecommendationSource
 }
 

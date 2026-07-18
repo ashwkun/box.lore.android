@@ -1,0 +1,19 @@
+{
+  "status": "true",
+  "feeds": [
+    {
+      "id": 920666,
+      "title": "The Daily",
+      "author": "The New York Times",
+      "description": "This is what the news should sound like.",
+      "image": "https://example.com/daily.jpg",
+      "artwork": "https://example.com/daily-art.jpg",
+      "language": "en",
+      "categories": { "55": "News", "99": "Daily News" },
+      "itunesId": 1200361736,
+      "trendScore": 42,
+      "newestItemPublishTime": 1721000000,
+      "medium": "podcast"
+    }
+  ]
+}

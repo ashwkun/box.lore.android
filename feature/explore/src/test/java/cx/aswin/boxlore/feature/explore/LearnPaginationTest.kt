@@ -1,8 +1,5 @@
 package cx.aswin.boxlore.feature.explore
 
-import cx.aswin.boxlore.core.network.model.CuratedCuriosityResponseDto
-import cx.aswin.boxlore.core.network.model.DailyCuriosityDto
-import cx.aswin.boxlore.core.network.model.EpisodeItem
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,7 +18,7 @@ class LearnPaginationTest {
         assertTrue(result is InitialCuriosityDeckResult.Found)
         result as InitialCuriosityDeckResult.Found
         assertEquals(1, result.page)
-        assertEquals(listOf(1L, 2L), result.unseenItems.map { it.episode.id })
+        assertEquals(listOf("1", "2"), result.unseenItems.map { it.episodeId })
         assertEquals(listOf(1), requestedPages)
     }
 
@@ -40,7 +37,7 @@ class LearnPaginationTest {
         assertTrue(result is InitialCuriosityDeckResult.Found)
         result as InitialCuriosityDeckResult.Found
         assertEquals(2, result.page)
-        assertEquals(listOf(3L, 4L), result.unseenItems.map { it.episode.id })
+        assertEquals(listOf("3", "4"), result.unseenItems.map { it.episodeId })
         assertEquals(listOf(1, 2), requestedPages)
     }
 
@@ -52,7 +49,7 @@ class LearnPaginationTest {
 
         assertTrue(result is InitialCuriosityDeckResult.Found)
         result as InitialCuriosityDeckResult.Found
-        assertEquals(listOf(1L, 3L), result.unseenItems.map { it.episode.id })
+        assertEquals(listOf("1", "3"), result.unseenItems.map { it.episodeId })
     }
 
     @Test
@@ -94,20 +91,21 @@ class LearnPaginationTest {
     }
 
     private fun response(
-        vararg cards: DailyCuriosityDto
-    ): CuratedCuriosityResponseDto = CuratedCuriosityResponseDto(
-        questionsStack = cards.toList()
-    )
+        vararg cards: LearnCuriosityCard
+    ): List<LearnCuriosityCard> = cards.toList()
 
-    private fun card(id: Long): DailyCuriosityDto = DailyCuriosityDto(
-        date = "2026-07-12",
+    private fun card(id: Long): LearnCuriosityCard = LearnCuriosityCard(
+        episodeId = id.toString(),
         question = "Question $id?",
         explanation = "Explanation $id",
         curiosityScore = 8,
-        episode = EpisodeItem(
-            id = id,
-            title = "Episode $id",
-            enclosureUrl = "https://example.com/$id.mp3"
-        )
+        episodeTitle = "Episode $id",
+        podcastTitle = "Podcast $id",
+        imageUrl = null,
+        feedImage = null,
+        podcastId = null,
+        audioUrl = "https://example.com/$id.mp3",
+        duration = 0,
+        description = null,
     )
 }

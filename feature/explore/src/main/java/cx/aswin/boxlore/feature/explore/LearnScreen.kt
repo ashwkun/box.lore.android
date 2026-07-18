@@ -51,8 +51,6 @@ import coil.request.ImageRequest
 import cx.aswin.boxlore.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxlore.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxlore.core.model.Episode
-import cx.aswin.boxlore.core.network.model.DailyCuriosityDto
-import cx.aswin.boxlore.core.data.toEpisode
 import cx.aswin.boxlore.core.designsystem.theme.TrackScreenSession
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -103,9 +101,10 @@ fun LearnScreen(
     )
 
     // Trigger color extraction based on active card cover artwork changes
-    val activeCardImage = (uiState as? LearnUiState.Success)?.questionsStack?.firstOrNull()?.episode?.let {
-        it.image ?: it.feedImage
-    }
+    val activeCardImage = (uiState as? LearnUiState.Success)
+        ?.questionsStack
+        ?.firstOrNull()
+        ?.let { it.imageUrl ?: it.feedImage }
 
     LaunchedEffect(activeCardImage) {
         if (activeCardImage.isNullOrEmpty()) {
@@ -195,30 +194,30 @@ fun LearnScreen(
                     }
                     is LearnUiState.Success -> {
                         val visibleCard = state.questionsStack.firstOrNull()
-                        LaunchedEffect(visibleCard?.episode?.id) {
+                        LaunchedEffect(visibleCard?.episodeId) {
                             visibleCard?.let(viewModel::trackCardVisible)
                         }
-                        val handleLearnCardAction: (String, DailyCuriosityDto) -> Unit = { action, daily ->
-                            val mappedEpisode = daily.episode.toEpisode()
+                        val handleLearnCardAction: (String, LearnCuriosityCard) -> Unit = { action, card ->
+                            val mappedEpisode = card.toEpisode()
                             when (action) {
                                 "dismiss" -> {
-                                    viewModel.trackCardDismissed(daily)
+                                    viewModel.trackCardDismissed(card)
                                     trackLearnCardAction("dismiss", mappedEpisode)
-                                    viewModel.dismissCuriosity(daily, LearnHistoryAction.DISMISS)
+                                    viewModel.dismissCuriosity(card, LearnHistoryAction.DISMISS)
                                 }
                                 "queue" -> {
-                                    viewModel.trackCardQueued(daily)
+                                    viewModel.trackCardQueued(card)
                                     trackLearnCardAction("queue", mappedEpisode)
                                     onQueueEpisode(mappedEpisode)
-                                    viewModel.dismissCuriosity(daily, LearnHistoryAction.QUEUE)
+                                    viewModel.dismissCuriosity(card, LearnHistoryAction.QUEUE)
                                 }
                                 "info" -> {
-                                    viewModel.trackInfoClicked(daily)
+                                    viewModel.trackInfoClicked(card)
                                     trackLearnCardAction("info", mappedEpisode)
                                     onEpisodeClick(mappedEpisode)
                                 }
                                 "play" -> {
-                                    viewModel.trackPlayClicked(daily)
+                                    viewModel.trackPlayClicked(card)
                                     trackLearnCardAction("play", mappedEpisode)
                                     val isCurrent = playerState.currentEpisode?.id == mappedEpisode.id
                                     if (isCurrent) {
@@ -241,7 +240,7 @@ fun LearnScreen(
                                     }
                                 }
                                 "podcast" -> {
-                                    viewModel.trackPodcastClicked(daily)
+                                    viewModel.trackPodcastClicked(card)
                                     trackLearnCardAction("podcast", mappedEpisode)
                                     onPodcastClick(
                                         mappedEpisode.podcastId?.toLongOrNull(),

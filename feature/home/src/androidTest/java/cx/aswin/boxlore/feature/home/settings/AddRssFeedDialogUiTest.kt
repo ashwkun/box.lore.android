@@ -26,7 +26,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class AddRssFeedDialogUiTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -50,7 +49,8 @@ class AddRssFeedDialogUiTest {
         composeRule.onNodeWithTag(SettingsRssTestTags.CONFIRM).assertIsNotEnabled()
         composeRule.onNodeWithTag(SettingsRssTestTags.CANCEL).assertIsEnabled()
 
-        composeRule.onNodeWithTag(SettingsRssTestTags.URL_FIELD)
+        composeRule
+            .onNodeWithTag(SettingsRssTestTags.URL_FIELD)
             .performTextInput("https://example.com/feed.xml")
 
         composeRule.onNodeWithTag(SettingsRssTestTags.CONFIRM).assertIsEnabled()
@@ -75,5 +75,40 @@ class AddRssFeedDialogUiTest {
 
         composeRule.onNodeWithTag(SettingsRssTestTags.CANCEL).performClick()
         assertTrue(dismissed)
+    }
+
+    @Test
+    fun errorMessage_isDisplayed_andConfirmStaysEnabledForNonBlankUrl() {
+        composeRule.setContent {
+            AddRssFeedDialog(
+                url = "https://example.com/feed.xml",
+                error = "Invalid feed",
+                isAdding = false,
+                onUrlChange = {},
+                onConfirm = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Invalid feed").assertIsDisplayed()
+        composeRule.onNodeWithTag(SettingsRssTestTags.CONFIRM).assertIsEnabled()
+    }
+
+    @Test
+    fun isAdding_disablesConfirmCancelAndUrlField() {
+        composeRule.setContent {
+            AddRssFeedDialog(
+                url = "https://example.com/feed.xml",
+                error = null,
+                isAdding = true,
+                onUrlChange = {},
+                onConfirm = {},
+                onDismiss = {},
+            )
+        }
+
+        composeRule.onNodeWithTag(SettingsRssTestTags.CONFIRM).assertIsNotEnabled()
+        composeRule.onNodeWithTag(SettingsRssTestTags.CANCEL).assertIsNotEnabled()
+        composeRule.onNodeWithTag(SettingsRssTestTags.URL_FIELD).assertIsNotEnabled()
     }
 }

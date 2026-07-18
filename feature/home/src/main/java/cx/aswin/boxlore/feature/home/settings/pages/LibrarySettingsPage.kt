@@ -148,15 +148,15 @@ private fun CountryNotListedFaq(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .expressiveClickable(
-                    shape = MaterialTheme.shapes.medium,
-                    onClick = {
-                        if (expanded) onCollapse() else onExpand()
-                    },
-                )
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .expressiveClickable(
+                        shape = MaterialTheme.shapes.medium,
+                        onClick = {
+                            if (expanded) onCollapse() else onExpand()
+                        },
+                    ).padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -168,11 +168,12 @@ private fun CountryNotListedFaq(
                 color = MaterialTheme.colorScheme.primary,
             )
             Icon(
-                imageVector = if (expanded) {
-                    Icons.Rounded.KeyboardArrowUp
-                } else {
-                    Icons.Rounded.KeyboardArrowDown
-                },
+                imageVector =
+                    if (expanded) {
+                        Icons.Rounded.KeyboardArrowUp
+                    } else {
+                        Icons.Rounded.KeyboardArrowDown
+                    },
                 contentDescription = if (expanded) "Collapse" else "Expand",
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -185,13 +186,13 @@ private fun CountryNotListedFaq(
             exit = shrinkVertically() + fadeOut(),
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .expressiveClickable(
-                        shape = MaterialTheme.shapes.medium,
-                        onClick = onCollapse,
-                    )
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .expressiveClickable(
+                            shape = MaterialTheme.shapes.medium,
+                            onClick = onCollapse,
+                        ).padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(

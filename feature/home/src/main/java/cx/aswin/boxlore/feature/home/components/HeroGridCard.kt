@@ -1,31 +1,30 @@
 package cx.aswin.boxlore.feature.home.components
 
-import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
-import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
-import cx.aswin.boxlore.core.model.Podcast
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.geometry.Size
-import cx.aswin.boxlore.core.designsystem.theme.ExpressiveShapes
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.designsystem.components.drawOutline
+import cx.aswin.boxlore.core.designsystem.theme.ExpressiveShapes
+import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxlore.core.model.Podcast
 
 private val sessionSeed = kotlin.random.Random.nextInt()
 
@@ -45,15 +44,16 @@ fun HeroGridCard(
     onDetailsClick: (Podcast) -> Unit,
     currentPlayingPodcastId: String? = null,
     isPlaying: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    
-    val shapes = remember(title) {
-        val random = kotlin.random.Random(sessionSeed + title.hashCode())
-        val shuffled = ExpressiveShapes.Decorative.shuffled(random)
-        Pair(shuffled[0], shuffled[1])
-    }
+
+    val shapes =
+        remember(title) {
+            val random = kotlin.random.Random(sessionSeed + title.hashCode())
+            val shuffled = ExpressiveShapes.Decorative.shuffled(random)
+            Pair(shuffled[0], shuffled[1])
+        }
     val shape1 = shapes.first
     val shape2 = shapes.second
 
@@ -61,21 +61,23 @@ fun HeroGridCard(
         shape = MaterialTheme.shapes.extraLarge,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        modifier = modifier
-            .fillMaxSize()
-            .clip(MaterialTheme.shapes.extraLarge)
+        modifier =
+            modifier
+                .fillMaxSize()
+                .clip(MaterialTheme.shapes.extraLarge),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Background shapes wrapper
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .heroGridBackground(
-                        title = title,
-                        primaryColor = primaryColor,
-                        shape1 = shape1,
-                        shape2 = shape2
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .heroGridBackground(
+                            title = title,
+                            primaryColor = primaryColor,
+                            shape1 = shape1,
+                            shape2 = shape2,
+                        ),
             )
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -84,20 +86,22 @@ fun HeroGridCard(
 
                 // Adaptive Grid Content
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 ) {
                     val displayItems = items.take(4)
                     when (displayItems.size) {
                         2 -> StackedLayout(displayItems, onPlayClick)
                         3 -> TwoOneLayout(displayItems, onPlayClick)
                         4 -> GridLayout2x2(displayItems, onPlayClick)
-                        else -> if (displayItems.isNotEmpty()) {
-                            // Fallback: single item fills the space
-                            GridCell(displayItems[0], onPlayClick, modifier = Modifier.fillMaxSize())
-                        }
+                        else ->
+                            if (displayItems.isNotEmpty()) {
+                                // Fallback: single item fills the space
+                                GridCell(displayItems[0], onPlayClick, modifier = Modifier.fillMaxSize())
+                            }
                     }
                 }
             }
@@ -114,11 +118,11 @@ fun HeroGridCard(
 @Composable
 private fun StackedLayout(
     items: List<Podcast>,
-    onPlayClick: (Podcast) -> Unit
+    onPlayClick: (Podcast) -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         GridCell(items[0], onPlayClick, modifier = Modifier.weight(1f).fillMaxWidth())
         GridCell(items[1], onPlayClick, modifier = Modifier.weight(1f).fillMaxWidth())
@@ -132,15 +136,15 @@ private fun StackedLayout(
 @Composable
 private fun TwoOneLayout(
     items: List<Podcast>,
-    onPlayClick: (Podcast) -> Unit
+    onPlayClick: (Podcast) -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) {
             GridCell(items[0], onPlayClick, modifier = Modifier.weight(1f).fillMaxHeight())
             GridCell(items[1], onPlayClick, modifier = Modifier.weight(1f).fillMaxHeight())
@@ -155,22 +159,22 @@ private fun TwoOneLayout(
 @Composable
 private fun GridLayout2x2(
     items: List<Podcast>,
-    onPlayClick: (Podcast) -> Unit
+    onPlayClick: (Podcast) -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) {
             GridCell(items[0], onPlayClick, modifier = Modifier.weight(1f).fillMaxHeight())
             GridCell(items[1], onPlayClick, modifier = Modifier.weight(1f).fillMaxHeight())
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) {
             GridCell(items[2], onPlayClick, modifier = Modifier.weight(1f).fillMaxHeight())
             GridCell(items[3], onPlayClick, modifier = Modifier.weight(1f).fillMaxHeight())
@@ -183,15 +187,16 @@ private fun GridLayout2x2(
 @Composable
 private fun RowHeader(title: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title.lowercase().replaceFirstChar { it.uppercase() },
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -200,89 +205,95 @@ private fun RowHeader(title: String) {
 private fun GridCell(
     podcast: Podcast,
     onPlayClick: (Podcast) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val currentPodcast by androidx.compose.runtime.rememberUpdatedState(podcast)
     val currentOnPlayClick by androidx.compose.runtime.rememberUpdatedState(onPlayClick)
 
-    val gradientBrush = remember {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.Transparent,
-                Color.Black.copy(alpha = 0.15f),
-                Color.Black.copy(alpha = 0.55f),
-                Color.Black.copy(alpha = 0.85f),
-                Color.Black.copy(alpha = 0.95f)
+    val gradientBrush =
+        remember {
+            Brush.verticalGradient(
+                colors =
+                    listOf(
+                        Color.Transparent,
+                        Color.Black.copy(alpha = 0.15f),
+                        Color.Black.copy(alpha = 0.55f),
+                        Color.Black.copy(alpha = 0.85f),
+                        Color.Black.copy(alpha = 0.95f),
+                    ),
             )
-        )
-    }
+        }
 
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .expressiveClickable {
-                currentOnPlayClick(currentPodcast)
-            }
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .expressiveClickable {
+                    currentOnPlayClick(currentPodcast)
+                },
     ) {
         OptimizedImage(
             url = podcast.imageUrl.ifEmpty { podcast.fallbackImageUrl.orEmpty() },
             proxyWidth = 400,
             contentDescription = podcast.title,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .drawWithContent {
-                    drawContent()
-                    drawRect(gradientBrush)
-                }
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(gradientBrush)
+                    },
         )
 
-            // Bottom content: Title + progress
-            Column(
-                modifier = Modifier
+        // Bottom content: Title + progress
+        Column(
+            modifier =
+                Modifier
                     .align(Alignment.BottomStart)
                     .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                val episodeTitle = podcast.latestEpisode?.title
-                val primaryText = episodeTitle ?: podcast.title
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            val episodeTitle = podcast.latestEpisode?.title
+            val primaryText = episodeTitle ?: podcast.title
 
-                // Episode title (primary)
+            // Episode title (primary)
+            Text(
+                text = primaryText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                lineHeight = 16.sp,
+            )
+
+            // Podcast title (secondary)
+            if (episodeTitle != null) {
                 Text(
-                    text = primaryText,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 2,
+                    text = podcast.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    lineHeight = 16.sp
+                    lineHeight = 14.sp,
                 )
+            }
 
-                // Podcast title (secondary)
-                if (episodeTitle != null) {
-                    Text(
-                        text = podcast.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.8f),
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        lineHeight = 14.sp
-                    )
-                }
-
-                // Progress bar for resume sessions
-                if (podcast.resumeProgress != null && podcast.resumeProgress!! > 0f) {
-                    ProgressBar(
-                        progress = podcast.resumeProgress!!,
-                        modifier = Modifier
+            // Progress bar for resume sessions
+            if (podcast.resumeProgress != null && podcast.resumeProgress!! > 0f) {
+                ProgressBar(
+                    progress = podcast.resumeProgress!!,
+                    modifier =
+                        Modifier
                             .fillMaxWidth()
-                            .height(4.dp)
-                    )
-                }
+                            .height(4.dp),
+                )
             }
         }
+    }
 }
 
 @Composable
@@ -290,19 +301,21 @@ private fun ProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     trackColor: Color = Color.White.copy(alpha = 0.3f),
-    indicatorColor: Color = MaterialTheme.colorScheme.inversePrimary
+    indicatorColor: Color = MaterialTheme.colorScheme.inversePrimary,
 ) {
     Box(
-        modifier = modifier
-            .clip(androidx.compose.foundation.shape.CircleShape)
-            .background(trackColor)
+        modifier =
+            modifier
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(trackColor),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(progress)
-                .clip(androidx.compose.foundation.shape.CircleShape)
-                .background(indicatorColor)
+            modifier =
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(indicatorColor),
         )
     }
 }
@@ -311,64 +324,66 @@ private fun Modifier.heroGridBackground(
     title: String,
     primaryColor: Color,
     shape1: androidx.compose.ui.graphics.Shape,
-    shape2: androidx.compose.ui.graphics.Shape
-): Modifier = this.drawWithCache {
-    val size1Px = 180.dp.toPx()
-    val size2Px = 220.dp.toPx()
-    
-    val shape1OffsetX = -50.dp.toPx()
-    val shape1OffsetY = -30.dp.toPx()
-    val shape2Inset = 150.dp.toPx()
-    
-    val outline1 = shape1.createOutline(
-        size = Size(size1Px, size1Px),
-        layoutDirection = layoutDirection,
-        density = this
-    )
-    val outline2 = shape2.createOutline(
-        size = Size(size2Px, size2Px),
-        layoutDirection = layoutDirection,
-        density = this
-    )
-    
-    val isJumpBackIn = title.contains("JUMP", ignoreCase = true)
-    
-    onDrawBehind {
-        if (isJumpBackIn) {
-            // Shape 1 (Top Left)
-            translate(left = shape1OffsetX, top = shape1OffsetY) {
-                drawOutline(
-                    outline = outline1,
-                    color = primaryColor,
-                    alpha = 0.10f
-                )
-            }
-            // Shape 2 (Bottom Right)
-            translate(left = size.width - shape2Inset, top = size.height - shape2Inset) {
-                drawOutline(
-                    outline = outline2,
-                    color = primaryColor,
-                    alpha = 0.10f
-                )
-            }
-        } else {
-            // Shape 1 (Bottom Left)
-            translate(left = shape1OffsetX, top = size.height - shape2Inset) {
-                drawOutline(
-                    outline = outline1,
-                    color = primaryColor,
-                    alpha = 0.10f
-                )
-            }
-            // Shape 2 (Top Right)
-            translate(left = size.width - shape2Inset, top = shape1OffsetY) {
-                drawOutline(
-                    outline = outline2,
-                    color = primaryColor,
-                    alpha = 0.10f
-                )
+    shape2: androidx.compose.ui.graphics.Shape,
+): Modifier =
+    this.drawWithCache {
+        val size1Px = 180.dp.toPx()
+        val size2Px = 220.dp.toPx()
+
+        val shape1OffsetX = -50.dp.toPx()
+        val shape1OffsetY = -30.dp.toPx()
+        val shape2Inset = 150.dp.toPx()
+
+        val outline1 =
+            shape1.createOutline(
+                size = Size(size1Px, size1Px),
+                layoutDirection = layoutDirection,
+                density = this,
+            )
+        val outline2 =
+            shape2.createOutline(
+                size = Size(size2Px, size2Px),
+                layoutDirection = layoutDirection,
+                density = this,
+            )
+
+        val isJumpBackIn = title.contains("JUMP", ignoreCase = true)
+
+        onDrawBehind {
+            if (isJumpBackIn) {
+                // Shape 1 (Top Left)
+                translate(left = shape1OffsetX, top = shape1OffsetY) {
+                    drawOutline(
+                        outline = outline1,
+                        color = primaryColor,
+                        alpha = 0.10f,
+                    )
+                }
+                // Shape 2 (Bottom Right)
+                translate(left = size.width - shape2Inset, top = size.height - shape2Inset) {
+                    drawOutline(
+                        outline = outline2,
+                        color = primaryColor,
+                        alpha = 0.10f,
+                    )
+                }
+            } else {
+                // Shape 1 (Bottom Left)
+                translate(left = shape1OffsetX, top = size.height - shape2Inset) {
+                    drawOutline(
+                        outline = outline1,
+                        color = primaryColor,
+                        alpha = 0.10f,
+                    )
+                }
+                // Shape 2 (Top Right)
+                translate(left = size.width - shape2Inset, top = shape1OffsetY) {
+                    drawOutline(
+                        outline = outline2,
+                        color = primaryColor,
+                        alpha = 0.10f,
+                    )
+                }
             }
         }
     }
-}
-

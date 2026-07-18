@@ -2,13 +2,11 @@
 
 ## Purpose
 
-Owns the main Room database (`BoxLoreDatabase`), entities, DAOs, type converters, and migrations for podcasts, queue, history, downloads, and RSS episodes. Does **not** own repositories, ranking’s separate adaptive Room DB, playback, or workers.
+Owns the main Room database (`BoxLoreDatabase`), entities, DAOs, type converters, and migrations for podcasts, queue, history, downloads, and RSS episodes. Does **not** own repositories, ranking’s separate adaptive Room DB (`:core:ranking`), playback, or workers.
 
 ## Public API
 
-Stable types/entry points other modules may depend on:
-
-- `BoxLoreDatabase` (+ migrations / `getInstance` factory)
+- `BoxLoreDatabase` (+ migrations / `getDatabase` factory)
 - Entities: `PodcastEntity`, `ListeningHistoryEntity`, `DownloadedEpisodeEntity`, `RssEpisodeEntity`, `entities.QueueItem`
 - DAOs: `PodcastDao`, `ListeningHistoryDao`, `DownloadedEpisodeDao`, `RssEpisodeDao`, `dao.QueueDao`
 - `Converters` (Room type converters)
@@ -28,21 +26,49 @@ src/main/java/cx/aswin/boxlore/core/data/database/
 
 ## Dependencies
 
-Gradle edges (project + notable libs):
-
 - → `:core:model`
-- → `:core:network` (`QueueItem` ↔ `EpisodeItem`)
-- Room (api runtime + ktx; ksp compiler)
-- Gson (type converters)
+- → `:core:network` (`QueueItem` ↔ `EpisodeItem` debt)
+- Room (api runtime + ktx; ksp compiler), Gson
 
-Forbidden reverse edges: database ↛ `:core:data`, features, or designsystem.
+Forbidden: database ↛ `:core:data`, features, or designsystem.
+
+## Threading / lifecycle
+
+- `BoxLoreDatabase.getDatabase` is process-singleton (Room builder exception to the no-`getInstance` rule — documented in architecture)
+- DAO calls are suspend / Flow; run off Main when touching large result sets
+- Application constructs via `AppContainer`; features must use ports (`LocalCatalogPort`, etc.), not inject the DB
+
+## Persistence & identity
+
+| Stable | Why |
+| :--- | :--- |
+| Filename `boxlore_database` | User data (legacy `boxcast_database` auto-renamed on first open) |
+| Entity / table schemas + migrations | Install continuity |
+| Package `cx.aswin.boxlore.core.data.database` | Import / FQCN stability |
+
+Ranking DB (`adaptive_ranking_database`) is **not** in this module — see `:core:ranking`.
 
 ## Testing notes
 
-- No dedicated tests in this module yet; coverage lives in `:core:data` / feature JVM tests that exercise repositories against the DB.
-- Prefer fakes at repository/port boundaries over hitting Room in unit tests unless using an in-memory DB.
+### B4 — Room DAO / `includeAndroidResources`
+
+This module sets `unitTests.isIncludeAndroidResources = true` and ships `PodcastDaoInMemoryTest` (upsert/get round-trip).
+
+**If that suite fails to configure or run in CI**, documentation + RSS ID fixtures (`:core:rss` `RssIdGeneratorTest`) remain the B4 exit — do not force flaky Room JVM tests. `:core:data` keeps `includeAndroidResources = false` and uses Mockito DB doubles for catalog HTTP tests.
+
+```bash
+./gradlew :core:database:testDebugUnitTest
+```
+
+Prefer fakes at repository/port boundaries for feature tests.
+
+## CI relevance
+
+Exercised by `unit-tests.yml` when DAO tests stay green.
 
 ## See also
 
-- Root [`ARCHITECTURE.md`](../../ARCHITECTURE.md) for cross-module rules
-- [`:core:data` README](../data/README.md) — repositories still compose this DB
+- Root [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
+- [`docs/TESTING.md`](../../docs/TESTING.md) — Room / Robolectric constraints
+- [`:core:data` README](../data/README.md)
+- [`:core:ranking` README](../ranking/README.md) — separate adaptive DB

@@ -1,8 +1,9 @@
 name: Unit Tests
 
-# Runs when a PR enters the merge queue (merge click), or via manual dispatch.
-# Not on every PR push — avoid burning CI on intermediate commits.
+# Runs on every PR (and merge queue / manual dispatch) so architecture/regression
+# suites gate before merge — not only when a PR enters the merge queue.
 on:
+  pull_request:
   merge_group:
   workflow_dispatch:
 
@@ -30,11 +31,25 @@ jobs:
       - name: Write CI stub google-services.json
         uses: ./.github/actions/write-ci-google-services
 
+      - name: Architecture boundary (Home/Info no BoxLoreDatabase)
+        run: bash scripts/ci/check-feature-no-boxlore-database.sh
+
+      - name: Run detekt
+        run: ./gradlew detekt
+
+      - name: Run ktlint
+        run: ./gradlew ktlintCheck
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --continue
 
       - name: Verify merged Kover coverage floor
         run: ./gradlew :koverVerifyMerged
+
+      # B0 — optional / non-blocking Android lint (does not fail the required check).
+      - name: Lint debug (non-blocking)
+        continue-on-error: true
+        run: ./gradlew lintDebug
 
       - name: Scrub google-services.json
         if: always()

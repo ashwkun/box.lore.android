@@ -34,9 +34,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
@@ -66,19 +66,21 @@ internal fun SettingsCategoryCard(
 ) {
     val shape = MaterialTheme.shapes.extraLarge
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(CategoryCardHeight)
-            .expressiveClickable(shape = shape, onClick = onClick),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(CategoryCardHeight)
+                .expressiveClickable(shape = shape, onClick = onClick),
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(horizontal = 18.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsIconContainer(
@@ -90,9 +92,10 @@ internal fun SettingsCategoryCard(
             )
             Spacer(Modifier.width(14.dp))
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
@@ -152,9 +155,10 @@ internal fun SettingsGroup(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             Column(
@@ -211,9 +215,10 @@ internal fun SettingsContent(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         content = content,
     )
 }
@@ -249,9 +254,10 @@ internal fun SettingsDurationSliderRow(
     val valueLabel = if (snappedSeconds == 0) zeroLabel else "$snappedSeconds seconds"
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -298,9 +304,10 @@ internal fun SettingsDurationSliderRow(
                 onValueChangeFinished = { onValueCommitted(snappedSeconds) },
                 valueRange = value.range.first.toFloat()..value.range.last.toFloat(),
                 steps = 0,
-                modifier = Modifier.semantics {
-                    contentDescription = "$title, $valueLabel"
-                },
+                modifier =
+                    Modifier.semantics {
+                        contentDescription = "$title, $valueLabel"
+                    },
             )
         }
     }
@@ -320,10 +327,11 @@ internal fun SettingsNavigationRow(
     supportingText: String? = null,
     trailingText: String? = null,
     icon: ImageVector? = null,
-    iconColors: SettingsRowIconColors = SettingsRowIconColors(
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    ),
+    iconColors: SettingsRowIconColors =
+        SettingsRowIconColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
 ) {
     SettingsRowScaffold(
         text = SettingsRowTextStyle(title = title, supportingText = supportingText),
@@ -359,10 +367,11 @@ internal fun SettingsSwitchRow(
     supportingText: String? = null,
     icon: ImageVector? = null,
 ) {
-    val defaultIconColors = SettingsRowIconColors(
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    )
+    val defaultIconColors =
+        SettingsRowIconColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
     SettingsRowScaffold(
         text = SettingsRowTextStyle(title = title, supportingText = supportingText),
         onClick = { onCheckedChange(!checked) },
@@ -388,10 +397,11 @@ internal fun SettingsChoiceRow(
     leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .expressiveClickable(shape = MaterialTheme.shapes.medium, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .expressiveClickable(shape = MaterialTheme.shapes.medium, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -453,39 +463,45 @@ internal fun SettingsActionRow(
     destructive: Boolean = false,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    val accent = if (destructive) {
-        MaterialTheme.colorScheme.error
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
+    val accent =
+        if (destructive) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
     SettingsRowScaffold(
-        text = SettingsRowTextStyle(
-            title = title,
-            titleColor = accent,
-            supportingText = supportingText,
-            supportingColor = if (destructive) {
-                MaterialTheme.colorScheme.error.copy(alpha = 0.82f)
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        ),
+        text =
+            SettingsRowTextStyle(
+                title = title,
+                titleColor = accent,
+                supportingText = supportingText,
+                supportingColor =
+                    if (destructive) {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            ),
         onClick = onClick,
         modifier = modifier,
-        icon = icon?.let {
-            SettingsRowIcon(
-                icon = it,
-                containerColor = if (destructive) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    MaterialTheme.colorScheme.secondaryContainer
-                },
-                contentColor = if (destructive) {
-                    MaterialTheme.colorScheme.onErrorContainer
-                } else {
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                },
-            )
-        },
+        icon =
+            icon?.let {
+                SettingsRowIcon(
+                    icon = it,
+                    containerColor =
+                        if (destructive) {
+                            MaterialTheme.colorScheme.errorContainer
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        },
+                    contentColor =
+                        if (destructive) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
+                )
+            },
         trailing = trailing,
     )
 }
@@ -516,13 +532,13 @@ private fun SettingsRowScaffold(
     val titleColor = text.titleColor.takeOrElse { MaterialTheme.colorScheme.onSurface }
     val supportingColor = text.supportingColor.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(
-                minHeight = if (text.supportingText != null) SettingsRowHeight else SettingsRowHeightCompact,
-            )
-            .expressiveClickable(shape = MaterialTheme.shapes.medium, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .defaultMinSize(
+                    minHeight = if (text.supportingText != null) SettingsRowHeight else SettingsRowHeightCompact,
+                ).expressiveClickable(shape = MaterialTheme.shapes.medium, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -566,9 +582,10 @@ internal fun AccentSwatchGrid(
     columns: Int = 5,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         seeds.chunked(columns).forEach { rowSeeds ->
@@ -604,17 +621,19 @@ private fun AccentSwatch(
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier
-                .size(if (selected) 44.dp else 48.dp)
-                .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape, onClick = onClick),
+            modifier =
+                Modifier
+                    .size(if (selected) 44.dp else 48.dp)
+                    .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape, onClick = onClick),
             shape = androidx.compose.foundation.shape.CircleShape,
             color = color,
             contentColor = color.contrastColor(),
-            border = if (selected) {
-                androidx.compose.foundation.BorderStroke(3.dp, ringColor)
-            } else {
-                null
-            },
+            border =
+                if (selected) {
+                    androidx.compose.foundation.BorderStroke(3.dp, ringColor)
+                } else {
+                    null
+                },
         ) {
             Box(contentAlignment = Alignment.Center) {
                 if (selected) {
@@ -649,9 +668,10 @@ internal fun SettingsIconContainer(
                 imageVector = icon,
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier
-                    .size(size * 0.5f)
-                    .graphicsLayer(scaleX = if (mirrorIcon) -1f else 1f),
+                modifier =
+                    Modifier
+                        .size(size * 0.5f)
+                        .graphicsLayer(scaleX = if (mirrorIcon) -1f else 1f),
             )
         }
     }

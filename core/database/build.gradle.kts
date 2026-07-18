@@ -19,6 +19,15 @@ android {
             jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
         }
     }
+
+    testOptions {
+        // Attempted for in-memory Room DAO tests (B4). See README Testing notes —
+        // AAR metadata / schema packaging can still block hermetic Robolectric Room.
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
 }
 
 dependencies {
@@ -32,4 +41,13 @@ dependencies {
 
     // TypeConverters (Converters.kt)
     implementation(libs.gson)
+
+    // Testing (B4 — in-memory Room DAO when feasible)
+    testImplementation(libs.junit)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation("androidx.test:core:1.6.1")
 }

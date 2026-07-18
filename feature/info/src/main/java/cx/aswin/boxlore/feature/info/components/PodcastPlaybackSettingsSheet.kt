@@ -54,11 +54,12 @@ fun PodcastPlaybackSettingsSheet(
         state.skipBeginningOverrideMs == null && state.skipEndingOverrideMs == null
     ModalBottomSheet(onDismissRequest = actions.onDismissRequest) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -72,20 +73,24 @@ fun PodcastPlaybackSettingsSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {},
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .semantics(mergeDescendants = true) {},
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Use app defaults", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = if (state.isSubscribed) {
-                            "Beginning ${durationLabel(state.globalSkipBeginningMs)} · Ending ${durationLabel(state.globalSkipEndingMs)}"
-                        } else {
-                            "Subscribe to customize playback for this show"
-                        },
+                        text =
+                            if (state.isSubscribed) {
+                                "Beginning ${durationLabel(
+                                    state.globalSkipBeginningMs,
+                                )} · Ending ${durationLabel(state.globalSkipEndingMs)}"
+                            } else {
+                                "Subscribe to customize playback for this show"
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -151,12 +156,12 @@ private fun PodcastDurationSlider(
             enabled = enabled,
             valueRange = 0f..300f,
             steps = 0,
-            modifier = Modifier.semantics {
-                contentDescription = "$title, $label"
-            },
+            modifier =
+                Modifier.semantics {
+                    contentDescription = "$title, $label"
+                },
         )
     }
 }
 
-private fun durationLabel(valueMs: Long): String =
-    if (valueMs <= 0L) "Off" else "${valueMs / 1_000L}s"
+private fun durationLabel(valueMs: Long): String = if (valueMs <= 0L) "Off" else "${valueMs / 1_000L}s"

@@ -1,7 +1,6 @@
 package cx.aswin.boxlore.feature.home.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -24,32 +23,34 @@ fun FeaturedCuratedCard(
     podcast: Podcast,
     episode: Episode,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier
-            .fillMaxWidth()
-            .expressiveClickable(onClick = onClick)
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .expressiveClickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Text Content (Left)
             Column(
                 modifier = Modifier.weight(1f).padding(end = 16.dp),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     text = "TODAY'S FEATURED",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.5.sp,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -59,7 +60,7 @@ fun FeaturedCuratedCard(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -67,25 +68,25 @@ fun FeaturedCuratedCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Bottom row: Play button + Duration
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Surface(
                         shape = androidx.compose.foundation.shape.CircleShape,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
                             contentDescription = "Play",
                             tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(6.dp)
+                            modifier = Modifier.padding(6.dp),
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -93,7 +94,7 @@ fun FeaturedCuratedCard(
                         Text(
                             text = "${episode.duration / 60} min",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -101,16 +102,17 @@ fun FeaturedCuratedCard(
 
             // Artwork (Right, Square)
             Box(
-                modifier = Modifier
-                    .size(110.dp)
-                    .clip(MaterialTheme.shapes.large)
+                modifier =
+                    Modifier
+                        .size(110.dp)
+                        .clip(MaterialTheme.shapes.large),
             ) {
                 OptimizedImage(
                     url = (episode.imageUrl ?: "").ifEmpty { podcast.imageUrl },
                     proxyWidth = 400,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }

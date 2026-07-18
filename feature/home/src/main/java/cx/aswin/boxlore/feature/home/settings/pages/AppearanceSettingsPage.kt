@@ -114,9 +114,10 @@ private fun ThemeModeSection(
 
     SettingsGroup(
         title = "Theme",
-        footer = modeLock?.let {
-            "This background was locked to ${it.mode.label.lowercase()}. Choosing another theme unlocks it."
-        } ?: "Chooses whether the app looks light or dark. Backgrounds follow this.",
+        footer =
+            modeLock?.let {
+                "This background was locked to ${it.mode.label.lowercase()}. Choosing another theme unlocks it."
+            } ?: "Chooses whether the app looks light or dark. Backgrounds follow this.",
     ) {
         SettingsContent {
             if (modeLock != null) {
@@ -132,10 +133,11 @@ private fun ThemeModeSection(
                             }
                             onSetThemeConfig(mode.key)
                         },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = ThemeMode.entries.size,
-                        ),
+                        shape =
+                            SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = ThemeMode.entries.size,
+                            ),
                         label = { Text(mode.label) },
                     )
                 }
@@ -207,11 +209,12 @@ private fun ColorsSection(
 
     SettingsGroup(
         title = "Colors",
-        footer = if (isDynamicColorEnabled) {
-            "Uses your wallpaper. Turn off to pick a fixed color."
-        } else {
-            null
-        },
+        footer =
+            if (isDynamicColorEnabled) {
+                "Uses your wallpaper. Turn off to pick a fixed color."
+            } else {
+                null
+            },
     ) {
         SettingsSwitchRow(
             title = "Wallpaper colors",
@@ -220,11 +223,12 @@ private fun ColorsSection(
             onCheckedChange = onToggleDynamicColor,
         )
         AnimatedVisibility(visible = !isDynamicColorEnabled) {
-            val seeds = remember {
-                BrandSeeds.map { (key, brand) ->
-                    Triple(key, brand.first, brand.second)
+            val seeds =
+                remember {
+                    BrandSeeds.map { (key, brand) ->
+                        Triple(key, brand.first, brand.second)
+                    }
                 }
-            }
             Column {
                 SettingsDivider()
                 AccentSwatchGrid(
@@ -235,11 +239,12 @@ private fun ColorsSection(
                 SettingsDivider()
                 SettingsChoiceRow(
                     title = "Custom color",
-                    supportingText = if (customSelected) {
-                        currentThemeBrand
-                    } else {
-                        "Pick any accent with the full color picker"
-                    },
+                    supportingText =
+                        if (customSelected) {
+                            currentThemeBrand
+                        } else {
+                            "Pick any accent with the full color picker"
+                        },
                     selected = customSelected,
                     onClick = { showColorPicker = true },
                     leading = {
@@ -247,10 +252,11 @@ private fun ColorsSection(
                             modifier = Modifier.size(28.dp),
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = customPreview,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant,
-                            ),
+                            border =
+                                androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant,
+                                ),
                         ) {}
                     },
                 )
@@ -297,25 +303,30 @@ private fun selectSurfaceStyle(
  * Legacy locked styles still resolve in the theme engine. Changing Theme unlocks them
  * to Soft/Pure automatic so Theme can drive light/dark again.
  */
-private fun themeModeLockFor(surfaceStyle: String): ThemeModeLock? = when (surfaceStyle) {
-    SurfaceStyles.AMOLED -> ThemeModeLock(
-        mode = ThemeMode.DARK,
-        automaticSiblingStyle = SurfaceStyles.DYNAMIC_OLED_WHITE,
-    )
-    SurfaceStyles.PURE_WHITE -> ThemeModeLock(
-        mode = ThemeMode.LIGHT,
-        automaticSiblingStyle = SurfaceStyles.DYNAMIC_OLED_WHITE,
-    )
-    SurfaceStyles.CLASSIC_DARK -> ThemeModeLock(
-        mode = ThemeMode.DARK,
-        automaticSiblingStyle = SurfaceStyles.CLASSIC_DYNAMIC,
-    )
-    SurfaceStyles.CLASSIC_LIGHT -> ThemeModeLock(
-        mode = ThemeMode.LIGHT,
-        automaticSiblingStyle = SurfaceStyles.CLASSIC_DYNAMIC,
-    )
-    else -> null
-}
+private fun themeModeLockFor(surfaceStyle: String): ThemeModeLock? =
+    when (surfaceStyle) {
+        SurfaceStyles.AMOLED ->
+            ThemeModeLock(
+                mode = ThemeMode.DARK,
+                automaticSiblingStyle = SurfaceStyles.DYNAMIC_OLED_WHITE,
+            )
+        SurfaceStyles.PURE_WHITE ->
+            ThemeModeLock(
+                mode = ThemeMode.LIGHT,
+                automaticSiblingStyle = SurfaceStyles.DYNAMIC_OLED_WHITE,
+            )
+        SurfaceStyles.CLASSIC_DARK ->
+            ThemeModeLock(
+                mode = ThemeMode.DARK,
+                automaticSiblingStyle = SurfaceStyles.CLASSIC_DYNAMIC,
+            )
+        SurfaceStyles.CLASSIC_LIGHT ->
+            ThemeModeLock(
+                mode = ThemeMode.LIGHT,
+                automaticSiblingStyle = SurfaceStyles.CLASSIC_DYNAMIC,
+            )
+        else -> null
+    }
 
 private enum class BackgroundLook(
     val label: String,
@@ -340,17 +351,20 @@ private enum class BackgroundLook(
     ;
 
     companion object {
-        fun fromSurfaceStyle(style: String): BackgroundLook = when (style) {
-            SurfaceStyles.CLASSIC_DYNAMIC,
-            SurfaceStyles.CLASSIC_DARK,
-            SurfaceStyles.CLASSIC_LIGHT -> Classic
+        fun fromSurfaceStyle(style: String): BackgroundLook =
+            when (style) {
+                SurfaceStyles.CLASSIC_DYNAMIC,
+                SurfaceStyles.CLASSIC_DARK,
+                SurfaceStyles.CLASSIC_LIGHT,
+                -> Classic
 
-            SurfaceStyles.DYNAMIC_OLED_WHITE,
-            SurfaceStyles.AMOLED,
-            SurfaceStyles.PURE_WHITE -> Pure
+                SurfaceStyles.DYNAMIC_OLED_WHITE,
+                SurfaceStyles.AMOLED,
+                SurfaceStyles.PURE_WHITE,
+                -> Pure
 
-            else -> MaterialYouSoft
-        }
+                else -> MaterialYouSoft
+            }
     }
 }
 

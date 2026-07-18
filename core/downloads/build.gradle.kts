@@ -35,7 +35,8 @@ android {
     }
 
     testOptions {
-        unitTests.isIncludeAndroidResources = false
+        // Robolectric + WorkManager testing + DataStore prefs for worker unit tests (B3).
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.useJUnitPlatform()
         }
@@ -67,4 +68,7 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.work:work-testing:${libs.versions.work.get()}")
 }

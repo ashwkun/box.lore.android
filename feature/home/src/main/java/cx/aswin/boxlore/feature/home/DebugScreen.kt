@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -58,7 +57,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -87,23 +85,24 @@ fun DebugScreen(
     userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
     adaptiveRankingRepository: cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val application = LocalContext.current.applicationContext as Application
-    val viewModel: DebugViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return DebugViewModel(
-                    application = application,
-                    playbackRepository = playbackRepository,
-                    subscriptionRepository = subscriptionRepository,
-                    userPrefs = userPreferencesRepository,
-                    adaptiveRankingRepository = adaptiveRankingRepository,
-                ) as T
-            }
-        }
-    )
+    val viewModel: DebugViewModel =
+        viewModel(
+            factory =
+                object : ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                        DebugViewModel(
+                            application = application,
+                            playbackRepository = playbackRepository,
+                            subscriptionRepository = subscriptionRepository,
+                            userPrefs = userPreferencesRepository,
+                            adaptiveRankingRepository = adaptiveRankingRepository,
+                        ) as T
+                },
+        )
 
     val playerState by playbackRepository.playerState.collectAsStateWithLifecycle()
     val skipSleepWindow by viewModel.skipSleepWindow.collectAsStateWithLifecycle()
@@ -139,18 +138,20 @@ fun DebugScreen(
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
         ) {
             PrimaryScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
@@ -183,9 +184,10 @@ fun DebugScreen(
                 when (tabs[page]) {
                     DebugTab.Learner -> {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
                         ) {
                             AdaptiveLearnerDebugSection(
                                 snapshot = learnerSnapshot,
@@ -199,49 +201,55 @@ fun DebugScreen(
                         }
                     }
 
-                    DebugTab.Sleep -> DebugTabScrollPane {
-                        SleepTestingSection(
-                            state = SleepTestingState(
-                                skipSleepWindow = skipSleepWindow,
-                                isInNightWindow = isInNightWindow,
-                                showLateNightNudge = playerState.showLateNightNudge,
-                                sleepTimerEnd = playerState.sleepTimerEnd,
-                                sleepAtEndOfEpisode = playerState.sleepAtEndOfEpisode
-                            ),
-                            actions = SleepTestingActions(
-                                onToggleSkipSleepWindow = viewModel::setSkipSleepWindow,
-                                onForcePromptNow = viewModel::forceSleepPromptNow,
-                                onClearSleepTimer = viewModel::clearSleepTimer,
-                                onResetSleepWindowGuard = viewModel::resetSleepWindowGuard
+                    DebugTab.Sleep ->
+                        DebugTabScrollPane {
+                            SleepTestingSection(
+                                state =
+                                    SleepTestingState(
+                                        skipSleepWindow = skipSleepWindow,
+                                        isInNightWindow = isInNightWindow,
+                                        showLateNightNudge = playerState.showLateNightNudge,
+                                        sleepTimerEnd = playerState.sleepTimerEnd,
+                                        sleepAtEndOfEpisode = playerState.sleepAtEndOfEpisode,
+                                    ),
+                                actions =
+                                    SleepTestingActions(
+                                        onToggleSkipSleepWindow = viewModel::setSkipSleepWindow,
+                                        onForcePromptNow = viewModel::forceSleepPromptNow,
+                                        onClearSleepTimer = viewModel::clearSleepTimer,
+                                        onResetSleepWindowGuard = viewModel::resetSleepWindowGuard,
+                                    ),
                             )
-                        )
-                    }
+                        }
 
-                    DebugTab.Playback -> DebugTabScrollPane {
-                        PlaybackStateSection(
-                            episodeTitle = playerState.currentEpisode?.title,
-                            podcastTitle = playerState.currentPodcast?.title,
-                            isPlaying = playerState.isPlaying,
-                            isLoading = playerState.isLoading,
-                            position = playerState.position,
-                            duration = playerState.duration
-                        )
-                    }
+                    DebugTab.Playback ->
+                        DebugTabScrollPane {
+                            PlaybackStateSection(
+                                episodeTitle = playerState.currentEpisode?.title,
+                                podcastTitle = playerState.currentPodcast?.title,
+                                isPlaying = playerState.isPlaying,
+                                isLoading = playerState.isLoading,
+                                position = playerState.position,
+                                duration = playerState.duration,
+                            )
+                        }
 
-                    DebugTab.Database -> DebugTabScrollPane {
-                        DbInspectorSection(
-                            history = history,
-                            podcasts = podcasts,
-                            onDeleteHistoryItem = viewModel::deleteHistoryItem
-                        )
-                    }
+                    DebugTab.Database ->
+                        DebugTabScrollPane {
+                            DbInspectorSection(
+                                history = history,
+                                podcasts = podcasts,
+                                onDeleteHistoryItem = viewModel::deleteHistoryItem,
+                            )
+                        }
 
-                    DebugTab.Flags -> DebugTabScrollPane {
-                        FlagsCacheSection(
-                            onResetFeatureFlag = viewModel::resetFeatureFlag,
-                            onClearDismissedCuriosities = viewModel::clearDismissedCuriosities
-                        )
-                    }
+                    DebugTab.Flags ->
+                        DebugTabScrollPane {
+                            FlagsCacheSection(
+                                onResetFeatureFlag = viewModel::resetFeatureFlag,
+                                onClearDismissedCuriosities = viewModel::clearDismissedCuriosities,
+                            )
+                        }
                 }
             }
         }
@@ -264,26 +272,26 @@ private data class SleepTestingState(
     val isInNightWindow: Boolean,
     val showLateNightNudge: Boolean,
     val sleepTimerEnd: Long?,
-    val sleepAtEndOfEpisode: Boolean
+    val sleepAtEndOfEpisode: Boolean,
 )
 
 private data class SleepTestingActions(
     val onToggleSkipSleepWindow: (Boolean) -> Unit,
     val onForcePromptNow: () -> Unit,
     val onClearSleepTimer: () -> Unit,
-    val onResetSleepWindowGuard: () -> Unit
+    val onResetSleepWindowGuard: () -> Unit,
 )
 
 @Composable
 private fun StatusRow(
     label: String,
     value: String,
-    valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+    valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = valueColor)
@@ -293,25 +301,24 @@ private fun StatusRow(
 @Composable
 private fun SleepTestingSection(
     state: SleepTestingState,
-    actions: SleepTestingActions
+    actions: SleepTestingActions,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Skip sleep-window restriction", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
                     "Show the prompt on every playback, any time of day",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Switch(checked = state.skipSleepWindow, onCheckedChange = actions.onToggleSkipSleepWindow)
         }
-
 
         StatusRow("Night window (10:30 PM – 4 AM)", if (state.isInNightWindow) "Active" else "Inactive")
         StatusRow("Prompt currently shown", if (state.showLateNightNudge) "Yes" else "No")
@@ -321,12 +328,12 @@ private fun SleepTestingSection(
                 state.sleepAtEndOfEpisode -> "End of episode"
                 state.sleepTimerEnd != null -> "${((state.sleepTimerEnd - System.currentTimeMillis()) / 60000).coerceAtLeast(0)}m left"
                 else -> "Off"
-            }
+            },
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedButton(onClick = actions.onForcePromptNow, modifier = Modifier.weight(1f)) {
                 Text("Trigger now", maxLines = 1)
@@ -348,7 +355,7 @@ private fun PlaybackStateSection(
     isPlaying: Boolean,
     isLoading: Boolean,
     position: Long,
-    duration: Long
+    duration: Long,
 ) {
     fun fmt(ms: Long): String {
         val totalSec = ms / 1000
@@ -368,9 +375,9 @@ private fun PlaybackStateSection(
 
 @Composable
 private fun DbInspectorSection(
-    history: List<ListeningHistoryEntity>,
+    history: List<DebugHistoryItem>,
     podcasts: List<PodcastEntity>,
-    onDeleteHistoryItem: (String) -> Unit
+    onDeleteHistoryItem: (String) -> Unit,
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("History (${history.size})", "Subs (${podcasts.size})")
@@ -381,15 +388,16 @@ private fun DbInspectorSection(
                 Tab(
                     selected = selectedTabIndex == index,
                     onClick = { selectedTabIndex = index },
-                    text = { Text(title) }
+                    text = { Text(title) },
                 )
             }
         }
         LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 520.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (selectedTabIndex == 0) {
                 items(history, key = { it.episodeId }) { item ->
@@ -407,7 +415,7 @@ private fun DbInspectorSection(
 @Composable
 private fun FlagsCacheSection(
     onResetFeatureFlag: () -> Unit,
-    onClearDismissedCuriosities: () -> Unit
+    onClearDismissedCuriosities: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = onResetFeatureFlag, modifier = Modifier.fillMaxWidth()) {
@@ -420,23 +428,31 @@ private fun FlagsCacheSection(
 }
 
 @Composable
-private fun HistoryDebugCard(item: ListeningHistoryEntity, onDelete: (String) -> Unit) {
+private fun HistoryDebugCard(
+    item: DebugHistoryItem,
+    onDelete: (String) -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(14.dp),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.episodeTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                Text(item.podcastName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text(
+                    item.podcastName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
                 Text(
                     "${item.progressMs}/${item.durationMs}ms · dirty=${item.isDirty} · completed=${item.isCompleted}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = { onDelete(item.episodeId) }) {
@@ -451,7 +467,7 @@ private fun PodcastDebugCard(item: PodcastEntity) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(14.dp),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
@@ -459,7 +475,7 @@ private fun PodcastDebugCard(item: PodcastEntity) {
             Text(
                 "Subscribed=${item.isSubscribed} · lastRefreshed=${item.lastRefreshed}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

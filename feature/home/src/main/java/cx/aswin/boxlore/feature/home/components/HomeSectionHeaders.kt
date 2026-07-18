@@ -54,10 +54,11 @@ fun HomeTopLevelSectionHeader(
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontFamily = SectionHeaderFontFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
+                    style =
+                        MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = SectionHeaderFontFamily,
+                            fontWeight = FontWeight.Bold,
+                        ),
                 )
                 subtitle?.let {
                     Text(
@@ -89,14 +90,16 @@ fun HomeChildSectionHeader(
     subtitle: String? = null,
     tone: HomeChildHeaderTone = HomeChildHeaderTone.PRIMARY,
 ) {
-    val containerColor = when (tone) {
-        HomeChildHeaderTone.PRIMARY -> MaterialTheme.colorScheme.primaryContainer
-        HomeChildHeaderTone.TERTIARY -> MaterialTheme.colorScheme.tertiaryContainer
-    }
-    val contentColor = when (tone) {
-        HomeChildHeaderTone.PRIMARY -> MaterialTheme.colorScheme.onPrimaryContainer
-        HomeChildHeaderTone.TERTIARY -> MaterialTheme.colorScheme.onTertiaryContainer
-    }
+    val containerColor =
+        when (tone) {
+            HomeChildHeaderTone.PRIMARY -> MaterialTheme.colorScheme.primaryContainer
+            HomeChildHeaderTone.TERTIARY -> MaterialTheme.colorScheme.tertiaryContainer
+        }
+    val contentColor =
+        when (tone) {
+            HomeChildHeaderTone.PRIMARY -> MaterialTheme.colorScheme.onPrimaryContainer
+            HomeChildHeaderTone.TERTIARY -> MaterialTheme.colorScheme.onTertiaryContainer
+        }
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

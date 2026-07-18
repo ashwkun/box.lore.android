@@ -52,33 +52,37 @@ internal fun EpisodeArtworkBackdrop(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .graphicsLayer {
-                translationY = -scrollOffset * 0.5f
-                alpha = 1f - collapseFraction
-            },
+        modifier =
+            modifier
+                .graphicsLayer {
+                    translationY = -scrollOffset * 0.5f
+                    alpha = 1f - collapseFraction
+                },
     ) {
         OptimizedImage(
             url = imageUrl,
             proxyWidth = 200,
             contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(0.5f)
-                .blur(50.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .alpha(0.5f)
+                    .blur(50.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded),
             contentScale = ContentScale.Crop,
         )
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.background,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.background,
+                                ),
                         ),
                     ),
-                ),
         )
     }
 }
@@ -93,18 +97,20 @@ internal fun EpisodeInfoHero(
     modifier: Modifier = Modifier,
 ) {
     androidx.compose.foundation.layout.Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                alpha = 1f - collapseFraction * 0.18f
-                translationY = -collapseFraction * 20.dp.toPx()
-            },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    alpha = 1f - collapseFraction * 0.18f
+                    translationY = -collapseFraction * 20.dp.toPx()
+                },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(204.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(204.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -117,8 +123,9 @@ internal fun EpisodeInfoHero(
                     shadowElevation = 6.dp,
                 ) {
                     OptimizedImage(
-                        url = episode.imageUrl?.takeIf(String::isNotBlank)
-                            ?: episode.podcastImageUrl,
+                        url =
+                            episode.imageUrl?.takeIf(String::isNotBlank)
+                                ?: episode.podcastImageUrl,
                         proxyWidth = 640,
                         contentDescription = episode.title,
                         modifier = Modifier.fillMaxSize(),
@@ -127,9 +134,10 @@ internal fun EpisodeInfoHero(
                 }
                 if (episode.enclosureType?.startsWith("video/") == true) {
                     Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = 2.dp),
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = 2.dp),
                         shape = ExpressiveShapes.Pill,
                         color = MaterialTheme.colorScheme.tertiaryContainer,
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -158,9 +166,10 @@ internal fun EpisodeInfoHero(
         )
         Spacer(Modifier.height(10.dp))
         Row(
-            modifier = Modifier
-                .expressiveClickable(onClick = onPodcastClick)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .expressiveClickable(onClick = onPodcastClick)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -191,30 +200,31 @@ private data class EpisodeMetadataChip(
 
 @Composable
 private fun EpisodeMetadataChipsRow(episode: Episode) {
-    val metadata = buildList {
-        if (episode.enclosureType?.startsWith("video/") == true) {
-            add(EpisodeMetadataChip("Video", Icons.Rounded.Videocam))
-        }
-        formatEpisodeDuration(episode.duration)
-            .takeIf(String::isNotBlank)
-            ?.let { add(EpisodeMetadataChip(it, Icons.Rounded.Schedule)) }
-        formatRelativeDate(episode.publishedDate)?.let {
-            add(EpisodeMetadataChip(it, Icons.Rounded.CalendarToday))
-        }
-        formatSeasonAndEpisode(episode)?.let {
-            add(EpisodeMetadataChip(it, Icons.Rounded.Tag))
-        }
-        episode.episodeType
-            ?.takeUnless { it.equals("full", ignoreCase = true) }
-            ?.let {
-                add(
-                    EpisodeMetadataChip(
-                        it.replaceFirstChar(Char::uppercase),
-                        Icons.AutoMirrored.Rounded.Label,
-                    ),
-                )
+    val metadata =
+        buildList {
+            if (episode.enclosureType?.startsWith("video/") == true) {
+                add(EpisodeMetadataChip("Video", Icons.Rounded.Videocam))
             }
-    }
+            formatEpisodeDuration(episode.duration)
+                .takeIf(String::isNotBlank)
+                ?.let { add(EpisodeMetadataChip(it, Icons.Rounded.Schedule)) }
+            formatRelativeDate(episode.publishedDate)?.let {
+                add(EpisodeMetadataChip(it, Icons.Rounded.CalendarToday))
+            }
+            formatSeasonAndEpisode(episode)?.let {
+                add(EpisodeMetadataChip(it, Icons.Rounded.Tag))
+            }
+            episode.episodeType
+                ?.takeUnless { it.equals("full", ignoreCase = true) }
+                ?.let {
+                    add(
+                        EpisodeMetadataChip(
+                            it.replaceFirstChar(Char::uppercase),
+                            Icons.AutoMirrored.Rounded.Label,
+                        ),
+                    )
+                }
+        }
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
@@ -262,10 +272,11 @@ private fun formatRelativeDate(timestampSeconds: Long): String? {
     }
 }
 
-private fun formatSeasonAndEpisode(episode: Episode): String? = buildString {
-    episode.seasonNumber?.takeIf { it > 0 }?.let { append("S$it") }
-    episode.episodeNumber?.takeIf { it > 0 }?.let {
-        if (isNotEmpty()) append(" ")
-        append("E$it")
-    }
-}.ifBlank { null }
+private fun formatSeasonAndEpisode(episode: Episode): String? =
+    buildString {
+        episode.seasonNumber?.takeIf { it > 0 }?.let { append("S$it") }
+        episode.episodeNumber?.takeIf { it > 0 }?.let {
+            if (isNotEmpty()) append(" ")
+            append("E$it")
+        }
+    }.ifBlank { null }

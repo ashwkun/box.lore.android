@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="build.gradle.kts">
+        <error line="98" column="16" source="standard:chain-method-continuation" />
+    </file>
+    <file name="settings.gradle.kts">
+        <error line="31" column="19" source="standard:chain-method-continuation" />
+        <error line="36" column="19" source="standard:chain-method-continuation" />
+        <error line="39" column="19" source="standard:chain-method-continuation" />
+    </file>
+</baseline>

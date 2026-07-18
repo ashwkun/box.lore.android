@@ -52,17 +52,18 @@ android {
 
 dependencies {
     implementation(projects.core.model)
+    implementation(projects.core.domain)
     implementation(projects.core.data)
     implementation(projects.core.downloads)
     implementation(projects.core.playback)
     implementation(projects.core.network)
     implementation(projects.core.designsystem)
-    
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
-    
+
     // UI
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -73,7 +74,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    
+
     // Media3
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)

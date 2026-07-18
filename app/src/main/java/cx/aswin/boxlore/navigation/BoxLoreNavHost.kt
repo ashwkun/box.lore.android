@@ -522,17 +522,17 @@ private fun briefingRegionFromEpisodeId(episodeId: String): String? {
 }
 
 private suspend fun resolveLocalOrFallbackPodcast(
-    database: cx.aswin.boxlore.core.data.database.BoxLoreDatabase,
+    localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     podcastId: String,
     podcastTitle: String,
     fallbackImageUrl: String,
 ): cx.aswin.boxlore.core.model.Podcast {
-    val local = database.podcastDao().getPodcast(podcastId)
+    val local = localCatalog.getLocalPodcast(podcastId)
     return local?.let {
         cx.aswin.boxlore.core.model.Podcast(
-            id = it.podcastId,
+            id = it.id,
             title = it.title,
-            artist = it.author,
+            artist = it.artist,
             imageUrl = it.imageUrl,
         )
     } ?: cx.aswin.boxlore.core.model.Podcast(
@@ -546,7 +546,7 @@ private suspend fun resolveLocalOrFallbackPodcast(
 private suspend fun autoplayDeepLinkEpisodeIfNeeded(
     playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     queueManager: cx.aswin.boxlore.core.data.QueueManager,
-    database: cx.aswin.boxlore.core.data.database.BoxLoreDatabase,
+    localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     episodeId: String,
     autoplay: String,
     t: Long?,
@@ -557,7 +557,7 @@ private suspend fun autoplayDeepLinkEpisodeIfNeeded(
     val playerState = playbackRepository.playerState.value
     if (autoplay == "true" && playerState.currentEpisode?.id != episodeId) {
         val podcast = resolveLocalOrFallbackPodcast(
-            database = database,
+            localCatalog = localCatalog,
             podcastId = success.podcastId,
             podcastTitle = success.podcastTitle,
             fallbackImageUrl = success.episode.podcastImageUrl ?: "",
@@ -736,11 +736,11 @@ private fun androidx.navigation.NavGraphBuilder.addHomeDestination(w: NavGraphWi
     val navController = w.navController
     val application = w.application
     val container = w.container
-    val database = w.database
     val podcastRepository = w.podcastRepository
     val playbackRepository = w.playbackRepository
     val downloadRepository = w.downloadRepository
     val subscriptionRepository = w.subscriptionRepository
+    val userPrefs = w.userPrefs
     val queueManager = w.queueManager
     val context = w.context
     val opmlCallbacks = w.opmlCallbacks
@@ -769,7 +769,8 @@ private fun androidx.navigation.NavGraphBuilder.addHomeDestination(w: NavGraphWi
             adaptiveRankingRepository = container.adaptiveRankingRepository,
             adaptiveCandidateScorer = container.adaptiveCandidateScorer,
             rankingFeedbackRepository = container.rankingFeedbackRepository,
-            database = database,
+            localCatalog = container.localCatalogPort,
+            userPreferencesRepository = userPrefs,
             navController = navController,
             onPodcastClick = { podcast, entryPointStr, genreStr, depthVal ->
                 navigateHomePodcast(navController, podcast, entryPointStr, genreStr, depthVal)
@@ -1481,11 +1482,11 @@ private fun androidx.navigation.NavGraphBuilder.addPodcastDestination(w: NavGrap
     val navController = w.navController
     val application = w.application
     val container = w.container
-    val database = w.database
     val podcastRepository = w.podcastRepository
     val playbackRepository = w.playbackRepository
     val downloadRepository = w.downloadRepository
     val subscriptionRepository = w.subscriptionRepository
+    val userPrefs = w.userPrefs
     val queueManager = w.queueManager
 
     // -----------------------------------------------------------------------
@@ -1530,7 +1531,8 @@ private fun androidx.navigation.NavGraphBuilder.addPodcastDestination(w: NavGrap
             playbackRepository = playbackRepository,
             downloadRepository = downloadRepository,
             queueManager = queueManager,
-            database = database,
+            localCatalog = container.localCatalogPort,
+            episodeOfflineLookup = container.episodeOfflineLookupPort,
         )
         val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.info.PodcastInfoViewModel>(
             factory = cx.aswin.boxlore.feature.info.InfoViewModelAssembler.podcastInfoFactory(
@@ -1538,6 +1540,7 @@ private fun androidx.navigation.NavGraphBuilder.addPodcastDestination(w: NavGrap
                 deps = infoSharedDeps,
                 subscriptionRepository = subscriptionRepository,
                 rssRepository = container.rssPodcastRepository,
+                userPrefs = userPrefs,
                 routeArgs = cx.aswin.boxlore.feature.info.PodcastInfoRouteArgs(
                     entryPoint = entryPoint,
                     genreFilter = genre,
@@ -1582,7 +1585,7 @@ private fun androidx.navigation.NavGraphBuilder.addPodcastDestination(w: NavGrap
 private fun androidx.navigation.NavGraphBuilder.addEpisodeFullPathDestination(w: NavGraphWiring) {
     val navController = w.navController
     val application = w.application
-    val database = w.database
+    val container = w.container
     val podcastRepository = w.podcastRepository
     val playbackRepository = w.playbackRepository
     val downloadRepository = w.downloadRepository
@@ -1629,7 +1632,8 @@ private fun androidx.navigation.NavGraphBuilder.addEpisodeFullPathDestination(w:
             playbackRepository = playbackRepository,
             downloadRepository = downloadRepository,
             queueManager = queueManager,
-            database = database,
+            localCatalog = container.localCatalogPort,
+            episodeOfflineLookup = container.episodeOfflineLookupPort,
         )
         val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.info.EpisodeInfoViewModel>(
             factory = cx.aswin.boxlore.feature.info.InfoViewModelAssembler.episodeInfoFactory(
@@ -1697,7 +1701,7 @@ private fun androidx.navigation.NavGraphBuilder.addEpisodeFullPathDestination(w:
 private fun androidx.navigation.NavGraphBuilder.addEpisodeDeepLinkDestination(w: NavGraphWiring) {
     val navController = w.navController
     val application = w.application
-    val database = w.database
+    val container = w.container
     val podcastRepository = w.podcastRepository
     val playbackRepository = w.playbackRepository
     val downloadRepository = w.downloadRepository
@@ -1754,7 +1758,8 @@ private fun androidx.navigation.NavGraphBuilder.addEpisodeDeepLinkDestination(w:
             playbackRepository = playbackRepository,
             downloadRepository = downloadRepository,
             queueManager = queueManager,
-            database = database,
+            localCatalog = container.localCatalogPort,
+            episodeOfflineLookup = container.episodeOfflineLookupPort,
         )
         val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.info.EpisodeInfoViewModel>(
             factory = cx.aswin.boxlore.feature.info.InfoViewModelAssembler.episodeInfoFactory(
@@ -1776,7 +1781,7 @@ private fun androidx.navigation.NavGraphBuilder.addEpisodeDeepLinkDestination(w:
             autoplayDeepLinkEpisodeIfNeeded(
                 playbackRepository = playbackRepository,
                 queueManager = queueManager,
-                database = database,
+                localCatalog = container.localCatalogPort,
                 episodeId = episodeId,
                 autoplay = autoplay,
                 t = t,
@@ -1817,7 +1822,7 @@ private fun androidx.navigation.NavGraphBuilder.addEpisodeDeepLinkDestination(w:
                 val current = successState ?: return@EpisodeInfoScreen
                 coroutineScope.launch {
                     val podcast = resolveLocalOrFallbackPodcast(
-                        database = database,
+                        localCatalog = container.localCatalogPort,
                         podcastId = current.podcastId,
                         podcastTitle = current.podcastTitle,
                         fallbackImageUrl = current.episode.podcastImageUrl ?: "",
