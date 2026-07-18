@@ -516,7 +516,7 @@ Rename slim leftover `:core:data` → `:core:catalog` (or document `:core:data` 
 
 #### B0 — CI floors (quick wins)
 
-**Status:** done for current floors — `:koverVerifyMerged` in `unit-tests.yml`; google-services stub action; unit + instrumented tests on **merge queue** (`merge_group`) + architecture boundary script (`scripts/ci/check-feature-no-boxlore-database.sh`); detekt + ktlint baseline checks run in that same CI job; non-blocking `./gradlew lintDebug` (`continue-on-error: true`).
+**Status:** done for current floors — `:koverVerifyMerged` in `unit-tests.yml`; google-services stub action; unit + instrumented tests on the **`merge-ci` label** merge-gate (+ `merge_group` if a queue is ever enabled) + architecture boundary script (`scripts/ci/check-feature-no-boxlore-database.sh`); detekt + ktlint baseline checks run in that same CI job; non-blocking `./gradlew lintDebug` (`continue-on-error: true`).
 
 - ~~Optional non-blocking `./gradlew lintDebug` job → then fail-on-error.~~ non-blocking step landed; fail-on-error later.
 - ~~Add detekt/ktlint with baseline when ready.~~ done (see B9).
@@ -577,7 +577,7 @@ Rename slim leftover `:core:data` → `:core:catalog` (or document `:core:data` 
 
 #### B9 — Static analysis
 
-**Status:** done for detekt + ktlint — detekt uses `config/detekt/{detekt.yml,baseline.xml}`; ktlint uses `org.jlleitschuh.gradle.ktlint` plus per-project baselines under `config/ktlint/`. CI runs `./gradlew detekt` and `./gradlew ktlintCheck` on merge queue (with unit tests), failing only on new quality/style issues beyond the committed baselines. ktlint format tasks are not wired into build or CI.
+**Status:** done for detekt + ktlint — detekt uses `config/detekt/{detekt.yml,baseline.xml}`; ktlint uses `org.jlleitschuh.gradle.ktlint` plus per-project baselines under `config/ktlint/`. CI runs `./gradlew detekt` and `./gradlew ktlintCheck` on the merge-gate (`merge-ci` label), failing only on new quality/style issues beyond the committed baselines. ktlint format tasks are not wired into build or CI.
 
 - Keep aligned with existing `.coderabbit.yaml` / Sonar — don’t fight duplicate rule noise.
 

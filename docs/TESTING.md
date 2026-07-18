@@ -116,19 +116,21 @@ No Roborazzi/Papyrus plugin is required for the current scaffolding.
 
 | Workflow | What it runs | When |
 | :--- | :--- | :--- |
-| `unit-tests.yml` | Architecture boundary script + detekt + ktlint + `testDebugUnitTest` (includes Konsist) + `:koverVerifyMerged` + non-blocking `lintDebug` | **Merge queue only** (`merge_group`), or **Actions → Run workflow** |
-| `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | **Merge queue only** / manual |
+| `unit-tests.yml` | Architecture boundary script + detekt + ktlint + `testDebugUnitTest` (includes Konsist) + `:koverVerifyMerged` + non-blocking `lintDebug` | **`merge-ci` label** on the PR (and later pushes while labeled), merge queue if enabled, or **Actions → Run workflow** |
+| `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | Same merge-gate as unit tests |
 | `maestro-nightly.yml` | Validate `maestro/*.yaml`; optional Maestro Cloud when secrets present | Nightly cron (UTC) / manual |
 
 Architecture boundary: `scripts/ci/check-feature-no-boxlore-database.sh` fails if Home/Info ViewModels or assemblers re-introduce `BoxLoreDatabase`. Konsist/filesystem guards in `:core:testing` additionally enforce feature isolation, `getInstance` allowlist, `:core:data` ↛ designsystem, and module README presence.
 
-**Repo rules (owner only):** apply the merge queue + required checks with:
+**Repo rules (owner only):** apply required merge-gate checks with:
 
 ```bash
 ./scripts/ci/configure-master-merge-queue.sh
 ```
 
-That script (needs `gh` admin on the repo) creates/updates a `master` ruleset: merge queue + required Unit/Instrumented checks, with bypass for GitHub Actions (data bots) and the repo owner so direct `[skip ci]` pushes still work. The Cursor agent token cannot apply this — run it locally as `ashwkun`.
+That script (needs `gh` admin on the repo) creates/updates the `master-required-checks` ruleset (Unit + Instrumented required to merge a PR) and ensures the `merge-ci` label exists. **How to use:** open/iterate the PR without CI → add `merge-ci` when ready → wait for green checks → merge. Direct bot/chore pushes to `master` are not gated (no “require pull request” rule). Owner bypass remains for emergencies.
+
+> Note: GitHub **merge queue** is not available on this user-owned repo (API rejects `merge_queue`). The `merge-ci` label is the substitute for “run expensive scans only when merging.”
 
 Maestro device-farm stays **optional** (needs `MAESTRO_CLOUD_API_KEY` + `MAESTRO_PROJECT_ID`). Screenshots stay local (manual capture).
 
