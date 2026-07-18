@@ -107,15 +107,19 @@ Home / Settings / Info construct VMs via assemblers (`HomeViewModelAssembler`, `
 | Ranking / adaptive scoring | `:core:data` `ranking/` | Prefer inject/façade over `getInstance` for tests |
 | RSS catalog | `:core:data` `RssPodcastRepository` | Live path; negative / `rss:` IDs |
 
-## Target module split (later)
+## Target module split
 
-End state for the fat `:core:data` monolith:
+End state for the fat `:core:data` monolith (modular when needed — no junk-drawer modules):
 
 ```text
-core/{model,network,domain,designsystem,database,library,playback,downloads,prefs,analytics,testing}
+core/{model,network,domain,designsystem,database,prefs,analytics,ranking,rss?,downloads,playback,catalog,testing}
 ```
 
-Plus existing `feature/*`. New modules must ship a README in the same change that creates them. `:core:playback` and `:core:domain` are extracted; downloads/prefs/analytics still live primarily in `:core:data`.
+Plus existing `feature/*`. New modules must ship a comprehensive folder `README.md` in the same change that creates them (see `docs/MODULE_README_TEMPLATE.md`).
+
+**Program plan:** [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](docs/PLAN_MODULAR_ANDROID_HARDENING.md) — DI hygiene, remaining extracts (prefs/downloads/analytics/ranking/catalog), MainActivity shrink, test automation, and README exit criteria.
+
+Today: `:core:playback` and `:core:domain` (and `:core:database` / `:core:network`) are extracted; downloads/prefs/analytics/ranking/RSS still live primarily in `:core:data`.
 
 ## Testing layers
 

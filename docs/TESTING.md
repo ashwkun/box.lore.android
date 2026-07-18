@@ -1,5 +1,8 @@
 # Testing
 
+Further modularization + automation program: [`PLAN_MODULAR_ANDROID_HARDENING.md`](PLAN_MODULAR_ANDROID_HARDENING.md).  
+Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEMPLATE.md`](MODULE_README_TEMPLATE.md)).
+
 ## Layers
 
 | Layer | Command / location | Catches |

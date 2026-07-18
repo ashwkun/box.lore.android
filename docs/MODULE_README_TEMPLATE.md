@@ -1,8 +1,16 @@
 # Module README template
 
-Copy this into `<module>/README.md` when creating or backfilling a Gradle module. Keep content **stable**: public APIs and patterns maintainers need, not a dump of every file.
+Copy this into `<module>/README.md` when creating or backfilling a Gradle module.
 
-Folder path must equal the Gradle project id (e.g. `:core:playback` → `core/playback/`).
+**Rules**
+
+- Folder path must equal the Gradle project id (e.g. `:core:playback` → `core/playback/`).
+- Keep content **stable**: public APIs and patterns maintainers need — not a dump of every file.
+- A phase that creates or moves code into a module is **not done** until this README is comprehensively updated.
+- Root `README.md` / CHANGELOG are **not** substitutes for module READMEs.
+- Cross-cutting maps live in [`ARCHITECTURE.md`](../ARCHITECTURE.md) and [`docs/TESTING.md`](TESTING.md).
+
+See program plan: [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](PLAN_MODULAR_ANDROID_HARDENING.md).
 
 ---
 
@@ -16,9 +24,9 @@ One short paragraph: what this module owns and what it deliberately does **not**
 
 Stable types/entry points other modules may depend on:
 
-- `SomeRepository` / `SomeManager` / key Compose screens
-- Important contracts (interfaces, factories)
-- Things callers must not recreate (singletons, session-scoped graphs)
+- Repositories / managers / ports / key Compose screens
+- Important contracts (interfaces, factories, assemblers)
+- Things callers must **not** recreate (Application-scoped instances)
 
 ## Internal structure
 
@@ -30,8 +38,6 @@ src/main/java/.../
   bar/     # …
 ```
 
-Call out any service / worker FQCNs that must stay stable across releases.
-
 ## Dependencies
 
 Gradle edges (project + notable libs):
@@ -39,14 +45,41 @@ Gradle edges (project + notable libs):
 - → `:core:model`
 - → …
 
-Note forbidden reverse edges (e.g. data ↛ designsystem).
+Forbidden reverse edges (e.g. catalog/data ↛ designsystem; no feature → feature).
+
+## Threading / lifecycle
+
+- What runs on Main vs IO / default dispatchers
+- Application-scoped vs Activity / ViewModel-scoped objects
+- Any Service / WorkManager lifecycle notes
+
+## Persistence & identity
+
+Call out anything that must stay stable across releases:
+
+- SharedPreferences / DataStore names and keys
+- Room DB filenames
+- Worker / Service FQCNs (table if multiple)
+- ID schemes (`rss:`, mediaId prefixes, etc.)
 
 ## Testing notes
 
 - Where tests live (`src/test`, `androidTest`)
-- Preferred fakes / fixtures (link `:core:testing` when present)
-- Smoke or UI tags relevant to this module
+- Preferred fakes / fixtures (link `:core:testing`)
+- Compose `testTag`s (if UI module)
+- How to run locally:
+
+```bash
+./gradlew :<module>:testDebugUnitTest
+```
+
+## CI relevance
+
+Which GitHub Actions workflows exercise this module (unit, instrumented, coverage), or “local only”.
 
 ## See also
 
-- Root [`ARCHITECTURE.md`](../ARCHITECTURE.md) for cross-module rules
+- Root [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+- [`docs/TESTING.md`](TESTING.md)
+- [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](PLAN_MODULAR_ANDROID_HARDENING.md) (while program is active)
+- Related module READMEs
