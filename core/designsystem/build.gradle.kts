@@ -29,6 +29,12 @@ android {
         abortOnError = false
         checkReleaseBuilds = true
     }
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
 }
 
 dependencies {
@@ -48,4 +54,8 @@ dependencies {
     api(libs.coil.compose) // OptimizedImage composable uses Coil
     implementation(libs.posthog.android)
     implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

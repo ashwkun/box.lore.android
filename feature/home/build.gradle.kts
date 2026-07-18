@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.kover)
+    alias(libs.plugins.roborazzi)
 }
 
 kover {
@@ -37,6 +38,7 @@ android {
     }
 
     testOptions {
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.useJUnitPlatform()
         }
@@ -87,6 +89,11 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.androidx.lifecycle.runtime.ktx)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 
     // P24 Compose UI tests (JUnit4 + AndroidJUnitRunner; CI via android-instrumented-tests.yml)
     androidTestImplementation(platform(libs.androidx.compose.bom))

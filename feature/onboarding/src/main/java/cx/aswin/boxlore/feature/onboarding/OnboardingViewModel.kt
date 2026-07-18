@@ -370,11 +370,7 @@ class OnboardingViewModel(
                     val chartsDeferred = async(Dispatchers.IO) {
                         val genresList = currentState.selectedGenres.toList()
                         val allPodcasts = mutableListOf<Podcast>()
-                        val perGenreLimit = when {
-                            genresList.size <= 2 -> 5
-                            genresList.size <= 4 -> 3
-                            else -> 2
-                        }
+                        val perGenreLimit = OnboardingGenreLimits.perGenreTrendingLimit(genresList.size)
                         for (genre in genresList) {
                             try {
                                 val trending = podcastRepository.getTrendingPodcasts(
@@ -519,11 +515,7 @@ class OnboardingViewModel(
                 val state = _uiState.value
                 val genresList = state.selectedGenres.toList()
                 val allPodcasts = mutableListOf<Podcast>()
-                val perGenreLimit = when {
-                    genresList.size <= 2 -> 5
-                    genresList.size <= 4 -> 3
-                    else -> 2
-                }
+                val perGenreLimit = OnboardingGenreLimits.perGenreTrendingLimit(genresList.size)
                 val charts = withContext(Dispatchers.IO) {
                     for (genre in genresList) {
                         try {
@@ -724,12 +716,11 @@ class OnboardingViewModel(
     
     fun navigateBackFromSearch() {
         val state = _uiState.value
-        val backStep = when (searchEntryPoint) {
-            "welcome_screen" -> OnboardingStep.WELCOME
-            "genre_screen" -> if (state.selectedGenres.isNotEmpty()) OnboardingStep.SUB_GENRES else OnboardingStep.GENRES
-            "ai_onboarding" -> OnboardingStep.AI_ONBOARDING
-            else -> OnboardingStep.WELCOME
-        }
+        val backStep =
+            OnboardingSearchBackStep.resolve(
+                searchEntryPoint = searchEntryPoint,
+                selectedGenres = state.selectedGenres,
+            )
         _uiState.update { it.copy(currentStep = backStep, searchQuery = "", searchResults = emptyList()) }
     }
     

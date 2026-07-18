@@ -8,12 +8,7 @@ appId: cx.aswin.boxlore
 - extendedWaitUntil:
     visible:
       id: "home_settings_button"
-    timeout: 15000
-    optional: true
-# Prefer testTag; fall back to content description text.
+    timeout: 20000
+# Strict gate: home Settings affordance must be visible (testTag preferred).
 - assertVisible:
     id: "home_settings_button"
-    optional: true
-- assertVisible:
-    text: "Settings"
-    optional: true

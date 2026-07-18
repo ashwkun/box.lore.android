@@ -244,18 +244,11 @@ class BriefingViewModel(
         playbackRepository.seekTo(positionMs)
     }
 
-    private fun getBriefingEpisodeId(briefing: Briefing): String {
-        return "briefing_${briefing.region}_${briefing.date}"
-    }
+    private fun getBriefingEpisodeId(briefing: Briefing): String = BriefingIdentity.episodeId(briefing)
 
     private fun getBriefingCoverUrl(region: String): String {
         val packageName = getApplication<Application>().packageName
-        val resId = when (region.lowercase()) {
-            "in", "ind" -> cx.aswin.boxlore.core.designsystem.R.drawable.daily_briefing_india
-            "uk", "gb" -> cx.aswin.boxlore.core.designsystem.R.drawable.daily_briefing_uk
-            "us", "usa" -> cx.aswin.boxlore.core.designsystem.R.drawable.daily_briefing_usa
-            else -> cx.aswin.boxlore.core.designsystem.R.drawable.daily_briefing_global
-        }
+        val resId = BriefingIdentity.coverDrawableRes(region)
         return "android.resource://$packageName/$resId"
     }
 }

@@ -1,5 +1,6 @@
 package cx.aswin.boxlore.navigation
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -12,6 +13,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import cx.aswin.boxlore.BoxLoreApplication
 import cx.aswin.boxlore.core.designsystem.component.AppNavigationBarHeight
@@ -48,6 +50,14 @@ internal fun bottomNavTabRoutePattern(tab: String): String? = when (tab) {
     "library" -> "library"
     else -> null
 }
+
+/**
+ * Snapshot of the nav back stack for bottom-tab highlighting on overlay routes.
+ * Uses the library-group API because Navigation Compose exposes no public full-stack accessor.
+ */
+@SuppressLint("RestrictedApi")
+internal fun snapshotNavBackStack(navController: NavController): List<androidx.navigation.NavBackStackEntry> =
+    navController.currentBackStack.value
 
 /**
  * Resolves which bottom-nav tab owns the current screen.

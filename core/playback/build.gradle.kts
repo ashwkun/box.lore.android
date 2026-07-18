@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.dependencyGuard)
 }
 
 android {
@@ -31,6 +32,10 @@ android {
             it.useJUnitPlatform()
         }
     }
+}
+
+dependencyGuard {
+    configuration("releaseRuntimeClasspath")
 }
 
 dependencies {

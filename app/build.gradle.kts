@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.googleServices)
     alias(libs.plugins.firebaseCrashlytics)
     alias(libs.plugins.kotlinCompose)
+    alias(libs.plugins.dependencyGuard)
 }
 
 android {
@@ -103,6 +104,10 @@ android {
             excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
+}
+
+dependencyGuard {
+    configuration("releaseRuntimeClasspath")
 }
 
 dependencies {

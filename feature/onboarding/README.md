@@ -16,6 +16,7 @@ Route in `:app`: `onboarding`. Deep-link skip path is owned by `:app`.
 ```text
 src/main/java/cx/aswin/boxlore/feature/onboarding/
   OnboardingScreen.kt / OnboardingViewModel.kt
+  OnboardingGenreLimits.kt / OnboardingSearchBackStep.kt
   GenreOnboardingScreen.kt / SearchOnboardingScreen.kt
   ImportOnboardingScreen.kt / AiOnboardingScreen.kt / AiSuggestionsScreen.kt
 ```
@@ -37,8 +38,8 @@ None owned. Onboarding completion flags live in DataStore / `boxcast_prefs` via 
 
 ## Testing notes
 
-- No dedicated `src/test` suite currently
-- Manual smoke: cold start with incomplete onboarding; deep-link skip path owned by `:app`
+- JVM: `OnboardingGenreLimitsTest`, `OnboardingSearchBackStepTest` (pure helpers extracted from VM navigation / chart caps)
+- Full `OnboardingViewModel` still needs Application + repositories (deferred)
 
 ```bash
 ./gradlew :feature:onboarding:testDebugUnitTest

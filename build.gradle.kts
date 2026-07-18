@@ -23,6 +23,7 @@ plugins {
     alias(libs.plugins.kover)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.dependencyGuard) apply false
 }
 
 fun Project.ktlintBaselineFile() =
