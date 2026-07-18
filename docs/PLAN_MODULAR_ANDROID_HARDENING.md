@@ -1,6 +1,6 @@
 # Boxlore — Modular Android Hardening & Automation Plan
 
-**Status:** In progress (A0–A3 + B0 landed; A4+ next)  
+**Status:** In progress (A0–A4 + B0 landed; A5+ next)  
 **Branch context:** Builds on `cursor/full-refactor-tests-3b38` / PR #898  
 **Audience:** Implementers continuing architecture, DI, tests, and module docs
 
@@ -377,23 +377,26 @@ Characterise difficulty by **invasiveness** (Low / Med / High) and **blast radiu
 
 ---
 
-### Phase A4 — Extract `:core:analytics`
+### Phase A4 — Extract `:core:analytics` ✅ DONE
 
 **Invasiveness:** Low–Med  
 
-**Move**
+**Moved**
 
-- `AnalyticsHelper` and related aggregators → injectable façade (`Analytics` interface in domain or analytics module).
-- Features/core call interface; PostHog init stays in `:app`.
+- `AnalyticsHelper`, `PlayerSessionAggregator`, `PendingEntryPoint` → `core/analytics/src/main/java/cx/aswin/boxlore/core/data/analytics/` (package unchanged).
+- `RankingAggregateTelemetry` data class → `:core:model` (breaks analytics→data ranking coupling).
+- `Analytics` interface added; `AnalyticsHelper` implements it.
+- `RecordingAnalytics` test-double added in `core/analytics/src/main/`.
+- PostHog removed from `:core:data`; `:core:analytics` re-exported via `api(projects.core.analytics)`.
 
 **Tests**
 
-- Fake analytics recording assertions in 1–2 ViewModel tests.
+- `RecordingAnalyticsTest` + `DeriveGenrePersonaTest` in `core/analytics/src/test/`.
 
 **README**
 
 - New `core/analytics/README.md`.
-- Update feature READMEs that mention tracking.
+- Updated `core/data/README.md`, `ARCHITECTURE.md` module table.
 
 **Exit:** No static god-object required for new call sites; old aliases optional during transition.
 

@@ -2,10 +2,10 @@ package cx.aswin.boxlore.core.data.analytics
 
 import android.content.Context
 import com.posthog.PostHog
-import cx.aswin.boxlore.core.data.ranking.RankingAggregateTelemetry
+import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
 import java.time.Instant
 
-object AnalyticsHelper {
+object AnalyticsHelper : Analytics {
 
     @Volatile private var activeSeekSource: String = "scrubber"
     @Volatile private var activePauseReason: String = "user_voluntary"
@@ -100,7 +100,7 @@ object AnalyticsHelper {
 
     // ── 1. App Launch ──────────────────────────────────────────────
 
-    fun trackFirstLaunchIfNecessary(context: Context) {
+    override fun trackFirstLaunchIfNecessary(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val isFirstLaunch = prefs.getBoolean(KEY_FIRST_LAUNCH, true)
 
@@ -122,7 +122,7 @@ object AnalyticsHelper {
      * token; `provider` distinguishes debug vs Play Integrity. App version is
      * attached automatically by PostHog, so adoption can be sliced by build.
      */
-    fun trackAppCheckStatus(tokenObtained: Boolean, provider: String) {
+    override fun trackAppCheckStatus(tokenObtained: Boolean, provider: String) {
         PostHog.capture(
             "app_check_status",
             properties = mapOf(
@@ -132,7 +132,7 @@ object AnalyticsHelper {
         )
     }
 
-    fun trackFirstEpisodePlayed() {
+    override fun trackFirstEpisodePlayed() {
         PostHog.capture(
             "first_episode_played",
             properties = mapOf(
@@ -147,7 +147,7 @@ object AnalyticsHelper {
     // survey content, branching, and targeting.
 
     /** Deferred automatic trigger, fired on app open once the user hits the eligibility milestone. */
-    fun trackSurveyNpsEligible(completedEpisodes: Int?, triggerContext: String) {
+    override fun trackSurveyNpsEligible(completedEpisodes: Int?, triggerContext: String) {
         PostHog.capture(
             event = "survey_nps_eligible",
             properties = buildMap {
@@ -160,7 +160,7 @@ object AnalyticsHelper {
     }
 
     /** Manual trigger from a long-press or a remote console feature flag. */
-    fun trackSurveyNpsManualTrigger(source: String) {
+    override fun trackSurveyNpsManualTrigger(source: String) {
         PostHog.capture(
             event = "survey_nps_manual_trigger",
             properties = mapOf(
@@ -183,7 +183,7 @@ object AnalyticsHelper {
     }
 
     /** Tracks when a proactive engagement modal (NPS, review, etc.) is shown. */
-    fun trackEngagementPromptShown(promptType: String, source: String, completedEpisodes: Int? = null) {
+    override fun trackEngagementPromptShown(promptType: String, source: String, completedEpisodes: Int?) {
         PostHog.capture(
             event = "engagement_prompt_shown",
             properties = buildMap {
@@ -195,7 +195,7 @@ object AnalyticsHelper {
     }
 
     /** Fired when a promoter (NPS 8+) is routed to the Play Store review sheet on a later open. */
-    fun trackPromoterReviewHandoff(npsScore: Int?) {
+    override fun trackPromoterReviewHandoff(npsScore: Int?) {
         PostHog.capture(
             event = "promoter_review_handoff",
             properties = buildMap {
@@ -1529,7 +1529,7 @@ object AnalyticsHelper {
         )
     }
 
-    fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
+    override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
         if (statuses.isEmpty()) return
         PostHog.capture(
             event = "adaptive_ranking_status",
@@ -1551,12 +1551,16 @@ object AnalyticsHelper {
         )
     }
 
-    fun flush() {
+    override fun flush() {
         try {
             PostHog.flush()
         } catch (e: Exception) {
             android.util.Log.e("AnalyticsHelper", "Failed to flush PostHog", e)
         }
+    }
+
+    override fun capture(event: String, properties: Map<String, Any>) {
+        PostHog.capture(event = event, properties = properties)
     }
 }
 

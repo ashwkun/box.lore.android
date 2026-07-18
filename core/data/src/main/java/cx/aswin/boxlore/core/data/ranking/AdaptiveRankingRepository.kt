@@ -7,6 +7,7 @@ import cx.aswin.boxlore.core.data.ranking.database.AdaptiveRankingDatabase
 import cx.aswin.boxlore.core.data.ranking.database.PreferenceFacetEntity
 import cx.aswin.boxlore.core.data.ranking.database.RankingExposureEntity
 import cx.aswin.boxlore.core.model.PodcastGenres
+import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -71,14 +72,6 @@ data class LearnerInspectorSnapshot(
     val pendingExposureCount: Int,
     val resolvedExposureCount: Int,
     val capturedAt: Long,
-)
-
-data class RankingAggregateTelemetry(
-    val objective: String,
-    val rankerVersion: Int,
-    val learningStage: String,
-    val outcomeCountBucket: String,
-    val explorationEligible: Boolean,
 )
 
 data class RankingScoreInput(

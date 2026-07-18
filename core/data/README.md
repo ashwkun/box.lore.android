@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Data layer for repositories, ranking, RSS, and analytics helpers. Implements ports from `:core:domain` (re-exported via `api`). Main Room DB lives in `:core:database` (re-exported via `api`). Prefs live in `:core:prefs` (re-exported via `api`). Playback/queue/Media3 services live in `:core:playback` (same Java packages under `cx.aswin.boxlore.core.data.*`). Download/worker stack lives in `:core:downloads`.
+Data layer for repositories, ranking, and RSS. Implements ports from `:core:domain` (re-exported via `api`). Main Room DB lives in `:core:database` (re-exported via `api`). Prefs live in `:core:prefs` (re-exported via `api`). Analytics helpers (`AnalyticsHelper`, `PendingEntryPoint`, `PlayerSessionAggregator`) live in `:core:analytics` (re-exported via `api`). Playback/queue/Media3 services live in `:core:playback` (same Java packages under `cx.aswin.boxlore.core.data.*`). Download/worker stack lives in `:core:downloads`.
 
 Owns the **shared-deps entry API** for workers (`SharedAppDependencies` / `SharedAppDependenciesHolder`) so background work does not rebuild parallel repository graphs. Download-owned types (`DownloadRepository`, `SmartDownloadManager`) live in `:core:downloads` to avoid a data↔downloads cycle.
 
@@ -29,8 +29,9 @@ Playback types (`PlaybackRepository`, `QueueManager`, `QueueRepository`, `BoxLor
 ```text
 src/main/java/cx/aswin/boxlore/core/data/
   SharedAppDependencies.kt   # interface + holder (download types removed — see :core:downloads)
-  ranking/ content/ analytics/ privacy/ backup/ crosspromo/
+  ranking/ content/ privacy/ backup/ crosspromo/
   ports/                     # DownloadCacheRelinker fun interface
+  # analytics/ moved to :core:analytics (same package, re-exported via api)
 ```
 
 Main Room sources: `:core:database` → `cx.aswin.boxlore.core.data.database`.
@@ -38,6 +39,7 @@ Feature-facing ports: `:core:domain` → `cx.aswin.boxlore.core.domain.ports`.
 
 ## Dependencies
 
+- → `:core:analytics` (api — re-exports all analytics types transitively)
 - → `:core:domain` (api), `:core:prefs` (api), `:core:model`, `:core:network`, `:core:database` (api)
 - DataStore (privacy consent still here), Firebase Messaging pieces as needed; Room runtime via `:core:database` (ksp kept for ranking DB)
 - Forbidden: → `:core:playback`, → `:core:designsystem`, → `:core:downloads`

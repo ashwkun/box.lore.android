@@ -82,8 +82,8 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.messaging)
 
-    // PostHog
-    implementation(libs.posthog.android)
+    // Analytics (PostHog lives in :core:analytics; data re-exports it so existing imports keep working)
+    api(projects.core.analytics)
 
     // Install Referrer
     implementation("com.android.installreferrer:installreferrer:2.2")
