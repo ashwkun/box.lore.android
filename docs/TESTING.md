@@ -86,7 +86,15 @@ No Roborazzi/Papyrus plugin is required for the current scaffolding.
 | `unit-tests.yml` | `./gradlew testDebugUnitTest` + `:koverVerifyMerged` (JVM) | Merge queue (`merge_group`) or **Actions → Run workflow** |
 | `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | Same |
 
-These do **not** run on every PR push. Enable a **merge queue** on `master` and mark both workflows as required checks so merge is blocked if they fail. Use manual dispatch anytime you want a one-off run.
+These do **not** run on every PR push. Use manual dispatch anytime you want a one-off run.
+
+**Repo rules (owner only):** apply the merge queue + required checks with:
+
+```bash
+./scripts/ci/configure-master-merge-queue.sh
+```
+
+That script (needs `gh` admin on the repo) creates/updates a `master` ruleset: merge queue + required Unit/Instrumented checks, with bypass for GitHub Actions (data bots) and the repo owner so direct `[skip ci]` pushes still work. The Cursor agent token cannot apply this — run it locally as `ashwkun`.
 
 Maestro / screenshots stay **local** (need a full app install / manual capture).
 
