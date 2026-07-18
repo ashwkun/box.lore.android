@@ -63,6 +63,7 @@ import cx.aswin.boxlore.navigation.NavSettingsState
 import cx.aswin.boxlore.navigation.navigateBottomNavTab
 import cx.aswin.boxlore.navigation.resolveBottomNavTab
 import cx.aswin.boxlore.navigation.snapshotNavBackStack
+import cx.aswin.boxlore.navigation.PushTargetRouteAllowlist
 import cx.aswin.boxlore.ui.announcement.FeatureAnnouncementOverlay
 import cx.aswin.boxlore.ui.announcement.InAppAnnouncementDialog
 import cx.aswin.boxlore.ui.announcement.shouldSuppressWhatsNewOnPlay
@@ -103,16 +104,20 @@ fun BoxLoreAppRoot(
             return@LaunchedEffect
         }
         val rawTarget = intent.getStringExtra("target_route")
-        val allowed = cx.aswin.boxlore.navigation.PushTargetRouteAllowlist.sanitize(rawTarget)
+        val allowed = PushTargetRouteAllowlist.sanitize(rawTarget)
         if (allowed != null) {
-            if (cx.aswin.boxlore.navigation.PushTargetRouteAllowlist.isAppOrWebUri(allowed)) {
-                val deepLinkIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            if (PushTargetRouteAllowlist.isAppOrWebUri(allowed)) {
+                val deepLinkIntent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                ).apply {
                     data = android.net.Uri.parse(allowed)
                 }
                 navController.handleDeepLink(deepLinkIntent)
             } else {
                 runCatching { navController.navigate(allowed) }
-                    .onFailure { Log.w("BoxLoreAppRoot", "Ignoring invalid target_route=$allowed", it) }
+                    .onFailure {
+                        Log.w("BoxLoreAppRoot", "Ignoring invalid target_route=$allowed", it)
+                    }
             }
             intent.removeExtra("target_route")
         } else if (!rawTarget.isNullOrBlank()) {

@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.google.firebase.messaging.FirebaseMessaging
 import cx.aswin.boxlore.core.designsystem.components.optimizedImageUrl
+import cx.aswin.boxlore.navigation.PushTargetRouteAllowlist
 import cx.aswin.boxlore.ui.announcement.shouldSuppressWhatsNewOnPlay
 
 class BoxLoreFcmService : FirebaseMessagingService() {
@@ -362,8 +363,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
     }
 
     private fun createPushIntent(route: String?): Intent {
-        val isUriRoute = route != null &&
-            cx.aswin.boxlore.navigation.PushTargetRouteAllowlist.isAppOrWebUri(route)
+        val isUriRoute = route != null && PushTargetRouteAllowlist.isAppOrWebUri(route)
         return if (isUriRoute) {
             Intent(Intent.ACTION_VIEW, Uri.parse(route)).apply {
                 setClass(this@BoxLoreFcmService, MainActivity::class.java)
@@ -374,9 +374,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("from_push", true)
-                if (route != null &&
-                    cx.aswin.boxlore.navigation.PushTargetRouteAllowlist.isAllowed(route)
-                ) {
+                if (route != null && PushTargetRouteAllowlist.isAllowed(route)) {
                     putExtra("target_route", route)
                 }
             }
