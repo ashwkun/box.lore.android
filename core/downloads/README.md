@@ -80,7 +80,7 @@ Forbidden reverse edges:
 
 ## CI relevance
 
-Exercised by `unit-tests.yml`. Soft future Kover gates for downloads noted in `docs/TESTING.md`.
+Exercised by `unit-tests.yml`. Included in root `:koverVerifyMerged` with data/domain/home/analytics/rss (see `docs/TESTING.md`).
 
 ## See also
 

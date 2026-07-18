@@ -2,13 +2,18 @@
 
 Lightweight visual-regression scaffolding. **Not required in CI.**
 
-## Status: staged Roborazzi adoption
+## Status: P26 not complete
 
-Roborazzi (JVM Compose screenshots) is **not** wired on AGP 9 yet — plugin/engine setup is heavy for this pass. Until then:
+Do **not** claim screenshot automation or P26 complete. Facts today:
 
-1. **Composition smoke** runs in CI via `:feature:home` androidTest (`AddRssFeedDialogScreenshotStubTest`) — asserts tagged dialog controls compose (not `@Ignore`).
-2. **Golden path reserved** under `screenshots/baselines/` for future Roborazzi (or manual PNG) captures.
-3. When adopting Roborazzi, keep goldens in `screenshots/baselines/` so paths stay stable.
+- **Zero** PNG goldens under `screenshots/baselines/` (gitkeep only).
+- Roborazzi (JVM Compose screenshots) is **not** wired on AGP 9.
+- CI does **not** run image diffs.
+
+What does run:
+
+1. **Composition smoke** in `:feature:home` androidTest (`AddRssFeedDialogScreenshotStubTest`) — asserts tagged dialog controls. Uses **testTags only** (no `onRoot()` — AlertDialog has multiple Compose roots).
+2. Golden path **reserved** under `screenshots/baselines/` for a future Roborazzi (or manual PNG) adoption.
 
 ## Layout
 
@@ -17,7 +22,7 @@ screenshots/baselines/     # PNG goldens (gitkeep until first capture)
 docs/screenshots/          # this guide
 ```
 
-Suggested naming:
+Suggested naming when goldens exist:
 
 ```
 screenshots/baselines/add_rss_feed_dialog.png
@@ -27,11 +32,10 @@ screenshots/baselines/home_settings_entry.png
 ## Capture (local, until Roborazzi)
 
 1. Install a debug build on an emulator/device with a fixed density (e.g. Pixel 6 API 34, xxhdpi).
-2. Either:
-   - Extend `AddRssFeedDialogScreenshotStubTest` temporarily with
-     `composeRule.onRoot().captureToImage()` and write PNG under `screenshots/baselines/`, **or**
-   - Capture manually from the running app at the same UI state.
+2. Capture the Add RSS dialog (or other target UI) manually from the running app at a fixed state.
 3. Drop PNGs into `screenshots/baselines/` and commit when intentional.
+
+Avoid relying on `onRoot()` for dialogs — prefer tagged nodes or a dedicated screenshot tool once Roborazzi is enabled.
 
 ## Compare
 
@@ -49,4 +53,4 @@ No screenshot Gradle task is wired yet (keeps CI green). A future Roborazzi task
 ## Related
 
 - Compose UI tests: `docs/TESTING.md` → androidTest
-- Smoke test: `feature/home/.../AddRssFeedDialogScreenshotStubTest.kt` (runs; not ignored)
+- Composition smoke: `feature/home/.../AddRssFeedDialogScreenshotStubTest.kt` (tags only; not a golden)

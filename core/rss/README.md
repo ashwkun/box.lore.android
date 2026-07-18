@@ -75,7 +75,7 @@ JVM unit tests under `src/test` cover deterministic ID contracts and episode mat
 
 ## CI relevance
 
-Included in the unit-test CI job (`testDebugUnitTest`). Kover `merged` variant is added to the project-level coverage report.
+Included in the unit-test CI job (`testDebugUnitTest`). Kover `merged` variant is included in root `:koverVerifyMerged` (with data/domain/home/analytics/downloads).
 
 ## See also
 

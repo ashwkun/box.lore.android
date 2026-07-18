@@ -682,9 +682,9 @@ Each PR updates **touched module READMEs in the same change**.
 
 **Program DoD for A0–A8 / B0–B10 scaffold is met.** Do **not** reopen module extracts casually.
 
-**Next wave (cloud / autonomous agents):** follow **[`docs/PLAN_CLOUD_AGENT_NEXT.md`](PLAN_CLOUD_AGENT_NEXT.md)** — deepen shallow automation (stabilize instrumented, Kover 15, Home/Info tests, hermetic androidTest, one real local Maestro flow, honest screenshots) with hard stops and strict phase DoD so work is not half-baked.
+**Next wave (end-state):** execute the Cursor plan **Android End State** (`android_end_state_fd328e09`) — five sequential merge-gated PRs covering quality/docs truth, BoxLore naming, fat-file extracts, `:core:catalog` rename, and automation maturity. Constraints and cloud-agent playbook detail also live in [`docs/PLAN_CLOUD_AGENT_NEXT.md`](PLAN_CLOUD_AGENT_NEXT.md); the end-state plan **supersedes** its tests-only scope.
 
-Legacy one-liner (still valid as themes): finishing **B2** (Home/Info depth), expanding **B5**, then Maestro/screenshots honesty; ratchet Kover **12 → 15**. Optional A8 polish only with evidence.
+Do not recreate `master-required-checks` rulesets; use the **`merge-ci`** label gate. Every end-state PR title must include `[skip changelog]`.
 
 ---
 

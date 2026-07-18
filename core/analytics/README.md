@@ -77,7 +77,7 @@ Do **not** rename these; changing them resets first-launch state for existing us
 ## CI relevance
 
 Covered by `unit-tests.yml` (`testDebugUnitTest`). Kover variant `merged` is
-registered; included in the coverage gate alongside other `core:*` modules.
+registered and included in root `:koverVerifyMerged` (with data/domain/home/rss/downloads).
 
 ## See also
 

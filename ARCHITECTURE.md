@@ -125,7 +125,7 @@ Rules:
 
 ## Composition root (today)
 
-There is no Hilt/Koin. `AppContainer` (app module) owns the shared graph and is wired from `BoxLoreApplication` / `MainActivity` into feature ViewModels.
+There is no Hilt/Koin. `AppContainer` (app module) owns the shared graph and is **created/installed only in `BoxLoreApplication`**. `MainActivity`, `BoxLoreNavHost`, and feature assemblers **consume** `application.container` — they do not construct repositories or a parallel graph.
 
 Home / Settings / Info construct VMs via assemblers (`HomeViewModelAssembler`, `SettingsViewModelAssembler`, `InfoViewModelAssembler`). Narrow ports under `core.domain.ports` (`RssSubscriptionPort`, `RankingResetPort`, `PodcastCatalogPort`, `HistoryRecommendationSource`, `LocalCatalogPort`, `EpisodeOfflineLookupPort`) exist so hard ViewModels and workers can take fakes without full repositories / `BoxLoreDatabase`. Production: `RoomLocalCatalog` / `RoomEpisodeOfflineLookup` from `AppContainer`. `ListeningHistoryBackupPort` remains in `core.data.ports` (Room entity types; avoids domain → database).
 
@@ -146,19 +146,13 @@ Home / Settings / Info construct VMs via assemblers (`HomeViewModelAssembler`, `
 | Ranking / adaptive scoring | `:core:ranking` | Own `AdaptiveRankingDatabase`; prefer inject/façade over `getInstance` for tests |
 | RSS catalog | `:core:rss` `RssPodcastRepository` | Live path; negative / `rss:` IDs; re-exported through `:core:data → api(rss)` |
 
-## Target module split
+## Module split status
 
-End state for the fat `:core:data` monolith (modular when needed — no junk-drawer modules):
+Extracted and live: `:core:playback`, `:core:domain`, `:core:database`, `:core:network`, `:core:prefs`, `:core:downloads`, `:core:analytics`, `:core:ranking`, `:core:rss`, plus `feature/*` and `:core:testing` / `:core:designsystem` / `:core:model`.
 
-```text
-core/{model,network,domain,designsystem,database,prefs,analytics,ranking,rss,downloads,playback,catalog?,testing}
-```
+`:core:data` is **catalog/orchestration only** (not a junk drawer). Renaming the Gradle id to `:core:catalog` is tracked in the Android end-state wave (do not reopen extracts casually). New modules must ship a comprehensive folder `README.md` in the same change (see `docs/MODULE_README_TEMPLATE.md`).
 
-Plus existing `feature/*`. New modules must ship a comprehensive folder `README.md` in the same change that creates them (see `docs/MODULE_README_TEMPLATE.md`).
-
-**Program plan:** [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](docs/PLAN_MODULAR_ANDROID_HARDENING.md) — DI hygiene, remaining extracts (prefs/downloads/analytics/ranking/catalog), MainActivity shrink, test automation, and README exit criteria.
-
-Today: `:core:playback`, `:core:domain`, `:core:database`, `:core:network`, `:core:prefs`, `:core:downloads`, `:core:analytics`, `:core:ranking`, and `:core:rss` are extracted. `:core:data` is now catalog/orchestration only. Rename `:core:data` → `:core:catalog` is deferred (too much Gradle churn; tracked in plan).
+**Program history:** [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](docs/PLAN_MODULAR_ANDROID_HARDENING.md) (A0–A8 / B0–B10 scaffold complete).
 
 ## Testing layers
 
@@ -167,7 +161,7 @@ Today: `:core:playback`, `:core:domain`, `:core:database`, `:core:network`, `:co
 | JVM unit (`src/test`) | Pure logic, repos with fakes, ViewModel state |
 | Compose UI (`androidTest`) | Controls, nav wiring, `testTag`s |
 | Maestro E2E | Real-device flows |
-| Screenshots (optional) | Visual regression baselines |
+| Screenshots (optional) | Visual regression baselines — **P26 incomplete** (no goldens / no Roborazzi) |
 | Architecture script | `scripts/ci/check-feature-no-boxlore-database.sh` (Home/Info VMs) |
 | Architecture-as-code | Konsist / filesystem guards in `:core:testing` (`ArchitectureGuardTest`) |
 

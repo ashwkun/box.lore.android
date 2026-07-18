@@ -60,6 +60,9 @@ dependencies {
     kover(projects.core.data)
     kover(projects.core.domain)
     kover(projects.feature.home)
+    kover(projects.core.analytics)
+    kover(projects.core.rss)
+    kover(projects.core.downloads)
 }
 
 kover {
@@ -90,8 +93,9 @@ kover {
             verify {
                 // Coverage ratchet path: 8 → 10 → 12 → 15 → 25 (see docs/TESTING.md).
                 // Soft future gates may add module-specific floors for ranking/downloads.
-                rule("Modest line coverage (:core:data, :core:domain, :feature:home)") {
-                    minBound(12)
+                rule("Modest line coverage (data/domain/home + analytics/rss/downloads)") {
+                    // Coverage ratchet: 8 → 10 → 12 → 15 → 25 (see docs/TESTING.md).
+                    minBound(15)
                 }
             }
         }

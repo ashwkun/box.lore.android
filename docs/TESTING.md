@@ -14,14 +14,14 @@ Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEM
 | Coverage | `./gradlew :koverVerifyMerged` (also in unit-tests CI) | Soft line-coverage gate |
 | Compose UI | `androidTest` (P24) | Dead controls, nav wiring |
 | Maestro | device flows (P25) + nightly workflow | Real-device glitches |
-| Screenshots | optional (P26) | Visual regressions |
+| Screenshots | optional (P26) — **not complete** | Visual regressions (no goldens / no Roborazzi yet) |
 
 ## Stack
 
 - **JUnit 5** (+ Vintage during migration leftovers)
 - **Turbine**, **MockWebServer**, **Robolectric**
 - **Konsist** (architecture guards in `:core:testing`)
-- **Kover** (merged reports for `:core:data`, `:core:domain`, `:feature:home`)
+- **Kover** (merged reports for `:core:data`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, `:core:downloads`)
 - Shared fixtures: `:core:testing` (`TestFixtures`, `MainDispatcherExtension`)
 - **B1 network contracts:** MockWebServer tests in `:core:network` (`BoxLoreApiContractTest`) — run `./gradlew :core:network:testDebugUnitTest`
 - **B2/B3 hard slices:** Settings Turbine suite; Home `DiscoveryGreetingTest` + `PodcastAffinityLogicTest`; Info catalog/offline merge tests; domain local/offline port fakes; Learn `LearnDeckLogicTest` + `LearnCuriosityCard` UI model (no network DTO in UI state); Explore `ExploreBrowseLogicTest`; playback `HistoryRecommendationLogic` / `AutoVoiceSearchLogic` / `SmartQueueRefillPolicy` / `MixtapeResumePolicy` / `NightWindowLogic` / `ListeningHistoryUpsertLogic` tests; downloads `SmartDownloadCandidateLogicTest` + worker tests. Full Home/Info VMs still deferred (Application + heavy deps).
@@ -31,9 +31,9 @@ Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEM
 
 ## Coverage (Kover)
 
-Plugin applied on the root project plus `:core:data`, `:core:domain`, and `:feature:home`. Those modules contribute a shared Kover report variant `merged` (maps to each module’s `debug` unit tests). Root merges them and enforces a **modest** line-coverage floor (**12%**).
+Plugin applied on the root project plus `:core:data`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, and `:core:downloads`. Those modules contribute a shared Kover report variant `merged` (maps to each module’s `debug` unit tests). Root merges them and enforces a **modest** line-coverage floor (**15%**). Measured merged line coverage after this widen is ~22% (headroom for a later 20% floor in the end-state wave).
 
-**Ratchet path:** 8 → 10 → **12** → 15 → 25 on the merged variant. Optional later: soft module-specific gates for `:core:ranking` / `:core:downloads` once their suites are denser.
+**Ratchet path:** 8 → 10 → 12 → **15** → 25 on the merged variant. Optional later: soft module-specific gates for `:core:ranking` once denser.
 
 ```bash
 # Unit tests only (CI default)
@@ -109,14 +109,13 @@ maestro test maestro/
 
 ## Screenshot baselines (P26)
 
-Optional, local-only. See `docs/screenshots/README.md` and `screenshots/baselines/`.
-No Roborazzi/Papyrus plugin is required for the current scaffolding.
+**P26 is not complete.** No PNG goldens are checked in; Roborazzi is not wired; screenshot capture is **not** a CI gate. Reserved path: `screenshots/baselines/` + [`docs/screenshots/README.md`](screenshots/README.md). `:feature:home` androidTest includes a **composition smoke** for Add RSS tags (`AddRssFeedDialogScreenshotStubTest`) — that is not a screenshot golden.
 
 ## CI
 
 | Workflow | What it runs | When |
 | :--- | :--- | :--- |
-| `unit-tests.yml` | Architecture boundary script + detekt + ktlint + `testDebugUnitTest` (includes Konsist) + `:koverVerifyMerged` + non-blocking `lintDebug` | **`merge-ci` label** on the PR (and later pushes while labeled), merge queue if enabled, or **Actions → Run workflow** |
+| `unit-tests.yml` | Architecture boundary script + detekt + ktlint + `testDebugUnitTest` (includes Konsist) + `:koverVerifyMerged` + non-blocking `lintDebug` | **`merge-ci` label** on the PR (and later pushes while labeled), or **Actions → Run workflow**. Merge queue is **not** available on this user-owned repo. |
 | `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | Same merge-gate as unit tests |
 | `maestro-nightly.yml` | Validate `maestro/*.yaml`; optional Maestro Cloud when secrets present | Nightly cron (UTC) / manual |
 
