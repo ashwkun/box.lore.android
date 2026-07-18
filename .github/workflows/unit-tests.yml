@@ -1,10 +1,10 @@
 name: Unit Tests
 
+# Runs when a PR enters the merge queue (merge click), or via manual dispatch.
+# Not on every PR push — avoid burning CI on intermediate commits.
 on:
-  push:
-    branches: [ master, main, "cursor/**" ]
-  pull_request:
-    branches: [ master, main ]
+  merge_group:
+  workflow_dispatch:
 
 jobs:
   unit-tests:

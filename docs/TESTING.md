@@ -81,16 +81,18 @@ No Roborazzi/Papyrus plugin is required for the current scaffolding.
 
 ## CI
 
-| Workflow | What it runs |
-| :--- | :--- |
-| `unit-tests.yml` | `./gradlew testDebugUnitTest` (JVM) |
-| `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator |
+| Workflow | What it runs | When |
+| :--- | :--- | :--- |
+| `unit-tests.yml` | `./gradlew testDebugUnitTest` + `:koverVerifyMerged` (JVM) | Merge queue (`merge_group`) or **Actions → Run workflow** |
+| `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | Same |
+
+These do **not** run on every PR push. Enable a **merge queue** on `master` and mark both workflows as required checks so merge is blocked if they fail. Use manual dispatch anytime you want a one-off run.
 
 Maestro / screenshots stay **local** (need a full app install / manual capture).
 
 Protected inputs:
 - `app/google-services.json` is **gitignored** and must never be committed.
-- The real file is a **release-environment** secret (`GOOGLE_SERVICES_JSON_BASE64` on GitHub Environment `release`). Ordinary PR/push jobs cannot read it.
+- The real file is a **release-environment** secret (`GOOGLE_SERVICES_JSON_BASE64` on GitHub Environment `release`). Ordinary CI jobs cannot read it.
 - The unit-test workflow writes a non-secret CI stub only so the Google Services plugin can configure `:app`, then deletes it. Release workflows keep using the real secret.
 - Locally, keep using your usual `.env` / local `app/google-services.json` — unchanged.
 
