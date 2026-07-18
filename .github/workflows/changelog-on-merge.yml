@@ -291,14 +291,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
+      # AGP 9.3 defaults to Build Tools 36; keep apksigner/aapt2 aligned with that.
       - name: Install Android build-tools
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "build-tools;35.0.0" "cmdline-tools;latest"
+          sdkmanager "build-tools;36.0.0" "platforms;android-36" "cmdline-tools;latest"
 
       - name: Verify merged release metadata
         id: release

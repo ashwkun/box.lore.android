@@ -1,7 +1,6 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
+    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.kotlinCompose)
 }
 
 android {
@@ -11,7 +10,7 @@ android {
         }
     }
     namespace = "cx.aswin.boxlore.feature.explore"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31
@@ -47,36 +46,23 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:designsystem"))
-    implementation(project(":core:data"))
-    implementation(project(":core:playback"))
-    implementation(project(":core:model"))
-    implementation(project(":core:network"))
-    
-    // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    
-    // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    
-    // Icons
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(projects.core.designsystem)
+    implementation(projects.core.data)
+    implementation(projects.core.playback)
+    implementation(projects.core.model)
+    implementation(projects.core.network)
 
-    // Image Loading
-    implementation("io.coil-kt:coil-compose:2.6.0")
-
-    // Palette
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.coil.compose)
     implementation(libs.androidx.palette.ktx)
-
-    // Lifecycle
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-
-    // PostHog
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.posthog.android)
 
     testImplementation(projects.core.testing)

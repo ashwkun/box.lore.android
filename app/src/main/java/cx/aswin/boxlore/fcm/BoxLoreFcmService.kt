@@ -26,7 +26,11 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
     private val CHANNEL_ID = "boxlore_announcements_v2"
 
+    // Firebase Messaging still delivers rotation callbacks here; TokenWatcher migration is follow-up.
+    @Suppress("DEPRECATION")
+    @Deprecated("Overrides deprecated FirebaseMessagingService.onNewToken")
     override fun onNewToken(token: String) {
+        @Suppress("DEPRECATION")
         super.onNewToken(token)
         // Subscribe to the global announcements topic
         FirebaseMessaging.getInstance().subscribeToTopic("all_users")

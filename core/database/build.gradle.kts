@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.androidLibrary)
-    alias(libs.plugins.jetbrainsKotlinAndroid)
     alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "cx.aswin.boxlore.core.database"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31

@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.androidLibrary)
-    alias(libs.plugins.jetbrainsKotlinAndroid)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.kotlinCompose)
 }
@@ -12,7 +11,7 @@ android {
         }
     }
     namespace = "cx.aswin.boxlore.feature.info"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31

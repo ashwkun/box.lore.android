@@ -1,11 +1,10 @@
 plugins {
     alias(libs.plugins.androidLibrary)
-    alias(libs.plugins.jetbrainsKotlinAndroid)
 }
 
 android {
     namespace = "cx.aswin.boxlore.core.playback"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31

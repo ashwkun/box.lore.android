@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.androidLibrary)
-    alias(libs.plugins.jetbrainsKotlinAndroid)
     alias(libs.plugins.kover)
 }
 
@@ -16,7 +15,7 @@ kover {
 
 android {
     namespace = "cx.aswin.boxlore.core.data"
-    compileSdk = 35
+    compileSdk = 36
 
     buildFeatures {
         buildConfig = true

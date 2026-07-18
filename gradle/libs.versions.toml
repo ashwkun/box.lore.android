@@ -1,13 +1,13 @@
 [versions]
-agp = "8.13.2"
-kotlin = "2.4.0"
+agp = "9.3.0"
+kotlin = "2.4.10"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.1.5"
 junitJupiter = "5.11.4"
 turbine = "1.2.0"
 robolectric = "4.14.1"
-kover = "0.9.8"
+kover = "0.9.9"
 espressoCore = "3.5.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.13.0"
@@ -27,9 +27,9 @@ rssParser = "6.1.7"
 
 
 # Firebase
-firebase-bom = "33.1.0"
-google-services = "4.4.2"
-firebase-crashlytics-plugin = "3.0.1"
+firebase-bom = "34.16.0"
+google-services = "4.5.0"
+firebase-crashlytics-plugin = "3.0.7"
 
 [libraries]
 posthog-android = { group = "com.posthog", name = "posthog-android", version.ref = "posthog" }
@@ -106,7 +106,6 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
-jetbrainsKotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.10" }
 googleServices = { id = "com.google.gms.google-services", version.ref = "google-services" }
