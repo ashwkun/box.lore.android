@@ -28,11 +28,35 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
-          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "Missing secret GOOGLE_SERVICES_JSON_BASE64" >&2
-            exit 1
-          fi
-          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
+          python3 - <<'PY'
+          import base64
+          import binascii
+          import os
+          from pathlib import Path
+
+          # Never print secret material. Fail closed if missing/invalid.
+          raw = os.environ.get("GOOGLE_SERVICES_JSON_BASE64", "").strip()
+          if not raw:
+              raise SystemExit("Missing secret GOOGLE_SERVICES_JSON_BASE64")
+
+          try:
+              payload = base64.b64decode(raw, validate=True)
+          except (ValueError, binascii.Error) as exc:
+              raise SystemExit("GOOGLE_SERVICES_JSON_BASE64 is not valid Base64") from exc
+
+          if not payload:
+              raise SystemExit("GOOGLE_SERVICES_JSON_BASE64 decoded to an empty file")
+
+          path = Path("app/google-services.json")
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_bytes(payload)
+          path.chmod(0o600)
+          print(f"Wrote {path} ({len(payload)} bytes)")
+          PY
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --continue
+
+      - name: Scrub google-services.json
+        if: always()
+        run: rm -f app/google-services.json

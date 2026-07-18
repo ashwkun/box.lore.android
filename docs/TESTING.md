@@ -21,6 +21,11 @@
 
 GitHub Actions workflow `unit-tests.yml` runs `testDebugUnitTest` on PRs and pushes to feature branches.
 
+Protected inputs:
+- `app/google-services.json` is **gitignored** and must never be committed.
+- CI materializes it from repo secret `GOOGLE_SERVICES_JSON_BASE64` (same secret as the release/changelog workflow). The workflow decodes via Python, writes mode `0600`, never prints file contents, and deletes the file in an `always()` cleanup step.
+- Locally, keep using your normal `.env` / local `app/google-services.json` path — CI secret wiring does not change that.
+
 ## Conventions
 
 - Prefer constructor injection + fakes over `getInstance` in new tests
