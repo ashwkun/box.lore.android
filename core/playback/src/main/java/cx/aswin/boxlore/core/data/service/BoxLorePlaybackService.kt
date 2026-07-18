@@ -54,35 +54,26 @@ class BoxLorePlaybackService : MediaLibraryService() {
     @Volatile
     private var autoCollageUris: Map<String, android.net.Uri> = emptyMap()
     
-    private val userPreferencesRepository by lazy {
-        cx.aswin.boxlore.core.data.UserPreferencesRepository(this)
-    }
     @VisibleForTesting internal var mainDispatcher: CoroutineDispatcher = Dispatchers.Main
     @VisibleForTesting internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
     private val serviceScope by lazy { CoroutineScope(mainDispatcher + SupervisorJob()) }
 
-    // Lazy-init database & repos (avoid creating them if Auto is never used)
-    private val database by lazy {
-        cx.aswin.boxlore.core.data.database.BoxLoreDatabase.getDatabase(this)
+    /**
+     * Shared Application graph — do not rebuild PodcastRepository / ranking / RSS here.
+     * Installed in [cx.aswin.boxlore.BoxLoreApplication] via SharedAppDependenciesHolder.
+     */
+    private val sharedDeps by lazy {
+        cx.aswin.boxlore.core.data.SharedAppDependenciesHolder.require()
     }
-    private val podcastRepository by lazy {
-        val prefs = getSharedPreferences("boxcast_api_config", MODE_PRIVATE)
-        val baseUrl = prefs.getString("base_url", null) ?: cx.aswin.boxlore.core.data.BuildConfig.BOXCAST_API_BASE_URL
-        val publicKey = prefs.getString("public_key", null) ?: cx.aswin.boxlore.core.data.BuildConfig.BOXCAST_PUBLIC_KEY
-        cx.aswin.boxlore.core.data.PodcastRepository(baseUrl, publicKey, this)
-    }
-    private val subscriptionRepository by lazy {
-        cx.aswin.boxlore.core.data.SubscriptionRepository(database.podcastDao())
-    }
+    private val userPreferencesRepository by lazy { sharedDeps.userPreferencesRepository }
+    private val database by lazy { sharedDeps.database }
+    private val podcastRepository by lazy { sharedDeps.podcastRepository }
+    private val subscriptionRepository by lazy { sharedDeps.subscriptionRepository }
     private val queueSkipMemory by lazy {
         cx.aswin.boxlore.core.data.QueueSkipMemory.fromContext(this)
     }
-    private val rankingFeedbackRepository by lazy {
-        cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository.getInstance(this)
-    }
-    private val adaptiveCandidateScorer by lazy {
-        cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer.getInstance(this)
-    }
+    private val rankingFeedbackRepository by lazy { sharedDeps.rankingFeedbackRepository }
+    private val adaptiveCandidateScorer by lazy { sharedDeps.adaptiveCandidateScorer }
     private val smartQueueSources by lazy {
         cx.aswin.boxlore.core.data.DefaultSmartQueueSources(
             context = this,
@@ -100,6 +91,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
         )
     }
     private val queueRepository by lazy {
+        // Queue lives in :core:playback; reuse shared DB + PodcastRepository (no parallel ranking/RSS).
         cx.aswin.boxlore.core.data.QueueRepository(database, podcastRepository)
     }
     private var isRefilling = false
@@ -1546,8 +1538,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
                         try {
                             val shouldDelete = userPreferencesRepository.autoDownloadDeleteCompletedStream.first()
                             if (shouldDelete) {
-                                val downloadRepo = cx.aswin.boxlore.core.data.DownloadRepository(this@BoxLorePlaybackService, database)
-                                downloadRepo.removeDownload(completedEpId)
+                                sharedDeps.downloadRepository.removeDownload(completedEpId)
                                 android.util.Log.d("BoxLorePlaybackService", "Auto-deleted completed downloaded episode: $completedEpId")
                             }
                         } catch (e: Exception) {

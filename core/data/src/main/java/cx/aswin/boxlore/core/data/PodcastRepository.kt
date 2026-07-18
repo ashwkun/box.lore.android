@@ -128,10 +128,10 @@ class PodcastRepository(
     private val baseUrl: String,
     val publicKey: String,
     private val context: android.content.Context,
+    private val rssRepository: RssPodcastRepository,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO
 ) : cx.aswin.boxlore.core.domain.ports.PodcastCatalogPort {
     val api: BoxLoreApi = NetworkModule.createBoxLoreApi(baseUrl, context)
-    private val rssRepository = RssPodcastRepository.getInstance(context)
     private val contentCatalogPreferences = context.applicationContext.getSharedPreferences(
         "content_catalog_cache",
         android.content.Context.MODE_PRIVATE,

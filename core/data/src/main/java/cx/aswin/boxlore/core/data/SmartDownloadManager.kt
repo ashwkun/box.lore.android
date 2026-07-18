@@ -63,9 +63,9 @@ class SmartDownloadManager(
     private val historyRecommendationSource: HistoryRecommendationSource,
     private val downloadRepository: DownloadRepository,
     private val subscriptionRepository: SubscriptionRepository,
-    private val userPrefs: UserPreferencesRepository
+    private val userPrefs: UserPreferencesRepository,
+    private val adaptiveScorer: AdaptiveCandidateScorer,
 ) {
-    private val adaptiveScorer = AdaptiveCandidateScorer.getInstance(context)
 
     private data class MixtapeCandidate(
         val episodeId: String,

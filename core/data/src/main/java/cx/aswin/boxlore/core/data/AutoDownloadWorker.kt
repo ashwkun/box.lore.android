@@ -27,8 +27,8 @@ class AutoDownloadWorker(
 
         Log.i("BoxLore_BackgroundTrace", "[Worker] AutoDownloadWorker execution started for podcastId: $podcastId, episodeId: $episodeId")
 
-        val context = applicationContext
-        val database = BoxLoreDatabase.getDatabase(context)
+        val deps = SharedAppDependenciesHolder.require()
+        val database = deps.database
 
         // 1. Verify that auto-download is enabled for this podcast
         val podcastEntity = database.podcastDao().getPodcast(podcastId)
@@ -64,12 +64,8 @@ class AutoDownloadWorker(
         }
 
         try {
-            val apiBaseUrl = BuildConfig.BOXCAST_API_BASE_URL
-            val publicKey = BuildConfig.BOXCAST_PUBLIC_KEY
-            val app = context.applicationContext as android.app.Application
-
-            val podcastRepository = PodcastRepository(apiBaseUrl, publicKey, app)
-            val downloadRepository = DownloadRepository(app, database)
+            val podcastRepository = deps.podcastRepository
+            val downloadRepository = deps.downloadRepository
 
             // Fetch full episode metadata with fallbacks (delegated to private helper)
             Log.i("BoxLore_BackgroundTrace", "[Worker] Fetching episode metadata from repository for episodeId: $episodeId...")
@@ -92,8 +88,7 @@ class AutoDownloadWorker(
             Log.i("BoxLore_BackgroundTrace", "[Worker] SUCCESS! Enqueued auto-download for episode: ${episode.title} ($episodeId)")
 
             // Post-download quota trim: enforce max episodes AFTER adding, to prevent race conditions
-            val userPrefs = UserPreferencesRepository(context)
-            val maxAllowed = userPrefs.autoDownloadMaxEpisodesStream.first()
+            val maxAllowed = deps.userPreferencesRepository.autoDownloadMaxEpisodesStream.first()
             enforceMaxDownloadsQuota(database, downloadRepository, podcastId, maxAllowed)
 
             return Result.success()

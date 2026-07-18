@@ -29,7 +29,8 @@ import java.util.concurrent.Executors
 
 class DownloadRepository(
     private val context: Context,
-    private val database: BoxLoreDatabase
+    private val database: BoxLoreDatabase,
+    private val rankingFeedbackRepository: RankingFeedbackRepository,
 ) {
     private val downloadManager: DownloadManager = getDownloadManager(context)
     
@@ -175,7 +176,7 @@ class DownloadRepository(
                 return@launch
             }
             if (!isSmartDownloaded) {
-                RankingFeedbackRepository.getInstance(context).recordAction(
+                rankingFeedbackRepository.recordAction(
                     target = FeedbackTarget(
                         episodeId = episode.id,
                         podcastId = podcast.id,

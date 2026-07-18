@@ -98,7 +98,8 @@ class PlaybackRepository(
     private val context: Context,
     private val listeningHistoryDao: cx.aswin.boxlore.core.data.database.ListeningHistoryDao,
     private val queueRepository: cx.aswin.boxlore.core.data.QueueRepository,
-    private val podcastRepository: PodcastRepository
+    private val podcastRepository: PodcastRepository,
+    private val rankingFeedbackRepository: RankingFeedbackRepository,
 ) : ListeningHistoryBackupPort {
 
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
@@ -115,7 +116,6 @@ class PlaybackRepository(
     private val KEY_DEBUG_SKIP_SLEEP_WINDOW = "debug_skip_sleep_window"
     
     private val userPreferencesRepository = UserPreferencesRepository(context)
-    private val rankingFeedbackRepository = RankingFeedbackRepository.getInstance(context)
     private var currentSkipBehavior: String = "just_skip"
     @Volatile private var currentSkipEndingMs: Long = 0L
 

@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import kotlinx.coroutines.flow.first
 
 class SmartDownloadWorker(
@@ -14,10 +13,9 @@ class SmartDownloadWorker(
 
     override suspend fun doWork(): Result {
         Log.d("SmartDownloadWorker", "WorkManager daily check triggered.")
-        val context = applicationContext
 
-        val database = BoxLoreDatabase.getDatabase(context)
-        val userPrefs = UserPreferencesRepository(context)
+        val deps = SharedAppDependenciesHolder.require()
+        val userPrefs = deps.userPreferencesRepository
 
         // Check if enabled first
         val isEnabled = userPrefs.smartDownloadsEnabledStream.first()
@@ -27,33 +25,7 @@ class SmartDownloadWorker(
         }
 
         try {
-            // Instantiate dependencies dynamically in worker context — no PlaybackRepository.
-            val apiBaseUrl = BuildConfig.BOXCAST_API_BASE_URL
-            val publicKey = BuildConfig.BOXCAST_PUBLIC_KEY
-            val app = context.applicationContext as android.app.Application
-
-            val podcastRepository = PodcastRepository(apiBaseUrl, publicKey, app)
-            val downloadRepository = DownloadRepository(app, database)
-            val subscriptionRepository = SubscriptionRepository(database.podcastDao())
-            val historyRecommendationSource = DefaultSmartQueueSources(
-                context = context,
-                database = database,
-                podcastRepository = podcastRepository,
-                subscriptionRepository = subscriptionRepository,
-                userPreferencesRepository = userPrefs,
-            )
-
-            val manager = SmartDownloadManager(
-                context = context,
-                database = database,
-                podcastRepository = podcastRepository,
-                historyRecommendationSource = historyRecommendationSource,
-                downloadRepository = downloadRepository,
-                subscriptionRepository = subscriptionRepository,
-                userPrefs = userPrefs
-            )
-
-            val success = manager.performSync(isForeground = false)
+            val success = deps.smartDownloadManager.performSync(isForeground = false)
             return if (success) Result.success() else Result.retry()
         } catch (e: Exception) {
             Log.e("SmartDownloadWorker", "Worker execution failed", e)

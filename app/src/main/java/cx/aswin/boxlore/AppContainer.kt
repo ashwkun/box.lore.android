@@ -8,6 +8,7 @@ import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.QueueManager
 import cx.aswin.boxlore.core.data.QueueRepository
 import cx.aswin.boxlore.core.data.RssPodcastRepository
+import cx.aswin.boxlore.core.data.SharedAppDependencies
 import cx.aswin.boxlore.core.data.SmartDownloadManager
 import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
@@ -16,14 +17,17 @@ import cx.aswin.boxlore.core.data.privacy.ConsentManager
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
 
 /**
  * Application-scoped composition root for shared DB / repositories / managers.
  *
  * Construction order (invariant):
- * DB → PodcastRepository → QueueRepository → PlaybackRepository → QueueManager → SmartDownloadManager.
+ * DB → RSS/ranking peers → PodcastRepository → QueueRepository → PlaybackRepository
+ * → QueueManager → SmartDownloadManager.
  *
- * Callers are wired in later phases; this type is safe to construct but unused until then.
+ * Ranking/RSS [getInstance] calls live only here so workers/services can consume the same
+ * instances via [cx.aswin.boxlore.core.data.SharedAppDependenciesHolder].
  */
 class AppContainer(
     context: Context,
@@ -34,18 +38,37 @@ class AppContainer(
      * [UserPreferencesRepository] (theme cache / engagement) without a second DataStore client.
      */
     sharedUserPreferences: UserPreferencesRepository? = null,
-) {
+) : SharedAppDependencies {
     private val appContext = context.applicationContext
 
-    val database: BoxLoreDatabase by lazy {
+    override val database: BoxLoreDatabase by lazy {
         BoxLoreDatabase.getDatabase(appContext)
     }
 
-    val podcastRepository: PodcastRepository by lazy {
+    /** Single install path for RSS; production callers must not call getInstance. */
+    override val rssPodcastRepository: RssPodcastRepository by lazy {
+        RssPodcastRepository.getInstance(appContext)
+    }
+
+    /** Single install path for adaptive ranking; production callers must not call getInstance. */
+    override val adaptiveRankingRepository: AdaptiveRankingRepository by lazy {
+        AdaptiveRankingRepository.getInstance(appContext)
+    }
+
+    override val rankingFeedbackRepository: RankingFeedbackRepository by lazy {
+        RankingFeedbackRepository.getInstance(appContext)
+    }
+
+    override val adaptiveCandidateScorer: AdaptiveCandidateScorer by lazy {
+        AdaptiveCandidateScorer.getInstance(appContext)
+    }
+
+    override val podcastRepository: PodcastRepository by lazy {
         PodcastRepository(
             baseUrl = apiBaseUrl,
             publicKey = publicKey,
             context = appContext,
+            rssRepository = rssPodcastRepository,
         )
     }
 
@@ -59,18 +82,23 @@ class AppContainer(
             listeningHistoryDao = database.listeningHistoryDao(),
             queueRepository = queueRepository,
             podcastRepository = podcastRepository,
+            rankingFeedbackRepository = rankingFeedbackRepository,
         )
     }
 
-    val downloadRepository: DownloadRepository by lazy {
-        DownloadRepository(appContext, database)
+    override val downloadRepository: DownloadRepository by lazy {
+        DownloadRepository(
+            context = appContext,
+            database = database,
+            rankingFeedbackRepository = rankingFeedbackRepository,
+        )
     }
 
-    val subscriptionRepository: SubscriptionRepository by lazy {
+    override val subscriptionRepository: SubscriptionRepository by lazy {
         SubscriptionRepository(database.podcastDao())
     }
 
-    val userPreferencesRepository: UserPreferencesRepository =
+    override val userPreferencesRepository: UserPreferencesRepository =
         sharedUserPreferences ?: UserPreferencesRepository(appContext)
 
     val consentManager: ConsentManager by lazy {
@@ -81,7 +109,7 @@ class AppContainer(
         QueueManager(queueRepository, playbackRepository)
     }
 
-    val historyRecommendationSource: cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource by lazy {
+    override val historyRecommendationSource: HistoryRecommendationSource by lazy {
         cx.aswin.boxlore.core.data.DefaultSmartQueueSources(
             context = appContext,
             database = database,
@@ -91,7 +119,7 @@ class AppContainer(
         )
     }
 
-    val smartDownloadManager: SmartDownloadManager by lazy {
+    override val smartDownloadManager: SmartDownloadManager by lazy {
         SmartDownloadManager(
             context = appContext,
             database = database,
@@ -100,26 +128,11 @@ class AppContainer(
             downloadRepository = downloadRepository,
             subscriptionRepository = subscriptionRepository,
             userPrefs = userPreferencesRepository,
+            adaptiveScorer = adaptiveCandidateScorer,
         )
     }
 
     val installReferrerManager: InstallReferrerManager by lazy {
         InstallReferrerManager(appContext)
-    }
-
-    val rssPodcastRepository: RssPodcastRepository by lazy {
-        RssPodcastRepository.getInstance(appContext)
-    }
-
-    val adaptiveCandidateScorer: AdaptiveCandidateScorer by lazy {
-        AdaptiveCandidateScorer.getInstance(appContext)
-    }
-
-    val rankingFeedbackRepository: RankingFeedbackRepository by lazy {
-        RankingFeedbackRepository.getInstance(appContext)
-    }
-
-    val adaptiveRankingRepository: AdaptiveRankingRepository by lazy {
-        AdaptiveRankingRepository.getInstance(appContext)
     }
 }

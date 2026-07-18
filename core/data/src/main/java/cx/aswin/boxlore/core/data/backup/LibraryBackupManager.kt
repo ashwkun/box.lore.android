@@ -1,6 +1,8 @@
 package cx.aswin.boxlore.core.data.backup
 
 import cx.aswin.boxlore.core.data.PodcastRepository
+import cx.aswin.boxlore.core.data.RssPodcastRepository
+import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
 import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
@@ -63,6 +65,10 @@ class LibraryBackupManager(
     private val podcastRepository: PodcastRepository,
     private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository? = null,
     context: android.content.Context,
+    private val adaptiveRankingRepository: AdaptiveRankingRepository =
+        SharedAppDependenciesHolder.require().adaptiveRankingRepository,
+    private val rssPodcastRepository: RssPodcastRepository =
+        SharedAppDependenciesHolder.require().rssPodcastRepository,
 ) {
     private val context = context.applicationContext
     private val gson: Gson = GsonBuilder()
@@ -103,7 +109,7 @@ class LibraryBackupManager(
             )
         } else null
 
-        val rankingBackup = AdaptiveRankingRepository.getInstance(context).exportBackup()
+        val rankingBackup = adaptiveRankingRepository.exportBackup()
         val backup = BoxCastBackup(
             version = 5,
             subscriptions = subscriptions,
@@ -196,11 +202,9 @@ class LibraryBackupManager(
             for (entity in backup.subscriptions) {
                 if (entity.sourceType == PodcastEntity.SOURCE_RSS) {
                     val feedUrl = entity.feedUrl
-                    val appContext = context
-                    val rssPodcast = if (appContext != null && !feedUrl.isNullOrBlank()) {
+                    val rssPodcast = if (!feedUrl.isNullOrBlank()) {
                         runCatching {
-                            cx.aswin.boxlore.core.data.RssPodcastRepository
-                                .getInstance(appContext)
+                            rssPodcastRepository
                                 .addSubscription(feedUrl)
                                 .podcast
                         }.onFailure { error ->
@@ -324,7 +328,7 @@ class LibraryBackupManager(
             // 3. Restore the complete on-device learning state when present. Older backups
             // remain compatible because this versioned field is optional.
             backup.adaptiveRanking?.let { rankingBackup ->
-                AdaptiveRankingRepository.getInstance(context).restoreBackup(rankingBackup)
+                adaptiveRankingRepository.restoreBackup(rankingBackup)
             }
             
             // 4. Trigger check for new episodes
@@ -386,21 +390,17 @@ class LibraryBackupManager(
 
     suspend fun importSingleOpmlFeed(feed: OpmlFeed): cx.aswin.boxlore.core.model.Podcast? {
         try {
-            val appContext = context
-            if (appContext != null) {
-                runCatching {
-                    cx.aswin.boxlore.core.data.RssPodcastRepository
-                        .getInstance(appContext)
-                        .addSubscription(feed.xmlUrl)
-                        .podcast
-                }.onFailure { error ->
-                    Log.w(
-                        "OPML_IMPORT",
-                        "Direct RSS import failed for ${feed.title}; trying Podcast Index",
-                        error,
-                    )
-                }.getOrNull()?.let { return it }
-            }
+            runCatching {
+                rssPodcastRepository
+                    .addSubscription(feed.xmlUrl)
+                    .podcast
+            }.onFailure { error ->
+                Log.w(
+                    "OPML_IMPORT",
+                    "Direct RSS import failed for ${feed.title}; trying Podcast Index",
+                    error,
+                )
+            }.getOrNull()?.let { return it }
 
             var matchedPodcast: cx.aswin.boxlore.core.model.Podcast? = null
             
