@@ -371,6 +371,39 @@
         <error line="309" column="23" source="standard:multiline-expression-wrapping" />
         <error line="368" column="35" source="standard:multiline-expression-wrapping" />
     </file>
+    <file name="src/main/java/cx/aswin/boxlore/navigation/NavGraphTabDestinations.kt">
+        <error line="5" column="1" source="standard:no-unused-imports" />
+        <error line="7" column="1" source="standard:no-unused-imports" />
+        <error line="10" column="1" source="standard:no-unused-imports" />
+        <error line="15" column="1" source="standard:no-unused-imports" />
+        <error line="19" column="1" source="standard:no-unused-imports" />
+        <error line="20" column="1" source="standard:no-unused-imports" />
+        <error line="21" column="1" source="standard:no-unused-imports" />
+        <error line="45" column="69" source="standard:chain-method-continuation" />
+        <error line="46" column="69" source="standard:chain-method-continuation" />
+        <error line="76" column="69" source="standard:chain-method-continuation" />
+        <error line="154" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="155" column="45" source="standard:chain-method-continuation" />
+        <error line="157" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="158" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="176" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="209" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="210" column="45" source="standard:chain-method-continuation" />
+        <error line="212" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="213" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="228" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="253" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="272" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="298" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="300" column="43" source="standard:statement-wrapping" />
+        <error line="300" column="60" source="standard:statement-wrapping" />
+        <error line="303" column="43" source="standard:statement-wrapping" />
+        <error line="303" column="60" source="standard:statement-wrapping" />
+        <error line="306" column="43" source="standard:statement-wrapping" />
+        <error line="306" column="60" source="standard:statement-wrapping" />
+        <error line="314" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="315" column="23" source="standard:multiline-expression-wrapping" />
+    </file>
     <file name="src/main/java/cx/aswin/boxlore/navigation/NavGraphWiring.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="33" column="20" source="standard:property-naming" />
