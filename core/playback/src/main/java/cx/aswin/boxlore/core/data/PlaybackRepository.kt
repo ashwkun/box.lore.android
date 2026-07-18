@@ -2203,17 +2203,31 @@ class PlaybackRepository(
         // If saved queue is empty but we have an episode, make a single-item queue
         val restoredQueue = if (savedQueue.isEmpty()) listOf(episode) else savedQueue
 
-        // Update state but don't play
+        // Prefer live MediaController truth when the playback service is still running
+        // (e.g. user swiped the app from recents while audio continued). Forcing
+        // isPlaying=false here races with syncStateFromMediaController() and leaves
+        // the UI paused while ExoPlayer keeps playing.
+        val controller = mediaController
+        val controllerPlaying = controller?.isPlaying == true
+        val controllerPosition = controller?.currentPosition?.takeIf { it > 0 }
+        val controllerDuration = controller?.duration?.takeIf { it > 0 }
+
         _playerState.value =
             _playerState.value.copy(
                 currentEpisode = episode,
                 currentPodcast = podcast,
-                isPlaying = false,
-                position = lastSession.progressMs,
-                duration = lastSession.durationMs,
+                isPlaying = controllerPlaying,
+                position = controllerPosition ?: lastSession.progressMs,
+                duration = controllerDuration ?: lastSession.durationMs,
                 isLiked = lastSession.isLiked,
                 queue = restoredQueue,
             )
+
+        // Re-sync after metadata restore in case the controller connected first and
+        // onIsPlayingChanged won't fire again (already playing when the listener attached).
+        if (controller != null) {
+            syncStateFromMediaController()
+        }
 
         return true
     }
