@@ -76,4 +76,6 @@ posthog-setup-report.md
 .vscode/
 .claude/
 .agents/
-.cursor/
+# Keep cloud-agent install hook committed; ignore other local Cursor files.
+.cursor/*
+!.cursor/environment.json

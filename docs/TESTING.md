@@ -141,6 +141,20 @@ Protected inputs:
 - The unit-test workflow writes a non-secret CI stub only so the Google Services plugin can configure `:app`, then deletes it. Release workflows keep using the real secret.
 - Locally, keep using your usual `.env` / local `app/google-services.json` — unchanged.
 
+### Cursor Cloud Agents (stub-only build)
+
+Cloud agents **do not** need Firebase, proxy, PostHog, signing, or Maestro secrets in the Cursor Secrets dashboard for compile / unit / instrumented work. Leave those empty.
+
+A fresh clone has no `app/google-services.json` (gitignored). Before `./gradlew assembleDebug` or local tests on the VM, run:
+
+```bash
+./scripts/ci/write-cloud-agent-local-config.sh
+```
+
+That script writes the **same non-secret CI stub** as `.github/actions/write-ci-google-services` plus a minimal `local.properties` with `sdk.dir` only (no API keys). BuildConfig fields default to empty strings when keys are absent. If `app/google-services.json` or `local.properties` already exist, they are left alone (`FORCE=1` overwrites).
+
+[`.cursor/environment.json`](../.cursor/environment.json) sets this as the environment `install` hook so new cloud VMs get the stub automatically. GitHub **`merge-ci`** checks still write the stub themselves on Actions runners — Cursor Secrets do not feed GitHub, and PRs do not fail merge checks for lack of laptop secrets.
+
 ## README checklist
 
 Every Gradle module under `app/`, `core/*/`, and `feature/*/` must keep a folder `README.md` aligned with [`MODULE_README_TEMPLATE.md`](MODULE_README_TEMPLATE.md). Treat the template’s **Testing notes** section as mandatory for modules that own logic under test:
