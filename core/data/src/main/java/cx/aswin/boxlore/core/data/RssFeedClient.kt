@@ -101,16 +101,17 @@ class RssFeedClient(
     }
 
     suspend fun checkFreshness(podcast: PodcastEntity): RssFreshnessResult {
+        val feedUrl = podcast.feedUrl
         if (!podcast.isRss ||
             podcast.rssRefreshCapability != PodcastEntity.RSS_REFRESH_HEAD_VALIDATORS ||
-            podcast.feedUrl.isNullOrBlank()
+            feedUrl.isNullOrBlank()
         ) {
             return RssFreshnessResult.Unsupported
         }
         return try {
             execute(
                 conditionalHeadRequest(
-                    podcast.feedUrl,
+                    feedUrl,
                     podcast.feedEtag,
                     podcast.feedLastModified,
                 ),

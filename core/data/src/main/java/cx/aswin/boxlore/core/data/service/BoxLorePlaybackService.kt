@@ -3235,12 +3235,13 @@ class BoxLorePlaybackService : MediaLibraryService() {
         private suspend fun resolveDomainEpisode(episodeId: String): cx.aswin.boxlore.core.model.Episode? {
             queueRepository.getQueueSnapshot().firstOrNull { it.id == episodeId }?.let { return it }
             val history = database.listeningHistoryDao().getHistoryItem(episodeId)
-            if (history?.episodeAudioUrl != null) {
+            val historyAudioUrl = history?.episodeAudioUrl
+            if (history != null && historyAudioUrl != null) {
                 return cx.aswin.boxlore.core.model.Episode(
                     id = history.episodeId,
                     title = history.episodeTitle,
                     description = history.episodeDescription.orEmpty(),
-                    audioUrl = history.episodeAudioUrl,
+                    audioUrl = historyAudioUrl,
                     imageUrl = history.episodeImageUrl,
                     podcastImageUrl = history.podcastImageUrl,
                     podcastTitle = history.podcastName,

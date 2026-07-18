@@ -16,7 +16,7 @@ Cross-module map for the Android app. Module-local detail lives in each moduleâ€
 
 ```text
 :app
-:core:model | :core:network | :core:data | :core:designsystem
+:core:model | :core:network | :core:database | :core:data | :core:designsystem
 :feature:home | :feature:player | :feature:info | :feature:explore
 :feature:library | :feature:onboarding | :feature:briefing
 ```
@@ -38,6 +38,7 @@ flowchart TB
     briefing[:feature:briefing]
   end
   data[:core:data]
+  database[:core:database]
   network[:core:network]
   design[:core:designsystem]
   model[:core:model]
@@ -48,8 +49,11 @@ flowchart TB
   features --> data
   features --> design
   features --> model
+  data --> database
   data --> network
   data --> model
+  database --> network
+  database --> model
   design --> model
   network --> model
 ```
@@ -59,6 +63,7 @@ Rules:
 - No feature â†’ feature Gradle dependencies.
 - `:core:data` must **not** depend on `:core:designsystem` (share UI lives in designsystem; seek notification icons live in data res).
 - Domain enums used by both data and UI (e.g. `AutoTranscriptState`) belong in `:core:model`.
+- `:core:database` owns main Room (`BoxLoreDatabase`); packages remain `cx.aswin.boxlore.core.data.database`.
 
 ## Composition root (today)
 

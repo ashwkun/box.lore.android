@@ -52,6 +52,7 @@ android {
 dependencies {
     implementation(projects.core.model)
     implementation(projects.core.network)
+    api(projects.core.database)
     implementation(libs.coil)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.core.ktx)
@@ -60,9 +61,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.androidx.datastore.preferences)
 
-    // Room
-    api(libs.androidx.room.runtime)
-    api(libs.androidx.room.ktx)
+    // Room (ksp retained for ranking AdaptiveRankingDatabase; runtime via :core:database)
     ksp(libs.androidx.room.compiler)
 
     // JSON Streaming

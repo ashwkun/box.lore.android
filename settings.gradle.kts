@@ -73,6 +73,7 @@ rootProject.name = "boxlore"
 include(":app")
 include(":core:network")
 include(":core:data")
+include(":core:database")
 include(":core:model")
 include(":core:designsystem")
 include(":core:testing")
