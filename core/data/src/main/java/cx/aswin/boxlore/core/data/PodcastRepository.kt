@@ -129,9 +129,14 @@ class PodcastRepository(
     val publicKey: String,
     private val context: android.content.Context,
     private val rssRepository: RssPodcastRepository,
-    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO,
+    /**
+     * Optional override for hermetic JVM/MockWebServer tests. Production leaves this null so
+     * [NetworkModule.createBoxLoreApi] builds the cached OkHttp client from [context].
+     */
+    boxLoreApi: BoxLoreApi? = null,
 ) : cx.aswin.boxlore.core.domain.ports.PodcastCatalogPort {
-    val api: BoxLoreApi = NetworkModule.createBoxLoreApi(baseUrl, context)
+    val api: BoxLoreApi = boxLoreApi ?: NetworkModule.createBoxLoreApi(baseUrl, context)
     private val contentCatalogPreferences = context.applicationContext.getSharedPreferences(
         "content_catalog_cache",
         android.content.Context.MODE_PRIVATE,

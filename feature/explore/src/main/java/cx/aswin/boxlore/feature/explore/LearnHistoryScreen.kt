@@ -43,7 +43,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cx.aswin.boxlore.core.data.toEpisode
 import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxlore.core.model.Episode
@@ -205,7 +204,7 @@ fun LearnHistoryScreen(
                                 LearnHistoryRow(
                                     entry = entry,
                                     onClick = {
-                                        onEpisodeClick(entry.toDailyCuriosityDto().episode.toEpisode())
+                                        onEpisodeClick(entry.toLearnCuriosityCard().toEpisode())
                                     },
                                     onRestore = { viewModel.restoreEntry(entry.episodeId) }
                                 )

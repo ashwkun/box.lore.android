@@ -34,6 +34,7 @@ import java.util.Calendar
 
 import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.model.Episode
+import cx.aswin.boxlore.feature.explore.logic.ExploreBrowseLogic
 
 enum class SearchTab { SHOWS, EPISODES }
 
@@ -298,33 +299,7 @@ class ExploreViewModel(
 
     private fun getSortedVibesForTimeOfDay(): List<Pair<String, String>> {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val morning = listOf(
-            "morning_news" to "Top News",
-            "morning_motivation" to "Daily Motivation",
-            "business_insider" to "Business & Tech"
-        )
-        val afternoon = listOf(
-            "science_explainer" to "Science & Discovery",
-            "tech_culture" to "Tech & Gadgets",
-            "creative_focus" to "Creative Focus"
-        )
-        val evening = listOf(
-            "comedy_gold" to "Comedy Gold",
-            "tv_film_buff" to "TV & Film",
-            "sports_fan" to "Sports Highlights"
-        )
-        val lateNight = listOf(
-            "true_crime_sleep" to "True Crime & Chill",
-            "history_buff" to "History",
-            "mystery_thriller" to "Mystery & Thrillers"
-        )
-
-        return when (hour) {
-            in 5..11 -> morning + afternoon + evening + lateNight
-            in 12..16 -> afternoon + evening + lateNight + morning
-            in 17..22 -> evening + lateNight + morning + afternoon
-            else -> lateNight + morning + afternoon + evening
-        }
+        return ExploreBrowseLogic.vibesForHour(hour)
     }
 
     private fun loadAllVibes() {
@@ -381,11 +356,8 @@ class ExploreViewModel(
             _hasPerformedSemanticSearch.value = false
             _isSemanticLoading.value = false
         } else {
-            val matches = _seenPodcasts.values.filter { podcast ->
-                podcast.title.contains(trimmed, ignoreCase = true) ||
-                podcast.artist.contains(trimmed, ignoreCase = true)
-            }.sortedBy { it.title }
-            _localSubstringResults.value = matches
+            _localSubstringResults.value =
+                ExploreBrowseLogic.filterPodcastsBySubstring(trimmed, _seenPodcasts.values)
 
             // If we are on EPISODES tab, set loading to true immediately because they just started typing!
             if (_searchTab.value == SearchTab.EPISODES) {
@@ -491,9 +463,10 @@ class ExploreViewModel(
                     _hasMorePages.value = false
                 }
                 currentOffset += morePodcasts.size
-                val existingIds = _trendingPodcasts.value.map { it.id }.toSet()
-                val newPodcasts = morePodcasts.filter { it.id !in existingIds }
-                _trendingPodcasts.value = _trendingPodcasts.value + newPodcasts
+                val previous = _trendingPodcasts.value
+                val merged = ExploreBrowseLogic.mergeUniqueById(previous, morePodcasts) { it.id }
+                val newPodcasts = merged.drop(previous.size)
+                _trendingPodcasts.value = merged
                 newPodcasts.forEach { _seenPodcasts[it.id] = it }
             } catch (e: Exception) {
                 android.util.Log.e("ExploreViewModel", "Load more error", e)
@@ -633,14 +606,8 @@ class ExploreViewModel(
         }
     }
 
-    private fun Episode.toSearchPodcast(): Podcast = Podcast(
-        id = podcastId.orEmpty(),
-        title = podcastTitle.orEmpty(),
-        artist = podcastArtist.orEmpty(),
-        imageUrl = podcastImageUrl ?: imageUrl.orEmpty(),
-        genre = podcastGenre.orEmpty(),
-        latestEpisode = this,
-    )
+    private fun Episode.toSearchPodcast(): Podcast =
+        ExploreBrowseLogic.episodeToSearchPodcast(this)
 
     fun setSearchTab(tab: SearchTab) {
         if (_searchTab.value == tab) return

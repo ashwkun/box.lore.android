@@ -16,35 +16,40 @@ data class DiscoveryGreeting(
 internal fun discoveryGreetingFor(
     daypart: ContentDaypart,
     date: LocalDate = LocalDate.now(),
-): DiscoveryGreeting {
-    return when (daypart) {
-        ContentDaypart.MORNING -> DiscoveryGreeting(
-            title = "Good Morning",
-            subtitle = if (date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)) {
-                "Catch up on the week."
-            } else {
-                "Start your day with these updates."
-            },
-            daypart = daypart,
-        )
-        ContentDaypart.AFTERNOON -> DiscoveryGreeting(
-            title = "Afternoon Break",
-            subtitle = "Smart conversations to keep you going.",
-            daypart = daypart,
-        )
-        ContentDaypart.EVENING -> DiscoveryGreeting(
-            title = "Evening Unwind",
-            subtitle = if (date.dayOfWeek == DayOfWeek.FRIDAY) {
-                "Kick off the weekend."
-            } else {
-                "Relax, laugh, and catch up."
-            },
-            daypart = daypart,
-        )
-        ContentDaypart.LATE_NIGHT -> DiscoveryGreeting(
-            title = "Late Night Listen",
-            subtitle = "Stories for the dark hours.",
-            daypart = daypart,
-        )
+): DiscoveryGreeting =
+    when (daypart) {
+        ContentDaypart.MORNING ->
+            DiscoveryGreeting(
+                title = "Good Morning",
+                subtitle =
+                    if (date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)) {
+                        "Catch up on the week."
+                    } else {
+                        "Start your day with these updates."
+                    },
+                daypart = daypart,
+            )
+        ContentDaypart.AFTERNOON ->
+            DiscoveryGreeting(
+                title = "Afternoon Break",
+                subtitle = "Smart conversations to keep you going.",
+                daypart = daypart,
+            )
+        ContentDaypart.EVENING ->
+            DiscoveryGreeting(
+                title = "Evening Unwind",
+                subtitle =
+                    if (date.dayOfWeek == DayOfWeek.FRIDAY) {
+                        "Kick off the weekend."
+                    } else {
+                        "Relax, laugh, and catch up."
+                    },
+                daypart = daypart,
+            )
+        ContentDaypart.LATE_NIGHT ->
+            DiscoveryGreeting(
+                title = "Late Night Listen",
+                subtitle = "Stories for the dark hours.",
+                daypart = daypart,
+            )
     }
-}

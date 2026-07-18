@@ -356,9 +356,19 @@ class AdaptiveCandidateScorer private constructor(
         @Volatile
         private var instance: AdaptiveCandidateScorer? = null
 
+        fun create(
+            rankingRepository: AdaptiveRankingRepository,
+            runtimeControls: RankingRuntimeControls,
+        ): AdaptiveCandidateScorer = AdaptiveCandidateScorer(rankingRepository, runtimeControls)
+
+        fun install(value: AdaptiveCandidateScorer) {
+            instance = value
+        }
+
+        /** Prefer AppContainer / SharedAppDependenciesHolder in production. */
         fun getInstance(context: Context): AdaptiveCandidateScorer {
             return instance ?: synchronized(this) {
-                instance ?: AdaptiveCandidateScorer(
+                instance ?: create(
                     AdaptiveRankingRepository.getInstance(context.applicationContext),
                     RankingRuntimeControls.getInstance(context.applicationContext),
                 ).also { instance = it }

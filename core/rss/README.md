@@ -13,7 +13,7 @@ Owns the complete RSS podcast stack: feed fetching, parsing, ID generation, epis
 - **`RssIdGenerator`** — deterministic, FQCN-stable IDs:
   - `rss:` namespace for podcast IDs (`rss:<sha256-hex>`)
   - Negative `Long` IDs for episodes (collision-free with positive Podcast Index IDs)
-  - See [ID stability rules](#id-and-fqcn-stability) below
+  - See [Persistence & identity](#persistence--identity) for ID rules
 - **`RssSourceMatcher`** — heuristic episode/show matching for Podcast Index migration (`feedIdentityMatches`, `likelySameShow`, `findMatchingEpisode`)
 - **`ports.DownloadCacheRelinker`** — `fun interface` injected into `RssPodcastRepository` by `AppContainer` so the RSS module does not compile-depend on `:core:downloads`
 
@@ -27,7 +27,7 @@ src/main/java/cx/aswin/boxlore/core/data/
     DownloadCacheRelinker.kt  # fun interface — implemented in :core:downloads, wired by AppContainer
 ```
 
-> **Package note:** all sources keep the package `cx.aswin.boxlore.core.data` (not `…core.rss`). This is intentional — FQCN stability is required for WorkManager worker registrations and for cross-module opaque references to episode/podcast IDs that are already persisted in Room.
+> **Package note:** all sources keep the package `cx.aswin.boxlore.core.data` (not `…core.rss`). This is intentional — FQCN / ID opacity stability for persisted references.
 
 ## Dependencies
 
@@ -40,7 +40,13 @@ src/main/java/cx/aswin/boxlore/core/data/
 
 Forbidden edges: `core:rss` **must not** depend on `:core:downloads` (cycle), `:core:playback`, `:core:designsystem`, or any `:feature:*` module.
 
-## ID and FQCN stability
+## Threading / lifecycle
+
+- Application-scoped via `AppContainer` **create + install** (not ad-hoc construction). Workers/services use `SharedAppDependenciesHolder.require().rssPodcastRepository`
+- All suspend functions dispatch to `Dispatchers.IO`. Freshness sweeps use `Semaphore(4)` for concurrent HEAD caps
+- `refreshLocks` — per-podcast `Mutex` prevents duplicate concurrent catalog refreshes
+
+## Persistence & identity
 
 These identifiers are persisted in Room and must never change:
 
@@ -48,34 +54,13 @@ These identifiers are persisted in Room and must never change:
 | :--- | :--- |
 | Podcast IDs: `rss:<sha256-hex>` | Room `podcasts` table PK; user subscriptions |
 | Episode IDs: negative `Long` string | Room `rss_episodes` PK; listening history FK; download FK |
-| Package `cx.aswin.boxlore.core.data` | Opaque references in WorkManager requests |
+| Package `cx.aswin.boxlore.core.data` | Opaque references across modules |
 
-**Negative episode IDs:** `RssIdGenerator.episodeIdForPodcast` maps the first 8 bytes of `SHA-256(podcastId + "\0" + identity)` to a positive `Long`, then negates it. This guarantees:
-- IDs are always `< 0` (never collide with positive Podcast Index IDs)
-- IDs are never `0` or `Long.MIN_VALUE`
-- The same input always produces the same ID (deterministic across app restarts)
+**Negative episode IDs:** `RssIdGenerator.episodeIdForPodcast` maps the first 8 bytes of `SHA-256(podcastId + "\0" + identity)` to a positive `Long`, then negates it (never `0` / `Long.MIN_VALUE`; never collides with positive Podcast Index IDs).
 
-**`rss:` namespace:** Podcast IDs start with `rss:` followed by a 64-hex-digit SHA-256 of the normalised, fragment-stripped feed URL. Feed URL normalisation (lower-case host, strip fragment) is applied before hashing so minor URL variations map to the same podcast.
+**`rss:` namespace:** 64-hex SHA-256 of the normalised, fragment-stripped feed URL (lower-case host).
 
-## DownloadCacheRelinker port pattern
-
-`RssPodcastRepository` relies on `DownloadCacheRelinker` (a `fun interface` in `ports/`) to re-key Media3 download cache entries when an RSS episode ID changes during Podcast Index migration. The implementation (`DownloadRepository.relinkDownloadCache`) lives in `:core:downloads`. `AppContainer` wires the real lambda after constructing both repositories:
-
-```kotlin
-rssPodcastRepository.setDownloadCacheRelinker(
-    DownloadCacheRelinker { oldId, newId ->
-        DownloadRepository.relinkDownloadCache(appContext, oldId, newId)
-    }
-)
-```
-
-A no-op default is used before wiring, so the repo is safe to construct before `AppContainer` completes.
-
-## Threading / lifecycle
-
-- `RssPodcastRepository` is Application-scoped (singleton via `getInstance`). Only `AppContainer` calls `getInstance`; workers and services obtain the instance from `SharedAppDependenciesHolder.require().rssPodcastRepository`.
-- All suspend functions dispatch to `Dispatchers.IO`. Background freshness sweeps (`checkSubscribedFeedFreshness`) use a bounded `Semaphore(4)` to cap concurrent HEAD requests.
-- `refreshLocks` — per-podcast `Mutex` prevents duplicate concurrent catalog refreshes for the same feed.
+**DownloadCacheRelinker:** `AppContainer` wires `DownloadRepository.relinkDownloadCache` after both repos exist so RSS does not compile-depend on `:core:downloads`.
 
 ## Testing notes
 

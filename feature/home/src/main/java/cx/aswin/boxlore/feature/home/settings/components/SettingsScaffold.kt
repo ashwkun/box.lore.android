@@ -44,16 +44,18 @@ internal fun SettingsScaffold(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val currentOnUnconsumedTap = rememberUpdatedState(onUnconsumedTap)
-    val titleStyle = lerp(
-        start = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-        stop = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        fraction = scrollBehavior.state.collapsedFraction,
-    )
+    val titleStyle =
+        lerp(
+            start = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+            stop = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            fraction = scrollBehavior.state.collapsedFraction,
+        )
 
     Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             LargeTopAppBar(
@@ -72,44 +74,46 @@ internal fun SettingsScaffold(
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
             )
         },
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
             contentAlignment = Alignment.TopCenter,
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 720.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(
-                        start = 16.dp,
-                        top = 8.dp,
-                        end = 16.dp,
-                        bottom = 200.dp,
-                    )
-                    .then(
-                        if (onUnconsumedTap != null) {
-                            Modifier.pointerInput(Unit) {
-                                awaitEachGesture {
-                                    awaitFirstDown(requireUnconsumed = true)
-                                    if (waitForUpOrCancellation() != null) {
-                                        currentOnUnconsumedTap.value?.invoke()
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 720.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(
+                            start = 16.dp,
+                            top = 8.dp,
+                            end = 16.dp,
+                            bottom = 200.dp,
+                        ).then(
+                            if (onUnconsumedTap != null) {
+                                Modifier.pointerInput(Unit) {
+                                    awaitEachGesture {
+                                        awaitFirstDown(requireUnconsumed = true)
+                                        if (waitForUpOrCancellation() != null) {
+                                            currentOnUnconsumedTap.value?.invoke()
+                                        }
                                     }
                                 }
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
+                            } else {
+                                Modifier
+                            },
+                        ),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 content = content,
             )

@@ -1,7 +1,5 @@
 package cx.aswin.boxlore.feature.info.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,7 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
-import cx.aswin.boxlore.core.designsystem.theme.ExpressiveShapes
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxlore.core.model.Episode
 
@@ -53,42 +50,44 @@ fun EpisodeOptionsSheet(
     onToggleLike: () -> Unit,
     onDownload: () -> Unit,
     onQueue: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         shape = MaterialTheme.shapes.extraLarge,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentWindowInsets = { WindowInsets.navigationBars }
+        contentWindowInsets = { WindowInsets.navigationBars },
     ) {
         Column(
-            modifier = Modifier
-                .padding(bottom = 24.dp)
-                .verticalScroll(rememberScrollState())
+            modifier =
+                Modifier
+                    .padding(bottom = 24.dp)
+                    .verticalScroll(rememberScrollState()),
         ) {
             // Header: Episode Info
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
                     modifier = Modifier.size(64.dp),
                     shape = MaterialTheme.shapes.medium, // Or ExpressiveShapes.Squircle
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     OptimizedImage(
                         url = episode.imageUrl,
                         proxyWidth = 150, // 64dp thumbnail
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.width(16.dp))
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = episode.title,
@@ -96,73 +95,73 @@ fun EpisodeOptionsSheet(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Episode Options",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            
+
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 24.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Actions
             OptionItem(
                 icon = Icons.Outlined.PlayCircle,
                 label = "Play Episode",
-                onClick = { 
+                onClick = {
                     onPlay()
-                    onDismissRequest() 
-                }
+                    onDismissRequest()
+                },
             )
-            
+
             OptionItem(
                 icon = if (isLiked) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
                 label = if (isLiked) "Liked" else "Like",
                 iconTint = if (isLiked) Color(0xFFE91E63) else MaterialTheme.colorScheme.onSurface,
-                onClick = { 
+                onClick = {
                     onToggleLike()
-                    // Don't auto-dismiss for like toggle, maybe? Or do. 
-                    // Usually options sheet dismisses. Let's keep it open for toggling? 
+                    // Don't auto-dismiss for like toggle, maybe? Or do.
+                    // Usually options sheet dismisses. Let's keep it open for toggling?
                     // No, standard UX is click -> execute. Toggle like is usually immediate.
                     // But if I want to visualize it, I should update state.
                     // The state comes from parent, so it updates automatically.
-                }
+                },
             )
-            
+
             OptionItem(
                 icon = Icons.Outlined.AddToQueue,
                 label = "Add to Queue",
-                onClick = { 
+                onClick = {
                     onQueue()
-                    onDismissRequest() 
-                }
+                    onDismissRequest()
+                },
             )
-            
+
             OptionItem(
                 icon = Icons.Outlined.Download,
                 label = "Download",
-                onClick = { 
+                onClick = {
                     onDownload()
-                    onDismissRequest() 
-                }
+                    onDismissRequest()
+                },
             )
-            
+
             OptionItem(
                 icon = Icons.Outlined.Share,
                 label = "Share",
-                onClick = { 
+                onClick = {
                     onShare()
-                    onDismissRequest() 
-                }
+                    onDismissRequest()
+                },
             )
         }
     }
@@ -173,26 +172,27 @@ private fun OptionItem(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
-    iconTint: Color = MaterialTheme.colorScheme.onSurface
+    iconTint: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .expressiveClickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .expressiveClickable(onClick = onClick)
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

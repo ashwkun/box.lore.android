@@ -10,12 +10,13 @@ object TestFixtures {
         title: String = "Test Podcast",
         artist: String = "Test Artist",
         imageUrl: String = "https://example.com/art.jpg",
-    ): Podcast = Podcast(
-        id = id,
-        title = title,
-        artist = artist,
-        imageUrl = imageUrl,
-    )
+    ): Podcast =
+        Podcast(
+            id = id,
+            title = title,
+            artist = artist,
+            imageUrl = imageUrl,
+        )
 
     fun episode(
         id: String = "ep-1",
@@ -24,15 +25,16 @@ object TestFixtures {
         podcastTitle: String = "Test Podcast",
         audioUrl: String = "https://example.com/audio.mp3",
         duration: Int = 3600,
-    ): Episode = Episode(
-        id = id,
-        title = title,
-        description = "desc",
-        audioUrl = audioUrl,
-        imageUrl = null,
-        duration = duration,
-        publishedDate = 0L,
-        podcastId = podcastId,
-        podcastTitle = podcastTitle,
-    )
+    ): Episode =
+        Episode(
+            id = id,
+            title = title,
+            description = "desc",
+            audioUrl = audioUrl,
+            imageUrl = null,
+            duration = duration,
+            publishedDate = 0L,
+            podcastId = podcastId,
+            podcastTitle = podcastTitle,
+        )
 }

@@ -7,7 +7,6 @@ import cx.aswin.boxlore.core.data.BoxcastPrefs
 import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.LearnerInspectorSnapshot
@@ -19,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -32,8 +32,10 @@ class DebugViewModel(
     private val userPrefs: UserPreferencesRepository,
     private val adaptiveRankingRepository: AdaptiveRankingRepository,
 ) : AndroidViewModel(application) {
-
-    val history: Flow<List<ListeningHistoryEntity>> = playbackRepository.getAllHistory()
+    val history: Flow<List<DebugHistoryItem>> =
+        playbackRepository
+            .getAllHistory()
+            .map { history -> history.map { it.toDebugHistoryItem() } }
     val podcasts: Flow<List<PodcastEntity>> = subscriptionRepository.getAllSubscribedPodcasts()
 
     private val _skipSleepWindow = MutableStateFlow(playbackRepository.isDebugSkipSleepWindowEnabled())
@@ -102,12 +104,14 @@ class DebugViewModel(
     fun refreshLearnerSnapshot() {
         viewModelScope.launch {
             _learnerLoading.value = true
-            _learnerSnapshot.value = runCatching {
-                adaptiveRankingRepository.learnerInspectorSnapshot()
-            }.getOrNull()
-            _shadowDiagnostics.value = runCatching {
-                RankingShadowDiagnostics.snapshots()
-            }.getOrDefault(emptyList())
+            _learnerSnapshot.value =
+                runCatching {
+                    adaptiveRankingRepository.learnerInspectorSnapshot()
+                }.getOrNull()
+            _shadowDiagnostics.value =
+                runCatching {
+                    RankingShadowDiagnostics.snapshots()
+                }.getOrDefault(emptyList())
             _learnerLoading.value = false
         }
     }

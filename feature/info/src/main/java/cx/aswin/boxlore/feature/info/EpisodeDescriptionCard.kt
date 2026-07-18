@@ -5,16 +5,16 @@ import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,10 +41,8 @@ internal data class SocialLink(
     val platform: String,
     val url: String,
     val brandColor: Color,
-    val icon: ImageVector
+    val icon: ImageVector,
 )
-
-
 
 // --- URL Extraction & Categorization ---
 
@@ -52,14 +50,23 @@ private val HREF_REGEX = Regex("""href\s*=\s*["']([^"']+)["']""", RegexOption.IG
 private val URL_REGEX = Regex("""https?://[^\s<>"')\]]+""")
 
 // Known tracking/feed/infrastructure domains to skip entirely
-private val SKIP_HOSTS = setOf(
-    "podcastindex", "feeds.", "anchor.fm", "podtrac", "chartable", "feedburner",
-    "podcasts.google.com"
-)
+private val SKIP_HOSTS =
+    setOf(
+        "podcastindex",
+        "feeds.",
+        "anchor.fm",
+        "podtrac",
+        "chartable",
+        "feedburner",
+        "podcasts.google.com",
+    )
 
 private const val DISCORD_GG_HOST = "discord.gg"
 
-private fun extractHandle(url: String, host: String): String? {
+private fun extractHandle(
+    url: String,
+    host: String,
+): String? {
     return try {
         val uri = java.net.URI(url)
         val path = uri.path ?: return null
@@ -71,12 +78,14 @@ private fun extractHandle(url: String, host: String): String? {
             host.contains("reddit.com") -> extractRedditHandle(segments)
             host.contains("discord.com") || host.contains(DISCORD_GG_HOST) -> extractDiscordHandle(host, segments)
             host.contains("instagram.com") ||
-            host.contains("twitter.com") || host.contains("x.com") ||
-            host.contains("threads.net") ||
-            host.contains("patreon.com") ||
-            host.contains("tiktok.com") ||
-            host.contains("twitch.tv") ||
-            host.contains("facebook.com") || host.contains("fb.com") -> extractGenericSocialHandle(segments)
+                host.contains("twitter.com") ||
+                host.contains("x.com") ||
+                host.contains("threads.net") ||
+                host.contains("patreon.com") ||
+                host.contains("tiktok.com") ||
+                host.contains("twitch.tv") ||
+                host.contains("facebook.com") ||
+                host.contains("fb.com") -> extractGenericSocialHandle(segments)
             else -> null
         }
     } catch (_: Exception) {
@@ -105,18 +114,36 @@ private fun extractRedditHandle(segments: List<String>): String? {
     }
 }
 
-private fun extractDiscordHandle(host: String, segments: List<String>): String? {
+private fun extractDiscordHandle(
+    host: String,
+    segments: List<String>,
+): String? {
     if (host.contains(DISCORD_GG_HOST)) return segments.firstOrNull()
     return if (segments.firstOrNull() == "invite") segments.getOrNull(1) else segments.firstOrNull()
 }
 
 private fun extractGenericSocialHandle(segments: List<String>): String? {
     val first = segments.firstOrNull() ?: return null
-    val ignore = setOf(
-        "share", "intent", "hashtag", "p", "reel", "stories", 
-        "explore", "home", "tos", "privacy", "login", "signup",
-        "messages", "notifications", "settings", "search", "about"
-    )
+    val ignore =
+        setOf(
+            "share",
+            "intent",
+            "hashtag",
+            "p",
+            "reel",
+            "stories",
+            "explore",
+            "home",
+            "tos",
+            "privacy",
+            "login",
+            "signup",
+            "messages",
+            "notifications",
+            "settings",
+            "search",
+            "about",
+        )
     if (ignore.contains(first.lowercase()) || first.length < 2) return null
     return if (first.startsWith("@")) first else "@$first"
 }
@@ -126,26 +153,40 @@ internal fun extractSocialLinks(html: String): List<SocialLink> {
     HREF_REGEX.findAll(html).forEach { urls.add(it.groupValues[1]) }
     URL_REGEX.findAll(html).forEach { urls.add(it.value.trimEnd('.', ',', ';')) }
 
-    return urls.mapNotNull { url ->
-        val host = try {
-            java.net.URI(url).host?.lowercase() ?: ""
-        } catch (_: Exception) { "" }
+    return urls
+        .mapNotNull { url ->
+            val host =
+                try {
+                    java.net
+                        .URI(url)
+                        .host
+                        ?.lowercase() ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
 
-        if (host.isEmpty() || SKIP_HOSTS.any { skip -> host.contains(skip) }) return@mapNotNull null
+            if (host.isEmpty() || SKIP_HOSTS.any { skip -> host.contains(skip) }) return@mapNotNull null
 
-        val handle = extractHandle(url, host)
-        buildSocialLinkFromHost(host, url, handle)
-    }.distinctBy { it.url.lowercase().trim() }
+            val handle = extractHandle(url, host)
+            buildSocialLinkFromHost(host, url, handle)
+        }.distinctBy { it.url.lowercase().trim() }
 }
 
-private fun buildSocialLinkFromHost(host: String, url: String, handle: String?): SocialLink {
-    return getMediaSocialLink(host, url, handle)
+private fun buildSocialLinkFromHost(
+    host: String,
+    url: String,
+    handle: String?,
+): SocialLink =
+    getMediaSocialLink(host, url, handle)
         ?: getCommunitySocialLink(host, url, handle)
         ?: buildGenericWebLink(host, url)
-}
 
-private fun getMediaSocialLink(host: String, url: String, handle: String?): SocialLink? {
-    return when {
+private fun getMediaSocialLink(
+    host: String,
+    url: String,
+    handle: String?,
+): SocialLink? =
+    when {
         host.contains("youtube.com") || host.contains("youtu.be") ->
             SocialLink(if (handle != null) "YouTube: $handle" else "YouTube", url, Color(0xFFFF0000), Icons.Rounded.PlayCircle)
         host.contains("instagram.com") ->
@@ -160,10 +201,13 @@ private fun getMediaSocialLink(host: String, url: String, handle: String?): Soci
             SocialLink("Apple Podcasts", url, Color(0xFF9933CC), Icons.Rounded.Podcasts)
         else -> null
     }
-}
 
-private fun getCommunitySocialLink(host: String, url: String, handle: String?): SocialLink? {
-    return when {
+private fun getCommunitySocialLink(
+    host: String,
+    url: String,
+    handle: String?,
+): SocialLink? =
+    when {
         host.contains("patreon.com") ->
             SocialLink(if (handle != null) "Patreon: $handle" else "Patreon", url, Color(0xFFF96854), Icons.Rounded.Loyalty)
         host.contains("tiktok.com") ->
@@ -180,11 +224,17 @@ private fun getCommunitySocialLink(host: String, url: String, handle: String?): 
             SocialLink(if (handle != null) "Reddit: $handle" else "Reddit", url, Color(0xFFFF4500), Icons.Rounded.Forum)
         else -> null
     }
-}
 
-private fun buildGenericWebLink(host: String, url: String): SocialLink {
-    val name = host.removePrefix("www.").split(".").first()
-        .replaceFirstChar { c -> c.uppercase() }
+private fun buildGenericWebLink(
+    host: String,
+    url: String,
+): SocialLink {
+    val name =
+        host
+            .removePrefix("www.")
+            .split(".")
+            .first()
+            .replaceFirstChar { c -> c.uppercase() }
     return SocialLink(name, url, Color(0xFF607D8B), Icons.Rounded.Language)
 }
 
@@ -198,35 +248,39 @@ internal fun EpisodeDescriptionCard(
     location: String? = null,
     license: String? = null,
     persons: List<Person>? = null,
-    onSeekTo: ((Long) -> Unit)? = null
+    onSeekTo: ((Long) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val socialLinks = remember(description) { extractSocialLinks(description) }
     var expanded by remember { mutableStateOf(false) }
     val isLong = remember(description) { description.length > 500 }
-    val formattedDescription = remember(description) {
-        formatTimestampsAsLinks(description)
-    }
+    val formattedDescription =
+        remember(description) {
+            formatTimestampsAsLinks(description)
+        }
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .expressiveClickable(enabled = isLong) { expanded = !expanded },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .expressiveClickable(enabled = isLong) { expanded = !expanded },
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.large,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    )
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .animateContentSize(
+                        animationSpec =
+                            spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium,
+                            ),
+                    ),
         ) {
             // --- Cast & Crew (Person chips) ---
             if (!persons.isNullOrEmpty()) {
@@ -235,12 +289,12 @@ internal fun EpisodeDescriptionCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 12.dp),
                 )
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(persons) { person ->
                         PersonChip(
@@ -250,7 +304,7 @@ internal fun EpisodeDescriptionCard(
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(person.href))
                                     context.startActivity(intent)
                                 }
-                            }
+                            },
                         )
                     }
                 }
@@ -259,7 +313,7 @@ internal fun EpisodeDescriptionCard(
 
                 HorizontalDivider(
                     thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -272,12 +326,12 @@ internal fun EpisodeDescriptionCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 12.dp),
                 )
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(socialLinks) { link ->
                         SocialChip(
@@ -285,7 +339,7 @@ internal fun EpisodeDescriptionCard(
                             onClick = {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
                                 context.startActivity(intent)
-                            }
+                            },
                         )
                     }
                 }
@@ -295,7 +349,7 @@ internal fun EpisodeDescriptionCard(
                 // Subtle divider
                 HorizontalDivider(
                     thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -307,17 +361,18 @@ internal fun EpisodeDescriptionCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp),
             )
 
             Box(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 HtmlText(
                     text = formattedDescription,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = 20.sp
-                    ),
+                    style =
+                        MaterialTheme.typography.bodyMedium.copy(
+                            lineHeight = 20.sp,
+                        ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = if (expanded || !isLong) Int.MAX_VALUE else 4,
                     modifier = Modifier.fillMaxWidth(),
@@ -330,23 +385,25 @@ internal fun EpisodeDescriptionCard(
                         } else {
                             false
                         }
-                    }
+                    },
                 )
 
                 if (!expanded && isLong) {
                     Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(28.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                    )
-                                )
-                            )
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(28.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors =
+                                            listOf(
+                                                Color.Transparent,
+                                                MaterialTheme.colorScheme.surfaceContainerLow,
+                                            ),
+                                    ),
+                                ),
                     )
                 }
             }
@@ -354,85 +411,84 @@ internal fun EpisodeDescriptionCard(
             if (isLong) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .expressiveClickable(shape = RoundedCornerShape(8.dp)) { expanded = !expanded }
-                        .padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .expressiveClickable(shape = RoundedCornerShape(8.dp)) { expanded = !expanded }
+                            .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = if (expanded) "Show less" else "Read more",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = accentColor.copy(alpha = 0.9f)
+                        color = accentColor.copy(alpha = 0.9f),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                         contentDescription = null,
                         tint = accentColor.copy(alpha = 0.9f),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
-
-
 
             // --- Metadata Footer (Location & License) ---
             if (!location.isNullOrBlank() || !license.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(
                     thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (!location.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.weight(1f, fill = false),
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.LocationOn,
                                 contentDescription = "Location",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(16.dp),
                             )
                             Text(
                                 text = location,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
-                    
+
                     if (!license.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.weight(1f, fill = false),
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Copyright,
                                 contentDescription = "License",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(16.dp),
                             )
                             Text(
                                 text = formatLicense(license),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -449,7 +505,7 @@ private fun formatTimestampsAsLinks(htmlText: String): String {
         val hours = match.groups[1]?.value?.toIntOrNull() ?: 0
         val minutes = match.groups[2]?.value?.toIntOrNull() ?: 0
         val seconds = match.groups[3]?.value?.toIntOrNull() ?: 0
-        
+
         if (minutes < 60 && seconds < 60) {
             val totalSeconds = hours * 3600 + minutes * 60 + seconds
             "<a href=\"play-position:$totalSeconds\">▶ ${match.value}</a>"
@@ -462,7 +518,12 @@ private fun formatTimestampsAsLinks(htmlText: String): String {
 internal fun formatLicense(licenseCode: String): String {
     val clean = licenseCode.trim().lowercase()
     if (clean.startsWith("cc-") || clean == "cc0" || clean.contains("creative-commons") || clean.contains("creative commons")) {
-        val suffix = clean.removePrefix("cc-").removePrefix("creative-commons-").removePrefix("creative commons-").uppercase()
+        val suffix =
+            clean
+                .removePrefix("cc-")
+                .removePrefix("creative-commons-")
+                .removePrefix("creative commons-")
+                .uppercase()
         return when (suffix) {
             "0", "CC0", "ZERO" -> "Public Domain (CC0)"
             "BY" -> "Creative Commons BY"
@@ -486,26 +547,28 @@ internal fun formatLicense(licenseCode: String): String {
 @Composable
 internal fun PersonChip(
     person: Person,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = ExpressiveShapes.Pill,
-        modifier = Modifier.expressiveClickable(
-            enabled = !person.href.isNullOrBlank(),
-            isolate = true,
-            onClick = onClick
-        )
+        modifier =
+            Modifier.expressiveClickable(
+                enabled = !person.href.isNullOrBlank(),
+                isolate = true,
+                onClick = onClick,
+            ),
     ) {
         Row(
-            modifier = Modifier.padding(
-                start = 4.dp,
-                end = 14.dp,
-                top = 4.dp,
-                bottom = 4.dp
-            ),
+            modifier =
+                Modifier.padding(
+                    start = 4.dp,
+                    end = 14.dp,
+                    top = 4.dp,
+                    bottom = 4.dp,
+                ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Avatar
             if (!person.img.isNullOrBlank()) {
@@ -513,25 +576,27 @@ internal fun PersonChip(
                     url = person.img,
                     proxyWidth = 80, // 32dp * ~2.5x density
                     contentDescription = person.name,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                    modifier =
+                        Modifier
+                            .size(32.dp)
+                            .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
                 )
             } else {
                 // Fallback avatar with initial
                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = person.name.firstOrNull()?.uppercase() ?: "?",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -544,7 +609,7 @@ internal fun PersonChip(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (!person.role.isNullOrBlank()) {
                     val roleText = person.role!!
@@ -553,7 +618,7 @@ internal fun PersonChip(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -566,33 +631,32 @@ internal fun PersonChip(
 @Composable
 private fun SocialChip(
     link: SocialLink,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = ExpressiveShapes.Pill,
-        modifier = Modifier
-            .expressiveClickable(isolate = true, onClick = onClick)
+        modifier =
+            Modifier
+                .expressiveClickable(isolate = true, onClick = onClick),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
                 imageVector = link.icon,
                 contentDescription = link.platform,
                 tint = link.brandColor,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(16.dp),
             )
             Text(
                 text = link.platform,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
-                color = link.brandColor
+                color = link.brandColor,
             )
         }
     }
 }
-
-

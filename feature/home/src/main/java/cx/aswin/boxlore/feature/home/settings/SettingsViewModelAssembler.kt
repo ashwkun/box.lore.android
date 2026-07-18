@@ -10,21 +10,23 @@ object SettingsViewModelAssembler {
     fun create(
         rssSubscriptionPort: RssSubscriptionPort,
         rankingResetPort: RankingResetPort,
-    ): SettingsViewModel = SettingsViewModel(
-        rssRepository = rssSubscriptionPort,
-        rankingFeedbackRepository = rankingResetPort,
-    )
+    ): SettingsViewModel =
+        SettingsViewModel(
+            rssRepository = rssSubscriptionPort,
+            rankingFeedbackRepository = rankingResetPort,
+        )
 
     fun factory(
         rssSubscriptionPort: RssSubscriptionPort,
         rankingResetPort: RankingResetPort,
-    ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            require(modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                "Unknown ViewModel class: ${modelClass.name}"
+    ): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                require(modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
+                    "Unknown ViewModel class: ${modelClass.name}"
+                }
+                return create(rssSubscriptionPort, rankingResetPort) as T
             }
-            return create(rssSubscriptionPort, rankingResetPort) as T
         }
-    }
 }

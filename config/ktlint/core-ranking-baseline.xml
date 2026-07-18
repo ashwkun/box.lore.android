@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/AdaptiveCandidateScorer.kt">
+        <error line="42" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="50" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="56" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="58" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="63" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="66" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="71" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="74" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="79" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="86" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="88" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="95" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="95" column="32" source="standard:chain-method-continuation" />
+        <error line="113" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="123" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="127" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="127" column="46" source="standard:chain-method-continuation" />
+        <error line="131" column="17" source="standard:chain-method-continuation" />
+        <error line="134" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="139" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="145" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="149" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="154" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="159" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="166" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="168" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="175" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="175" column="30" source="standard:chain-method-continuation" />
+        <error line="191" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="201" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="201" column="39" source="standard:chain-method-continuation" />
+        <error line="208" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="208" column="36" source="standard:chain-method-continuation" />
+        <error line="228" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="242" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="244" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="249" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="249" column="40" source="standard:chain-method-continuation" />
+        <error line="253" column="17" source="standard:chain-method-continuation" />
+        <error line="258" column="38" source="standard:multiline-expression-wrapping" />
+        <error line="261" column="1" source="standard:indent" />
+        <error line="262" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="268" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="272" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="277" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="283" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="286" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="296" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="309" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="310" column="19" source="standard:chain-method-continuation" />
+        <error line="321" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="321" column="36" source="standard:chain-method-continuation" />
+        <error line="335" column="52" source="standard:if-else-wrapping" />
+        <error line="335" column="52" source="standard:multiline-if-else" />
+        <error line="336" column="18" source="standard:if-else-wrapping" />
+        <error line="336" column="18" source="standard:multiline-if-else" />
+        <error line="348" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="348" column="40" source="standard:chain-method-continuation" />
+        <error line="350" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="350" column="45" source="standard:chain-method-continuation" />
+        <error line="369" column="68" source="standard:function-expression-body" />
+        <error line="389" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="389" column="53" source="standard:function-signature" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/AdaptiveLinearModel.kt">
+        <error line="10" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="52" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="60" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="78" column="50" source="standard:function-signature" />
+        <error line="94" column="36" source="standard:multiline-expression-wrapping" />
+        <error line="104" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="118" column="35" source="standard:function-signature" />
+        <error line="118" column="62" source="standard:function-signature" />
+        <error line="118" column="87" source="standard:function-signature" />
+        <error line="126" column="29" source="standard:function-signature" />
+        <error line="126" column="45" source="standard:function-signature" />
+        <error line="126" column="61" source="standard:function-signature" />
+        <error line="126" column="76" source="standard:function-expression-body" />
+        <error line="132" column="18" source="standard:function-signature" />
+        <error line="132" column="37" source="standard:function-signature" />
+        <error line="132" column="55" source="standard:function-signature" />
+        <error line="137" column="23" source="standard:function-signature" />
+        <error line="137" column="44" source="standard:function-signature" />
+        <error line="137" column="65" source="standard:function-signature" />
+        <error line="137" column="79" source="standard:function-signature" />
+        <error line="149" column="37" source="standard:function-signature" />
+        <error line="149" column="58" source="standard:function-signature" />
+        <error line="149" column="72" source="standard:function-signature" />
+        <error line="167" column="23" source="standard:function-expression-body" />
+        <error line="183" column="19" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/AdaptiveRankingRepository.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="106" column="21" source="standard:function-expression-body" />
+        <error line="182" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="185" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="188" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="199" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="200" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="239" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="269" column="19" source="standard:chain-method-continuation" />
+        <error line="280" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="296" column="9" source="standard:function-signature" />
+        <error line="296" column="48" source="standard:function-signature" />
+        <error line="305" column="33" source="standard:chain-method-continuation" />
+        <error line="320" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="325" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="382" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="385" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="412" column="40" source="standard:function-signature" />
+        <error line="412" column="58" source="standard:function-signature" />
+        <error line="412" column="75" source="standard:function-signature" />
+        <error line="426" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="436" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="446" column="9" source="standard:function-signature" />
+        <error line="446" column="48" source="standard:function-signature" />
+        <error line="447" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="447" column="35" source="standard:function-signature" />
+        <error line="451" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="451" column="25" source="standard:chain-method-continuation" />
+        <error line="451" column="40" source="standard:chain-method-continuation" />
+        <error line="452" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="473" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="492" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="497" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="514" column="71" source="standard:function-expression-body" />
+        <error line="520" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="531" column="55" source="standard:function-expression-body" />
+        <error line="570" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="574" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="578" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="592" column="67" source="standard:function-expression-body" />
+        <error line="616" column="70" source="standard:function-expression-body" />
+        <error line="624" column="69" source="standard:function-expression-body" />
+        <error line="630" column="33" source="standard:chain-method-continuation" />
+        <error line="634" column="33" source="standard:chain-method-continuation" />
+        <error line="642" column="71" source="standard:function-expression-body" />
+        <error line="654" column="77" source="standard:function-expression-body" />
+        <error line="664" column="33" source="standard:chain-method-continuation" />
+        <error line="674" column="24" source="standard:function-expression-body" />
+        <error line="687" column="70" source="standard:function-expression-body" />
+        <error line="695" column="49" source="standard:function-expression-body" />
+        <error line="699" column="51" source="standard:multiline-expression-wrapping" />
+        <error line="699" column="51" source="standard:function-signature" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/LearningEventLog.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="19" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="114" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="138" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="169" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="199" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="252" column="24" source="standard:chain-method-continuation" />
+        <error line="252" column="36" source="standard:chain-method-continuation" />
+        <error line="252" column="47" source="standard:chain-method-continuation" />
+        <error line="254" column="56" source="standard:function-signature" />
+        <error line="255" column="16" source="standard:chain-method-continuation" />
+        <error line="255" column="23" source="standard:chain-method-continuation" />
+        <error line="255" column="35" source="standard:chain-method-continuation" />
+        <error line="255" column="53" source="standard:chain-method-continuation" />
+        <error line="257" column="61" source="standard:function-signature" />
+        <error line="260" column="53" source="standard:function-signature" />
+        <error line="265" column="54" source="standard:function-signature" />
+        <error line="268" column="61" source="standard:multiline-expression-wrapping" />
+        <error line="268" column="61" source="standard:function-signature" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingFeedbackRepository.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="20" column="67" source="standard:function-expression-body" />
+        <error line="44" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="82" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="92" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="100" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="125" column="43" source="standard:function-expression-body" />
+        <error line="171" column="10" source="standard:function-expression-body" />
+        <error line="189" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="216" column="70" source="standard:function-expression-body" />
+        <error line="230" column="35" source="standard:function-signature" />
+        <error line="230" column="56" source="standard:function-signature" />
+        <error line="230" column="77" source="standard:function-signature" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingModels.kt">
+        <error line="181" column="46" source="standard:function-expression-body" />
+        <error line="199" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="210" column="73" source="standard:function-expression-body" />
+        <error line="216" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="231" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="243" column="62" source="standard:function-expression-body" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingReward.kt">
+        <error line="29" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="58" column="29" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingRuntimeControls.kt">
+        <error line="16" column="62" source="standard:function-expression-body" />
+        <error line="21" column="50" source="standard:class-signature" />
+        <error line="21" column="66" source="standard:class-signature" />
+        <error line="22" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="30" column="16" source="standard:function-expression-body" />
+        <error line="39" column="47" source="standard:function-expression-body" />
+        <error line="47" column="29" source="standard:function-signature" />
+        <error line="47" column="58" source="standard:function-signature" />
+        <error line="47" column="74" source="standard:function-signature" />
+        <error line="51" column="27" source="standard:function-signature" />
+        <error line="51" column="52" source="standard:function-signature" />
+        <error line="51" column="68" source="standard:function-signature" />
+        <error line="67" column="63" source="standard:function-signature" />
+        <error line="75" column="67" source="standard:function-expression-body" />
+        <error line="81" column="71" source="standard:function-expression-body" />
+        <error line="85" column="65" source="standard:function-expression-body" />
+        <error line="103" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="106" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="106" column="40" source="standard:chain-method-continuation" />
+        <error line="106" column="52" source="standard:chain-method-continuation" />
+        <error line="109" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="118" column="50" source="standard:function-expression-body" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingSerialization.kt">
+        <error line="7" column="48" source="standard:function-expression-body" />
+        <error line="8" column="26" source="standard:chain-method-continuation" />
+        <error line="14" column="16" source="standard:function-signature" />
+        <error line="14" column="34" source="standard:function-signature" />
+        <error line="14" column="51" source="standard:function-signature" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/database/AdaptiveRankingDao.kt">
+        <error line="30" column="26" source="standard:function-signature" />
+        <error line="30" column="45" source="standard:function-signature" />
+        <error line="30" column="61" source="standard:function-signature" />
+        <error line="50" column="29" source="standard:function-signature" />
+        <error line="50" column="48" source="standard:function-signature" />
+        <error line="50" column="64" source="standard:function-signature" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/database/AdaptiveRankingDatabase.kt">
+        <error line="26" column="68" source="standard:function-expression-body" />
+        <error line="28" column="33" source="standard:chain-method-continuation" />
+    </file>
+    <file name="src/test/java/cx/aswin/boxlore/core/data/ranking/AdaptiveRankingTest.kt">
+        <error line="16" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="66" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="86" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="130" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="141" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="160" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="175" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="187" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="195" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="213" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="214" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="219" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="250" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="261" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="279" column="24" source="standard:multiline-expression-wrapping" />
+    </file>
+</baseline>

@@ -1,18 +1,18 @@
 package cx.aswin.boxlore.feature.home.settings.pages
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.LastPage
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.automirrored.rounded.LastPage
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.runtime.Composable
 import cx.aswin.boxlore.feature.home.settings.components.SettingsChoiceRow
-import cx.aswin.boxlore.feature.home.settings.components.SettingsDurationSliderRow
-import cx.aswin.boxlore.feature.home.settings.components.SettingsDurationSliderIcon
-import cx.aswin.boxlore.feature.home.settings.components.SettingsDurationSliderValue
 import cx.aswin.boxlore.feature.home.settings.components.SettingsDivider
+import cx.aswin.boxlore.feature.home.settings.components.SettingsDurationSliderIcon
+import cx.aswin.boxlore.feature.home.settings.components.SettingsDurationSliderRow
+import cx.aswin.boxlore.feature.home.settings.components.SettingsDurationSliderValue
 import cx.aswin.boxlore.feature.home.settings.components.SettingsGroup
 import cx.aswin.boxlore.feature.home.settings.components.SettingsInfoTip
 import cx.aswin.boxlore.feature.home.settings.components.SettingsScaffold
@@ -58,11 +58,12 @@ internal fun PlaybackSettingsPage(
             SettingsDurationSliderRow(
                 title = "Skip beginning",
                 supportingText = "Jump past intros or opening ads on a fresh start",
-                value = SettingsDurationSliderValue(
-                    seconds = (state.skipBeginningMs / 1_000L).toInt(),
-                    range = 0..300,
-                    stepSeconds = 5,
-                ),
+                value =
+                    SettingsDurationSliderValue(
+                        seconds = (state.skipBeginningMs / 1_000L).toInt(),
+                        range = 0..300,
+                        stepSeconds = 5,
+                    ),
                 onValueCommitted = { actions.onSetSkipBeginningMs(it * 1_000L) },
                 icon = SettingsDurationSliderIcon(Icons.Rounded.FastForward),
             )
@@ -70,11 +71,12 @@ internal fun PlaybackSettingsPage(
             SettingsDurationSliderRow(
                 title = "Skip ending",
                 supportingText = "Finish naturally before credits or closing ads",
-                value = SettingsDurationSliderValue(
-                    seconds = (state.skipEndingMs / 1_000L).toInt(),
-                    range = 0..300,
-                    stepSeconds = 5,
-                ),
+                value =
+                    SettingsDurationSliderValue(
+                        seconds = (state.skipEndingMs / 1_000L).toInt(),
+                        range = 0..300,
+                        stepSeconds = 5,
+                    ),
                 onValueCommitted = { actions.onSetSkipEndingMs(it * 1_000L) },
                 icon = SettingsDurationSliderIcon(Icons.AutoMirrored.Rounded.LastPage),
             )
@@ -89,27 +91,30 @@ internal fun PlaybackSettingsPage(
         ) {
             SettingsDurationSliderRow(
                 title = "Seek backward",
-                value = SettingsDurationSliderValue(
-                    seconds = (state.seekBackwardMs / 1_000L).toInt(),
-                    range = 5..120,
-                    stepSeconds = 5,
-                ),
+                value =
+                    SettingsDurationSliderValue(
+                        seconds = (state.seekBackwardMs / 1_000L).toInt(),
+                        range = 5..120,
+                        stepSeconds = 5,
+                    ),
                 onValueCommitted = { actions.onSetSeekBackwardMs(it * 1_000L) },
                 icon = SettingsDurationSliderIcon(Icons.Rounded.Replay),
             )
             SettingsDivider()
             SettingsDurationSliderRow(
                 title = "Seek forward",
-                value = SettingsDurationSliderValue(
-                    seconds = (state.seekForwardMs / 1_000L).toInt(),
-                    range = 5..120,
-                    stepSeconds = 5,
-                ),
+                value =
+                    SettingsDurationSliderValue(
+                        seconds = (state.seekForwardMs / 1_000L).toInt(),
+                        range = 5..120,
+                        stepSeconds = 5,
+                    ),
                 onValueCommitted = { actions.onSetSeekForwardMs(it * 1_000L) },
-                icon = SettingsDurationSliderIcon(
-                    image = Icons.Rounded.Replay,
-                    mirrored = true,
-                ),
+                icon =
+                    SettingsDurationSliderIcon(
+                        image = Icons.Rounded.Replay,
+                        mirrored = true,
+                    ),
             )
         }
 

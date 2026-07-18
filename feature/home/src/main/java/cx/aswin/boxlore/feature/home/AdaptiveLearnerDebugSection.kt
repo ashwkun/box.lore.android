@@ -65,11 +65,13 @@ import cx.aswin.boxlore.core.data.ranking.PreferenceFacetType
 import cx.aswin.boxlore.core.data.ranking.RankingDebugSnapshot
 import cx.aswin.boxlore.core.data.ranking.RankingObjective
 import cx.aswin.boxlore.core.data.ranking.RankingShadowSnapshot
+import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.abs
-import kotlinx.coroutines.delay
 
-private enum class LearnerPane(val label: String) {
+private enum class LearnerPane(
+    val label: String,
+) {
     Signals("Signals"),
     Taste("Taste"),
     Model("Model"),
@@ -123,9 +125,10 @@ internal fun AdaptiveLearnerDebugSection(
 
         AnimatedContent(
             targetState = panes[paneIndex],
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
             transitionSpec = {
                 fadeIn(tween(180, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(120))
             },
@@ -147,17 +150,19 @@ private fun LearnerHeader(
     onRefresh: () -> Unit,
 ) {
     val discovery = snapshot?.objectives?.firstOrNull { it.objective == RankingObjective.DISCOVERY }
-    val stage = when {
-        discovery == null -> "Idle"
-        discovery.updateCount == 0L -> "Cold start"
-        discovery.updateCount < 50L -> "Learning"
-        else -> "Adaptive"
-    }
-    val stageColor = when (stage) {
-        "Adaptive" -> MaterialTheme.colorScheme.primary
-        "Learning" -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.tertiary
-    }
+    val stage =
+        when {
+            discovery == null -> "Idle"
+            discovery.updateCount == 0L -> "Cold start"
+            discovery.updateCount < 50L -> "Learning"
+            else -> "Adaptive"
+        }
+    val stageColor =
+        when (stage) {
+            "Adaptive" -> MaterialTheme.colorScheme.primary
+            "Learning" -> MaterialTheme.colorScheme.secondary
+            else -> MaterialTheme.colorScheme.tertiary
+        }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -165,16 +170,18 @@ private fun LearnerHeader(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(stageColor.copy(alpha = 0.18f), CircleShape),
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .background(stageColor.copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Rounded.AutoAwesome, null, tint = stageColor, modifier = Modifier.size(22.dp))
@@ -182,7 +189,10 @@ private fun LearnerHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Learning engine", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "$stage · ${discovery?.updateCount ?: 0} outcomes · Discovery blend ${(((discovery?.learnedBlend ?: 0.0) * 100).toInt())}%",
+                    text = "$stage · ${discovery?.updateCount ?: 0} outcomes · Discovery blend ${(
+                        ((discovery?.learnedBlend ?: 0.0) * 100)
+                            .toInt()
+                    )}%",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -196,9 +206,10 @@ private fun LearnerHeader(
                 Icon(
                     Icons.Rounded.Refresh,
                     contentDescription = "Refresh taste/model snapshot",
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .size(20.dp),
+                    modifier =
+                        Modifier
+                            .padding(10.dp)
+                            .size(20.dp),
                 )
             }
         }
@@ -217,20 +228,22 @@ private fun LogToggleCard(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Signal logging", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = if (enabled) {
-                        "Capturing live · $eventCount events this session"
-                    } else {
-                        "Off — turn on to capture every signal (session only, no storage)"
-                    },
+                    text =
+                        if (enabled) {
+                            "Capturing live · $eventCount events this session"
+                        } else {
+                            "Off — turn on to capture every signal (session only, no storage)"
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -247,7 +260,10 @@ private fun LogToggleCard(
 private const val MAX_FEED_ROWS = 120
 
 @Composable
-private fun SignalsPane(events: List<LearningEvent>, logEnabled: Boolean) {
+private fun SignalsPane(
+    events: List<LearningEvent>,
+    logEnabled: Boolean,
+) {
     if (!logEnabled) {
         InfoCard(
             title = "Signal logging is off",
@@ -307,9 +323,10 @@ private fun SignalsPane(events: List<LearningEvent>, logEnabled: Boolean) {
 private fun SessionCounters(events: List<LearningEvent>) {
     val counts = remember(events) { events.groupingBy { it.kind }.eachCount() }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         counterPill(counts, LearningEventKind.ACTION, "Actions")
@@ -348,7 +365,10 @@ private fun counterPill(
 }
 
 @Composable
-private fun EventRow(event: LearningEvent, now: Long) {
+private fun EventRow(
+    event: LearningEvent,
+    now: Long,
+) {
     val accent = eventAccent(event)
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -360,10 +380,11 @@ private fun EventRow(event: LearningEvent, now: Long) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .size(10.dp)
-                    .background(accent, CircleShape),
+                modifier =
+                    Modifier
+                        .padding(top = 4.dp)
+                        .size(10.dp)
+                        .background(accent, CircleShape),
             )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(
@@ -409,13 +430,14 @@ private fun TastePane(snapshot: LearnerInspectorSnapshot?) {
     val genres = byType[PreferenceFacetType.GENRE].orEmpty()
     val shows = byType[PreferenceFacetType.SHOW].orEmpty()
     val sources = byType[PreferenceFacetType.SOURCE].orEmpty()
-    val other = remember(snapshot.facets) {
-        snapshot.facets.filter {
-            it.type != PreferenceFacetType.GENRE &&
-                it.type != PreferenceFacetType.SHOW &&
-                it.type != PreferenceFacetType.SOURCE
+    val other =
+        remember(snapshot.facets) {
+            snapshot.facets.filter {
+                it.type != PreferenceFacetType.GENRE &&
+                    it.type != PreferenceFacetType.SHOW &&
+                    it.type != PreferenceFacetType.SOURCE
+            }
         }
-    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -430,7 +452,10 @@ private fun TastePane(snapshot: LearnerInspectorSnapshot?) {
 }
 
 @Composable
-private fun FacetGroupCard(title: String, facets: List<LearnerFacetDebug>) {
+private fun FacetGroupCard(
+    title: String,
+    facets: List<LearnerFacetDebug>,
+) {
     SectionCard(title = title, subtitle = if (facets.isEmpty()) "no evidence yet" else "${facets.size} learned") {
         if (facets.isEmpty()) {
             Text(
@@ -456,7 +481,11 @@ private fun FacetGroupCard(title: String, facets: List<LearnerFacetDebug>) {
 }
 
 @Composable
-private fun AffinityRow(label: String, affinity: Double, evidence: String) {
+private fun AffinityRow(
+    label: String,
+    affinity: Double,
+    evidence: String,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(modifier = Modifier.width(104.dp)) {
             Text(
@@ -484,15 +513,19 @@ private fun AffinityRow(label: String, affinity: Double, evidence: String) {
 }
 
 @Composable
-private fun DivergingBar(value: Double, modifier: Modifier = Modifier) {
+private fun DivergingBar(
+    value: Double,
+    modifier: Modifier = Modifier,
+) {
     val positive = MaterialTheme.colorScheme.primary
     val negative = MaterialTheme.colorScheme.error
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val clamped = value.toFloat().coerceIn(-1f, 1f)
     Box(
-        modifier = modifier
-            .height(12.dp)
-            .background(track, CircleShape),
+        modifier =
+            modifier
+                .height(12.dp)
+                .background(track, CircleShape),
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val mid = size.width / 2f
@@ -520,17 +553,21 @@ private fun DivergingBar(value: Double, modifier: Modifier = Modifier) {
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun ModelPane(snapshot: LearnerInspectorSnapshot?, shadow: List<RankingShadowSnapshot>) {
+private fun ModelPane(
+    snapshot: LearnerInspectorSnapshot?,
+    shadow: List<RankingShadowSnapshot>,
+) {
     if (snapshot == null) {
         InfoCard(title = "No model yet", body = "The bandit initializes after the first resolved outcome.")
         return
     }
     val shadowByObjective = remember(shadow) { shadow.associateBy { it.objective } }
-    val weights = remember(snapshot.featureWeights) {
-        snapshot.featureWeights
-            .filter { it.slot != FeatureSlot.INTERCEPT }
-            .sortedByDescending { abs(it.weight) }
-    }
+    val weights =
+        remember(snapshot.featureWeights) {
+            snapshot.featureWeights
+                .filter { it.slot != FeatureSlot.INTERCEPT }
+                .sortedByDescending { abs(it.weight) }
+        }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -564,12 +601,16 @@ private fun ModelPane(snapshot: LearnerInspectorSnapshot?, shadow: List<RankingS
 }
 
 @Composable
-private fun ObjectiveRow(obj: RankingDebugSnapshot, shadow: RankingShadowSnapshot?) {
-    val stage = when {
-        obj.updateCount == 0L -> "cold"
-        obj.updateCount < 50L -> "learning"
-        else -> "adaptive"
-    }
+private fun ObjectiveRow(
+    obj: RankingDebugSnapshot,
+    shadow: RankingShadowSnapshot?,
+) {
+    val stage =
+        when {
+            obj.updateCount == 0L -> "cold"
+            obj.updateCount < 50L -> "learning"
+            else -> "adaptive"
+        }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -589,19 +630,20 @@ private fun ObjectiveRow(obj: RankingDebugSnapshot, shadow: RankingShadowSnapsho
                 )
             }
             Text(
-                text = buildString {
-                    append("blend ")
-                    append((obj.learnedBlend * 100).toInt())
-                    append("% · explore ")
-                    append(if (obj.explorationEnabled) "on" else "off")
-                    if (shadow != null) {
-                        append(" · rank shift ")
-                        append(format1(shadow.meanAbsoluteRankShift))
-                        append(" · top5 overlap ")
-                        append(shadow.topFiveOverlap)
-                        append("/5")
-                    }
-                },
+                text =
+                    buildString {
+                        append("blend ")
+                        append((obj.learnedBlend * 100).toInt())
+                        append("% · explore ")
+                        append(if (obj.explorationEnabled) "on" else "off")
+                        if (shadow != null) {
+                            append(" · rank shift ")
+                            append(format1(shadow.meanAbsoluteRankShift))
+                            append(" · top5 overlap ")
+                            append(shadow.topFiveOverlap)
+                            append("/5")
+                        }
+                    },
                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -610,7 +652,10 @@ private fun ObjectiveRow(obj: RankingDebugSnapshot, shadow: RankingShadowSnapsho
 }
 
 @Composable
-private fun FeatureWeightRow(weight: LearnerFeatureWeightDebug, maxAbs: Double) {
+private fun FeatureWeightRow(
+    weight: LearnerFeatureWeightDebug,
+    maxAbs: Double,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = prettyLabel(weight.slot.name),
@@ -659,16 +704,20 @@ private fun SectionCard(
 }
 
 @Composable
-private fun InfoCard(title: String, body: String) {
+private fun InfoCard(
+    title: String,
+    body: String,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -684,28 +733,33 @@ private fun InfoCard(title: String, body: String) {
 }
 
 @Composable
-private fun eventAccent(event: LearningEvent): Color = when (event.kind) {
-    LearningEventKind.IMPRESSION -> MaterialTheme.colorScheme.tertiary
-    LearningEventKind.DUPLICATE -> MaterialTheme.colorScheme.outline
-    LearningEventKind.PRUNE -> MaterialTheme.colorScheme.secondary
-    LearningEventKind.ACTION,
-    LearningEventKind.FACET,
-    LearningEventKind.RESOLUTION -> {
-        val reward = event.reward
-        when {
-            reward == null -> MaterialTheme.colorScheme.tertiary
-            reward >= 0.0 -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.error
+private fun eventAccent(event: LearningEvent): Color =
+    when (event.kind) {
+        LearningEventKind.IMPRESSION -> MaterialTheme.colorScheme.tertiary
+        LearningEventKind.DUPLICATE -> MaterialTheme.colorScheme.outline
+        LearningEventKind.PRUNE -> MaterialTheme.colorScheme.secondary
+        LearningEventKind.ACTION,
+        LearningEventKind.FACET,
+        LearningEventKind.RESOLUTION,
+        -> {
+            val reward = event.reward
+            when {
+                reward == null -> MaterialTheme.colorScheme.tertiary
+                reward >= 0.0 -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.error
+            }
         }
     }
-}
 
 private fun prettyLabel(raw: String): String =
-    raw.trim().lowercase().split('_', ' ').filter { it.isNotEmpty() }
+    raw
+        .trim()
+        .lowercase()
+        .split('_', ' ')
+        .filter { it.isNotEmpty() }
         .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
 
-private fun signed(value: Double): String =
-    (if (value >= 0) "+" else "") + String.format(Locale.US, "%.2f", value)
+private fun signed(value: Double): String = (if (value >= 0) "+" else "") + String.format(Locale.US, "%.2f", value)
 
 private fun format1(value: Double): String = String.format(Locale.US, "%.1f", value)
 

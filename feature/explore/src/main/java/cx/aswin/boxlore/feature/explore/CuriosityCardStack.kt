@@ -59,7 +59,6 @@ import coil.request.ImageRequest
 import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.designsystem.components.optimizedImageUrl
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
-import cx.aswin.boxlore.core.network.model.DailyCuriosityDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -78,15 +77,15 @@ sealed interface CardAction {
 
 @Composable
 fun CuriosityCardStack(
-    questions: List<DailyCuriosityDto>,
+    questions: List<LearnCuriosityCard>,
     isCurrentEpisode: (String) -> Boolean,
     isCurrentlyPlaying: (String) -> Boolean,
     isCurrentlyLoading: (String) -> Boolean,
-    onSwipeLeft: (DailyCuriosityDto) -> Unit,
-    onSwipeRight: (DailyCuriosityDto) -> Unit,
-    onPlayClick: (DailyCuriosityDto) -> Unit,
-    onEpisodeClick: (DailyCuriosityDto) -> Unit,
-    onPodcastClick: (DailyCuriosityDto) -> Unit,
+    onSwipeLeft: (LearnCuriosityCard) -> Unit,
+    onSwipeRight: (LearnCuriosityCard) -> Unit,
+    onPlayClick: (LearnCuriosityCard) -> Unit,
+    onEpisodeClick: (LearnCuriosityCard) -> Unit,
+    onPodcastClick: (LearnCuriosityCard) -> Unit,
     accentColor: Color,
     modifier: Modifier = Modifier
 ) {
@@ -107,7 +106,7 @@ fun CuriosityCardStack(
 
     val daily = questions.first()
     val swipeThresholdPx = with(LocalDensity.current) { 88.dp.toPx() }
-    val swipeState = rememberSwipeableCardState(key = daily.episode.id) { direction ->
+    val swipeState = rememberSwipeableCardState(key = daily.episodeId) { direction ->
         if (direction == SwipeDirection.Left) {
             onSwipeLeft(daily)
         } else {
@@ -129,7 +128,7 @@ fun CuriosityCardStack(
         contentAlignment = Alignment.TopCenter
     ) {
         visibleCards.asReversed().forEach { card ->
-            key(card.episode.id) {
+            key(card.episodeId) {
                 val depth = visibleCards.indexOf(card)
                 val isActive = depth == 0
                 val cardModifier = when (depth) {
@@ -160,7 +159,7 @@ fun CuriosityCardStack(
                                 .coerceIn(-2.5f, 2.5f)
                             cameraDistance = 12f * density
                         }
-                        .pointerInput(card.episode.id) {
+                        .pointerInput(card.episodeId) {
                             detectHorizontalDragGestures(
                                 onDragEnd = {
                                     val offsetX = swipeState.offset.value.x
@@ -188,9 +187,9 @@ fun CuriosityCardStack(
 
                 DeckCard(
                     daily = card,
-                    isCurrentEpisode = isCurrentEpisode(card.episode.id.toString()),
-                    isCurrentlyPlaying = isCurrentlyPlaying(card.episode.id.toString()),
-                    isCurrentlyLoading = isCurrentlyLoading(card.episode.id.toString()),
+                    isCurrentEpisode = isCurrentEpisode(card.episodeId),
+                    isCurrentlyPlaying = isCurrentlyPlaying(card.episodeId),
+                    isCurrentlyLoading = isCurrentlyLoading(card.episodeId),
                     fallbackAccentColor = accentColor,
                     interactive = isActive,
                     modifier = cardModifier,
@@ -213,7 +212,7 @@ fun CuriosityCardStack(
 
 @Composable
 private fun DeckCard(
-    daily: DailyCuriosityDto,
+    daily: LearnCuriosityCard,
     isCurrentEpisode: Boolean,
     isCurrentlyPlaying: Boolean,
     isCurrentlyLoading: Boolean,
@@ -240,11 +239,11 @@ private fun DeckCard(
 
 @Composable
 private fun rememberArtworkAccentColor(
-    daily: DailyCuriosityDto,
+    daily: LearnCuriosityCard,
     fallback: Color
 ): Color {
     val context = LocalContext.current
-    val imageUrl = daily.episode.image ?: daily.episode.feedImage
+    val imageUrl = daily.imageUrl ?: daily.feedImage
     var extractedColor by remember(imageUrl) { mutableStateOf<Color?>(null) }
 
     LaunchedEffect(imageUrl) {
@@ -278,7 +277,7 @@ private fun rememberArtworkAccentColor(
 
 @Composable
 private fun CuriosityCardContent(
-    daily: DailyCuriosityDto,
+    daily: LearnCuriosityCard,
     isCurrentEpisode: Boolean,
     isCurrentlyPlaying: Boolean,
     isCurrentlyLoading: Boolean,
@@ -287,11 +286,11 @@ private fun CuriosityCardContent(
     onAction: (CardAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val coverArt = daily.episode.image ?: daily.episode.feedImage ?: ""
+    val coverArt = daily.imageUrl ?: daily.feedImage ?: ""
     val artworkShape = RoundedCornerShape(14.dp)
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
     val cardShape = MaterialTheme.shapes.extraLarge
-    var hidePodcastMetadata by remember(daily.episode.id, daily.explanation) {
+    var hidePodcastMetadata by remember(daily.episodeId, daily.explanation) {
         mutableStateOf(false)
     }
 
@@ -473,7 +472,7 @@ private fun CuriosityCardContent(
                                     .clip(artworkShape)
                             )
                             Text(
-                                text = daily.episode.feedTitle ?: "Podcast",
+                                text = daily.podcastTitle ?: "Podcast",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White.copy(alpha = 0.72f),

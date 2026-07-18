@@ -2,8 +2,6 @@ package cx.aswin.boxlore.feature.explore
 
 import android.app.Application
 import cx.aswin.boxlore.core.data.BoxcastPrefs
-import cx.aswin.boxlore.core.network.model.DailyCuriosityDto
-import cx.aswin.boxlore.core.network.model.EpisodeItem
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -34,29 +32,7 @@ data class LearnHistoryEntry(
     val curiosityScore: Int,
     val action: LearnHistoryAction,
     val dismissedAtMs: Long
-) {
-    fun toDailyCuriosityDto(): DailyCuriosityDto {
-        val episodeIdLong = episodeId.toLongOrNull() ?: 0L
-        val feedIdLong = podcastId?.toLongOrNull()
-        return DailyCuriosityDto(
-            date = "",
-            question = question,
-            explanation = explanation,
-            curiosityScore = curiosityScore,
-            episode = EpisodeItem(
-                id = episodeIdLong,
-                title = episodeTitle,
-                description = description,
-                enclosureUrl = audioUrl,
-                duration = duration,
-                image = imageUrl,
-                feedImage = feedImage ?: imageUrl,
-                feedId = feedIdLong,
-                feedTitle = podcastTitle
-            )
-        )
-    }
-}
+)
 
 class LearnCuriosityHistoryStore(application: Application) {
 
@@ -78,9 +54,9 @@ class LearnCuriosityHistoryStore(application: Application) {
         return boxcastPrefs.getDismissedCuriosityIds()
     }
 
-    fun recordDismissal(daily: DailyCuriosityDto, action: LearnHistoryAction) {
-        val episodeId = daily.episode.id.toString()
-        val entry = daily.toHistoryEntry(action)
+    fun recordDismissal(card: LearnCuriosityCard, action: LearnHistoryAction) {
+        val episodeId = card.episodeId
+        val entry = card.toHistoryEntry(action)
 
         val dismissed = getDismissedIds().toMutableSet()
         dismissed.add(episodeId)
@@ -128,21 +104,20 @@ class LearnCuriosityHistoryStore(application: Application) {
         boxcastPrefs.setLearnCuriosityHistoryJson(array.toString())
     }
 
-    private fun DailyCuriosityDto.toHistoryEntry(action: LearnHistoryAction): LearnHistoryEntry {
-        val episode = episode
+    private fun LearnCuriosityCard.toHistoryEntry(action: LearnHistoryAction): LearnHistoryEntry {
         return LearnHistoryEntry(
-            episodeId = episode.id.toString(),
-            episodeTitle = episode.title,
-            podcastTitle = episode.feedTitle,
-            imageUrl = episode.image,
-            feedImage = episode.feedImage,
-            podcastId = episode.feedId?.toString(),
-            audioUrl = episode.enclosureUrl,
-            duration = episode.duration ?: 0,
-            description = episode.description,
+            episodeId = episodeId,
+            episodeTitle = episodeTitle,
+            podcastTitle = podcastTitle,
+            imageUrl = imageUrl,
+            feedImage = feedImage,
+            podcastId = podcastId,
+            audioUrl = audioUrl,
+            duration = duration,
+            description = description,
             question = question,
             explanation = explanation,
-            curiosityScore = curiosityScore ?: 0,
+            curiosityScore = curiosityScore,
             action = action,
             dismissedAtMs = System.currentTimeMillis()
         )

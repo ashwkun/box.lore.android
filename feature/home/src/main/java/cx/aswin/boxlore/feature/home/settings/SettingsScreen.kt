@@ -47,8 +47,8 @@ import cx.aswin.boxlore.feature.home.settings.pages.LibrarySettingsPage
 import cx.aswin.boxlore.feature.home.settings.pages.PlaybackActions
 import cx.aswin.boxlore.feature.home.settings.pages.PlaybackSettingsPage
 import cx.aswin.boxlore.feature.home.settings.pages.PlaybackUiState
-import cx.aswin.boxlore.feature.home.settings.pages.PrivacySettingsPage
 import cx.aswin.boxlore.feature.home.settings.pages.PrivacySettingsActions
+import cx.aswin.boxlore.feature.home.settings.pages.PrivacySettingsPage
 import cx.aswin.boxlore.feature.home.settings.pages.SettingsHub
 
 /** Where to send the user for the two Downloads settings sub-screens. */
@@ -92,27 +92,29 @@ data class SettingsScreenConfig(
 
 /** Appearance sub-page state paired with its actions, so [SettingsScreen] can pass both as one. */
 data class AppearanceSettings(
-    val state: AppearanceUiState = AppearanceUiState(
-        currentThemeConfig = "system",
-        isDynamicColorEnabled = true,
-        currentThemeBrand = "violet",
-        currentSurfaceStyle = "standard",
-    ),
+    val state: AppearanceUiState =
+        AppearanceUiState(
+            currentThemeConfig = "system",
+            isDynamicColorEnabled = true,
+            currentThemeBrand = "violet",
+            currentSurfaceStyle = "standard",
+        ),
     val actions: AppearanceActions = AppearanceActions({}, {}, {}, {}),
 )
 
 /** Playback sub-page state paired with its actions, so [SettingsScreen] can pass both as one. */
 data class PlaybackSettings(
-    val state: PlaybackUiState = PlaybackUiState(
-        skipBehavior = "just_skip",
-        skipBeginningMs = 0L,
-        skipEndingMs = 0L,
-        seekBackwardMs = 10_000L,
-        seekForwardMs = 30_000L,
-        hideCompletedInHome = true,
-        hideCompletedInSubs = true,
-        hideCompletedInShowDetails = false,
-    ),
+    val state: PlaybackUiState =
+        PlaybackUiState(
+            skipBehavior = "just_skip",
+            skipBeginningMs = 0L,
+            skipEndingMs = 0L,
+            seekBackwardMs = 10_000L,
+            seekForwardMs = 30_000L,
+            hideCompletedInHome = true,
+            hideCompletedInSubs = true,
+            hideCompletedInShowDetails = false,
+        ),
     val actions: PlaybackActions = PlaybackActions({}, {}, {}, {}, {}, {}, {}, {}),
 )
 
@@ -137,12 +139,14 @@ fun SettingsScreen(
     val playbackState = playbackSettings.state
     val playbackActions = playbackSettings.actions
     val context = LocalContext.current
-    val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelAssembler.factory(
-            rssSubscriptionPort = repositories.rssPodcastRepository,
-            rankingResetPort = repositories.rankingFeedbackRepository,
-        ),
-    )
+    val settingsViewModel: SettingsViewModel =
+        viewModel(
+            factory =
+                SettingsViewModelAssembler.factory(
+                    rssSubscriptionPort = repositories.rssPodcastRepository,
+                    rankingResetPort = repositories.rankingFeedbackRepository,
+                ),
+        )
     val rssState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
     var destination by rememberSaveable {
@@ -152,27 +156,32 @@ fun SettingsScreen(
     var isDeletionExpanded by rememberSaveable { mutableStateOf(false) }
     var analyticsIdVersion by remember { mutableIntStateOf(0) }
 
-    val deletionId = remember(appInstanceId, analyticsIdVersion) {
-        AnalyticsHelper.getDistinctId().ifBlank { appInstanceId.orEmpty() }
-    }
+    val deletionId =
+        remember(appInstanceId, analyticsIdVersion) {
+            AnalyticsHelper.getDistinctId().ifBlank { appInstanceId.orEmpty() }
+        }
     val appInfo = rememberAppInfo(context)
 
-    val exportJsonLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json"),
-        onResult = { uri -> uri?.let(libraryBackupWriters.onExportJson) },
-    )
-    val exportOpmlLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/x-opml"),
-        onResult = { uri -> uri?.let(libraryBackupWriters.onExportOpml) },
-    )
-    val importJsonLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let(libraryBackupWriters.onImportJson) },
-    )
-    val importOpmlLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let(libraryBackupWriters.onImportOpml) },
-    )
+    val exportJsonLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/json"),
+            onResult = { uri -> uri?.let(libraryBackupWriters.onExportJson) },
+        )
+    val exportOpmlLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("text/x-opml"),
+            onResult = { uri -> uri?.let(libraryBackupWriters.onExportOpml) },
+        )
+    val importJsonLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+            onResult = { uri -> uri?.let(libraryBackupWriters.onImportJson) },
+        )
+    val importOpmlLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+            onResult = { uri -> uri?.let(libraryBackupWriters.onImportOpml) },
+        )
 
     LaunchedEffect(Unit) {
         AnalyticsHelper.trackSettingsScreenViewed("home_top_bar")
@@ -198,63 +207,75 @@ fun SettingsScreen(
         label = "settings_destination",
     ) { currentDestination ->
         when (currentDestination) {
-            ProfileSettingsDestination.Hub -> SettingsHub(
-                onBack = onBack,
-                onNavigate = { destination = it },
-            )
+            ProfileSettingsDestination.Hub ->
+                SettingsHub(
+                    onBack = onBack,
+                    onNavigate = { destination = it },
+                )
 
-            ProfileSettingsDestination.Library -> LibrarySettingsPage(
-                currentRegion = currentRegion,
-                onSetRegion = {
-                    AnalyticsHelper.trackSettingsInteraction("content_region_changed", it)
-                    onSetRegion(it)
-                },
-                onAddRssClick = { settingsViewModel.openAddRssDialog() },
-                backupActions = trackedLibraryBackupActions(
-                    exportJsonLauncher, exportOpmlLauncher, importJsonLauncher, importOpmlLauncher,
-                ),
-                onBack = returnToHub,
-            )
-
-            ProfileSettingsDestination.Appearance -> AppearanceSettingsPage(
-                state = appearanceState,
-                actions = appearanceActions.trackedForAnalytics(),
-                onBack = returnToHub,
-            )
-
-            ProfileSettingsDestination.Playback -> PlaybackSettingsPage(
-                state = playbackState,
-                actions = playbackActions,
-                onBack = returnToHub,
-            )
-
-            ProfileSettingsDestination.Downloads -> DownloadsSettingsPage(
-                onSmartDownloadsClick = downloadsNavigation.onNavigateToSmartDownloads,
-                onAutoDownloadsClick = downloadsNavigation.onNavigateToAutoDownloads,
-                onBack = returnToHub,
-            )
-
-            ProfileSettingsDestination.Privacy -> PrivacySettingsPage(
-                deletionId = deletionId,
-                isDeletionExpanded = isDeletionExpanded,
-                actions = PrivacySettingsActions(
-                    onDeletionExpandedChange = { isDeletionExpanded = it },
-                    onResetIdentityClick = { showResetDialog = true },
-                    onResetRecommendationsClick = settingsViewModel::resetRecommendations,
-                    onCopyDeletionId = { copyDeletionId(context, deletionId) },
-                    onEmailDeletionRequest = {
-                        requestAnalyticsDeletionByEmail(context, deletionId)
+            ProfileSettingsDestination.Library ->
+                LibrarySettingsPage(
+                    currentRegion = currentRegion,
+                    onSetRegion = {
+                        AnalyticsHelper.trackSettingsInteraction("content_region_changed", it)
+                        onSetRegion(it)
                     },
-                ),
-                onBack = returnToHub,
-            )
+                    onAddRssClick = { settingsViewModel.openAddRssDialog() },
+                    backupActions =
+                        trackedLibraryBackupActions(
+                            exportJsonLauncher,
+                            exportOpmlLauncher,
+                            importJsonLauncher,
+                            importOpmlLauncher,
+                        ),
+                    onBack = returnToHub,
+                )
 
-            ProfileSettingsDestination.About -> AboutSettingsPage(
-                appInfo = appInfo,
-                onVisitPodcastIndex = { visitPodcastIndexHomepage(context) },
-                onOpenChangelog = { openChangelog(context) },
-                onBack = returnToHub,
-            )
+            ProfileSettingsDestination.Appearance ->
+                AppearanceSettingsPage(
+                    state = appearanceState,
+                    actions = appearanceActions.trackedForAnalytics(),
+                    onBack = returnToHub,
+                )
+
+            ProfileSettingsDestination.Playback ->
+                PlaybackSettingsPage(
+                    state = playbackState,
+                    actions = playbackActions,
+                    onBack = returnToHub,
+                )
+
+            ProfileSettingsDestination.Downloads ->
+                DownloadsSettingsPage(
+                    onSmartDownloadsClick = downloadsNavigation.onNavigateToSmartDownloads,
+                    onAutoDownloadsClick = downloadsNavigation.onNavigateToAutoDownloads,
+                    onBack = returnToHub,
+                )
+
+            ProfileSettingsDestination.Privacy ->
+                PrivacySettingsPage(
+                    deletionId = deletionId,
+                    isDeletionExpanded = isDeletionExpanded,
+                    actions =
+                        PrivacySettingsActions(
+                            onDeletionExpandedChange = { isDeletionExpanded = it },
+                            onResetIdentityClick = { showResetDialog = true },
+                            onResetRecommendationsClick = settingsViewModel::resetRecommendations,
+                            onCopyDeletionId = { copyDeletionId(context, deletionId) },
+                            onEmailDeletionRequest = {
+                                requestAnalyticsDeletionByEmail(context, deletionId)
+                            },
+                        ),
+                    onBack = returnToHub,
+                )
+
+            ProfileSettingsDestination.About ->
+                AboutSettingsPage(
+                    appInfo = appInfo,
+                    onVisitPodcastIndex = { visitPodcastIndexHomepage(context) },
+                    onOpenChangelog = { openChangelog(context) },
+                    onBack = returnToHub,
+                )
         }
     }
 
@@ -295,18 +316,21 @@ fun SettingsScreen(
 
 private fun AnimatedContentTransitionScope<ProfileSettingsDestination>.settingsDestinationTransitionSpec(): ContentTransform {
     val enterFromRight = targetState != ProfileSettingsDestination.Hub
-    val motionSpec = spring<IntOffset>(
-        dampingRatio = 0.82f,
-        stiffness = Spring.StiffnessMediumLow,
-    )
-    val enter = slideInHorizontally(
-        animationSpec = motionSpec,
-        initialOffsetX = { width -> if (enterFromRight) width / 3 else -width / 3 },
-    ) + fadeIn()
-    val exit = slideOutHorizontally(
-        animationSpec = motionSpec,
-        targetOffsetX = { width -> if (enterFromRight) -width / 4 else width / 4 },
-    ) + fadeOut()
+    val motionSpec =
+        spring<IntOffset>(
+            dampingRatio = 0.82f,
+            stiffness = Spring.StiffnessMediumLow,
+        )
+    val enter =
+        slideInHorizontally(
+            animationSpec = motionSpec,
+            initialOffsetX = { width -> if (enterFromRight) width / 3 else -width / 3 },
+        ) + fadeIn()
+    val exit =
+        slideOutHorizontally(
+            animationSpec = motionSpec,
+            targetOffsetX = { width -> if (enterFromRight) -width / 4 else width / 4 },
+        ) + fadeOut()
     return (enter togetherWith exit).using(SizeTransform(clip = false))
 }
 
@@ -316,92 +340,106 @@ private fun trackedLibraryBackupActions(
     exportOpmlLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     importJsonLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     importOpmlLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-): LibraryBackupActions = LibraryBackupActions(
-    onExportJson = {
-        AnalyticsHelper.trackSettingsInteraction("library_export")
-        exportJsonLauncher.launch("boxlore_backup_${System.currentTimeMillis()}.json")
-    },
-    onExportOpml = {
-        AnalyticsHelper.trackSettingsInteraction("library_export_opml")
-        exportOpmlLauncher.launch("boxlore_subscriptions_${System.currentTimeMillis()}.opml")
-    },
-    onImportJson = {
-        AnalyticsHelper.trackSettingsInteraction("library_import_json")
-        importJsonLauncher.launch(arrayOf("application/json"))
-    },
-    onImportOpml = {
-        AnalyticsHelper.trackSettingsInteraction("library_import_opml")
-        importOpmlLauncher.launch(arrayOf("*/*"))
-    },
-)
+): LibraryBackupActions =
+    LibraryBackupActions(
+        onExportJson = {
+            AnalyticsHelper.trackSettingsInteraction("library_export")
+            exportJsonLauncher.launch("boxlore_backup_${System.currentTimeMillis()}.json")
+        },
+        onExportOpml = {
+            AnalyticsHelper.trackSettingsInteraction("library_export_opml")
+            exportOpmlLauncher.launch("boxlore_subscriptions_${System.currentTimeMillis()}.opml")
+        },
+        onImportJson = {
+            AnalyticsHelper.trackSettingsInteraction("library_import_json")
+            importJsonLauncher.launch(arrayOf("application/json"))
+        },
+        onImportOpml = {
+            AnalyticsHelper.trackSettingsInteraction("library_import_opml")
+            importOpmlLauncher.launch(arrayOf("*/*"))
+        },
+    )
 
 /** Wraps the appearance callbacks with their analytics tracking, without changing behavior. */
-private fun AppearanceActions.trackedForAnalytics(): AppearanceActions = AppearanceActions(
-    onSetThemeConfig = {
-        AnalyticsHelper.trackSettingsInteraction("theme_mode_changed", it)
-        onSetThemeConfig(it)
-    },
-    onToggleDynamicColor = {
-        AnalyticsHelper.trackSettingsInteraction("dynamic_color_toggled", it.toString())
-        onToggleDynamicColor(it)
-    },
-    onSetThemeBrand = {
-        AnalyticsHelper.trackSettingsInteraction("theme_brand_changed", it)
-        onSetThemeBrand(it)
-    },
-    onSetSurfaceStyle = {
-        AnalyticsHelper.trackSettingsInteraction("surface_style_changed", it)
-        onSetSurfaceStyle(it)
-    },
-)
+private fun AppearanceActions.trackedForAnalytics(): AppearanceActions =
+    AppearanceActions(
+        onSetThemeConfig = {
+            AnalyticsHelper.trackSettingsInteraction("theme_mode_changed", it)
+            onSetThemeConfig(it)
+        },
+        onToggleDynamicColor = {
+            AnalyticsHelper.trackSettingsInteraction("dynamic_color_toggled", it.toString())
+            onToggleDynamicColor(it)
+        },
+        onSetThemeBrand = {
+            AnalyticsHelper.trackSettingsInteraction("theme_brand_changed", it)
+            onSetThemeBrand(it)
+        },
+        onSetSurfaceStyle = {
+            AnalyticsHelper.trackSettingsInteraction("surface_style_changed", it)
+            onSetSurfaceStyle(it)
+        },
+    )
 
 @Composable
 private fun rememberAppInfo(context: Context): AppInfo {
-    val versionName = remember {
-        runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull().orEmpty().ifBlank { "Not available" }
-    }
-    val versionCode = remember {
-        runCatching {
-            val info = context.packageManager.getPackageInfo(context.packageName, 0)
-            if (android.os.Build.VERSION.SDK_INT >= 28) {
-                info.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                info.versionCode.toLong()
-            }
-        }.getOrDefault(0L)
-    }
+    val versionName =
+        remember {
+            runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull().orEmpty().ifBlank { "Not available" }
+        }
+    val versionCode =
+        remember {
+            runCatching {
+                val info = context.packageManager.getPackageInfo(context.packageName, 0)
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    info.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    info.versionCode.toLong()
+                }
+            }.getOrDefault(0L)
+        }
     return remember(versionName, versionCode) {
         AppInfo(
             versionName = versionName,
             versionCode = versionCode,
             packageName = context.packageName,
-            androidRelease = android.os.Build.VERSION.RELEASE.orEmpty().ifBlank { "?" },
+            androidRelease =
+                android.os.Build.VERSION.RELEASE
+                    .orEmpty()
+                    .ifBlank { "?" },
             sdkInt = android.os.Build.VERSION.SDK_INT,
         )
     }
 }
 
-private fun copyDeletionId(context: Context, deletionId: String) {
+private fun copyDeletionId(
+    context: Context,
+    deletionId: String,
+) {
     AnalyticsHelper.trackSettingsInteraction("delete_id_copied")
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("Anonymous analytics ID", deletionId))
     Toast.makeText(context, "Analytics ID copied", Toast.LENGTH_SHORT).show()
 }
 
-private fun requestAnalyticsDeletionByEmail(context: Context, deletionId: String) {
+private fun requestAnalyticsDeletionByEmail(
+    context: Context,
+    deletionId: String,
+) {
     AnalyticsHelper.trackSettingsInteraction("delete_email_clicked")
-    val intent = Intent(Intent.ACTION_SENDTO).apply {
-        data = Uri.parse("mailto:")
-        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@aswin.cx"))
-        putExtra(Intent.EXTRA_SUBJECT, "Analytics data deletion request")
-        putExtra(
-            Intent.EXTRA_TEXT,
-            "Please delete PostHog analytics data associated with this distinct ID: $deletionId",
-        )
-    }
+    val intent =
+        Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:")
+            putExtra(Intent.EXTRA_EMAIL, arrayOf("support@aswin.cx"))
+            putExtra(Intent.EXTRA_SUBJECT, "Analytics data deletion request")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                "Please delete PostHog analytics data associated with this distinct ID: $deletionId",
+            )
+        }
     runCatching { context.startActivity(intent) }
         .onFailure {
             Toast.makeText(context, "No email app is available", Toast.LENGTH_SHORT).show()
@@ -427,12 +465,13 @@ private fun openChangelog(context: Context) {
     }
 }
 
-private fun String?.toSettingsDestination(): ProfileSettingsDestination = when (this?.trim()?.lowercase()) {
-    "library" -> ProfileSettingsDestination.Library
-    "appearance" -> ProfileSettingsDestination.Appearance
-    "playback" -> ProfileSettingsDestination.Playback
-    "downloads" -> ProfileSettingsDestination.Downloads
-    "privacy" -> ProfileSettingsDestination.Privacy
-    "about" -> ProfileSettingsDestination.About
-    else -> ProfileSettingsDestination.Hub
-}
+private fun String?.toSettingsDestination(): ProfileSettingsDestination =
+    when (this?.trim()?.lowercase()) {
+        "library" -> ProfileSettingsDestination.Library
+        "appearance" -> ProfileSettingsDestination.Appearance
+        "playback" -> ProfileSettingsDestination.Playback
+        "downloads" -> ProfileSettingsDestination.Downloads
+        "privacy" -> ProfileSettingsDestination.Privacy
+        "about" -> ProfileSettingsDestination.About
+        else -> ProfileSettingsDestination.Hub
+    }

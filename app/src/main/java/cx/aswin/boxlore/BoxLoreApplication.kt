@@ -58,7 +58,7 @@ class BoxLoreApplication : Application(), Configuration.Provider {
         SharedAppDependenciesHolder.instance = container
         DownloadsDependenciesHolder.instance = container
         engagementPromptCoordinator = EngagementPromptCoordinator(userPreferencesRepository)
-        // Eagerly touch the container ranking façade so getInstance installs its no-op
+        // Eagerly touch the container ranking façade so create/install runs its no-op
         // fallback if Room initialization fails — same startup behavior as before, without
         // a second RankingFeedbackRepository client diverging from the container.
         container.rankingFeedbackRepository

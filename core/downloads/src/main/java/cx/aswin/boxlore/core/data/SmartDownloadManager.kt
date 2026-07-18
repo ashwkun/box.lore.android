@@ -11,6 +11,7 @@ import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.data.SmartDownloadCandidateLogic.MixtapeCandidate
 import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.CandidateSource
@@ -24,38 +25,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private fun PodcastEntity.toDownloadManagerPodcast(): Podcast {
-    return Podcast(
-        id = this.podcastId,
-        title = this.title,
-        artist = this.author,
-        imageUrl = this.imageUrl,
-        fallbackImageUrl = this.latestEpisode?.imageUrl ?: "",
-        description = this.description,
-        genre = this.genre ?: "Podcast",
-        type = this.type,
-        latestEpisode = this.latestEpisode,
-        subscribedAt = this.subscribedAt,
-        podcastGuid = this.podcastGuid,
-        fundingUrl = this.fundingUrl,
-        fundingMessage = this.fundingMessage,
-        medium = this.medium,
-        hasValue = this.hasValue,
-        updateFrequency = this.updateFrequency,
-        location = this.location,
-        license = this.license,
-        isLocked = this.isLocked,
-        preferredSort = this.preferredSort,
-        notificationsEnabled = this.notificationsEnabled,
-        autoDownloadEnabled = this.autoDownloadEnabled,
-        sourceType = this.sourceType,
-        feedUrl = this.feedUrl,
-        rssRefreshCapability = this.rssRefreshCapability,
-        rssCatalogStale = this.rssCatalogStale,
-        rssHasNewEpisodes = this.rssHasNewEpisodes,
-    )
-}
-
 class SmartDownloadManager(
     private val context: Context,
     private val database: BoxLoreDatabase,
@@ -66,16 +35,6 @@ class SmartDownloadManager(
     private val userPrefs: UserPreferencesRepository,
     private val adaptiveScorer: AdaptiveCandidateScorer,
 ) {
-
-    private data class MixtapeCandidate(
-        val episodeId: String,
-        val score: Double,
-        val isProgress: Boolean,
-        val podcast: Podcast,
-        val episode: Episode,
-        val progressMs: Long = 0L,
-        val durationMs: Long = 0L
-    )
 
     private suspend fun checkSyncConstraints(isManual: Boolean, isForeground: Boolean): Boolean {
         val isEnabled = userPrefs.smartDownloadsEnabledStream.first()
@@ -188,178 +147,6 @@ class SmartDownloadManager(
         return resolvedSerial
     }
 
-    private fun buildInProgressMixtapeCandidates(
-        subsMap: Map<String, PodcastEntity>,
-        allHistory: List<ListeningHistoryEntity>,
-        subIds: Set<String>
-    ): List<MixtapeCandidate> {
-        val inProgressCandidates = allHistory.filter { history ->
-            history.podcastId in subIds && !history.isCompleted && history.progressMs > 0L
-        }.groupBy { it.podcastId }
-         .mapValues { (_, eps) -> eps.maxByOrNull { it.lastPlayedAt } }
-         .values.filterNotNull()
-
-        return inProgressCandidates.mapNotNull { history ->
-            val parentPod = subsMap[history.podcastId] ?: return@mapNotNull null
-            val hoursSinceLastPlay = (System.currentTimeMillis() - history.lastPlayedAt).toDouble() / (1000.0 * 3600.0)
-            val score = 1000.0 + 500.0 / (1.0 + hoursSinceLastPlay.coerceAtLeast(0.0) / 24.0)
-
-            val inProgressEpisode = Episode(
-                id = history.episodeId,
-                title = history.episodeTitle,
-                description = "",
-                audioUrl = history.episodeAudioUrl ?: "",
-                imageUrl = history.episodeImageUrl ?: "",
-                podcastImageUrl = history.podcastImageUrl ?: parentPod.imageUrl,
-                podcastTitle = history.podcastName.takeIf { it.isNotBlank() && it != "Unknown Podcast" } ?: parentPod.title,
-                podcastId = history.podcastId,
-                duration = (history.durationMs / 1000).toInt(),
-                publishedDate = 0L
-            )
-
-            MixtapeCandidate(
-                episodeId = history.episodeId,
-                score = score,
-                isProgress = true,
-                podcast = parentPod.toDownloadManagerPodcast(),
-                episode = inProgressEpisode,
-                progressMs = history.progressMs,
-                durationMs = history.durationMs
-            )
-        }
-    }
-
-    private fun resolveUnplayedDropCandidate(
-        pod: PodcastEntity,
-        resolvedSerial: Map<String, Episode>,
-        historyByEpisode: Map<String, ListeningHistoryEntity>
-    ): Pair<PodcastEntity, Episode>? {
-        val sort = pod.preferredSort ?: "newest"
-        val resolvedEpisode = if (sort == "oldest") {
-            resolvedSerial[pod.podcastId] ?: pod.latestEpisode
-        } else {
-            pod.latestEpisode
-        }
-        return buildUnplayedDropCandidate(pod, resolvedEpisode, historyByEpisode)
-    }
-
-    private fun buildUnplayedDropCandidate(
-        pod: PodcastEntity,
-        episode: Episode?,
-        historyByEpisode: Map<String, ListeningHistoryEntity>,
-    ): Pair<PodcastEntity, Episode>? {
-        val ep = episode ?: return null
-        val history = historyByEpisode[ep.id]
-        val isUnplayed = history == null || (history.progressMs == 0L && !history.isCompleted)
-        return if (isUnplayed) {
-            pod to ep.copy(podcastTitle = pod.title, podcastId = pod.podcastId)
-        } else null
-    }
-
-    private fun buildUnplayedDropsMixtapeCandidates(
-        subs: List<PodcastEntity>,
-        resolvedSerial: Map<String, Episode>,
-        historyByEpisode: Map<String, ListeningHistoryEntity>,
-        podScoresMap: Map<String, Double>
-    ): List<MixtapeCandidate> {
-        val unplayedDropsCandidates = subs.mapNotNull { pod ->
-            resolveUnplayedDropCandidate(pod, resolvedSerial, historyByEpisode)
-        }
-
-        return unplayedDropsCandidates.map { (pod, ep) ->
-            val isRecent = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0 <= 168.0
-            val releasedAfterSub = ep.publishedDate > (pod.subscribedAt / 1000L) || isRecent
-            val freshnessBoost = if (releasedAfterSub) {
-                val hoursSinceRelease = (System.currentTimeMillis() / 1000.0 - ep.publishedDate) / 3600.0
-                300.0 / (1.0 + hoursSinceRelease.coerceAtLeast(0.0) / 24.0)
-            } else 0.0
-            val newTagBoost = if (releasedAfterSub) 200.0 else 0.0
-            val sort = pod.preferredSort ?: "newest"
-            val serialBoost = if (sort == "oldest") 150.0 else 0.0
-
-            val parentPodScore = podScoresMap[pod.podcastId] ?: 0.0
-            val score = 500.0 + freshnessBoost + newTagBoost + serialBoost + 0.8 * parentPodScore
-
-            MixtapeCandidate(
-                episodeId = ep.id,
-                score = score,
-                isProgress = false,
-                podcast = pod.toDownloadManagerPodcast(),
-                episode = ep
-            )
-        }
-    }
-
-    private fun shouldIncludeCandidate(cand: MixtapeCandidate, slots: Set<Boolean>): Boolean {
-        if (cand.isProgress !in slots) {
-            return true
-        }
-        if (slots.size < 2) {
-            val isNewTagged = !cand.isProgress && cand.episode.publishedDate > (cand.podcast.subscribedAt / 1000L)
-            if (isNewTagged && slots.contains(true)) {
-                return true
-            }
-            if (cand.isProgress && slots.contains(false)) {
-                return true
-            }
-        }
-        return false
-    }
-
-    private fun deduplicateAndOrderMixtapeCandidates(
-        inProgressMixtapeCandidates: List<MixtapeCandidate>,
-        unplayedDropsMixtapeCandidates: List<MixtapeCandidate>
-    ): List<MixtapeCandidate> {
-        val allMixtapeCandidates = (inProgressMixtapeCandidates + unplayedDropsMixtapeCandidates)
-            .sortedByDescending { it.score }
-
-        val deduplicatedCandidates = mutableListOf<MixtapeCandidate>()
-        val seenEpisodeIds = mutableSetOf<String>()
-        val podcastSlots = mutableMapOf<String, MutableSet<Boolean>>()
-        
-        for (cand in allMixtapeCandidates) {
-            if (cand.episodeId in seenEpisodeIds) continue
-            val podId = cand.podcast.id
-            val slots = podcastSlots.getOrPut(podId) { mutableSetOf() }
-            if (shouldIncludeCandidate(cand, slots)) {
-                slots.add(cand.isProgress)
-                seenEpisodeIds.add(cand.episodeId)
-                deduplicatedCandidates.add(cand)
-            }
-        }
-
-        val orderedCandidates = mutableListOf<MixtapeCandidate>()
-        val inProgressList = deduplicatedCandidates.filter { it.isProgress }
-        val unplayedList = deduplicatedCandidates.filter { !it.isProgress }.toMutableList()
-
-        for (ipCand in inProgressList) {
-            orderedCandidates.add(ipCand)
-            val nextEpCand = unplayedList.find { it.podcast.id == ipCand.podcast.id }
-            if (nextEpCand != null) {
-                orderedCandidates.add(nextEpCand)
-                unplayedList.remove(nextEpCand)
-            }
-        }
-        orderedCandidates.addAll(unplayedList)
-        return orderedCandidates
-    }
-
-    private fun generateMixtapeCandidates(
-        subs: List<PodcastEntity>,
-        allHistory: List<ListeningHistoryEntity>,
-        historyByEpisode: Map<String, ListeningHistoryEntity>,
-        resolvedSerial: Map<String, Episode>,
-        podScoresMap: Map<String, Double>
-    ): List<MixtapeCandidate> {
-        val subsMap = subs.associateBy { it.podcastId }
-        val subIds = subs.map { it.podcastId }.toSet()
-        
-        val inProgress = buildInProgressMixtapeCandidates(subsMap, allHistory, subIds)
-        val unplayed = buildUnplayedDropsMixtapeCandidates(subs, resolvedSerial, historyByEpisode, podScoresMap)
-        
-        return deduplicateAndOrderMixtapeCandidates(inProgress, unplayed)
-    }
-
     private suspend fun fetchPersonalizedRecommendations(
         subs: List<PodcastEntity>,
         chosenSubsIds: Set<String>,
@@ -428,25 +215,6 @@ class SmartDownloadManager(
         return chosenTrends
     }
 
-    private fun estimateDownloadSize(download: DownloadedEpisodeEntity): Long {
-        return if (download.status == DownloadedEpisodeEntity.STATUS_COMPLETED) {
-            download.sizeBytes
-        } else if (download.status == DownloadedEpisodeEntity.STATUS_DOWNLOADING) {
-            val durSec = download.durationMs / 1000L
-            if (durSec > 0) durSec * 12000L else 50L * 1024 * 1024
-        } else {
-            0L
-        }
-    }
-
-    private fun estimateEpisodeSize(episode: Episode): Long {
-        return if (episode.duration > 0) {
-            episode.duration.toLong() * 12000L
-        } else {
-            50L * 1024 * 1024
-        }
-    }
-
     private fun checkIsAlreadyDownloadedOrDownloading(episode: Episode, existingDownloads: List<DownloadedEpisodeEntity>): Boolean {
         val isAlreadyDownloaded = existingDownloads.any { it.episodeId == episode.id && it.status == DownloadedEpisodeEntity.STATUS_COMPLETED }
         val isDownloading = existingDownloads.any { it.episodeId == episode.id && it.status == DownloadedEpisodeEntity.STATUS_DOWNLOADING }
@@ -457,7 +225,7 @@ class SmartDownloadManager(
         var currentDownloadedBytes = 0L
         for (download in existingDownloads) {
             if (download.isSmartDownloaded) {
-                val estSize = estimateDownloadSize(download)
+                val estSize = SmartDownloadCandidateLogic.estimateDownloadSize(download)
                 currentDownloadedBytes += estSize
                 
                 if (download.episodeId !in candidateEpisodeIds) {
@@ -495,7 +263,7 @@ class SmartDownloadManager(
                 break
             }
 
-            val estimatedSize = estimateEpisodeSize(episode)
+            val estimatedSize = SmartDownloadCandidateLogic.estimateEpisodeSize(episode)
 
             if (storageBudgetMb > 0 && currentDownloadedBytes + estimatedSize > storageBudgetMb * 1024 * 1024L) {
                 val estMb = estimatedSize / (1024 * 1024)
@@ -537,6 +305,7 @@ class SmartDownloadManager(
 
             val allHistory = database.listeningHistoryDao().getRecentHistoryList(limit = 200)
             val completedEpisodeIds = database.listeningHistoryDao().getCompletedEpisodeIds()
+            val nowMs = System.currentTimeMillis()
 
             val resolvedSerial = resolveOldestSerialNextEpisodes(subs, allHistory, completedEpisodeIds)
 
@@ -560,12 +329,13 @@ class SmartDownloadManager(
                 )
             }
 
-            val initialCandidates = generateMixtapeCandidates(
-                subs,
-                allHistory,
-                historyByEpisode,
-                resolvedSerial,
-                podScoresMap,
+            val initialCandidates = SmartDownloadCandidateLogic.generateMixtapeCandidates(
+                subs = subs,
+                allHistory = allHistory,
+                historyByEpisode = historyByEpisode,
+                resolvedSerial = resolvedSerial,
+                podScoresMap = podScoresMap,
+                nowMs = nowMs,
             )
             val adaptiveScores = try {
                 adaptiveScorer.scoreEpisodes(
@@ -603,9 +373,10 @@ class SmartDownloadManager(
             val maxCount = userPrefs.smartDownloadsMaxEpisodesStream.first()
             val storageBudgetMb = userPrefs.smartDownloadsStorageBudgetStream.first()
 
-            val subQuota = (maxCount * 0.7).toInt().coerceAtLeast(1)
-            val recQuota = (maxCount * 0.2).toInt().coerceAtLeast(1)
-            val trendQuota = (maxCount - subQuota - recQuota).coerceAtLeast(1)
+            val quotas = SmartDownloadCandidateLogic.computeDownloadQuotas(maxCount)
+            val subQuota = quotas.subscriptionQuota
+            val recQuota = quotas.recommendationQuota
+            val trendQuota = quotas.trendingQuota
             
             writeLogToFile(context, "Calculated quotas - Subscriptions: $subQuota, Recommendations: $recQuota, Trending: $trendQuota")
 

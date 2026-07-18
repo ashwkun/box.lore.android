@@ -13,6 +13,8 @@ import cx.aswin.boxlore.core.data.ranking.RankingExposure
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.data.ranking.RankingObjective
 import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.feature.explore.logic.filterAndShuffleNewItems
+import cx.aswin.boxlore.feature.explore.logic.weightedShuffle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +22,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-import cx.aswin.boxlore.core.network.model.DailyCuriosityDto
-
 sealed interface LearnUiState {
     data object Loading : LearnUiState
     
     data class Success(
-        val questionsStack: List<DailyCuriosityDto>,
+        val questionsStack: List<LearnCuriosityCard>,
         val isRefreshing: Boolean = false
     ) : LearnUiState
 
@@ -53,7 +53,7 @@ class LearnViewModel(
     private var playsCount = 0
     private var podcastsClickedCount = 0
     private var infosClickedCount = 0
-    private val visibleSince = mutableMapOf<Long, Long>()
+    private val visibleSince = mutableMapOf<String, Long>()
 
     fun onScreenResume() {
         applyPendingRestores()
@@ -72,13 +72,13 @@ class LearnViewModel(
         val restored = historyStore.consumePendingRestores()
         if (restored.isEmpty()) return
 
-        val restoredCards = restored.map { it.toDailyCuriosityDto() }
+        val restoredCards = restored.map { it.toLearnCuriosityCard() }
         _uiState.update { currentState ->
             when (currentState) {
                 is LearnUiState.Success -> {
-                    val restoredIds = restoredCards.map { it.episode.id }.toSet()
+                    val restoredIds = restoredCards.map { it.episodeId }.toSet()
                     val merged = restoredCards + currentState.questionsStack.filterNot {
-                        it.episode.id in restoredIds
+                        it.episodeId in restoredIds
                     }
                     currentState.copy(questionsStack = merged)
                 }
@@ -102,20 +102,20 @@ class LearnViewModel(
         )
     }
 
-    fun trackCardVisible(daily: DailyCuriosityDto) {
-        if (visibleSince.putIfAbsent(daily.episode.id, System.currentTimeMillis()) != null) return
+    fun trackCardVisible(card: LearnCuriosityCard) {
+        if (visibleSince.putIfAbsent(card.episodeId, System.currentTimeMillis()) != null) return
         viewModelScope.launch {
             rankingFeedback.recordExposure(
                 RankingExposure(
-                    episodeId = daily.episode.id.toString(),
-                    podcastId = daily.episode.feedId?.toString().orEmpty(),
+                    episodeId = card.episodeId,
+                    podcastId = card.podcastId.orEmpty(),
                     objective = RankingObjective.DISCOVERY,
                     surface = RankingSurface.EXPLORE,
                     source = CandidateSource.CURATED_INTENT,
                     features = CandidateFeatureBuilder.build(
                         CandidateSignals(
                             isUnseenShow = true,
-                            serverRelevance = (daily.curiosityScore ?: 0) / 10.0,
+                            serverRelevance = card.curiosityScore / 10.0,
                             isUnplayed = true,
                         ),
                     ),
@@ -126,43 +126,43 @@ class LearnViewModel(
         }
     }
 
-    fun trackCardDismissed(daily: DailyCuriosityDto) {
+    fun trackCardDismissed(card: LearnCuriosityCard) {
         cardsDismissedCount++
-        val dwellMillis = System.currentTimeMillis() - (visibleSince.remove(daily.episode.id) ?: return)
+        val dwellMillis = System.currentTimeMillis() - (visibleSince.remove(card.episodeId) ?: return)
         if (dwellMillis < MEANINGFUL_LORE_DWELL_MILLIS) return
-        recordLoreAction(daily, RankingAction.DISMISS)
+        recordLoreAction(card, RankingAction.DISMISS)
     }
 
-    fun trackCardQueued(daily: DailyCuriosityDto) {
+    fun trackCardQueued(card: LearnCuriosityCard) {
         cardsQueuedCount++
-        visibleSince.remove(daily.episode.id)
-        recordLoreAction(daily, RankingAction.EXPLICIT_QUEUE)
+        visibleSince.remove(card.episodeId)
+        recordLoreAction(card, RankingAction.EXPLICIT_QUEUE)
     }
 
-    fun trackPlayClicked(daily: DailyCuriosityDto) {
+    fun trackPlayClicked(card: LearnCuriosityCard) {
         playsCount++
-        recordLoreAction(daily, RankingAction.OPEN_DETAILS)
+        recordLoreAction(card, RankingAction.OPEN_DETAILS)
     }
 
-    fun trackPodcastClicked(daily: DailyCuriosityDto) {
+    fun trackPodcastClicked(card: LearnCuriosityCard) {
         podcastsClickedCount++
-        recordLoreAction(daily, RankingAction.OPEN_DETAILS)
+        recordLoreAction(card, RankingAction.OPEN_DETAILS)
     }
 
-    fun trackInfoClicked(daily: DailyCuriosityDto) {
+    fun trackInfoClicked(card: LearnCuriosityCard) {
         infosClickedCount++
-        recordLoreAction(daily, RankingAction.OPEN_DETAILS)
+        recordLoreAction(card, RankingAction.OPEN_DETAILS)
     }
 
     private fun recordLoreAction(
-        daily: DailyCuriosityDto,
+        card: LearnCuriosityCard,
         action: RankingAction,
     ) {
         viewModelScope.launch {
             rankingFeedback.recordAction(
                 target = FeedbackTarget(
-                    episodeId = daily.episode.id.toString(),
-                    podcastId = daily.episode.feedId?.toString().orEmpty(),
+                    episodeId = card.episodeId,
+                    podcastId = card.podcastId.orEmpty(),
                     source = CandidateSource.CURATED_INTENT,
                 ),
                 action = action,
@@ -189,25 +189,28 @@ class LearnViewModel(
             podcastRepository.getCuratedCuriosity(
                 page = page,
                 bypassCache = bypassCache
-            )
+            )?.questionsStack?.map { it.toLearnCuriosityCard() }
         }
     )
 
     private fun showDeck(result: InitialCuriosityDeckResult.Found) {
         currentPage = result.page
-        val shuffled = weightedShuffle(result.unseenItems)
+        val shuffled = weightedShuffle(
+            list = result.unseenItems,
+            curiosityScore = LearnCuriosityCard::curiosityScore,
+        )
         _uiState.value = LearnUiState.Success(
             questionsStack = shuffled
         )
     }
 
-    fun dismissCuriosity(daily: DailyCuriosityDto, action: LearnHistoryAction) {
-        val episodeId = daily.episode.id.toString()
-        historyStore.recordDismissal(daily, action)
+    fun dismissCuriosity(card: LearnCuriosityCard, action: LearnHistoryAction) {
+        val episodeId = card.episodeId
+        historyStore.recordDismissal(card, action)
 
         val currentState = _uiState.value
         if (currentState is LearnUiState.Success) {
-            val updatedStack = currentState.questionsStack.filterNot { it.episode.id.toString() == episodeId }
+            val updatedStack = currentState.questionsStack.filterNot { it.episodeId == episodeId }
             if (updatedStack.isEmpty() && isEndOfContent) {
                 _uiState.value = LearnUiState.CaughtUp()
                 return
@@ -220,33 +223,26 @@ class LearnViewModel(
         }
     }
 
-    private fun filterAndShuffleNewItems(
-        rawItems: List<DailyCuriosityDto>,
-        currentStack: List<DailyCuriosityDto>
-    ): List<DailyCuriosityDto> {
-        val dismissed = getDismissedIds()
-        val newItems = rawItems.filterNot { it.episode.id.toString() in dismissed }
-        if (newItems.isEmpty()) return emptyList()
-
-        val shuffledNew = weightedShuffle(newItems)
-        val existingIds = currentStack.map { it.episode.id }.toSet()
-        return shuffledNew.filterNot { it.episode.id in existingIds }
-    }
-
     private suspend fun fetchPageAndFilter(
         page: Int,
-        currentStack: List<DailyCuriosityDto>
-    ): List<DailyCuriosityDto> {
+        currentStack: List<LearnCuriosityCard>
+    ): List<LearnCuriosityCard> {
         val res = podcastRepository.getCuratedCuriosity(page = page, bypassCache = false) ?: return emptyList()
         if (res.questionsStack.isEmpty()) {
             isEndOfContent = true
             return emptyList()
         }
         currentPage = page
-        return filterAndShuffleNewItems(res.questionsStack, currentStack)
+        return filterAndShuffleNewItems(
+            rawItems = res.questionsStack.map { it.toLearnCuriosityCard() },
+            currentStack = currentStack,
+            dismissedIds = getDismissedIds(),
+            episodeId = LearnCuriosityCard::episodeId,
+            curiosityScore = LearnCuriosityCard::curiosityScore,
+        )
     }
 
-    private fun appendCuriositiesToSuccessState(newItems: List<DailyCuriosityDto>) {
+    private fun appendCuriositiesToSuccessState(newItems: List<LearnCuriosityCard>) {
         _uiState.update { state ->
             if (state is LearnUiState.Success) {
                 state.copy(questionsStack = state.questionsStack + newItems)
@@ -264,7 +260,7 @@ class LearnViewModel(
         fetchJob = viewModelScope.launch {
             try {
                 var pageToFetch = currentPage + 1
-                var accumulatedNew = emptyList<DailyCuriosityDto>()
+                var accumulatedNew = emptyList<LearnCuriosityCard>()
                 var pageAttempts = 0
                 val maxAttempts = 5
 
@@ -286,17 +282,6 @@ class LearnViewModel(
                 isLoadingMore = false
             }
         }
-    }
-
-    private fun weightedShuffle(list: List<DailyCuriosityDto>): List<DailyCuriosityDto> {
-        if (list.size <= 1) return list
-        val random = java.security.SecureRandom()
-        return list.map { item ->
-            val u = random.nextDouble()
-            val w = (item.curiosityScore ?: 0).toDouble() + 1.0
-            val key = Math.pow(u, 1.0 / w)
-            Pair(item, key)
-        }.sortedByDescending { it.second }.map { it.first }
     }
 
     fun loadData() {

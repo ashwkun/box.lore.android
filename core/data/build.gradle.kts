@@ -49,6 +49,9 @@ android {
     }
 
     testOptions {
+        // Catalog MockWebServer tests use Mockito Context/DB doubles (no Robolectric Room).
+        // Keep false: ?attr theme refs in dependency resources historically break unit-test AAPT;
+        // drawables in this module use concrete tints as a belt-and-suspenders fix.
         unitTests.isIncludeAndroidResources = false
         unitTests.all {
             it.useJUnitPlatform()
@@ -100,6 +103,28 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp)
     testImplementation(libs.robolectric)
     testImplementation("androidx.test:core:1.6.1")
+    // Hermetic Context / Room doubles for catalog MockWebServer tests (no MockK).
+    testImplementation("org.mockito:mockito-core:5.14.2")
 }
+
+// rssparser / PostHog pull OkHttp 5.x; MockWebServer 4.12 needs OkHttp 4 internals
+// (okhttp3.internal.Util). Pin the unit-test classpath to 4.12 like :core:network.
+configurations
+    .matching { it.name.contains("UnitTest", ignoreCase = true) }
+    .configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "com.squareup.okhttp3" &&
+                (requested.name == "okhttp" || requested.name == "okhttp-android")
+            ) {
+                useVersion("4.12.0")
+                because("Align MockWebServer 4.12 with OkHttp 4.x on JVM unit tests")
+            }
+            if (requested.group == "com.squareup.okhttp3" && requested.name == "okhttp-coroutines") {
+                useTarget("com.squareup.okhttp3:okhttp:4.12.0")
+                because("Drop OkHttp 5 coroutines artifact from unit-test classpath")
+            }
+        }
+    }

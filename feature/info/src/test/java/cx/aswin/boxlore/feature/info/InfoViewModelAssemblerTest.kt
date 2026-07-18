@@ -15,22 +15,23 @@ import org.junit.jupiter.api.Test
  * narrow catalog contract Info depends on.
  */
 class InfoViewModelAssemblerTest {
-
     @Test
-    fun `fake PodcastCatalogPort returns details and episode`() = runTest {
-        val podcast = TestFixtures.podcast(id = "pod-9", title = "Catalog Show")
-        val episode = TestFixtures.episode(id = "ep-9", podcastId = "pod-9")
-        val catalog = FakePodcastCatalogPort(
-            podcasts = mapOf(podcast.id to podcast),
-            episodes = mapOf(episode.id to episode),
-            episodesByPodcast = mapOf(podcast.id to listOf(episode)),
-        )
+    fun `fake PodcastCatalogPort returns details and episode`() =
+        runTest {
+            val podcast = TestFixtures.podcast(id = "pod-9", title = "Catalog Show")
+            val episode = TestFixtures.episode(id = "ep-9", podcastId = "pod-9")
+            val catalog =
+                FakePodcastCatalogPort(
+                    podcasts = mapOf(podcast.id to podcast),
+                    episodes = mapOf(episode.id to episode),
+                    episodesByPodcast = mapOf(podcast.id to listOf(episode)),
+                )
 
-        assertEquals("Catalog Show", catalog.getPodcastDetails("pod-9")?.title)
-        assertEquals("ep-9", catalog.getEpisode("ep-9")?.id)
-        assertEquals(1, catalog.getEpisodes("pod-9").size)
-        assertNull(catalog.getPodcastDetails("missing"))
-    }
+            assertEquals("Catalog Show", catalog.getPodcastDetails("pod-9")?.title)
+            assertEquals("ep-9", catalog.getEpisode("ep-9")?.id)
+            assertEquals(1, catalog.getEpisodes("pod-9").size)
+            assertNull(catalog.getPodcastDetails("missing"))
+        }
 
     private class FakePodcastCatalogPort(
         private val podcasts: Map<String, Podcast>,
@@ -38,8 +39,9 @@ class InfoViewModelAssemblerTest {
         private val episodesByPodcast: Map<String, List<Episode>>,
     ) : PodcastCatalogPort {
         override suspend fun getPodcastDetails(feedId: String): Podcast? = podcasts[feedId]
+
         override suspend fun getEpisode(episodeId: String): Episode? = episodes[episodeId]
-        override suspend fun getEpisodes(feedId: String): List<Episode> =
-            episodesByPodcast[feedId].orEmpty()
+
+        override suspend fun getEpisodes(feedId: String): List<Episode> = episodesByPodcast[feedId].orEmpty()
     }
 }

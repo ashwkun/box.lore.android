@@ -76,7 +76,7 @@ Do **not** rename these; changing them resets first-launch state for existing us
 
 ## CI relevance
 
-Covered by the `test` job in `.github/workflows/ci.yml`. Kover variant `merged` is
+Covered by `unit-tests.yml` (`testDebugUnitTest`). Kover variant `merged` is
 registered; included in the coverage gate alongside other `core:*` modules.
 
 ## See also

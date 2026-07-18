@@ -9,10 +9,11 @@ import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.RssPodcastRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.data.UserPreferencesRepository
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.domain.ports.LocalCatalogPort
 
 /** Shared dependencies for [HomeViewModel] construction (keeps assembler APIs ≤7 params). */
 data class HomeViewModelDeps(
@@ -25,7 +26,8 @@ data class HomeViewModelDeps(
     val adaptiveRankingRepository: AdaptiveRankingRepository,
     val adaptiveScorer: AdaptiveCandidateScorer,
     val rankingFeedback: RankingFeedbackRepository,
-    val database: BoxLoreDatabase,
+    val localCatalog: LocalCatalogPort,
+    val userPreferencesRepository: UserPreferencesRepository,
 )
 
 /** Builds [HomeViewModel] from shared container deps (production or test doubles). */
@@ -33,30 +35,33 @@ object HomeViewModelAssembler {
     fun create(
         application: Application,
         deps: HomeViewModelDeps,
-    ): HomeViewModel = HomeViewModel(
-        application = application,
-        podcastRepository = deps.podcastRepository,
-        playbackRepository = deps.playbackRepository,
-        engagementCoordinator = deps.engagementCoordinator,
-        subscriptionRepository = deps.subscriptionRepository,
-        downloadRepository = deps.downloadRepository,
-        rssRepository = deps.rssRepository,
-        adaptiveRankingRepository = deps.adaptiveRankingRepository,
-        adaptiveScorer = deps.adaptiveScorer,
-        rankingFeedback = deps.rankingFeedback,
-        database = deps.database,
-    )
+    ): HomeViewModel =
+        HomeViewModel(
+            application = application,
+            podcastRepository = deps.podcastRepository,
+            playbackRepository = deps.playbackRepository,
+            engagementCoordinator = deps.engagementCoordinator,
+            subscriptionRepository = deps.subscriptionRepository,
+            downloadRepository = deps.downloadRepository,
+            rssRepository = deps.rssRepository,
+            adaptiveRankingRepository = deps.adaptiveRankingRepository,
+            adaptiveScorer = deps.adaptiveScorer,
+            rankingFeedback = deps.rankingFeedback,
+            localCatalog = deps.localCatalog,
+            userPreferencesRepository = deps.userPreferencesRepository,
+        )
 
     fun factory(
         application: Application,
         deps: HomeViewModelDeps,
-    ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            require(modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                "Unknown ViewModel class: ${modelClass.name}"
+    ): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                require(modelClass.isAssignableFrom(HomeViewModel::class.java)) {
+                    "Unknown ViewModel class: ${modelClass.name}"
+                }
+                return create(application = application, deps = deps) as T
             }
-            return create(application = application, deps = deps) as T
         }
-    }
 }

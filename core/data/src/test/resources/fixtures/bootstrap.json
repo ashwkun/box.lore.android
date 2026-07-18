@@ -1,0 +1,58 @@
+{
+  "contractVersion": 1,
+  "catalogVersion": 3,
+  "recommendationAlgorithmVersion": "recs-v2",
+  "isRecommendationsFallback": false,
+  "briefing": {
+    "date": "2026-07-18",
+    "region": "us",
+    "title": "Morning Brief",
+    "script": "Good morning.",
+    "audioUrl": "https://example.com/brief.mp3",
+    "coverUrl": "https://example.com/brief.jpg",
+    "sources": [
+      { "title": "Wire", "url": "https://example.com/wire" }
+    ]
+  },
+  "trending": [
+    {
+      "id": 1001,
+      "title": "Trending Show",
+      "author": "Host",
+      "image": "https://example.com/t.jpg",
+      "language": "en"
+    }
+  ],
+  "curatedVibes": {
+    "focus": [
+      {
+        "id": 2002,
+        "title": "Focus Feed",
+        "author": "Calm",
+        "image": "https://example.com/f.jpg"
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "id": 3003,
+      "title": "Recommended Episode",
+      "description": "A good listen",
+      "enclosureUrl": "https://example.com/ep.mp3",
+      "duration": 1800,
+      "datePublished": 1721000000,
+      "feedId": 1001,
+      "feedTitle": "Trending Show",
+      "image": "https://example.com/ep.jpg"
+    }
+  ],
+  "intentCandidates": {
+    "learn": [
+      {
+        "id": 4004,
+        "title": "Learn Show",
+        "author": "Teacher"
+      }
+    ]
+  }
+}

@@ -7,6 +7,8 @@ import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.QueueManager
 import cx.aswin.boxlore.core.data.QueueRepository
+import cx.aswin.boxlore.core.data.RoomEpisodeOfflineLookup
+import cx.aswin.boxlore.core.data.RoomLocalCatalog
 import cx.aswin.boxlore.core.data.RssPodcastRepository
 import cx.aswin.boxlore.core.data.SharedAppDependencies
 import cx.aswin.boxlore.core.data.SmartDownloadManager
@@ -16,10 +18,16 @@ import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.ports.DownloadCacheRelinker
 import cx.aswin.boxlore.core.data.ports.SmartDownloadSyncPort
 import cx.aswin.boxlore.core.data.privacy.ConsentManager
+import cx.aswin.boxlore.core.data.ports.DownloadServiceLauncher
+import cx.aswin.boxlore.core.data.ports.DownloadServiceLauncherHolder
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.data.ranking.RankingRuntimeControls
+import cx.aswin.boxlore.core.data.service.MediaDownloadService
+import cx.aswin.boxlore.core.domain.ports.EpisodeOfflineLookupPort
 import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
+import cx.aswin.boxlore.core.domain.ports.LocalCatalogPort
 import cx.aswin.boxlore.core.downloads.DownloadsDependencies
 
 /**
@@ -29,9 +37,10 @@ import cx.aswin.boxlore.core.downloads.DownloadsDependencies
  * DB → RSS/ranking peers → PodcastRepository → QueueRepository → PlaybackRepository
  * → QueueManager → SmartDownloadManager.
  *
- * Ranking/RSS [getInstance] calls live only here so workers/services can consume the same
- * instances via [cx.aswin.boxlore.core.data.SharedAppDependenciesHolder] (catalog/prefs/ranking)
- * and [cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder] (download types).
+ * Ranking/RSS are [create]+[install]ed here (not via production getInstance call sites).
+ * Workers/services consume the same instances via
+ * [cx.aswin.boxlore.core.data.SharedAppDependenciesHolder] and
+ * [cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder].
  */
 class AppContainer(
     context: Context,
@@ -49,22 +58,44 @@ class AppContainer(
         BoxLoreDatabase.getDatabase(appContext)
     }
 
+    /** Feature / nav local podcast access — prefer this over injecting [database]. */
+    val localCatalogPort: LocalCatalogPort by lazy {
+        RoomLocalCatalog(database)
+    }
+
+    /** Episode Info offline hydration — prefer this over injecting [database]. */
+    val episodeOfflineLookupPort: EpisodeOfflineLookupPort by lazy {
+        RoomEpisodeOfflineLookup(database)
+    }
+
     /** Single install path for RSS; production callers must not call getInstance. */
     override val rssPodcastRepository: RssPodcastRepository by lazy {
-        RssPodcastRepository.getInstance(appContext)
+        RssPodcastRepository.create(appContext, database).also(RssPodcastRepository::install)
     }
 
     /** Single install path for adaptive ranking; production callers must not call getInstance. */
     override val adaptiveRankingRepository: AdaptiveRankingRepository by lazy {
-        AdaptiveRankingRepository.getInstance(appContext)
+        AdaptiveRankingRepository.create(appContext).also(AdaptiveRankingRepository::install)
+    }
+
+    override val rankingRuntimeControls: RankingRuntimeControls by lazy {
+        RankingRuntimeControls.create(appContext).also(RankingRuntimeControls::install)
     }
 
     override val rankingFeedbackRepository: RankingFeedbackRepository by lazy {
-        RankingFeedbackRepository.getInstance(appContext)
+        RankingFeedbackRepository.create(adaptiveRankingRepository).also(RankingFeedbackRepository::install)
     }
 
     override val adaptiveCandidateScorer: AdaptiveCandidateScorer by lazy {
-        AdaptiveCandidateScorer.getInstance(appContext)
+        AdaptiveCandidateScorer
+            .create(adaptiveRankingRepository, rankingRuntimeControls)
+            .also(AdaptiveCandidateScorer::install)
+    }
+
+    init {
+        // Playback owns MediaDownloadService; downloads starts it via this launcher (no Class.forName).
+        DownloadServiceLauncherHolder.instance =
+            DownloadServiceLauncher { MediaDownloadService::class.java }
     }
 
     override val podcastRepository: PodcastRepository by lazy {
@@ -87,6 +118,7 @@ class AppContainer(
             queueRepository = queueRepository,
             podcastRepository = podcastRepository,
             rankingFeedbackRepository = rankingFeedbackRepository,
+            userPreferencesRepository = userPreferencesRepository,
         )
     }
 

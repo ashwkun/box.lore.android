@@ -53,9 +53,10 @@ internal fun AccentColorPickerDialog(
     var hue by remember { mutableFloatStateOf(initialHsv[0]) }
     var saturation by remember { mutableFloatStateOf(initialHsv[1]) }
     var value by remember { mutableFloatStateOf(initialHsv[2]) }
-    val selectedColor = remember(hue, saturation, value) {
-        hsvToColor(hue, saturation, value)
-    }
+    val selectedColor =
+        remember(hue, saturation, value) {
+            hsvToColor(hue, saturation, value)
+        }
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     // generateBrandColorScheme is too expensive to run on every drag frame; debounce it
     // and only refresh the harmonized preview once the user pauses (or releases).
@@ -70,11 +71,12 @@ internal fun AccentColorPickerDialog(
     }
     LaunchedEffect(selectedColor, isDark) {
         delay(HarmonizedPreviewDebounceMs)
-        matchedPrimary = generateBrandColorScheme(
-            seedColor = selectedColor,
-            isDark = isDark,
-            surfaceStyle = SurfaceStyles.STANDARD,
-        ).primary
+        matchedPrimary =
+            generateBrandColorScheme(
+                seedColor = selectedColor,
+                isDark = isDark,
+                surfaceStyle = SurfaceStyles.STANDARD,
+            ).primary
     }
 
     AlertDialog(
@@ -120,16 +122,18 @@ internal fun AccentColorPickerDialog(
                         saturation = s
                         value = v
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1.2f),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1.2f),
                 )
                 HueBar(
                     hue = hue,
                     onHueChange = { hue = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(28.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(28.dp),
                 )
             }
         },
@@ -184,33 +188,34 @@ private fun SaturationValuePanel(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .pointerInput(hue) {
-                detectTapGestures { offset ->
-                    onChange(
-                        (offset.x / size.width).coerceIn(0f, 1f),
-                        1f - (offset.y / size.height).coerceIn(0f, 1f),
-                    )
-                }
-            }
-            .pointerInput(hue) {
-                detectDragGestures { change, _ ->
-                    change.consume()
-                    onChange(
-                        (change.position.x / size.width).coerceIn(0f, 1f),
-                        1f - (change.position.y / size.height).coerceIn(0f, 1f),
-                    )
-                }
-            },
+        modifier =
+            modifier
+                .pointerInput(hue) {
+                    detectTapGestures { offset ->
+                        onChange(
+                            (offset.x / size.width).coerceIn(0f, 1f),
+                            1f - (offset.y / size.height).coerceIn(0f, 1f),
+                        )
+                    }
+                }.pointerInput(hue) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        onChange(
+                            (change.position.x / size.width).coerceIn(0f, 1f),
+                            1f - (change.position.y / size.height).coerceIn(0f, 1f),
+                        )
+                    }
+                },
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val hueColor = hsvToColor(hue, 1f, 1f)
             drawRect(brush = Brush.horizontalGradient(listOf(Color.White, hueColor)))
             drawRect(brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
-            val indicator = Offset(
-                x = saturation * size.width,
-                y = (1f - value) * size.height,
-            )
+            val indicator =
+                Offset(
+                    x = saturation * size.width,
+                    y = (1f - value) * size.height,
+                )
             drawCircle(
                 color = Color.White,
                 radius = 14f,
@@ -233,30 +238,31 @@ private fun HueBar(
     onHueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val hues = remember {
-        listOf(
-            Color.Red,
-            Color.Yellow,
-            Color.Green,
-            Color.Cyan,
-            Color.Blue,
-            Color.Magenta,
-            Color.Red,
-        )
-    }
+    val hues =
+        remember {
+            listOf(
+                Color.Red,
+                Color.Yellow,
+                Color.Green,
+                Color.Cyan,
+                Color.Blue,
+                Color.Magenta,
+                Color.Red,
+            )
+        }
     Box(
-        modifier = modifier
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    onHueChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
-                }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    change.consume()
-                    onHueChange((change.position.x / size.width).coerceIn(0f, 1f) * 360f)
-                }
-            },
+        modifier =
+            modifier
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        onHueChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
+                    }
+                }.pointerInput(Unit) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        onHueChange((change.position.x / size.width).coerceIn(0f, 1f) * 360f)
+                    }
+                },
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(brush = Brush.horizontalGradient(hues))
@@ -291,7 +297,11 @@ private fun colorToHsv(color: Color): FloatArray {
     return hsvOut
 }
 
-private fun hsvToColor(hue: Float, saturation: Float, value: Float): Color {
+private fun hsvToColor(
+    hue: Float,
+    saturation: Float,
+    value: Float,
+): Color {
     val colorInt = android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value))
     return Color(colorInt)
 }
