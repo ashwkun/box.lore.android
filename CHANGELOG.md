@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed architecture to use a modular AppContainer with create/install methods for RSS and ranking, added new core Gradle modules (:core:prefs, :core:downloads, :core:analytics, :core:ranking, :core:rss) and extensive test suite; refactored MainActivity into a lightweight shell delegating to BoxLoreNavHost, updated Gradle module ID policy, and removed reflective Class.forName usage in DownloadServiceLauncher. ([#903](https://github.com/ashwkun/boxlore/pull/903)) <!-- impact:no-user-impact -->
 ### Fixed
 - Fixed player UI state synchronization on app reopen by preserving MediaController playback state; restoreLastSession() no longer forces isPlaying = false, keeping mini and full player in sync. ([#904](https://github.com/ashwkun/boxlore/pull/904)) <!-- impact:user-impact-medium -->
+### Removed
+- Removed .github/dependabot.yml and disabled Dependabot security updates via repository settings, stopping automatic version‑update and security PRs. ([#905](https://github.com/ashwkun/boxlore/pull/905)) <!-- impact:no-user-impact -->
 ### Security
 - Pinned transitive dependencies (Netty 4.1.136, BouncyCastle 1.84, jose4j 0.9.6, jdom2 2.0.6.1, commons‑compress 1.26.2, protobuf 3.25.5) and overridden protobufjs 7.6.5 and uuid 11.1.1 in scripts to resolve Dependabot Maven alerts and npm audit findings. ([#896](https://github.com/ashwkun/boxlore/pull/896)) <!-- impact:no-user-impact -->
 ## [v0.0.10] - 2026-07-17
