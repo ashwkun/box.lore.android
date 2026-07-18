@@ -53,8 +53,6 @@ dependencies {
     implementation(projects.core.model)
     implementation(projects.core.network)
     api(projects.core.database)
-    implementation(libs.coil)
-    implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.core.ktx)
     implementation(libs.retrofit)
     implementation(libs.kotlinx.coroutines.android)
@@ -68,10 +66,8 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.okhttp)
     implementation(libs.rss.parser)
-    // Media
+    // Media3 offline / cache (download manager); player session lives in :core:playback
     implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.session)
-    implementation(libs.androidx.media3.ui)
     
     // Firebase (database and messaging)
     implementation(platform(libs.firebase.bom))

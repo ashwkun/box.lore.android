@@ -26,6 +26,7 @@ import cx.aswin.boxlore.core.model.Chapter
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
 import cx.aswin.boxlore.core.data.service.BoxLorePlaybackService
 import cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy
+import cx.aswin.boxlore.core.data.ports.ListeningHistoryBackupPort
 import cx.aswin.boxlore.core.data.ranking.CandidateSource
 import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
 import cx.aswin.boxlore.core.data.ranking.RankingAction
@@ -98,7 +99,7 @@ class PlaybackRepository(
     private val listeningHistoryDao: cx.aswin.boxlore.core.data.database.ListeningHistoryDao,
     private val queueRepository: cx.aswin.boxlore.core.data.QueueRepository,
     private val podcastRepository: PodcastRepository
-) {
+) : ListeningHistoryBackupPort {
 
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
@@ -2333,7 +2334,7 @@ class PlaybackRepository(
             }
         }
 
-    fun getAllHistory(): Flow<List<cx.aswin.boxlore.core.data.database.ListeningHistoryEntity>> {
+    override fun getAllHistory(): Flow<List<cx.aswin.boxlore.core.data.database.ListeningHistoryEntity>> {
         return listeningHistoryDao.getAllHistory()
     }
     
@@ -2342,7 +2343,7 @@ class PlaybackRepository(
     val completedEpisodeIds: Flow<Set<String>> = listeningHistoryDao.getCompletedEpisodeIdsFlow()
         .map { it.toSet() }
 
-    suspend fun upsertHistoryEntity(entity: cx.aswin.boxlore.core.data.database.ListeningHistoryEntity) {
+    override suspend fun upsertHistoryEntity(entity: cx.aswin.boxlore.core.data.database.ListeningHistoryEntity) {
         listeningHistoryDao.upsert(entity)
     }
 
@@ -2558,7 +2559,7 @@ class PlaybackRepository(
         )
     }
 
-    suspend fun markAllEpisodesCompleted(episodes: List<Episode>, podcastId: String, podcastTitle: String, podcastImageUrl: String?) {
+    override suspend fun markAllEpisodesCompleted(episodes: List<Episode>, podcastId: String, podcastTitle: String, podcastImageUrl: String?) {
         val currentTime = System.currentTimeMillis()
         val entitiesToUpsert = episodes.map { episode ->
             val existing = listeningHistoryDao.getHistoryItem(episode.id)

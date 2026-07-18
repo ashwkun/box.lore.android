@@ -14,7 +14,6 @@ import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
-import cx.aswin.boxlore.core.data.service.MediaDownloadService
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
@@ -126,7 +125,7 @@ class DownloadRepository(
         try {
             DownloadService.sendAddDownload(
                 context,
-                MediaDownloadService::class.java,
+                mediaDownloadServiceClass(),
                 downloadRequest,
                 true
             )
@@ -211,7 +210,7 @@ class DownloadRepository(
             try {
                 DownloadService.sendRemoveDownload(
                     context,
-                    MediaDownloadService::class.java,
+                    mediaDownloadServiceClass(),
                     episodeId,
                     false
                 )
@@ -255,6 +254,14 @@ class DownloadRepository(
         private var streamDatabaseProvider: DatabaseProvider? = null
 
         private const val STREAM_CACHE_MAX_BYTES = 250L * 1024 * 1024 // 250 MB
+
+        /** FQCN of MediaDownloadService in `:core:playback` — avoid data→playback compile edge. */
+        private const val MEDIA_DOWNLOAD_SERVICE_FQCN =
+            "cx.aswin.boxlore.core.data.service.MediaDownloadService"
+
+        @Suppress("UNCHECKED_CAST")
+        fun mediaDownloadServiceClass(): Class<out DownloadService> =
+            Class.forName(MEDIA_DOWNLOAD_SERVICE_FQCN) as Class<out DownloadService>
 
         fun getDownloadManager(context: Context): DownloadManager {
             return downloadManager ?: synchronized(this) {

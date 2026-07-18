@@ -2,9 +2,9 @@ package cx.aswin.boxlore.core.data.backup
 
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.data.ports.ListeningHistoryBackupPort
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingBackup
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import kotlinx.coroutines.flow.first
@@ -59,7 +59,7 @@ data class OpmlFeed(
 
 class LibraryBackupManager(
     private val subscriptionRepository: SubscriptionRepository,
-    private val playbackRepository: PlaybackRepository,
+    private val listeningHistory: ListeningHistoryBackupPort,
     private val podcastRepository: PodcastRepository,
     private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository? = null,
     context: android.content.Context,
@@ -71,7 +71,7 @@ class LibraryBackupManager(
 
     suspend fun exportLibraryAsJson(): String {
         val subscriptions = subscriptionRepository.getAllSubscribedPodcasts().first()
-        val allHistory = playbackRepository.getAllHistory().first()
+        val allHistory = listeningHistory.getAllHistory().first()
         
         val globalPrefs = if (userPrefs != null) {
             GlobalPreferencesBackup(
@@ -318,7 +318,7 @@ class LibraryBackupManager(
                     enclosureType = entity.enclosureType,
                     episodeDescription = entity.episodeDescription
                 )
-                playbackRepository.upsertHistoryEntity(safeEntity)
+                listeningHistory.upsertHistoryEntity(safeEntity)
             }
 
             // 3. Restore the complete on-device learning state when present. Older backups
@@ -444,7 +444,7 @@ class LibraryBackupManager(
             // Get complete backlog of episodes (bypassing initial limit)
             val episodes = podcastRepository.getEpisodes(podcast.id)
             if (episodes.isNotEmpty()) {
-                playbackRepository.markAllEpisodesCompleted(
+                listeningHistory.markAllEpisodesCompleted(
                     episodes = episodes,
                     podcastId = podcast.id,
                     podcastTitle = podcast.title,

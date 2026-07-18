@@ -97,6 +97,7 @@ dependencies {
     // Core Modules
     implementation(projects.core.designsystem)
     implementation(projects.core.data)
+    implementation(projects.core.playback)
     implementation(projects.core.model)
     implementation(projects.core.network)
     implementation(projects.feature.home)

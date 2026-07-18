@@ -351,45 +351,45 @@ class UserPreferencesRepository(context: Context) {
 
     val skipBeginningMsStream: Flow<Long> = playbackDurationStream(
         Keys.SKIP_BEGINNING_MS,
-        cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.DEFAULT_SKIP_BEGINNING_MS,
-    ) { cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeTrim(it) }
+        PlaybackSkipBounds.DEFAULT_SKIP_BEGINNING_MS,
+    ) { PlaybackSkipBounds.sanitizeTrim(it) }
 
     val skipEndingMsStream: Flow<Long> = playbackDurationStream(
         Keys.SKIP_ENDING_MS,
-        cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.DEFAULT_SKIP_ENDING_MS,
-    ) { cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeTrim(it) }
+        PlaybackSkipBounds.DEFAULT_SKIP_ENDING_MS,
+    ) { PlaybackSkipBounds.sanitizeTrim(it) }
 
     val seekBackwardMsStream: Flow<Long> = playbackDurationStream(
         Keys.SEEK_BACKWARD_MS,
-        cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.DEFAULT_SEEK_BACKWARD_MS,
-    ) { cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeSeekBackward(it) }
+        PlaybackSkipBounds.DEFAULT_SEEK_BACKWARD_MS,
+    ) { PlaybackSkipBounds.sanitizeSeekBackward(it) }
 
     val seekForwardMsStream: Flow<Long> = playbackDurationStream(
         Keys.SEEK_FORWARD_MS,
-        cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.DEFAULT_SEEK_FORWARD_MS,
-    ) { cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeSeekForward(it) }
+        PlaybackSkipBounds.DEFAULT_SEEK_FORWARD_MS,
+    ) { PlaybackSkipBounds.sanitizeSeekForward(it) }
 
     suspend fun setSkipBeginningMs(valueMs: Long) {
         setPlaybackDuration(Keys.SKIP_BEGINNING_MS, valueMs) {
-            cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeTrim(it)
+            PlaybackSkipBounds.sanitizeTrim(it)
         }
     }
 
     suspend fun setSkipEndingMs(valueMs: Long) {
         setPlaybackDuration(Keys.SKIP_ENDING_MS, valueMs) {
-            cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeTrim(it)
+            PlaybackSkipBounds.sanitizeTrim(it)
         }
     }
 
     suspend fun setSeekBackwardMs(valueMs: Long) {
         setPlaybackDuration(Keys.SEEK_BACKWARD_MS, valueMs) {
-            cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeSeekBackward(it)
+            PlaybackSkipBounds.sanitizeSeekBackward(it)
         }
     }
 
     suspend fun setSeekForwardMs(valueMs: Long) {
         setPlaybackDuration(Keys.SEEK_FORWARD_MS, valueMs) {
-            cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.sanitizeSeekForward(it)
+            PlaybackSkipBounds.sanitizeSeekForward(it)
         }
     }
 

@@ -1,14 +1,16 @@
 package cx.aswin.boxlore.core.data.playback
 
-object PlaybackSkipPolicy {
-    const val DEFAULT_SKIP_BEGINNING_MS = 0L
-    const val DEFAULT_SKIP_ENDING_MS = 0L
-    const val DEFAULT_SEEK_BACKWARD_MS = 10_000L
-    const val DEFAULT_SEEK_FORWARD_MS = 30_000L
+import cx.aswin.boxlore.core.data.PlaybackSkipBounds
 
-    const val MAX_TRIM_MS = 300_000L
-    const val MIN_SEEK_MS = 5_000L
-    const val MAX_SEEK_MS = 120_000L
+object PlaybackSkipPolicy {
+    const val DEFAULT_SKIP_BEGINNING_MS = PlaybackSkipBounds.DEFAULT_SKIP_BEGINNING_MS
+    const val DEFAULT_SKIP_ENDING_MS = PlaybackSkipBounds.DEFAULT_SKIP_ENDING_MS
+    const val DEFAULT_SEEK_BACKWARD_MS = PlaybackSkipBounds.DEFAULT_SEEK_BACKWARD_MS
+    const val DEFAULT_SEEK_FORWARD_MS = PlaybackSkipBounds.DEFAULT_SEEK_FORWARD_MS
+
+    const val MAX_TRIM_MS = PlaybackSkipBounds.MAX_TRIM_MS
+    const val MIN_SEEK_MS = PlaybackSkipBounds.MIN_SEEK_MS
+    const val MAX_SEEK_MS = PlaybackSkipBounds.MAX_SEEK_MS
     const val MEANINGFUL_RESUME_MS = 2_000L
     const val MIN_PLAYABLE_CONTENT_MS = 30_000L
 
@@ -29,13 +31,13 @@ object PlaybackSkipPolicy {
         val reason: InitialPositionReason,
     )
 
-    fun sanitizeTrim(valueMs: Long): Long = valueMs.coerceIn(0L, MAX_TRIM_MS)
+    fun sanitizeTrim(valueMs: Long): Long = PlaybackSkipBounds.sanitizeTrim(valueMs)
 
     fun sanitizeSeekBackward(valueMs: Long): Long =
-        valueMs.coerceIn(MIN_SEEK_MS, MAX_SEEK_MS)
+        PlaybackSkipBounds.sanitizeSeekBackward(valueMs)
 
     fun sanitizeSeekForward(valueMs: Long): Long =
-        valueMs.coerceIn(MIN_SEEK_MS, MAX_SEEK_MS)
+        PlaybackSkipBounds.sanitizeSeekForward(valueMs)
 
     fun resolveEffectiveTrim(
         globalSkipBeginningMs: Long,

@@ -36,6 +36,7 @@ android {
 dependencies {
     implementation(projects.core.model)
     implementation(projects.core.data)
+    implementation(projects.core.playback)
     implementation(projects.core.network)
     implementation(projects.core.designsystem)
     
