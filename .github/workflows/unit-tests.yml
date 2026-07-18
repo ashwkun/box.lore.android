@@ -24,31 +24,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Stub google-services.json
+      - name: Write google-services.json from secrets
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
-          cat > app/google-services.json <<'EOF'
-          {
-            "project_info": {
-              "project_number": "0",
-              "project_id": "boxlore-ci-stub",
-              "storage_bucket": "boxlore-ci-stub.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:0:android:0",
-                  "android_client_info": {
-                    "package_name": "cx.aswin.boxlore"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [{ "current_key": "ci-stub-not-a-real-key" }],
-                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
-              }
-            ],
-            "configuration_version": "1"
-          }
-          EOF
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing secret GOOGLE_SERVICES_JSON_B64" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --continue
