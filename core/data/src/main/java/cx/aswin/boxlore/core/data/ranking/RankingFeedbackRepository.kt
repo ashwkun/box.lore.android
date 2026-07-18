@@ -30,7 +30,17 @@ class RankingFeedbackRepository private constructor(
         durationSeconds: Long = 0,
     ) {
         safely("record action", Unit) {
-            if (isRecentDuplicate(target.episodeId, action)) return@safely
+            if (isRecentDuplicate(target.episodeId, action)) {
+                LearningEventLog.record { id, ts ->
+                    LearningEvent.DuplicateIgnored(
+                        id = id,
+                        timestamp = ts,
+                        action = action,
+                        episodeId = target.episodeId,
+                    )
+                }
+                return@safely
+            }
             val reward = RankingReward.calculate(
                 RankingOutcome(
                     actions = setOf(action),
@@ -38,6 +48,18 @@ class RankingFeedbackRepository private constructor(
                     durationSeconds = durationSeconds,
                 ),
             )
+            LearningEventLog.record { id, ts ->
+                LearningEvent.ActionReceived(
+                    id = id,
+                    timestamp = ts,
+                    action = action,
+                    reward = reward,
+                    podcastId = target.podcastId,
+                    genre = target.genre,
+                    source = target.source?.name,
+                    listenSeconds = listenSeconds,
+                )
+            }
             updateTasteFacets(target, reward)
             if (action in terminalExposureActions) {
                 adaptiveRankingRepository?.resolveLatestExposure(
@@ -74,6 +96,23 @@ class RankingFeedbackRepository private constructor(
                     durationSeconds = durationSeconds,
                 ),
             )
+            LearningEventLog.record { id, ts ->
+                val primary = when {
+                    RankingAction.COMPLETE in actions -> RankingAction.COMPLETE
+                    RankingAction.EARLY_SKIP in actions -> RankingAction.EARLY_SKIP
+                    else -> RankingAction.MEANINGFUL_PLAY
+                }
+                LearningEvent.ActionReceived(
+                    id = id,
+                    timestamp = ts,
+                    action = primary,
+                    reward = reward,
+                    podcastId = target.podcastId,
+                    genre = target.genre,
+                    source = target.source?.name,
+                    listenSeconds = listenSeconds,
+                )
+            }
             updateTasteFacets(target, reward)
             adaptiveRankingRepository?.resolveLatestExposure(
                 episodeId = target.episodeId,
@@ -88,6 +127,7 @@ class RankingFeedbackRepository private constructor(
             adaptiveRankingRepository?.reset()
             recentActions.clear()
             RankingShadowDiagnostics.clear()
+            LearningEventLog.clear()
             adaptiveRankingRepository != null
         }
     }

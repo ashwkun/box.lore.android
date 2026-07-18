@@ -15,7 +15,7 @@ import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
 import cx.aswin.boxlore.core.data.EngagementPromptCoordinator
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.data.ranking.LearningEventLog
 import cx.aswin.boxlore.core.network.NetworkModule
 import cx.aswin.boxlore.surveys.BoxcastPostHogSurveysDelegate
 import java.util.concurrent.TimeUnit
@@ -58,6 +58,13 @@ class BoxLoreApplication : Application(), Configuration.Provider {
         // fallback if Room initialization fails — same startup behavior as before, without
         // a second RankingFeedbackRepository client diverging from the container.
         container.rankingFeedbackRepository
+
+        // Live learner signal log: on by default in debug builds, off for release users
+        // unless they explicitly opt in via the debug screen toggle. A persisted choice wins.
+        LearningEventLog.configure(
+            getSharedPreferences(LearningEventLog.PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(LearningEventLog.ENABLED_PREF_KEY, BuildConfig.DEBUG),
+        )
 
         val config = PostHogAndroidConfig(
             apiKey = BuildConfig.POSTHOG_API_KEY,

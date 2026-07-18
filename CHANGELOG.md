@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added in‑memory session‑only SignalLog recording each ranking engine mutation and model movement, plus Debug UI panels (Signals, Taste, Model) replacing previous animated learner visualizations ([#897](https://github.com/ashwkun/boxlore/pull/897))
 ### Changed
-- Upgrade @libsql/client from 0.17.0 to 0.17.4 in scripts ([#894](https://github.com/ashwkun/boxlore/pull/894)) <!-- impact:no-user-impact -->
+- Changed signal capture gating to be enabled by default in debug builds and disabled for release builds unless opted‑in, and updated Learner engine to use atomic exposure resolution with synchronized enable/disable of SignalLog ([#897](https://github.com/ashwkun/boxlore/pull/897))
+- Changed @libsql/client dependency upgrade to 0.17.4 in scripts ([#894](https://github.com/ashwkun/boxlore/pull/894)) <!-- impact:no-user-impact -->
 ### Security
-- Pinned patched transitive dependencies (Netty 4.1.136, BouncyCastle 1.84, jose4j 0.9.6, jdom2 2.0.6.1, commons‑compress 1.26.2, protobuf 3.25.5) via settings.gradle.kts and overridden protobufjs 7.6.5 and uuid 11.1.1 in scripts to clear Dependabot Maven alerts and npm audit security findings ([#896](https://github.com/ashwkun/boxlore/pull/896)) <!-- impact:no-user-impact -->
+- Pinned patched transitive dependencies (Netty 4.1.136, BouncyCastle 1.84, jose4j 0.9.6, jdom2 2.0.6.1, commons‑compress 1.26.2, protobuf 3.25.5) via settings.gradle.kts and overridden protobufjs 7.6.5 and uuid 11.1.1 in scripts to clear Dependabot Maven alerts and npm audit findings ([#896](https://github.com/ashwkun/boxlore/pull/896)) <!-- impact:no-user-impact -->
 ## [v0.0.10] - 2026-07-17
 
 ### Added
