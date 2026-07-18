@@ -162,7 +162,7 @@ Extracted and live: `:core:playback`, `:core:domain`, `:core:database`, `:core:n
 | :--- | :--- |
 | JVM unit (`src/test`) | Pure logic, repos with fakes, ViewModel state |
 | Compose UI (`androidTest`) | Controls, nav wiring, `testTag`s |
-| Maestro E2E | Real-device flows |
+| Maestro E2E | Real-device flows (`smoke_launch` strict on `home_settings_button`) |
 | Screenshots (optional) | Visual regression baselines — **P26 incomplete** (no goldens / no Roborazzi) |
 | Architecture script | `scripts/ci/check-feature-no-boxlore-database.sh` (Home/Info VMs) |
 | Architecture-as-code | Konsist / filesystem guards in `:core:testing` (`ArchitectureGuardTest`) |

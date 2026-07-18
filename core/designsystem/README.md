@@ -39,8 +39,12 @@ None. Visual resources (fonts/drawables) may change; no user-data keys or DB fil
 
 ## Testing notes
 
-- Prefer screenshot / Compose UI tests at app or feature level; keep this module free of business-logic tests
-- No dedicated `src/test` suite required for the current surface
+- JVM: `ThemeBrandTokensTest` (`BrandSeeds`, custom hex detection, contrast helpers)
+- Screenshot / Compose UI tests remain at app or feature level
+
+```bash
+./gradlew :core:designsystem:testDebugUnitTest
+```
 
 ## CI relevance
 

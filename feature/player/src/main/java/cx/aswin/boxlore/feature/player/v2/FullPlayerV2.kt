@@ -611,7 +611,7 @@ private fun FullPlayerBody(
                 },
                 onShare = { ui.showShareSheet = true }
             )
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .nestedScroll(display.sheetNestedScrollConnection)

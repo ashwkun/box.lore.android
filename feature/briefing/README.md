@@ -18,6 +18,7 @@ src/main/java/cx/aswin/boxlore/feature/briefing/
   BriefingScreen.kt
   BriefingViewModel.kt
   BriefingUiState.kt
+  BriefingIdentity.kt
 ```
 
 ## Dependencies
@@ -37,7 +38,7 @@ None owned. Briefing content identity comes from catalog/network models; playbac
 
 ## Testing notes
 
-- No dedicated `src/test` suite currently
+- JVM: `BriefingIdentityTest` (episode id + cover drawable region aliases)
 - Manual smoke: open briefing from home; play/resume via shared playback graph
 
 ```bash

@@ -14,8 +14,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+object SettingsResetAnalyticsTestTags {
+    const val CONFIRM = "settings_reset_analytics_confirm"
+    const val CANCEL = "settings_reset_analytics_cancel"
+}
 
 @Composable
 internal fun ResetAnalyticsDialog(
@@ -69,12 +75,16 @@ internal fun ResetAnalyticsDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
+                modifier = Modifier.testTag(SettingsResetAnalyticsTestTags.CONFIRM),
             ) {
                 Text("Reset ID")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(SettingsResetAnalyticsTestTags.CANCEL),
+            ) {
                 Text("Cancel")
             }
         },

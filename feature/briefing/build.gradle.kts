@@ -37,6 +37,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
 }
 
 dependencies {
@@ -58,4 +64,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.posthog.android)
     implementation(libs.androidx.palette.ktx)
+
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

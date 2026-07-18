@@ -62,6 +62,7 @@ import cx.aswin.boxlore.navigation.NavOpmlCallbacks
 import cx.aswin.boxlore.navigation.NavSettingsState
 import cx.aswin.boxlore.navigation.navigateBottomNavTab
 import cx.aswin.boxlore.navigation.resolveBottomNavTab
+import cx.aswin.boxlore.navigation.snapshotNavBackStack
 import cx.aswin.boxlore.ui.announcement.FeatureAnnouncementOverlay
 import cx.aswin.boxlore.ui.announcement.InAppAnnouncementDialog
 import cx.aswin.boxlore.ui.announcement.shouldSuppressWhatsNewOnPlay
@@ -388,10 +389,11 @@ fun BoxLoreAppRoot(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.surface,
-            ) { _ ->
+            ) { innerPadding ->
                 PredictiveBackWrapper(
                     enabled = canGoBack,
                     onBack = { navController.popBackStack() },
+                    modifier = Modifier.padding(innerPadding),
                 ) {
                     BoxLoreNavHost(
                         navController = navController,
@@ -452,9 +454,10 @@ fun BoxLoreAppRoot(
             }
 
             if (showBottomNav) {
+                val backStack = remember(navBackStackEntry) { snapshotNavBackStack(navController) }
                 val activeTab = resolveBottomNavTab(
                     currentRoute = currentRoute,
-                    backStack = navController.currentBackStack.value,
+                    backStack = backStack,
                 )
                 BoxLoreNavigationBar(
                     currentRoute = activeTab,

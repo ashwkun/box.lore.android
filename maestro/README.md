@@ -11,11 +11,19 @@ Device / emulator UI smoke tests for Boxlore. Local runs need a connected device
 1. Install [Maestro](https://maestro.mobile.dev/):
    ```bash
    curl -Ls "https://get.maestro.mobile.dev" | bash
+   export PATH="$PATH:$HOME/.maestro/bin"
    ```
-2. Start an emulator or connect a device with a debug/release build installed:
+2. Prepare the repo stub config (no secrets required):
+   ```bash
+   ./scripts/ci/write-cloud-agent-local-config.sh
+   export ANDROID_HOME="$HOME/Android/Sdk"
+   export ANDROID_SDK_ROOT="$ANDROID_HOME"
+   ```
+3. Start an emulator or connect a device, then install a debug build:
    ```bash
    ./gradlew :app:installDebug
    ```
+4. **First run only:** complete or skip onboarding on the device so the home shell is reachable. `smoke_launch.yaml` treats consent/onboarding taps as optional but **requires** `home_settings_button` after launch.
 
 ## Run
 
@@ -37,11 +45,11 @@ maestro test maestro/smoke_home_visible.yaml
 
 | File | Intent |
 | :--- | :--- |
-| `smoke_launch.yaml` | Cold launch; assert Settings entry visible |
+| `smoke_launch.yaml` | Cold launch; **strict** assert on `home_settings_button` |
 | `smoke_home_visible.yaml` | Soft assert home/nav affordances |
 | `smoke_settings_rss.yaml` | Settings → Library → Add RSS (optional steps) |
 
-Flows prefer Compose `testTag`s (`home_settings_button`, `settings_add_rss_*`) and fall back to visible text. Flaky first-run taps use `optional: true` so onboarding/consent does not hard-fail the suite on every machine.
+Flows prefer Compose `testTag`s (`home_settings_button`, `settings_add_rss_*`) and fall back to visible text where noted. Flaky first-run taps use `optional: true` so onboarding/consent does not hard-fail the suite on every machine.
 
 ## CI — Maestro nightlies
 

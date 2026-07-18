@@ -10,7 +10,7 @@ Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEM
 | JVM unit | `./gradlew testDebugUnitTest` | Logic / state bugs |
 | Architecture-as-code | `:core:testing` Konsist / filesystem guards (part of unit tests) | Feature→feature deps, `getInstance` allowlist, data↛designsystem, module READMEs |
 | Static analysis | `./gradlew detekt`; `./gradlew ktlintCheck` | New Kotlin quality/style issues beyond committed baselines |
-| Android lint | `./gradlew lintDebug` (CI non-blocking) | Manifest / resource / API lint debt |
+| Android lint | `./gradlew lintDebug` (CI blocking) | Manifest / resource / API lint debt |
 | Coverage | `./gradlew :koverVerifyMerged` (also in unit-tests CI) | Soft line-coverage gate |
 | Compose UI | `androidTest` (P24) | Dead controls, nav wiring |
 | Maestro | device flows (P25) + nightly workflow | Real-device glitches |
@@ -31,7 +31,7 @@ Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEM
 
 ## Coverage (Kover)
 
-Plugin applied on the root project plus `:core:catalog`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, and `:core:downloads`. Those modules contribute a shared Kover report variant `merged` (maps to each module’s `debug` unit tests). Root merges them and enforces a **modest** line-coverage floor (**15%**). Measured merged line coverage after this widen is ~22% (headroom for a later 20% floor in the end-state wave).
+Plugin applied on the root project plus `:core:catalog`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, and `:core:downloads`. Those modules contribute a shared Kover report variant `merged` (maps to each module’s `debug` unit tests). Root merges them and enforces a **modest** line-coverage floor (**15%**). Measured merged line coverage after PR5 additions is **~22%** (1975 / 8928 lines covered; headroom before a 20% floor ratchet).
 
 **Ratchet path:** 8 → 10 → 12 → **15** → 25 on the merged variant. Optional later: soft module-specific gates for `:core:ranking` once denser.
 
@@ -63,12 +63,20 @@ ktlint uses `org.jlleitschuh.gradle.ktlint` from the root build and is applied t
 ./gradlew ktlintCheck
 ```
 
-### Android lint (optional / non-blocking)
+### Android lint (fail-on-error)
 
-`unit-tests.yml` runs `./gradlew lintDebug` with `continue-on-error: true` so lint debt does not fail the required Unit Tests check. Promote to fail-on-error once the backlog is clean.
+`unit-tests.yml` runs `./gradlew lintDebug` as a **blocking** step (no `continue-on-error`). Blockers fixed in PR5: missing `consumer-rules.pro` stubs for feature libraries, WorkManager on-demand initializer manifest merge, player `BoxWithConstraints` lint, and app root nav/scaffold lint fixes.
 
 ```bash
 ./gradlew lintDebug
+```
+
+### Dependency Guard
+
+`unit-tests.yml` also runs Dependency Guard on `:app`, `:core:catalog`, and `:core:playback` (`releaseRuntimeClasspath` baselines under each module’s `dependencies/`). Re-baseline intentionally with:
+
+```bash
+./gradlew :app:dependencyGuardBaseline :core:catalog:dependencyGuardBaseline :core:playback:dependencyGuardBaseline
 ```
 
 ## Compose UI tests (P24)
@@ -109,13 +117,13 @@ maestro test maestro/
 
 ## Screenshot baselines (P26)
 
-**P26 is not complete.** No PNG goldens are checked in; Roborazzi is not wired; screenshot capture is **not** a CI gate. Reserved path: `screenshots/baselines/` + [`docs/screenshots/README.md`](screenshots/README.md). `:feature:home` androidTest includes a **composition smoke** for Add RSS tags (`AddRssFeedDialogScreenshotStubTest`) — that is not a screenshot golden.
+**P26 is not complete.** No PNG goldens are checked in. Roborazzi has a **local spike** on `:feature:home` (`AddRssFeedDialogRoborazziSpikeTest` — ephemeral `build/outputs/roborazzi/` only); screenshot capture is **not** a CI gate. Reserved path: `screenshots/baselines/` + [`docs/screenshots/README.md`](screenshots/README.md). `:feature:home` androidTest includes composition smokes for Add RSS + Reset analytics tags — those are not screenshot goldens.
 
 ## CI
 
 | Workflow | What it runs | When |
 | :--- | :--- | :--- |
-| `unit-tests.yml` | Architecture boundary script + detekt + ktlint + `testDebugUnitTest` (includes Konsist) + `:koverVerifyMerged` + non-blocking `lintDebug` | **`merge-ci` label** on the PR (and later pushes while labeled), or **Actions → Run workflow**. Merge queue is **not** available on this user-owned repo. |
+| `unit-tests.yml` | Architecture boundary script + detekt + ktlint + `testDebugUnitTest` (includes Konsist) + `:koverVerifyMerged` + **blocking** `lintDebug` + Dependency Guard (`:app`, `:core:catalog`, `:core:playback`) | **`merge-ci` label** on the PR (and later pushes while labeled), or **Actions → Run workflow**. Merge queue is **not** available on this user-owned repo. |
 | `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | Same merge-gate as unit tests |
 | `maestro-nightly.yml` | Validate `maestro/*.yaml`; optional Maestro Cloud when secrets present | Nightly cron (UTC) / manual |
 

@@ -8,7 +8,9 @@ junitVersion = "1.1.5"
 junitJupiter = "5.11.4"
 turbine = "1.2.0"
 robolectric = "4.14.1"
+roborazzi = "1.56.0"
 kover = "0.9.9"
+dependencyGuard = "0.5.0"
 konsist = "0.17.3"
 detekt = "1.23.8"
 espressoCore = "3.5.1"
@@ -48,6 +50,8 @@ junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version = "4.12.0" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -116,5 +120,7 @@ googleServices = { id = "com.google.gms.google-services", version.ref = "google-
 firebaseCrashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebase-crashlytics-plugin" }
 kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+dependencyGuard = { id = "com.dropbox.dependency-guard", version.ref = "dependencyGuard" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintPlugin" }

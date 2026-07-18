@@ -56,10 +56,11 @@ jobs:
       - name: Verify merged Kover coverage floor
         run: ./gradlew :koverVerifyMerged
 
-      # B0 — optional / non-blocking Android lint (does not fail the required check).
-      - name: Lint debug (non-blocking)
-        continue-on-error: true
+      - name: Lint debug
         run: ./gradlew lintDebug
+
+      - name: Dependency guard (app + core modules)
+        run: ./gradlew :app:dependencyGuard :core:catalog:dependencyGuard :core:playback:dependencyGuard
 
       - name: Scrub google-services.json
         if: always()

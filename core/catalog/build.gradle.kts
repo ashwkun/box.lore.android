@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kover)
+    alias(libs.plugins.dependencyGuard)
 }
 
 kover {
@@ -69,6 +70,10 @@ android {
             it.useJUnitPlatform()
         }
     }
+}
+
+dependencyGuard {
+    configuration("releaseRuntimeClasspath")
 }
 
 dependencies {

@@ -39,7 +39,7 @@ None owned here. ID *schemes* (`rss:`, mediaId prefixes) are documented in ownin
 
 ## Testing notes
 
-- No `src/test` suite currently
+- JVM: `ShareLinkBuilderTest` (share URL invariants)
 - Prefer pure JVM unit tests for formatters/builders when added
 
 ```bash

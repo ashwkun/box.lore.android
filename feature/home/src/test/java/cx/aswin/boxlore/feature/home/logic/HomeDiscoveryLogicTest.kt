@@ -69,6 +69,39 @@ class HomeDiscoveryLogicTest {
         assertEquals(listOf("free"), result?.map { it.id })
     }
 
+    @Test
+    fun `discover podcasts excluding returns empty list when all trending shows are filtered`() {
+        val trending =
+            listOf(
+                TestFixtures.podcast(id = "hero", title = "Hero"),
+                TestFixtures.podcast(id = "adaptive", title = "Adaptive"),
+            )
+        val heroItems =
+            listOf(
+                SmartHeroItem(
+                    type = HeroType.SPOTLIGHT,
+                    podcast = trending[0],
+                    label = "Hero",
+                ),
+            )
+        val adaptiveSections =
+            listOf(
+                contentSection(
+                    podcastId = "adaptive",
+                    sectionId = "section-1",
+                ),
+            )
+
+        val result =
+            discoverPodcastsExcluding(
+                trending = trending,
+                heroItems = heroItems,
+                adaptiveSections = adaptiveSections,
+            )
+
+        assertEquals(emptyList<String>(), result?.map { it.id })
+    }
+
     private fun contentSection(
         podcastId: String,
         sectionId: String,
