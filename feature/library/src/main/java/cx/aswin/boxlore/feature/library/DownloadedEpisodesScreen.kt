@@ -121,6 +121,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
+import kotlinx.coroutines.launch
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
@@ -811,18 +812,19 @@ fun DownloadedShowEpisodesScreen(
                             val isSelected = selectedEpisodeIds.contains(download.episodeId)
                             var showMenu by remember { mutableStateOf(false) }
 
-                            val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = { value ->
-                                    if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        swipeToDeleteEpisode = download
-                                    }
-                                    false
-                                }
-                            )
+                            val dismissScope = rememberCoroutineScope()
+                            val dismissState = rememberSwipeToDismissBoxState()
 
                             SwipeToDismissBox(
                                 state = dismissState,
                                 enableDismissFromStartToEnd = false,
+                                onDismiss = { value ->
+                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                        swipeToDeleteEpisode = download
+                                    }
+                                    // Keep the row; confirm dialog owns deletion (same as former veto).
+                                    dismissScope.launch { dismissState.reset() }
+                                },
                                 backgroundContent = {
                                     Box(
                                         modifier = Modifier

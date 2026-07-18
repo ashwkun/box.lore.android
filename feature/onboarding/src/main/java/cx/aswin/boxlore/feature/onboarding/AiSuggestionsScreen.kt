@@ -265,6 +265,7 @@ internal fun AiSuggestionsScreen(
                     }
                 }
             } else if (isError) {
+                val onboardingError = requireNotNull(uiState.onboardingError)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -283,7 +284,7 @@ internal fun AiSuggestionsScreen(
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
-                            text = uiState.onboardingError ?: "Failed to generate recommendations",
+                            text = onboardingError,
                             style = MaterialTheme.typography.titleMedium,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant

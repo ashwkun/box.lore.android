@@ -72,6 +72,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.FlowPreview
 @Immutable
 data class SmartHeroItem(
     val type: HeroType,
@@ -144,6 +145,37 @@ data class HomeDataWrapper(
     val isBecauseYouLikeLoading: Boolean = false,
     val isRecommendationsFallback: Boolean = true,
     val adaptiveSections: List<ContentSection> = emptyList(),
+)
+
+private data class HomeCoreSlice(
+    val trending: List<Podcast>,
+    val resume: List<cx.aswin.boxlore.core.data.PlaybackSession>,
+    val subs: List<Podcast>,
+    val history: List<cx.aswin.boxlore.core.data.database.ListeningHistoryEntity>,
+    val resolvedSerial: Map<String, Episode>,
+)
+
+private data class HomeRecsSlice(
+    val recommendations: List<Episode>,
+    val completedEpisodeIds: Set<String>,
+    val isTrendingLoaded: Boolean,
+    val isRecommendationsLoaded: Boolean,
+    val hasDismissedImportBanner: Boolean,
+)
+
+private data class HomeBriefingSlice(
+    val briefing: Briefing?,
+    val briefingDismissedDate: String,
+    val briefingChapters: List<cx.aswin.boxlore.core.model.Chapter>,
+    val briefingDismissedForever: Boolean,
+)
+
+private data class HomeBecauseYouLikeSlice(
+    val seemsToLikePodcast: Podcast?,
+    val becauseYouLikeRecommendations: List<Episode>,
+    val becauseYouLikePodcasts: List<Podcast>,
+    val isBecauseYouLikeLoading: Boolean,
+    val isRecommendationsFallback: Boolean,
 )
 
 /**
@@ -1156,6 +1188,7 @@ class HomeViewModel(
 
 
 
+    @OptIn(FlowPreview::class)
     private fun loadData() {
         viewModelScope.launch {
             // --- BASE DATA FLOW (Restarts when Region or dismissal changes) ---
@@ -1252,52 +1285,80 @@ class HomeViewModel(
                     }
                 }
                 
-                combine(
+                val coreSlice = combine(
                     trendingState, // Hot StateFlow — never completes
                     playbackRepository.resumeSessions,
                     subscriptionRepository.subscribedPodcasts,
                     playbackRepository.getAllHistory(),
                     _resolvedSerialEpisodes,
+                ) { trending, resume, subs, history, resolvedSerial ->
+                    HomeCoreSlice(trending, resume, subs, history, resolvedSerial)
+                }
+                val recsSlice = combine(
                     _recommendations,
                     playbackRepository.completedEpisodeIds,
                     _isTrendingLoaded,
                     _isRecommendationsLoaded,
                     userPrefs.hasDismissedHomeImportBannerStream,
+                ) { recommendations, completedEpisodeIds, isTrendingLoaded, isRecommendationsLoaded, hasDismissedImportBanner ->
+                    HomeRecsSlice(
+                        recommendations,
+                        completedEpisodeIds,
+                        isTrendingLoaded,
+                        isRecommendationsLoaded,
+                        hasDismissedImportBanner,
+                    )
+                }
+                val briefingSlice = combine(
                     _briefingState,
                     _briefingDismissedDate,
                     _briefingChaptersState,
                     _briefingDismissedForever,
+                ) { briefing, dismissedDate, briefingChapters, dismissedForever ->
+                    HomeBriefingSlice(briefing, dismissedDate, briefingChapters, dismissedForever)
+                }
+                val becauseYouLikeSlice = combine(
                     _seemsToLikePodcast,
                     _becauseYouLikeRecommendations,
                     _becauseYouLikePodcasts,
                     _isBecauseYouLikeLoading,
                     _isRecommendationsFallback,
-                    _adaptiveSections,
-                ) { array ->
-                    val dismissedDate = array[11] as String
-                    val dismissedForever = array[13] as Boolean
-                    HomeDataWrapper(
-                        trending = array[0] as List<Podcast>,
-                        resume = array[1] as List<cx.aswin.boxlore.core.data.PlaybackSession>,
-                        subs = array[2] as List<Podcast>,
-                        history = array[3] as List<cx.aswin.boxlore.core.data.database.ListeningHistoryEntity>,
-                        resolvedSerial = array[4] as Map<String, Episode>,
-                        recommendations = array[5] as List<Episode>,
-                        completedEpisodeIds = array[6] as Set<String>,
-                        isTrendingLoaded = array[7] as Boolean,
-                        isRecommendationsLoaded = array[8] as Boolean,
-                        hasDismissedImportBanner = array[9] as Boolean,
-                        briefing = array[10] as Briefing?,
-                        briefingChapters = array[12] as List<cx.aswin.boxlore.core.model.Chapter>,
-                        briefingDismissedDate = dismissedDate,
-                        briefingDismissedForever = dismissedForever,
-                        seemsToLikePodcast = array[14] as Podcast?,
-                        becauseYouLikeRecommendations = array[15] as List<Episode>,
-                        becauseYouLikePodcasts = array[16] as List<Podcast>,
-                        isBecauseYouLikeLoading = array[17] as Boolean,
-                        isRecommendationsFallback = array[18] as Boolean,
-                        adaptiveSections = array[19] as List<ContentSection>,
+                ) { seemsToLikePodcast, becauseYouLikeRecommendations, becauseYouLikePodcasts, isBecauseYouLikeLoading, isRecommendationsFallback ->
+                    HomeBecauseYouLikeSlice(
+                        seemsToLikePodcast,
+                        becauseYouLikeRecommendations,
+                        becauseYouLikePodcasts,
+                        isBecauseYouLikeLoading,
+                        isRecommendationsFallback,
                     )
+                }
+                combine(
+                    combine(coreSlice, recsSlice, briefingSlice, becauseYouLikeSlice) { core, recs, briefing, becauseYouLike ->
+                        HomeDataWrapper(
+                            trending = core.trending,
+                            resume = core.resume,
+                            subs = core.subs,
+                            history = core.history,
+                            resolvedSerial = core.resolvedSerial,
+                            recommendations = recs.recommendations,
+                            completedEpisodeIds = recs.completedEpisodeIds,
+                            isTrendingLoaded = recs.isTrendingLoaded,
+                            isRecommendationsLoaded = recs.isRecommendationsLoaded,
+                            hasDismissedImportBanner = recs.hasDismissedImportBanner,
+                            briefing = briefing.briefing,
+                            briefingChapters = briefing.briefingChapters,
+                            briefingDismissedDate = briefing.briefingDismissedDate,
+                            briefingDismissedForever = briefing.briefingDismissedForever,
+                            seemsToLikePodcast = becauseYouLike.seemsToLikePodcast,
+                            becauseYouLikeRecommendations = becauseYouLike.becauseYouLikeRecommendations,
+                            becauseYouLikePodcasts = becauseYouLike.becauseYouLikePodcasts,
+                            isBecauseYouLikeLoading = becauseYouLike.isBecauseYouLikeLoading,
+                            isRecommendationsFallback = becauseYouLike.isRecommendationsFallback,
+                        )
+                    },
+                    _adaptiveSections,
+                ) { wrapper, adaptiveSections ->
+                    wrapper.copy(adaptiveSections = adaptiveSections)
                 }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         val allHistory = wrapper.history
@@ -2133,8 +2194,8 @@ class HomeViewModel(
                 return Podcast(
                     id = localEntity.podcastId,
                     title = localEntity.title,
-                    artist = localEntity.author ?: "",
-                    imageUrl = localEntity.imageUrl ?: "",
+                    artist = localEntity.author,
+                    imageUrl = localEntity.imageUrl,
                     fallbackImageUrl = localEntity.latestEpisode?.imageUrl ?: "",
                     description = localEntity.description,
                     genre = localEntity.genre ?: "Podcast"
@@ -2189,8 +2250,8 @@ class HomeViewModel(
             return Podcast(
                 id = localEntity.podcastId,
                 title = localEntity.title,
-                artist = localEntity.author ?: "",
-                imageUrl = localEntity.imageUrl ?: "",
+                artist = localEntity.author,
+                imageUrl = localEntity.imageUrl,
                 fallbackImageUrl = localEntity.latestEpisode?.imageUrl ?: "",
                 description = localEntity.description,
                 genre = localEntity.genre ?: "Podcast"

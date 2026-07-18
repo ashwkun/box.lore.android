@@ -62,6 +62,35 @@ sealed interface ExploreUiState {
     data class Error(val message: String) : ExploreUiState
 }
 
+private data class ExplorePrimarySlice(
+    val subscribedIds: Set<String>,
+    val category: String,
+    val trending: List<Podcast>,
+    val searchResults: List<Podcast>,
+    val query: String,
+)
+
+private data class ExploreLoadingSlice(
+    val isLoading: Boolean,
+    val isLoadingMore: Boolean,
+    val hasMore: Boolean,
+)
+
+private data class ExploreRecsSlice(
+    val currentVibe: String?,
+    val suggestedVibes: List<Pair<String, String>>,
+    val selectedTab: Int,
+    val recommendations: List<Episode>,
+    val isRecommendationsLoading: Boolean,
+)
+
+private data class ExploreSearchSlice(
+    val searchTab: SearchTab,
+    val semanticSearchResults: List<Episode>,
+    val isSemanticLoading: Boolean,
+    val hasPerformedSemanticSearch: Boolean,
+)
+
 class ExploreViewModel(
     application: android.app.Application,
     private val podcastRepository: PodcastRepository,
@@ -174,79 +203,62 @@ class ExploreViewModel(
 
         // Observe Subscriptions for Badging
         viewModelScope.launch {
-            combine(
-                subscriptionRepository.subscribedPodcastIds,
-                _currentCategory,
-                _trendingPodcasts,
-                _combinedSearchResults,
-                _searchQuery,
-                _isLoading,
-                _isLoadingMore,
-                _hasMorePages
-            ) { args: Array<Any?> ->
-                val subIds = args[0] as Set<String>
-                val category = args[1] as String
-                val trending = args[2] as List<Podcast>
-                val searchRes = args[3] as List<Podcast>
-                val query = args[4] as String
-                val pIsLoading = args[5] as Boolean
-                val pIsLoadingMore = args[6] as Boolean
-                val pHasMore = args[7] as Boolean
-                // Custom combine to pull all flows
-                Triple(subIds, category, trending) to arrayOf(searchRes, query, pIsLoading, pIsLoadingMore, pHasMore)
-            }.combine(
+            val primaryState = combine(
+                combine(
+                    subscriptionRepository.subscribedPodcastIds,
+                    _currentCategory,
+                    _trendingPodcasts,
+                    _combinedSearchResults,
+                    _searchQuery,
+                ) { subIds, category, trending, searchRes, query ->
+                    ExplorePrimarySlice(subIds, category, trending, searchRes, query)
+                },
+                combine(_isLoading, _isLoadingMore, _hasMorePages) { loading, loadingMore, hasMore ->
+                    ExploreLoadingSlice(loading, loadingMore, hasMore)
+                },
+            ) { primary, loading -> primary to loading }
+
+            val secondaryState = combine(
                 combine(
                     _currentVibe,
                     _suggestedVibes,
                     _selectedTab,
                     _recommendations,
                     _isRecommendationsLoading,
+                ) { vibe, vibes, selectedTab, recommendations, isRecommendationsLoading ->
+                    ExploreRecsSlice(vibe, vibes, selectedTab, recommendations, isRecommendationsLoading)
+                },
+                combine(
                     _searchTab,
                     _semanticSearchResults,
                     _isSemanticLoading,
-                    _hasPerformedSemanticSearch
-                ) { args ->
-                    args
-                }
-            ) { (trip1, trip2), extra ->
-                val (subIds, category, trending) = trip1
-                val searchRes = trip2[0] as List<Podcast>
-                val query = trip2[1] as String
-                val pIsLoading = trip2[2] as Boolean
-                val pIsLoadingMore = trip2[3] as Boolean
-                val pHasMore = trip2[4] as Boolean
-                
-                val currentVibe = extra[0] as String?
-                val vibes = extra[1] as List<Pair<String, String>>
-                val selectedTab = extra[2] as Int
-                val recommendations = extra[3] as List<Episode>
-                val isRecommendationsLoading = extra[4] as Boolean
-                val searchTab = extra[5] as SearchTab
-                val semanticSearchResults = extra[6] as List<Episode>
-                val isSemanticLoading = extra[7] as Boolean
-                val hasPerformedSemanticSearch = extra[8] as Boolean
+                    _hasPerformedSemanticSearch,
+                ) { searchTab, semanticSearchResults, isSemanticLoading, hasPerformedSemanticSearch ->
+                    ExploreSearchSlice(searchTab, semanticSearchResults, isSemanticLoading, hasPerformedSemanticSearch)
+                },
+            ) { recs, search -> recs to search }
 
-                val isSearching = query.isNotEmpty() || currentVibe != null
-
+            primaryState.combine(secondaryState) { (primary, loading), (recs, search) ->
+                val isSearching = primary.query.isNotEmpty() || recs.currentVibe != null
                 ExploreUiState.Success(
-                    trending = trending,
-                    searchResults = searchRes,
-                    recommendations = recommendations,
-                    subscribedIds = subIds,
-                    currentCategory = category,
-                    searchQuery = query,
+                    trending = primary.trending,
+                    searchResults = primary.searchResults,
+                    recommendations = recs.recommendations,
+                    subscribedIds = primary.subscribedIds,
+                    currentCategory = primary.category,
+                    searchQuery = primary.query,
                     isSearching = isSearching,
-                    isLoading = pIsLoading,
-                    currentVibe = currentVibe,
-                    suggestedVibes = vibes,
-                    isLoadingMore = pIsLoadingMore,
-                    hasMore = pHasMore,
-                    selectedTab = selectedTab,
-                    isRecommendationsLoading = isRecommendationsLoading,
-                    searchTab = searchTab,
-                    semanticSearchResults = semanticSearchResults,
-                    isSemanticLoading = isSemanticLoading,
-                    hasPerformedSemanticSearch = hasPerformedSemanticSearch
+                    isLoading = loading.isLoading,
+                    currentVibe = recs.currentVibe,
+                    suggestedVibes = recs.suggestedVibes,
+                    isLoadingMore = loading.isLoadingMore,
+                    hasMore = loading.hasMore,
+                    selectedTab = recs.selectedTab,
+                    isRecommendationsLoading = recs.isRecommendationsLoading,
+                    searchTab = search.searchTab,
+                    semanticSearchResults = search.semanticSearchResults,
+                    isSemanticLoading = search.isSemanticLoading,
+                    hasPerformedSemanticSearch = search.hasPerformedSemanticSearch,
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -371,7 +383,7 @@ class ExploreViewModel(
         } else {
             val matches = _seenPodcasts.values.filter { podcast ->
                 podcast.title.contains(trimmed, ignoreCase = true) ||
-                (podcast.artist ?: "").contains(trimmed, ignoreCase = true)
+                podcast.artist.contains(trimmed, ignoreCase = true)
             }.sortedBy { it.title }
             _localSubstringResults.value = matches
 

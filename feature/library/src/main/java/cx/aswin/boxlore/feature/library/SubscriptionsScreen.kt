@@ -226,7 +226,7 @@ fun SubscriptionsScreen(
     )
 
     val successState = uiState as? LibraryUiState.Success
-    val hasSubscribedPodcasts = successState?.subscribedPodcasts?.isNotEmpty() == true
+    val hasSubscribedPodcasts = successState != null && successState.subscribedPodcasts.isNotEmpty()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -316,7 +316,7 @@ fun SubscriptionsScreen(
                                         offset = DpOffset(x = (-12).dp, y = 4.dp)
                                     ) {
                                         if (pagerState.currentPage == 0) {
-                                            val currentSort = successState?.currentSort ?: SubscriptionSort.SmartRank
+                                            val currentSort = successState.currentSort
                                             DropdownMenuItem(
                                                 text = { Text("Smart Sort") },
                                                 onClick = {

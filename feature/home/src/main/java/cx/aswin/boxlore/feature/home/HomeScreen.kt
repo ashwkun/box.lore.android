@@ -89,7 +89,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Article
+import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.DirectionsCar
@@ -909,10 +909,10 @@ private fun PodcastFeed(
             }
 
             // "Because You Like" Section
-            if (hasBecauseYouLike) {
+            if (seemsToLikePodcast != null && hasBecauseYouLike) {
                 item(span = StaggeredGridItemSpan.FullLine, key = "because_you_like", contentType = "because_you_like") {
                     BecauseYouLikeSection(
-                        podcast = seemsToLikePodcast!!,
+                        podcast = seemsToLikePodcast,
                         recommendations = becauseYouLikeRecommendations,
                         suggestedPodcasts = becauseYouLikePodcasts,
                         currentPlayingEpisodeId = currentPlayingEpisodeId,
@@ -1174,7 +1174,7 @@ private fun AdaptiveSectionHeader(section: ContentSection) {
 }
 
 private fun String?.toHomeSectionIcon(): ImageVector = when (this?.lowercase()) {
-    "news" -> Icons.Rounded.Article
+    "news" -> Icons.AutoMirrored.Rounded.Article
     "bolt" -> Icons.Rounded.Bolt
     "commute" -> Icons.Rounded.DirectionsCar
     "devices" -> Icons.Rounded.Devices

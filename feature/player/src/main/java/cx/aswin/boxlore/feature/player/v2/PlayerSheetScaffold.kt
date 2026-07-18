@@ -130,6 +130,9 @@ fun PlayerSheetScaffold(
     val effectiveDarkTheme = LocalEffectiveDarkTheme.current
     PlayerSheetSystemBars(window, effectiveDarkTheme)
     val colorScheme = rememberPlayerColorScheme(episode.imageUrl)
+    // Thresholds/specs factory is deprecated in favor of AnchoredDraggableDefaults.flingBehavior;
+    // keep it here so mini-player settle velocity/feel stays identical.
+    @Suppress("DEPRECATION")
     val sheetState = remember(density) {
         AnchoredDraggableState(
             initialValue = PlayerSheetValue.Collapsed,
@@ -291,6 +294,7 @@ private fun requestSheetCollapse(
 }
 
 @Composable
+@Suppress("DEPRECATION") // startDragImmediately=false keeps mini controls tappable during settle
 private fun PlayerSheetSurface(
     geometry: PlayerSheetGeometry,
     content: PlayerSheetContentState,

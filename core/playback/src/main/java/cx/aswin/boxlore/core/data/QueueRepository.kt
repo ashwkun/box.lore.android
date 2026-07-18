@@ -191,7 +191,7 @@ class QueueRepository(
             podcastId = this.podcastId,
             podcastGenre = this.podcastGenre,
             podcastArtist = this.podcastArtist,
-            duration = this.duration ?: 0,
+            duration = this.duration,
             publishedDate = this.pubDate,
             // Podcast 2.0
             chaptersUrl = this.chaptersUrl,
@@ -231,9 +231,9 @@ class QueueRepository(
                 val obj = arr.getJSONObject(i)
                 Person(
                     name = obj.getString("name"),
-                    role = obj.optString("role", null),
-                    img = obj.optString("img", null),
-                    href = obj.optString("href", null)
+                    role = if (obj.isNull("role")) null else obj.optString("role"),
+                    img = if (obj.isNull("img")) null else obj.optString("img"),
+                    href = if (obj.isNull("href")) null else obj.optString("href")
                 )
             }
         } catch (e: Exception) { null }
@@ -245,7 +245,7 @@ class QueueRepository(
         transcripts.forEach { t ->
             val obj = JSONObject()
             obj.put("url", t.url)
-            t.type?.let { obj.put("type", it) }
+            obj.put("type", t.type)
             arr.put(obj)
         }
         return arr.toString()
@@ -259,7 +259,7 @@ class QueueRepository(
                 val obj = arr.getJSONObject(i)
                 Transcript(
                     url = obj.getString("url"),
-                    type = obj.optString("type", null)
+                    type = obj.optString("type")
                 )
             }
         } catch (e: Exception) { null }

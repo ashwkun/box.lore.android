@@ -381,9 +381,9 @@ private fun AiChatOnboardingScreen(
                         .padding(horizontal = 24.dp, vertical = 12.dp)
                 ) {
                     val isFinalSynthesis = uiState.isSynthesizing
-                    val isError = uiState.onboardingError != null
+                    val onboardingError = uiState.onboardingError
                     
-                    if (isError) {
+                    if (onboardingError != null) {
                         // Error Card layout
                         Card(
                             colors = CardDefaults.cardColors(
@@ -420,7 +420,7 @@ private fun AiChatOnboardingScreen(
                                 }
 
                                 Text(
-                                    text = uiState.onboardingError ?: "We encountered a temporary hiccup. Let's try that again, or you can choose to customize your feed manually.",
+                                    text = onboardingError,
                                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center,

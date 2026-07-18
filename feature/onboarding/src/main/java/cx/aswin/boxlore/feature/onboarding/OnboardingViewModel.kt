@@ -476,7 +476,7 @@ class OnboardingViewModel(
                             }
                         }
                     }
-                    val defaultSelectedPodcasts = newPodcasts.filter { it.id.toString() in defaultSelectedIds }.associateBy { it.id }
+                    val defaultSelectedPodcasts = newPodcasts.filter { it.id in defaultSelectedIds }.associateBy { it.id }
 
                     val duration = (System.currentTimeMillis() - synthesisStartMs) / 1000f
                     val uniquePodcastsCount = finalRows.flatMap { it.podcasts }.distinctBy { it.id }.size
@@ -761,7 +761,7 @@ class OnboardingViewModel(
         // Eager client-side matching from seen podcasts (0ms delay)
         val localMatches = seenPodcasts.values.filter { podcast ->
             podcast.title.contains(cleaned, ignoreCase = true) ||
-            (podcast.artist ?: "").contains(cleaned, ignoreCase = true)
+            podcast.artist.contains(cleaned, ignoreCase = true)
         }.sortedBy { it.title }
         
         if (localMatches.isNotEmpty()) {
@@ -1384,7 +1384,7 @@ class OnboardingViewModel(
                             }
                         }
                     }
-                    val defaultSelectedPodcasts = newPodcasts.filter { it.id.toString() in defaultSelectedIds }.associateBy { it.id }
+                    val defaultSelectedPodcasts = newPodcasts.filter { it.id in defaultSelectedIds }.associateBy { it.id }
                     
                     val duration = (System.currentTimeMillis() - synthesisStartMs) / 1000f
                     val uniquePodcastsCount = rows.flatMap { it.podcasts }.distinctBy { it.id }.size
@@ -1442,7 +1442,7 @@ class OnboardingViewModel(
                         val defaultSelectedIds = buildSet {
                             fallbackRow.podcasts.take(2).forEach { add(it.id.toString()) }
                         }
-                        val defaultSelectedPodcasts = newPodcasts.filter { it.id.toString() in defaultSelectedIds }.associateBy { it.id }
+                        val defaultSelectedPodcasts = newPodcasts.filter { it.id in defaultSelectedIds }.associateBy { it.id }
                         _uiState.update { state ->
                             val newSelected = state.selectedPodcasts + defaultSelectedPodcasts
                             state.copy(

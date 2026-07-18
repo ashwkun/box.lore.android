@@ -26,8 +26,8 @@ class SubscriptionRepository(
                 Podcast(
                     id = entity.podcastId,
                     title = entity.title,
-                    artist = entity.author ?: "",
-                    imageUrl = entity.imageUrl ?: "",
+                    artist = entity.author,
+                    imageUrl = entity.imageUrl,
                     fallbackImageUrl = entity.latestEpisode?.imageUrl ?: "",
                     description = entity.description,
                     genre = entity.genre ?: "Podcast", // Use stored genre

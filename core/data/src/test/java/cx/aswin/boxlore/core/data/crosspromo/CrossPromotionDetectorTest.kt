@@ -51,14 +51,10 @@ class CrossPromotionDetectorTest {
             val episode = createEpisode(title = title, duration = 300) // long duration
             val result = detector.detect(episode, "Host Podcast")
             println("StrictDelimiter - TITLE: '$title', RESULT isCrossPromo: ${result.isCrossPromotion}, extractedShowName: '${result.extractedShowName}'")
-            if (expectedShow != null) {
-                assertTrue(result.isCrossPromotion, "Should detect cross promo for: $title")
-                assertEquals(CrossPromotionConfidence.HIGH, result.confidence)
-                assertEquals(expectedShow, result.extractedShowName)
-                assertTrue(result.matchedIndicators.contains(CrossPromotionIndicator.TITLE_DELIMITER_PATTERN))
-            } else {
-                assertFalse(result.isCrossPromotion, "Should NOT detect cross promo for: $title")
-            }
+            assertTrue(result.isCrossPromotion, "Should detect cross promo for: $title")
+            assertEquals(CrossPromotionConfidence.HIGH, result.confidence)
+            assertEquals(expectedShow, result.extractedShowName)
+            assertTrue(result.matchedIndicators.contains(CrossPromotionIndicator.TITLE_DELIMITER_PATTERN))
         }
     }
 

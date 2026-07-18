@@ -117,7 +117,7 @@ fun LikedEpisodesScreen(
                             items(liked) { historyItem ->
                                 val episode = Episode(
                                     id = historyItem.episodeId,
-                                    title = historyItem.episodeTitle ?: "Unknown Episode",
+                                    title = historyItem.episodeTitle,
                                     description = "",
                                     imageUrl = historyItem.episodeImageUrl ?: "",
                                     audioUrl = historyItem.episodeAudioUrl ?: "",

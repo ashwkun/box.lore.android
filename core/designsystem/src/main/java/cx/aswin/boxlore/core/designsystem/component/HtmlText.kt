@@ -95,8 +95,7 @@ fun HtmlText(
                 }
             }
         },
-        update = { textView ->
-            val linkTextView = textView as LinkTextView
+        update = { linkTextView ->
             params(linkTextView, style, textColor, linkTextColor, maxLines)
             linkTextView.linkClickListener = onLinkClicked
             

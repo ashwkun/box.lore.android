@@ -187,7 +187,7 @@ fun ExploreContent(
     onLoadMore: () -> Unit = {}
 ) {
     // Handle error/loading states
-    when (uiState) {
+    val state = when (uiState) {
         is ExploreUiState.Loading -> {
             Box(
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
@@ -203,10 +203,8 @@ fun ExploreContent(
             }
             return
         }
-        is ExploreUiState.Success -> { /* Continue */ }
+        is ExploreUiState.Success -> uiState
     }
-
-    val state = uiState as ExploreUiState.Success
     val displayList = if (state.isSearching) state.searchResults else state.trending
 
     val context = androidx.compose.ui.platform.LocalContext.current

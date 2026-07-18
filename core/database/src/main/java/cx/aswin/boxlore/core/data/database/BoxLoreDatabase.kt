@@ -29,110 +29,110 @@ abstract class BoxLoreDatabase : RoomDatabase() {
 
     companion object {
         private val MIGRATION_12_13 = object : Migration(12, 13) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN podcastGuid TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN fundingUrl TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN fundingMessage TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN medium TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN hasValue INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN podcastGuid TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN fundingUrl TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN fundingMessage TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN medium TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN hasValue INTEGER NOT NULL DEFAULT 0")
             }
         }
         
         private val MIGRATION_13_14 = object : Migration(13, 14) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE queue_items ADD COLUMN episodeType TEXT")
-                database.execSQL("ALTER TABLE queue_items ADD COLUMN seasonNumber INTEGER")
-                database.execSQL("ALTER TABLE queue_items ADD COLUMN episodeNumber INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE queue_items ADD COLUMN episodeType TEXT")
+                db.execSQL("ALTER TABLE queue_items ADD COLUMN seasonNumber INTEGER")
+                db.execSQL("ALTER TABLE queue_items ADD COLUMN episodeNumber INTEGER")
             }
         }
         
         private val MIGRATION_14_15 = object : Migration(14, 15) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN type TEXT NOT NULL DEFAULT 'episodic'")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN type TEXT NOT NULL DEFAULT 'episodic'")
             }
         }
 
         private val MIGRATION_15_16 = object : Migration(15, 16) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN updateFrequency TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN updateFrequency TEXT")
             }
         }
 
         private val MIGRATION_16_17 = object : Migration(16, 17) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN location TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN license TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN location TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN license TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_17_18 = object : Migration(17, 18) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN subscribedAt INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN subscribedAt INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_18_19 = object : Migration(18, 19) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN preferredSort TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN preferredSort TEXT")
             }
         }
 
         private val MIGRATION_19_20 = object : Migration(19, 20) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE queue_items ADD COLUMN enclosureType TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE queue_items ADD COLUMN enclosureType TEXT")
             }
         }
 
         private val MIGRATION_20_21 = object : Migration(20, 21) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE listening_history ADD COLUMN enclosureType TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE listening_history ADD COLUMN enclosureType TEXT")
             }
         }
 
         private val MIGRATION_21_22 = object : Migration(21, 22) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE listening_history ADD COLUMN isManualCompletion INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE listening_history ADD COLUMN isBulkCompletion INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE listening_history ADD COLUMN isManualCompletion INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE listening_history ADD COLUMN isBulkCompletion INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_22_23 = object : Migration(22, 23) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE listening_history ADD COLUMN episodeDescription TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE listening_history ADD COLUMN episodeDescription TEXT")
             }
         }
 
         private val MIGRATION_23_24 = object : Migration(23, 24) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE downloaded_episodes ADD COLUMN isSmartDownloaded INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE downloaded_episodes ADD COLUMN isSmartDownloaded INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_24_25 = object : Migration(24, 25) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN notificationsEnabled INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN notificationsEnabled INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_25_26 = object : Migration(25, 26) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN autoDownloadEnabled INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN autoDownloadEnabled INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_26_27 = object : Migration(26, 27) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'podcast_index'")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedUrl TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedEtag TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedLastModified TEXT")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN feedDeclaredUpdatedAt INTEGER")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN rssRefreshCapability TEXT NOT NULL DEFAULT 'manual'")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN lastRssSyncAt INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN rssCatalogStale INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN rssHasNewEpisodes INTEGER NOT NULL DEFAULT 0")
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'podcast_index'")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN feedUrl TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN feedEtag TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN feedLastModified TEXT")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN feedDeclaredUpdatedAt INTEGER")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN rssRefreshCapability TEXT NOT NULL DEFAULT 'manual'")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN lastRssSyncAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN rssCatalogStale INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN rssHasNewEpisodes INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS rss_episodes (
                         episodeId TEXT NOT NULL PRIMARY KEY CHECK(CAST(episodeId AS INTEGER) < 0),
@@ -156,19 +156,19 @@ abstract class BoxLoreDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
-                database.execSQL(
+                db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_rss_episodes_podcastId ON rss_episodes(podcastId)",
                 )
-                database.execSQL(
+                db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_rss_episodes_podcastId_publishedDate ON rss_episodes(podcastId, publishedDate)",
                 )
             }
         }
 
         private val MIGRATION_27_28 = object : Migration(27, 28) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN linkedPodcastIndexId TEXT")
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN linkedPodcastIndexId TEXT")
+                db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_podcasts_linkedPodcastIndexId " +
                         "ON podcasts(linkedPodcastIndexId)",
                 )
@@ -176,9 +176,9 @@ abstract class BoxLoreDatabase : RoomDatabase() {
         }
 
         private val MIGRATION_28_29 = object : Migration(28, 29) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN skipBeginningOverrideMs INTEGER")
-                database.execSQL("ALTER TABLE podcasts ADD COLUMN skipEndingOverrideMs INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN skipBeginningOverrideMs INTEGER")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN skipEndingOverrideMs INTEGER")
             }
         }
 
@@ -242,7 +242,7 @@ abstract class BoxLoreDatabase : RoomDatabase() {
                     MIGRATION_27_28,
                     MIGRATION_28_29,
                 )
-                .fallbackToDestructiveMigration() // For development simplicity on older versions
+                .fallbackToDestructiveMigration(dropAllTables = true) // For development simplicity on older versions
                 .build()
                 INSTANCE = instance
                 instance

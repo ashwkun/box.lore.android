@@ -23,7 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Headset
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
@@ -255,7 +255,7 @@ private fun NextEpisodeHint(height: Dp, colorScheme: ColorScheme) {
         ) {
             // Drop shadow layer: Offset black icon with alpha
             Icon(
-                imageVector = Icons.Rounded.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
                 tint = Color.Black.copy(alpha = 0.5f),
                 modifier = Modifier
@@ -264,7 +264,7 @@ private fun NextEpisodeHint(height: Dp, colorScheme: ColorScheme) {
             )
             // Foreground M3 accent icon
             Icon(
-                imageVector = Icons.Rounded.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = "Swipe for next episode",
                 tint = colorScheme.primary,
                 modifier = Modifier.size(32.dp)

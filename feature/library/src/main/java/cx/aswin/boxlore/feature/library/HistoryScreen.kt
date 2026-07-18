@@ -1633,8 +1633,8 @@ fun CalendarInsightBanner(
                 
                 Spacer(modifier = Modifier.width(12.dp))
                 
-                val descText = if (hasFilter) {
-                    calculateBannerFilteredText(targetDate!!, today, groupedHistory[targetDate] ?: emptyList())
+                val descText = if (targetDate != null) {
+                    calculateBannerFilteredText(targetDate, today, groupedHistory[targetDate] ?: emptyList())
                 } else {
                     calculateBannerUnfilteredText(today, stats)
                 }

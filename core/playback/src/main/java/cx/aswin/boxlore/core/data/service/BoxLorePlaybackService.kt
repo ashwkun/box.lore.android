@@ -1830,7 +1830,7 @@ class BoxLorePlaybackService : MediaLibraryService() {
             cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackSmartQueueRefilled(
                 cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.SmartQueueRefillEvent(
                     triggeringEpisodeId = episodeId,
-                    triggeringPodcastGenre = podcast.genre ?: "Podcast",
+                    triggeringPodcastGenre = podcast.genre,
                     refilledCount = refilledEpisodeIds.size,
                     recommendationSources = recommendationSources.distinct(),
                     refilledEpisodeIds = refilledEpisodeIds,

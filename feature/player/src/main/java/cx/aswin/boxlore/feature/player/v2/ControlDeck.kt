@@ -49,7 +49,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Replay
@@ -691,7 +691,7 @@ private fun InlineSpeedSelector(
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             UtilityAction(
-                icon = Icons.Rounded.ArrowBack,
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 label = "Back to quick actions",
                 colorScheme = colorScheme,
                 shape = shapes.topStart,
@@ -783,7 +783,7 @@ private fun InlineSleepSelector(
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             UtilityAction(
-                icon = Icons.Rounded.ArrowBack,
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 label = "Back to quick actions",
                 colorScheme = colorScheme,
                 shape = shapes.topStart,

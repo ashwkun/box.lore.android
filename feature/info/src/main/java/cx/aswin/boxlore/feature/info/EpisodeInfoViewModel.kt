@@ -480,7 +480,7 @@ class EpisodeInfoViewModel(
                 if (!globalState.isPlaying) {
                     val map = mutableMapOf<String, Any>()
                     finalBundle.keySet().forEach { key ->
-                        finalBundle.get(key)?.let { map[key] = it }
+                        bundleValueOrNull(finalBundle, key)?.let { map[key] = it }
                     }
                     if (map.isNotEmpty()) {
                         cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(map)
@@ -675,6 +675,19 @@ class EpisodeInfoViewModel(
                 }
             }
         }
+    }
+}
+
+/** Typed Bundle lookup for analytics maps (avoids deprecated [android.os.Bundle.get]). */
+private fun bundleValueOrNull(bundle: android.os.Bundle, key: String): Any? {
+    if (!bundle.containsKey(key)) return null
+    bundle.getString(key)?.let { return it }
+    // Non-string analytics values used by entry-point bundles.
+    return when (key) {
+        "ep_carousel_position" -> bundle.getInt(key)
+        "ep_is_subscribed" -> bundle.getBoolean(key)
+        else -> bundle.getString(key)
+            ?: bundle.getCharSequence(key)?.toString()
     }
 }
 

@@ -74,7 +74,7 @@ class RssFeedClient(
                 "Feed returned HTTP ${response.code}"
             }
             validateContentType(response)
-            val body = response.body ?: error("Feed returned an empty response")
+            val body = response.body
             val declaredLength = body.contentLength()
             require(declaredLength < 0L || declaredLength <= MAX_FEED_BYTES) {
                 "Feed is larger than ${MAX_FEED_BYTES / (1024 * 1024)} MB"

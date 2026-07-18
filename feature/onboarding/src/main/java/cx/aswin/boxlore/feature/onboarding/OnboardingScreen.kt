@@ -138,7 +138,6 @@ fun OnboardingScreen(
                 OnboardingStep.AI_SUGGESTIONS -> {
                     viewModel.navigateBackFromSuggestions()
                 }
-                else -> {}
             }
         }
     }

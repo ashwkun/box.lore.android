@@ -283,7 +283,7 @@ class PlaybackRepository(
                                 )
                                 launch {
                                     val chapters = ChapterRepository.getChapters(chaptersUrl)
-                                    if (_playerState.value.currentEpisode?.id == episode?.id) {
+                                    if (_playerState.value.currentEpisode?.id == episodeId) {
                                         _playerState.value = _playerState.value.copy(
                                             currentChapters = chapters,
                                             isChaptersLoading = false
@@ -322,7 +322,7 @@ class PlaybackRepository(
                                 }
 
                                 // But if chaptersUrl is empty, check if we have auto chapters in Turso
-                                if (chaptersUrl.isNullOrEmpty() && episode?.audioUrl?.isNotEmpty() == true) {
+                                if (chaptersUrl.isNullOrEmpty() && episode.audioUrl.isNotEmpty()) {
                                     launch {
                                         val deviceUuid = getOrCreateDeviceUuid()
                                         val response = TranscriptRepository.checkAutoTranscriptStatus(
@@ -874,8 +874,8 @@ class PlaybackRepository(
                                 cx.aswin.boxlore.core.model.Podcast(
                                     id = entity.podcastId,
                                     title = entity.title,
-                                    artist = entity.author ?: "",
-                                    imageUrl = entity.imageUrl ?: "",
+                                    artist = entity.author,
+                                    imageUrl = entity.imageUrl,
                                     fallbackImageUrl = entity.latestEpisode?.imageUrl ?: "",
                                     description = entity.description,
                                     genre = entity.genre ?: "Podcast",

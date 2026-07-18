@@ -107,7 +107,6 @@ internal fun SurveySheet(
             sheetState.hide()
             onClose()
         }
-        Unit
     }
 
     val onSubmitResponse: (PostHogSurveyResponse) -> Unit = { response ->

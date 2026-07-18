@@ -3,7 +3,7 @@ package cx.aswin.boxlore.feature.home.settings.pages
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.LastPage
+import androidx.compose.material.icons.automirrored.rounded.LastPage
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Replay
@@ -76,7 +76,7 @@ internal fun PlaybackSettingsPage(
                     stepSeconds = 5,
                 ),
                 onValueCommitted = { actions.onSetSkipEndingMs(it * 1_000L) },
-                icon = SettingsDurationSliderIcon(Icons.Rounded.LastPage),
+                icon = SettingsDurationSliderIcon(Icons.AutoMirrored.Rounded.LastPage),
             )
         }
         SettingsInfoTip(
