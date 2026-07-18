@@ -23,8 +23,9 @@ GitHub Actions workflow `unit-tests.yml` runs `testDebugUnitTest` on PRs and pus
 
 Protected inputs:
 - `app/google-services.json` is **gitignored** and must never be committed.
-- CI materializes it from repo secret `GOOGLE_SERVICES_JSON_BASE64` (same secret as the release/changelog workflow). The workflow decodes via Python, writes mode `0600`, never prints file contents, and deletes the file in an `always()` cleanup step.
-- Locally, keep using your normal `.env` / local `app/google-services.json` path — CI secret wiring does not change that.
+- The real file is a **release-environment** secret (`GOOGLE_SERVICES_JSON_BASE64` on GitHub Environment `release`). Ordinary PR/push jobs cannot read it.
+- The unit-test workflow writes a non-secret CI stub only so the Google Services plugin can configure `:app`, then deletes it. Release workflows keep using the real secret.
+- Locally, keep using your usual `.env` / local `app/google-services.json` — unchanged.
 
 ## Conventions
 

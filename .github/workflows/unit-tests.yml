@@ -24,34 +24,45 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Write google-services.json from secrets
-        env:
-          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+      # Real google-services.json lives in the GitHub Environment "release"
+      # (GOOGLE_SERVICES_JSON_BASE64) and is not available to PR/push CI.
+      # This stub only satisfies the Google Services Gradle plugin for unit tests.
+      - name: Write CI stub google-services.json
         run: |
           python3 - <<'PY'
-          import base64
-          import binascii
-          import os
           from pathlib import Path
-
-          # Never print secret material. Fail closed if missing/invalid.
-          raw = os.environ.get("GOOGLE_SERVICES_JSON_BASE64", "").strip()
-          if not raw:
-              raise SystemExit("Missing secret GOOGLE_SERVICES_JSON_BASE64")
-
-          try:
-              payload = base64.b64decode(raw, validate=True)
-          except (ValueError, binascii.Error) as exc:
-              raise SystemExit("GOOGLE_SERVICES_JSON_BASE64 is not valid Base64") from exc
-
-          if not payload:
-              raise SystemExit("GOOGLE_SERVICES_JSON_BASE64 decoded to an empty file")
-
           path = Path("app/google-services.json")
-          path.parent.mkdir(parents=True, exist_ok=True)
-          path.write_bytes(payload)
+          path.write_text(
+              """{
+            "project_info": {
+              "project_number": "0",
+              "project_id": "boxlore-ci-unit-stub",
+              "storage_bucket": "boxlore-ci-unit-stub.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:0:android:0",
+                  "android_client_info": {
+                    "package_name": "cx.aswin.boxlore"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [{ "current_key": "ci-unit-stub-not-a-real-key" }],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          """,
+              encoding="utf-8",
+          )
           path.chmod(0o600)
-          print(f"Wrote {path} ({len(payload)} bytes)")
+          print(f"Wrote CI stub {path}")
           PY
 
       - name: Run unit tests
