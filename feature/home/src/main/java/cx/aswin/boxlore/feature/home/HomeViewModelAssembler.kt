@@ -13,6 +13,8 @@ import cx.aswin.boxlore.core.data.UserPreferencesRepository
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
+import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.domain.ports.LocalCatalogPort
 
 /** Shared dependencies for [HomeViewModel] construction (keeps assembler APIs ≤7 params). */
@@ -28,6 +30,7 @@ data class HomeViewModelDeps(
     val rankingFeedback: RankingFeedbackRepository,
     val localCatalog: LocalCatalogPort,
     val userPreferencesRepository: UserPreferencesRepository,
+    val connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
 )
 
 /** Builds [HomeViewModel] from shared container deps (production or test doubles). */
@@ -49,6 +52,7 @@ object HomeViewModelAssembler {
             rankingFeedback = deps.rankingFeedback,
             localCatalog = deps.localCatalog,
             userPreferencesRepository = deps.userPreferencesRepository,
+            connectivityStatus = deps.connectivityStatus,
         )
 
     fun factory(

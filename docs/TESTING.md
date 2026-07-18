@@ -21,7 +21,7 @@ Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEM
 - **JUnit 5** (+ Vintage during migration leftovers)
 - **Turbine**, **MockWebServer**, **Robolectric**
 - **Konsist** (architecture guards in `:core:testing`)
-- **Kover** (merged reports for `:core:catalog`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, `:core:downloads`)
+- **Kover** (merged reports for `:core:catalog`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, `:core:downloads`, `:core:playback`)
 - Shared fixtures: `:core:testing` (`TestFixtures`, `MainDispatcherExtension`)
 - **B1 network contracts:** MockWebServer tests in `:core:network` (`BoxLoreApiContractTest`) — run `./gradlew :core:network:testDebugUnitTest`
 - **B2/B3 hard slices:** Settings Turbine suite; Home `DiscoveryGreetingTest` + `PodcastAffinityLogicTest`; Info catalog/offline merge tests; domain local/offline port fakes; Learn `LearnDeckLogicTest` + `LearnCuriosityCard` UI model (no network DTO in UI state); Explore `ExploreBrowseLogicTest`; playback `HistoryRecommendationLogic` / `AutoVoiceSearchLogic` / `SmartQueueRefillPolicy` / `MixtapeResumePolicy` / `NightWindowLogic` / `ListeningHistoryUpsertLogic` tests; downloads `SmartDownloadCandidateLogicTest` + worker tests. Full Home/Info VMs still deferred (Application + heavy deps).
@@ -31,9 +31,9 @@ Module-local test notes live in each folder `README.md` (see [`MODULE_README_TEM
 
 ## Coverage (Kover)
 
-Plugin applied on the root project plus `:core:catalog`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, and `:core:downloads`. Those modules contribute a shared Kover report variant `merged` (maps to each module’s `debug` unit tests). Root merges them and enforces a **modest** line-coverage floor (**15%**). Measured merged line coverage after PR5 additions is **~22%** (1975 / 8928 lines covered; headroom before a 20% floor ratchet).
+Plugin applied on the root project plus `:core:catalog`, `:core:domain`, `:feature:home`, `:core:analytics`, `:core:rss`, `:core:downloads`, and `:core:playback`. Those modules contribute a shared Kover report variant `merged` (maps to each module’s `debug` unit tests). Root merges them and enforces a **modest** line-coverage floor (**20%**, Phase 2 PR3). Fat Media3/Auto orchestrators (`PlaybackRepository`, `core.data.service*`) are excluded from the gate so pure playback helpers remain measurable; PR4 extracts/tests those classes.
 
-**Ratchet path:** 8 → 10 → 12 → **15** → 25 on the merged variant. Optional later: soft module-specific gates for `:core:ranking` once denser.
+**Ratchet path:** 8 → 10 → 12 → 15 → **20** → 25 on the merged variant. Optional later: soft module-specific gates for `:core:ranking` once denser.
 
 ```bash
 # Unit tests only (CI default)

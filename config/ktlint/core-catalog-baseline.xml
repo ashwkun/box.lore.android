@@ -1308,19 +1308,20 @@
         <error line="148" column="25" source="standard:multiline-expression-wrapping" />
         <error line="159" column="23" source="standard:multiline-expression-wrapping" />
         <error line="172" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="188" column="53" source="standard:multiline-expression-wrapping" />
-        <error line="188" column="53" source="standard:function-signature" />
-        <error line="199" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="199" column="24" source="standard:function-signature" />
-        <error line="209" column="45" source="standard:multiline-expression-wrapping" />
-        <error line="209" column="45" source="standard:function-signature" />
-        <error line="225" column="27" source="standard:function-signature" />
-        <error line="225" column="39" source="standard:function-signature" />
-        <error line="225" column="55" source="standard:function-signature" />
-        <error line="225" column="68" source="standard:function-signature" />
-        <error line="225" column="88" source="standard:function-expression-body" />
-        <error line="240" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="240" column="28" source="standard:function-signature" />
+        <error line="190" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="207" column="53" source="standard:multiline-expression-wrapping" />
+        <error line="207" column="53" source="standard:function-signature" />
+        <error line="218" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="218" column="24" source="standard:function-signature" />
+        <error line="228" column="45" source="standard:multiline-expression-wrapping" />
+        <error line="228" column="45" source="standard:function-signature" />
+        <error line="244" column="27" source="standard:function-signature" />
+        <error line="244" column="39" source="standard:function-signature" />
+        <error line="244" column="55" source="standard:function-signature" />
+        <error line="244" column="68" source="standard:function-signature" />
+        <error line="244" column="88" source="standard:function-expression-body" />
+        <error line="259" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="259" column="28" source="standard:function-signature" />
     </file>
     <file name="src/test/java/cx/aswin/boxlore/core/data/content/ContentSignalEnrichmentTest.kt">
         <error line="41" column="23" source="standard:multiline-expression-wrapping" />

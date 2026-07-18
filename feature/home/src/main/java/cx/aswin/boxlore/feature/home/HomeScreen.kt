@@ -83,6 +83,8 @@ import cx.aswin.boxlore.core.data.content.ContentCandidate
 import cx.aswin.boxlore.core.data.content.ContentDaypart
 import cx.aswin.boxlore.core.data.content.ContentSection
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
+import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
+import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.EpisodeStatus
@@ -191,6 +193,7 @@ data class HomeScreenCallbacks(
 )
 
 @Composable
+@Suppress("LongParameterList", "LongMethod")
 fun HomeRoute(
     podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
     playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
@@ -203,6 +206,7 @@ fun HomeRoute(
     rankingFeedbackRepository: cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository,
     localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null, // Navigate to EpisodeInfo
@@ -239,6 +243,7 @@ fun HomeRoute(
                             rankingFeedback = rankingFeedbackRepository,
                             localCatalog = localCatalog,
                             userPreferencesRepository = userPreferencesRepository,
+                            connectivityStatus = connectivityStatus,
                         ),
                 ),
         )

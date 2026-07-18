@@ -93,6 +93,7 @@ dependencies {
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation("org.mockito:mockito-core:5.14.2")
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // P24 Compose UI tests (JUnit4 + AndroidJUnitRunner; CI via android-instrumented-tests.yml)

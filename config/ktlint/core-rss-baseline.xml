@@ -179,6 +179,9 @@
         <error line="19" column="44" source="standard:function-signature" />
         <error line="19" column="54" source="standard:function-signature" />
     </file>
+    <file name="src/test/java/cx/aswin/boxlore/core/data/RssFeedClientHelpersTest.kt">
+        <error line="15" column="1" source="standard:no-empty-first-line-in-class-body" />
+    </file>
     <file name="src/test/java/cx/aswin/boxlore/core/data/RssIdGeneratorTest.kt">
         <error line="10" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="13" column="26" source="standard:multiline-expression-wrapping" />

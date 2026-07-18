@@ -1,6 +1,7 @@
 package cx.aswin.boxlore
 
 import android.content.Context
+import cx.aswin.boxlore.connectivity.AndroidConnectivityObserver
 import cx.aswin.boxlore.core.data.DownloadRepository
 import cx.aswin.boxlore.core.data.InstallReferrerManager
 import cx.aswin.boxlore.core.data.PlaybackRepository
@@ -16,15 +17,16 @@ import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.data.UserPreferencesRepository
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.ports.DownloadCacheRelinker
-import cx.aswin.boxlore.core.data.ports.SmartDownloadSyncPort
-import cx.aswin.boxlore.core.data.privacy.ConsentManager
 import cx.aswin.boxlore.core.data.ports.DownloadServiceLauncher
 import cx.aswin.boxlore.core.data.ports.DownloadServiceLauncherHolder
+import cx.aswin.boxlore.core.data.ports.SmartDownloadSyncPort
+import cx.aswin.boxlore.core.data.privacy.ConsentManager
 import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.data.ranking.RankingRuntimeControls
 import cx.aswin.boxlore.core.data.service.MediaDownloadService
+import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.domain.ports.EpisodeOfflineLookupPort
 import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
 import cx.aswin.boxlore.core.domain.ports.LocalCatalogPort
@@ -51,8 +53,15 @@ class AppContainer(
      * [UserPreferencesRepository] (theme cache / engagement) without a second DataStore client.
      */
     sharedUserPreferences: UserPreferencesRepository? = null,
-) : SharedAppDependencies, DownloadsDependencies {
+) : SharedAppDependencies,
+    DownloadsDependencies {
     private val appContext = context.applicationContext
+
+    /** Process-scoped online/offline for Home adaptive content + NavHost. */
+    val connectivityObserver: AndroidConnectivityObserver =
+        AndroidConnectivityObserver(appContext).also { it.start() }
+
+    val connectivityStatus: ConnectivityStatusPort get() = connectivityObserver
 
     override val database: BoxLoreDatabase by lazy {
         BoxLoreDatabase.getDatabase(appContext)
@@ -133,7 +142,7 @@ class AppContainer(
             rssPodcastRepository.setDownloadCacheRelinker(
                 DownloadCacheRelinker { oldId, newId ->
                     DownloadRepository.relinkDownloadCache(appContext, oldId, newId)
-                }
+                },
             )
         }
     }

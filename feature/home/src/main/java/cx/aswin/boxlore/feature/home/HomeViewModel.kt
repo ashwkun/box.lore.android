@@ -38,6 +38,8 @@ import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.data.ranking.RankingObjective
 import cx.aswin.boxlore.core.data.ranking.RankingSurface
 import cx.aswin.boxlore.core.data.toScorable
+import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
+import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.EpisodeStatus
@@ -210,7 +212,7 @@ private data class HomeClockContext(
     val timezoneOffsetMinutes: Int,
 )
 
-@Suppress("kotlin:S6310")
+@Suppress("kotlin:S6310", "LongParameterList")
 class HomeViewModel(
     application: Application,
     val podcastRepository: PodcastRepository,
@@ -224,6 +226,7 @@ class HomeViewModel(
     private val rankingFeedback: RankingFeedbackRepository,
     private val localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     private val userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    private val connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
 ) : AndroidViewModel(application) {
     val downloadedEpisodeIds: StateFlow<Set<String>> =
         downloadRepository.downloads
@@ -1057,7 +1060,7 @@ class HomeViewModel(
                         surface = RankingSurface.HOME,
                         region = trigger.region,
                         isDriving = false,
-                        isOnline = true,
+                        isOnline = connectivityStatus.isOnline(),
                         availableMinutes = null,
                         currentEpisodeId = latestHistory?.episodeId,
                         currentPodcastId = latestHistory?.podcastId,

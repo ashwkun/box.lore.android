@@ -67,4 +67,24 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp)
 }
+
+// rssparser pulls OkHttp 5.x; MockWebServer 4.12 needs OkHttp 4 internals.
+configurations
+    .matching { it.name.contains("UnitTest", ignoreCase = true) }
+    .configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "com.squareup.okhttp3" &&
+                (requested.name == "okhttp" || requested.name == "okhttp-android")
+            ) {
+                useVersion("4.12.0")
+                because("Align MockWebServer 4.12 with OkHttp 4.x on JVM unit tests")
+            }
+            if (requested.group == "com.squareup.okhttp3" && requested.name == "okhttp-coroutines") {
+                useTarget("com.squareup.okhttp3:okhttp:4.12.0")
+                because("Drop OkHttp 5 coroutines artifact from unit-test classpath")
+            }
+        }
+    }

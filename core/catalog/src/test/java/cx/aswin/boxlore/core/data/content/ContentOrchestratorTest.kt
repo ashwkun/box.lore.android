@@ -185,6 +185,25 @@ class ContentOrchestratorTest {
         assertTrue("\"isLiked\"" !in json)
     }
 
+    @Test
+    fun `offline context is accepted by ContentContextEngine`() {
+        val offline = ContentContextEngine().create(
+            ContentContextInput(
+                surface = RankingSurface.HOME,
+                region = "us",
+                isDriving = false,
+                isOnline = false,
+                availableMinutes = null,
+                currentEpisodeId = null,
+                currentPodcastId = null,
+                historyMaturity = 0,
+                subscriptionCount = 0,
+                sessionId = "s",
+            ),
+        )
+        assertEquals(false, offline.isOnline)
+    }
+
     private fun catalog(): ContentCatalogSnapshot = ContentCatalogSnapshot(
         schemaVersion = 1,
         catalogVersion = "test",

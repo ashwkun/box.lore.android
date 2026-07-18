@@ -31,42 +31,42 @@
         <error line="466" column="13" source="standard:function-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/HomeScreen.kt">
-        <error line="194" column="5" source="standard:function-naming" />
-        <error line="391" column="13" source="standard:function-naming" />
-        <error line="461" column="13" source="standard:function-naming" />
-        <error line="539" column="5" source="standard:function-naming" />
-        <error line="603" column="13" source="standard:function-naming" />
-        <error line="876" column="141" source="standard:max-line-length" />
-        <error line="879" column="141" source="standard:max-line-length" />
-        <error line="1056" column="13" source="standard:function-naming" />
-        <error line="1108" column="13" source="standard:function-naming" />
-        <error line="1151" column="13" source="standard:function-naming" />
-        <error line="1181" column="13" source="standard:function-naming" />
-        <error line="1210" column="13" source="standard:function-naming" />
-        <error line="1243" column="5" source="standard:function-naming" />
+        <error line="197" column="5" source="standard:function-naming" />
+        <error line="396" column="13" source="standard:function-naming" />
+        <error line="466" column="13" source="standard:function-naming" />
+        <error line="544" column="5" source="standard:function-naming" />
+        <error line="608" column="13" source="standard:function-naming" />
+        <error line="881" column="141" source="standard:max-line-length" />
+        <error line="884" column="141" source="standard:max-line-length" />
+        <error line="1061" column="13" source="standard:function-naming" />
+        <error line="1113" column="13" source="standard:function-naming" />
+        <error line="1156" column="13" source="standard:function-naming" />
+        <error line="1186" column="13" source="standard:function-naming" />
+        <error line="1215" column="13" source="standard:function-naming" />
+        <error line="1248" column="5" source="standard:function-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/HomeViewModel.kt">
-        <error line="262" column="17" source="standard:backing-property-naming" />
-        <error line="263" column="17" source="standard:backing-property-naming" />
-        <error line="264" column="17" source="standard:backing-property-naming" />
         <error line="265" column="17" source="standard:backing-property-naming" />
         <error line="266" column="17" source="standard:backing-property-naming" />
         <error line="267" column="17" source="standard:backing-property-naming" />
         <error line="268" column="17" source="standard:backing-property-naming" />
         <error line="269" column="17" source="standard:backing-property-naming" />
+        <error line="270" column="17" source="standard:backing-property-naming" />
         <error line="271" column="17" source="standard:backing-property-naming" />
         <error line="272" column="17" source="standard:backing-property-naming" />
-        <error line="273" column="17" source="standard:backing-property-naming" />
         <error line="274" column="17" source="standard:backing-property-naming" />
         <error line="275" column="17" source="standard:backing-property-naming" />
         <error line="276" column="17" source="standard:backing-property-naming" />
         <error line="277" column="17" source="standard:backing-property-naming" />
-        <error line="526" column="17" source="standard:backing-property-naming" />
-        <error line="527" column="17" source="standard:backing-property-naming" />
-        <error line="528" column="17" source="standard:backing-property-naming" />
+        <error line="278" column="17" source="standard:backing-property-naming" />
+        <error line="279" column="17" source="standard:backing-property-naming" />
+        <error line="280" column="17" source="standard:backing-property-naming" />
         <error line="529" column="17" source="standard:backing-property-naming" />
         <error line="530" column="17" source="standard:backing-property-naming" />
-        <error line="534" column="17" source="standard:backing-property-naming" />
+        <error line="531" column="17" source="standard:backing-property-naming" />
+        <error line="532" column="17" source="standard:backing-property-naming" />
+        <error line="533" column="17" source="standard:backing-property-naming" />
+        <error line="537" column="17" source="standard:backing-property-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/home/components/BecauseYouLikeSection.kt">
         <error line="4" column="1" source="standard:no-wildcard-imports" />

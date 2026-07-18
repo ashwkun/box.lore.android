@@ -17,11 +17,6 @@
         <error line="169" column="1" source="standard:no-trailing-spaces" />
         <error line="200" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/AppContainer.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="54" column="28" source="standard:class-signature" />
-        <error line="136" column="18" source="standard:trailing-comma-on-call-site" />
-    </file>
     <file name="src/main/java/cx/aswin/boxlore/BoxLoreApplication.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="29" column="28" source="standard:class-signature" />
@@ -182,21 +177,7 @@
         <error line="72" column="26" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/navigation/BoxLoreNavHost.kt">
-        <error line="21" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="32" column="18" source="standard:multiline-expression-wrapping" />
-        <error line="34" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="38" column="13" source="standard:blank-line-before-declaration" />
-        <error line="45" column="33" source="standard:try-catch-finally-spacing" />
-        <error line="45" column="47" source="standard:try-catch-finally-spacing" />
-        <error line="47" column="18" source="standard:try-catch-finally-spacing" />
-        <error line="47" column="19" source="standard:statement-wrapping" />
-        <error line="47" column="59" source="standard:statement-wrapping" />
-        <error line="47" column="59" source="standard:try-catch-finally-spacing" />
-        <error line="47" column="83" source="standard:try-catch-finally-spacing" />
-        <error line="47" column="97" source="standard:try-catch-finally-spacing" />
-        <error line="77" column="5" source="standard:function-naming" />
-        <error line="91" column="36" source="standard:multiline-expression-wrapping" />
-        <error line="99" column="18" source="standard:multiline-expression-wrapping" />
+        <error line="45" column="5" source="standard:function-naming" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/navigation/NavGraphLibrarySettingsDestinations.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -401,27 +382,27 @@
         <error line="45" column="69" source="standard:chain-method-continuation" />
         <error line="46" column="69" source="standard:chain-method-continuation" />
         <error line="76" column="69" source="standard:chain-method-continuation" />
-        <error line="153" column="33" source="standard:multiline-expression-wrapping" />
-        <error line="154" column="45" source="standard:chain-method-continuation" />
-        <error line="156" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="157" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="175" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="208" column="33" source="standard:multiline-expression-wrapping" />
-        <error line="209" column="45" source="standard:chain-method-continuation" />
-        <error line="211" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="212" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="227" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="252" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="271" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="297" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="299" column="43" source="standard:statement-wrapping" />
-        <error line="299" column="60" source="standard:statement-wrapping" />
-        <error line="302" column="43" source="standard:statement-wrapping" />
-        <error line="302" column="60" source="standard:statement-wrapping" />
-        <error line="305" column="43" source="standard:statement-wrapping" />
-        <error line="305" column="60" source="standard:statement-wrapping" />
-        <error line="313" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="314" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="154" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="155" column="45" source="standard:chain-method-continuation" />
+        <error line="157" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="158" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="176" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="209" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="210" column="45" source="standard:chain-method-continuation" />
+        <error line="212" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="213" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="228" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="253" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="272" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="298" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="300" column="43" source="standard:statement-wrapping" />
+        <error line="300" column="60" source="standard:statement-wrapping" />
+        <error line="303" column="43" source="standard:statement-wrapping" />
+        <error line="303" column="60" source="standard:statement-wrapping" />
+        <error line="306" column="43" source="standard:statement-wrapping" />
+        <error line="306" column="60" source="standard:statement-wrapping" />
+        <error line="314" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="315" column="23" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/navigation/NavGraphWiring.kt">
         <error line="3" column="1" source="standard:import-ordering" />

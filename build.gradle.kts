@@ -64,6 +64,7 @@ dependencies {
     kover(projects.core.analytics)
     kover(projects.core.rss)
     kover(projects.core.downloads)
+    kover(projects.core.playback)
 }
 
 kover {
@@ -83,6 +84,12 @@ kover {
                     "*.R",
                     "*.R$*",
                     "*.databinding.*",
+                    // Fat Media3 / Auto orchestration (Phase 2 PR4 extracts + tests).
+                    // Merged gate still includes :core:playback pure helpers under core.data.playback.*.
+                    "cx.aswin.boxlore.core.data.PlaybackRepository",
+                    "cx.aswin.boxlore.core.data.PlaybackRepository$*",
+                    "cx.aswin.boxlore.core.data.service.*",
+                    "cx.aswin.boxlore.core.data.service.auto.*",
                 )
                 annotatedBy(
                     "androidx.compose.runtime.Composable",
@@ -92,11 +99,11 @@ kover {
         }
         variant("merged") {
             verify {
-                // Coverage ratchet path: 8 → 10 → 12 → 15 → 25 (see docs/TESTING.md).
+                // Coverage ratchet path: 8 → 10 → 12 → 15 → 20 → 25 (see docs/TESTING.md).
                 // Soft future gates may add module-specific floors for ranking/downloads.
-                rule("Modest line coverage (data/domain/home + analytics/rss/downloads)") {
-                    // Coverage ratchet: 8 → 10 → 12 → 15 → 25 (see docs/TESTING.md).
-                    minBound(15)
+                rule("Modest line coverage (data/domain/home + analytics/rss/downloads/playback)") {
+                    // Coverage ratchet: 8 → 10 → 12 → 15 → 20 (Phase 2 PR3) → 25.
+                    minBound(20)
                 }
             }
         }

@@ -294,4 +294,17 @@ class AdaptiveRankingTest {
             assertFalse(RankingRolloutPolicy.isEnabledByDefault(surface))
         }
     }
+
+    @Test
+    fun `offline suitability feature is distinct from online duration fit`() {
+        val online =
+            CandidateFeatureBuilder.build(
+                CandidateSignals(durationFit = 0.4, offlineSuitability = 0.4),
+            )
+        val offline =
+            CandidateFeatureBuilder.build(
+                CandidateSignals(durationFit = 0.4, offlineSuitability = 1.0),
+            )
+        assertFalse(online.values.contentEquals(offline.values))
+    }
 }

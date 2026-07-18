@@ -844,7 +844,7 @@ private fun String.cleanDescription(): String =
         .replace(Regex("\\s+"), " ")
         .trim()
 
-private fun parseDuration(value: String): Int {
+internal fun parseDuration(value: String): Int {
     val trimmed = value.trim()
     trimmed.toIntOrNull()?.let { return it.coerceAtLeast(0) }
     val parts = trimmed.split(':').mapNotNull(String::toIntOrNull)
@@ -858,7 +858,7 @@ private fun parseDuration(value: String): Int {
     }.coerceAtLeast(0)
 }
 
-private fun parseDate(value: String): Long? {
+internal fun parseDate(value: String): Long? {
     if (value.isBlank()) return null
     value.toLongOrNull()?.let { numeric ->
         return if (numeric > 10_000_000_000L) numeric / 1000L else numeric
