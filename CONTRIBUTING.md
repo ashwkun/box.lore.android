@@ -20,6 +20,8 @@ If you have an idea for a new feature or improvement, please submit an issue usi
 - Ensure that your code adheres to standard Kotlin/Android formatting conventions.
 - If your PR introduces a new feature, include relevant documentation updates.
 - Please detail your changes clearly in the PR description so we can review your work properly.
+- Follow the PR template (Conventional Commit title, exactly one `user-impact-*` label).
+- **Merge CI:** expensive checks do not run on every push. When the PR is ready to merge, add the `merge-ci` label, wait for Unit + Instrumented checks to pass, then merge. See `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ## API & Proxy Repository
 

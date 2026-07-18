@@ -9,6 +9,23 @@ Use Conventional Commits. Examples from this repo:
 
 Do **not** use sentence-case titles without a type prefix (e.g. avoid `Polish the announcement dialog`).
 
+## Merge CI (required before merge)
+
+Unit tests, instrumented tests, detekt, ktlint, and the Kover coverage gate do **not** run on every push.
+
+1. Open the PR and iterate as usual (no expensive CI yet).
+2. When the PR is ready to merge, add the **`merge-ci`** label.
+3. Wait until these required checks are green:
+   - `testDebugUnitTest`
+   - `feature:home connectedDebugAndroidTest`
+4. Then merge.
+
+```bash
+gh pr edit <n> --add-label merge-ci
+```
+
+Do **not** leave `merge-ci` on while you are still force-pushing WIP — every later push while the label is present re-runs the full suite.
+
 ## Summary
 
 <!-- What changed and why. Release notes / changelog bullets are derived from this — be specific. -->
@@ -68,7 +85,7 @@ Do **not** use sentence-case titles without a type prefix (e.g. avoid `Polish th
 
 Examples: `user-impact-high` + `backend-change`, or `no-user-impact` + `backend-change`, or just `user-impact-medium`.
 
-Add the labels on the PR (`gh pr edit <n> --add-label user-impact-high --add-label backend-change`).
+Add impact labels on the PR (`gh pr edit <n> --add-label user-impact-high --add-label backend-change`).
 
 ## Test plan
 
@@ -76,6 +93,7 @@ Add the labels on the PR (`gh pr edit <n> --add-label user-impact-high --add-lab
 
 - [ ] Built / installed locally (`./gradlew installDebug`) when UI or app behavior changed
 - [ ] Manual checks for the user-visible paths touched by this PR
+- [ ] Added **`merge-ci`** when ready, and required checks are green before merge
 - [ ]
 
 ## Notes (optional)
