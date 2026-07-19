@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -421,57 +422,61 @@ fun BoxLoreAppRoot(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.surface,
+                // Screens own their system-bar insets; keep Scaffold padding at zero.
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            ) { _ ->
-                PredictiveBackWrapper(
-                    enabled = canGoBack,
-                    onBack = { navController.popBackStack() },
-                ) {
-                    BoxLoreNavHost(
-                        navController = navController,
-                        application = application,
-                        session = NavHostSession(
-                            onboardingCompleted = onboardingCompleted,
-                            onOnboardingCompleted = { onboardingCompleted = true },
-                            onboardingViewModel = onboardingViewModel,
-                            hasDeepLink = hasDeepLink,
-                            currentEpisode = currentEpisode,
-                            miniPlayerPadding = miniPlayerPadding,
-                            showFeatureDialog = showFeatureDialog,
-                            hasSeenMarkPlayedTip = hasSeenMarkPlayedTip,
-                            permissionLauncher = permissionLauncher,
-                            appInstanceId = appInstanceId,
-                        ),
-                        opmlCallbacks = NavOpmlCallbacks(
-                            importState = opmlImportState,
-                            onImportStateChange = { opmlImportState = it },
-                            triggerKey = importTriggerKey,
-                            onTriggerKeyChange = { importTriggerKey = it },
-                            onSourceChange = { opmlImportSource = it },
-                            performJsonImport = ::performJsonImport,
-                        ),
-                        actions = NavHostActions(
-                            onLoreQueueConflictEpisode = { loreQueueConflictEpisode = it },
-                            queueLoreEpisode = queueLoreEpisode,
-                            onShowFeedbackSheet = { showFeedbackSheet = true },
-                            onSubmitFeedback = onSubmitFeedback,
-                        ),
-                        settingsState = NavSettingsState(
-                            currentRegion = currentRegion,
-                            themeConfig = themeConfig,
-                            useDynamicColor = useDynamicColor,
-                            themeBrand = themeBrand,
-                            surfaceStyle = surfaceStyle,
-                            skipBehavior = skipBehavior,
-                            skipBeginningMs = skipBeginningMs,
-                            skipEndingMs = skipEndingMs,
-                            seekBackwardMs = seekBackwardMs,
-                            seekForwardMs = seekForwardMs,
-                            hideCompletedInHome = hideCompletedInHome,
-                            hideCompletedInSubs = hideCompletedInSubs,
-                            hideCompletedInShowDetails = hideCompletedInShowDetails,
-                        ),
-                    )
+            ) { innerPadding ->
+                // Consume Scaffold padding for lint; with zeroed insets this is a no-op.
+                Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                    PredictiveBackWrapper(
+                        enabled = canGoBack,
+                        onBack = { navController.popBackStack() },
+                    ) {
+                        BoxLoreNavHost(
+                            navController = navController,
+                            application = application,
+                            session = NavHostSession(
+                                onboardingCompleted = onboardingCompleted,
+                                onOnboardingCompleted = { onboardingCompleted = true },
+                                onboardingViewModel = onboardingViewModel,
+                                hasDeepLink = hasDeepLink,
+                                currentEpisode = currentEpisode,
+                                miniPlayerPadding = miniPlayerPadding,
+                                showFeatureDialog = showFeatureDialog,
+                                hasSeenMarkPlayedTip = hasSeenMarkPlayedTip,
+                                permissionLauncher = permissionLauncher,
+                                appInstanceId = appInstanceId,
+                            ),
+                            opmlCallbacks = NavOpmlCallbacks(
+                                importState = opmlImportState,
+                                onImportStateChange = { opmlImportState = it },
+                                triggerKey = importTriggerKey,
+                                onTriggerKeyChange = { importTriggerKey = it },
+                                onSourceChange = { opmlImportSource = it },
+                                performJsonImport = ::performJsonImport,
+                            ),
+                            actions = NavHostActions(
+                                onLoreQueueConflictEpisode = { loreQueueConflictEpisode = it },
+                                queueLoreEpisode = queueLoreEpisode,
+                                onShowFeedbackSheet = { showFeedbackSheet = true },
+                                onSubmitFeedback = onSubmitFeedback,
+                            ),
+                            settingsState = NavSettingsState(
+                                currentRegion = currentRegion,
+                                themeConfig = themeConfig,
+                                useDynamicColor = useDynamicColor,
+                                themeBrand = themeBrand,
+                                surfaceStyle = surfaceStyle,
+                                skipBehavior = skipBehavior,
+                                skipBeginningMs = skipBeginningMs,
+                                skipEndingMs = skipEndingMs,
+                                seekBackwardMs = seekBackwardMs,
+                                seekForwardMs = seekForwardMs,
+                                hideCompletedInHome = hideCompletedInHome,
+                                hideCompletedInSubs = hideCompletedInSubs,
+                                hideCompletedInShowDetails = hideCompletedInShowDetails,
+                            ),
+                        )
+                    }
                 }
             }
 
