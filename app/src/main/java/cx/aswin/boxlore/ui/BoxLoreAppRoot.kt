@@ -421,11 +421,11 @@ fun BoxLoreAppRoot(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.surface,
-            ) { innerPadding ->
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            ) { _ ->
                 PredictiveBackWrapper(
                     enabled = canGoBack,
                     onBack = { navController.popBackStack() },
-                    modifier = Modifier.padding(innerPadding),
                 ) {
                     BoxLoreNavHost(
                         navController = navController,
