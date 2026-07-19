@@ -56,6 +56,9 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --continue
 
+      - name: Verify Roborazzi screenshots
+        run: ./gradlew :feature:home:verifyRoborazziDebug
+
       - name: Verify merged Kover coverage floor
         run: ./gradlew :koverVerifyMerged
 
