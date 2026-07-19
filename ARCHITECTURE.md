@@ -1,53 +1,34 @@
 # Boxlore architecture
 
-Cross-module contract for the Android app. Module-local detail lives in each module’s folder `README.md`. Testing goals live in [`docs/TESTING.md`](docs/TESTING.md). Analytics event contracts live in [`docs/ANALYTICS_EVENT_GLOSSARY.md`](docs/ANALYTICS_EVENT_GLOSSARY.md).
+Reference for how the Android app is structured: module boundaries, dependency direction, composition root, and upgrade-safe identity. Module-local detail lives in each folder’s `README.md`.
 
-## Status legend
+## Overview
 
-| Status | Meaning |
-| :--- | :--- |
-| **Done** | Implemented and verified in the codebase |
-| **WIP** | Partially in place; gaps remain |
-| **Yet to start** | Targeted end state; not begun |
+Boxlore is a multi-module Gradle project. `:app` is the application shell. Shared behavior lives under `:core:*`. Screen and flow UI lives under `:feature:*`. There is no Hilt or Koin: a single `AppContainer` is the composition root.
 
-## Capability status
+The graph is layered so playback and features depend inward on catalog and lower cores. Features do not depend on other features. Catalog does not depend on the design system. Feature modules never talk to PostHog directly; they use `:core:analytics`.
 
-| Capability | Status |
-| :--- | :--- |
-| 21-module Gradle map (`:app`, `:core:*`, `:feature:*`) | Done |
-| Package root matches Gradle module id (`cx.aswin.boxlore.*`) | Done |
-| Single `AppContainer` composition root (no Hilt/Koin) | Done |
-| Catalog / playback / prefs / analytics / rss / ranking / downloads extracted | Done |
-| Permanent upgrade failsafes (`LegacyWorkerFactory`, `core.data.*` stubs, prefs migrator, dual deep links) | Done |
-| No feature → feature Gradle edges (Konsist) | Done |
-| `:core:catalog` ↛ `:core:designsystem` | Done |
-| Features do not import PostHog directly | Done |
-| Fat-file policy: no `src/main` Kotlin file ≥ 1000 LOC | Done |
-| Folder READMEs accurate vs template | Done |
-| Testing depth (see [`docs/TESTING.md`](docs/TESTING.md)) | WIP |
+## Identity and storage
 
-## Product invariants
+These values are part of the shipping product. Renames or recreations break upgrades, WorkManager, Media3, and deep links.
 
-| Invariant | Rule |
+| Concern | Contract |
 | :--- | :--- |
 | `applicationId` | `cx.aswin.boxlore` |
-| Code packages / namespaces | `cx.aswin.boxlore.*` |
-| SharedPreferences **files** | Migrate `boxcast_*` → `boxlore_*` via `PrefsFileMigrator`; **key** strings inside files unchanged |
-| DataStore | Name `user_preferences` unchanged |
-| Room | Main DB filename/tables unchanged; ranking uses separate adaptive DB |
-| WorkManager | `LegacyWorkerFactory` + old-FQCN stubs under `core.data.*` are permanent upgrade bridges |
-| Deep links | Accept `boxlore://` and `boxcast://` (and both https share path prefixes) |
-| BuildConfig | Prefer `BOXLORE_*`; Gradle dual-reads `BOXCAST_*` fallbacks |
-| Playback | One UI `PlaybackRepository` — never recreate per route or worker |
-| Construction order | DB → `PodcastRepository` → `QueueRepository` → `PlaybackRepository` → `QueueManager` → `SmartDownloadManager` |
-| Smart Queue refill | Service-owned only (`BoxLorePlaybackService`) |
-| ID / cache schemes | Do not rename `rss:` / negative IDs, mediaId prefixes, `customCacheKey` |
+| Code packages / Android namespaces | `cx.aswin.boxlore.*` |
+| SharedPreferences **files** | Opened as `boxlore_*`; `PrefsFileMigrator` copies from legacy `boxcast_*` when needed. **Key** strings inside those files stay stable. |
+| DataStore | File name `user_preferences` |
+| Room (main) | Database filename and tables stay stable |
+| Room (ranking) | Separate adaptive database owned by `:core:ranking` |
+| WorkManager | `LegacyWorkerFactory` plus permanent `core.data.*` stubs resolve historical FQCNs |
+| Deep links | `boxlore://` and `boxcast://`, plus both HTTPS share-path prefixes |
+| BuildConfig | Prefer `BOXLORE_*`; Gradle still dual-reads `BOXCAST_*` fallbacks |
+| Episode / media IDs | `rss:` prefixes, negative RSS IDs, mediaId prefixes, and `customCacheKey` schemes stay as implemented |
+| Playback instance | One UI-scoped `PlaybackRepository`; routes and workers must not construct a second one |
+| Object graph order | DB → `PodcastRepository` → `QueueRepository` → `PlaybackRepository` → `QueueManager` → `SmartDownloadManager` |
+| Smart Queue refill | Owned by `BoxLorePlaybackService` only |
 
-## Fat-file policy
-
-No Kotlin file under `*/src/main/**` may exceed **1000 lines**. Extract cohesive helpers or composables in the same package. Do not change public APIs or identity/FQCN invariants to satisfy the cap.
-
-## Gradle modules
+## Module map
 
 ```text
 :app
@@ -58,37 +39,37 @@ No Kotlin file under `*/src/main/**` may exceed **1000 lines**. Extract cohesive
 :feature:library | :feature:onboarding | :feature:briefing
 ```
 
-Folder path equals Gradle id (`core/playback` → `:core:playback`).
+On disk, the folder path matches the Gradle id (`core/playback` → `:core:playback`).
 
-### Module ownership
+### Ownership
 
-| Module | Owns | README |
+| Module | Responsibility | README |
 | :--- | :--- | :--- |
-| `:app` | Application, `AppContainer`, nav host, FCM, WorkerFactory | [`app/README.md`](app/README.md) |
-| `:core:model` | Shared models / enums used across layers | [`core/model/README.md`](core/model/README.md) |
-| `:core:network` | HTTP API client (`BoxLoreApi` / `NetworkModule`) + network DTOs | [`core/network/README.md`](core/network/README.md) |
-| `:core:domain` | Thin ports + small results (no Room / repos) | [`core/domain/README.md`](core/domain/README.md) |
-| `:core:database` | Main Room (`BoxLoreDatabase`, entities, DAOs, migrations) | [`core/database/README.md`](core/database/README.md) |
-| `:core:prefs` | DataStore + SharedPreferences façades (`UserPreferencesRepository`, `BoxcastPrefs`) | [`core/prefs/README.md`](core/prefs/README.md) |
-| `:core:analytics` | Analytics façade (`AnalyticsHelper`, `Analytics`, `RecordingAnalytics`); PostHog init stays in `:app` | [`core/analytics/README.md`](core/analytics/README.md) |
-| `:core:catalog` | Catalog/orchestration — `PodcastRepository`, subscriptions, content sections, backup/restore, shared-deps bridge | [`core/catalog/README.md`](core/catalog/README.md) |
+| `:app` | `Application`, `AppContainer`, navigation host, FCM, `WorkerFactory` | [`app/README.md`](app/README.md) |
+| `:core:model` | Shared models and enums | [`core/model/README.md`](core/model/README.md) |
+| `:core:network` | HTTP client (`BoxLoreApi` / `NetworkModule`) and network DTOs | [`core/network/README.md`](core/network/README.md) |
+| `:core:domain` | Thin ports and small result types (no Room or repositories) | [`core/domain/README.md`](core/domain/README.md) |
+| `:core:database` | Main Room database, entities, DAOs, migrations | [`core/database/README.md`](core/database/README.md) |
+| `:core:prefs` | DataStore and SharedPreferences façades (`UserPreferencesRepository`, `BoxcastPrefs`) | [`core/prefs/README.md`](core/prefs/README.md) |
+| `:core:analytics` | Analytics façade (`AnalyticsHelper`, `Analytics`, `RecordingAnalytics`); PostHog init stays in `:app`. Event names and properties: [`docs/ANALYTICS_EVENT_GLOSSARY.md`](docs/ANALYTICS_EVENT_GLOSSARY.md) | [`core/analytics/README.md`](core/analytics/README.md) |
+| `:core:catalog` | Catalog orchestration: `PodcastRepository`, subscriptions, content sections, backup/restore | [`core/catalog/README.md`](core/catalog/README.md) |
 | `:core:rss` | RSS fetch/parse, `RssPodcastRepository`, `rss:` / negative IDs | [`core/rss/README.md`](core/rss/README.md) |
 | `:core:ranking` | Adaptive scoring, LinUCB, feedback, `AdaptiveRankingDatabase` | [`core/ranking/README.md`](core/ranking/README.md) |
-| `:core:downloads` | `DownloadRepository`, Smart Downloads, WorkManager workers (+ permanent `core.data` stubs) | [`core/downloads/README.md`](core/downloads/README.md) |
-| `:core:playback` | `PlaybackRepository`, queue, Media3 services, smart-queue helpers (+ permanent service stubs) | [`core/playback/README.md`](core/playback/README.md) |
-| `:core:designsystem` | Theme, shared composables; no data/network ownership | [`core/designsystem/README.md`](core/designsystem/README.md) |
-| `:core:testing` | Shared fixtures, dispatcher extensions, architecture guards | [`core/testing/README.md`](core/testing/README.md) |
-| `:feature:home` | Home + Settings hub + Add RSS + Debug | [`feature/home/README.md`](feature/home/README.md) |
-| `:feature:player` | Player overlay UI (`PlayerSheetScaffold`) — not a NavHost route | [`feature/player/README.md`](feature/player/README.md) |
-| `:feature:info` | Podcast / episode detail (+ deep links) | [`feature/info/README.md`](feature/info/README.md) |
-| `:feature:explore` | Explore + Learn / LearnHistory | [`feature/explore/README.md`](feature/explore/README.md) |
-| `:feature:library` | Library hub, subs, downloads, history, liked | [`feature/library/README.md`](feature/library/README.md) |
-| `:feature:onboarding` | First-run flows (AI / genre / search / import) | [`feature/onboarding/README.md`](feature/onboarding/README.md) |
+| `:core:downloads` | `DownloadRepository`, Smart Downloads, related WorkManager workers | [`core/downloads/README.md`](core/downloads/README.md) |
+| `:core:playback` | `PlaybackRepository`, queue, Media3 services, smart-queue helpers | [`core/playback/README.md`](core/playback/README.md) |
+| `:core:designsystem` | Theme and shared composables; no data or network ownership | [`core/designsystem/README.md`](core/designsystem/README.md) |
+| `:core:testing` | Shared fixtures, dispatcher helpers, architecture guards | [`core/testing/README.md`](core/testing/README.md) |
+| `:feature:home` | Home, Settings hub, Add RSS, Debug | [`feature/home/README.md`](feature/home/README.md) |
+| `:feature:player` | Player overlay (`PlayerSheetScaffold`); not a NavHost destination | [`feature/player/README.md`](feature/player/README.md) |
+| `:feature:info` | Podcast and episode detail, including deep links | [`feature/info/README.md`](feature/info/README.md) |
+| `:feature:explore` | Explore plus Learn / LearnHistory | [`feature/explore/README.md`](feature/explore/README.md) |
+| `:feature:library` | Library hub, subscriptions, downloads, history, liked | [`feature/library/README.md`](feature/library/README.md) |
+| `:feature:onboarding` | First-run flows (AI, genre, search, import) | [`feature/onboarding/README.md`](feature/onboarding/README.md) |
 | `:feature:briefing` | Daily briefing screen | [`feature/briefing/README.md`](feature/briefing/README.md) |
 
-### Package roots (extracted cores)
+### Core package roots
 
-| Module | Package root |
+| Module | Package |
 | :--- | :--- |
 | `:core:prefs` | `cx.aswin.boxlore.core.prefs` |
 | `:core:analytics` | `cx.aswin.boxlore.core.analytics` |
@@ -99,7 +80,7 @@ Folder path equals Gradle id (`core/playback` → `:core:playback`).
 | `:core:database` | `cx.aswin.boxlore.core.database` |
 | `:core:catalog` | `cx.aswin.boxlore.core.catalog` |
 
-### Dependency direction
+## Dependency direction
 
 ```mermaid
 flowchart TB
@@ -168,24 +149,45 @@ flowchart TB
   network --> model
 ```
 
-Primary stack: **playback → catalog → prefs / domain / database / network / model**.
+The primary runtime stack is **playback → catalog → prefs / domain / database / network / model**.
 
-### Dependency rules
+### Rules enforced in the graph
 
-- No feature → feature Gradle dependencies.
-- `:core:playback` → `:core:catalog` (not the reverse).
-- `:core:catalog` must not depend on `:core:designsystem`.
-- Features that need analytics or ranking declare `:core:analytics` / `:core:ranking` directly (catalog does not re-export analytics; ranking is not an `api` edge).
-- Zero feature-module `PostHog.capture` / `import com.posthog` — guarded by `scripts/ci/check-feature-no-posthog.sh`.
-- Domain enums used by both catalog and UI (e.g. `AutoTranscriptState`) belong in `:core:model`.
-- `:core:domain` holds ports only; `:core:catalog` implements catalog-facing ports.
-- `:core:network` is HTTP/API only; `RssFeedClient` lives in `:core:rss` (re-exported via `:core:catalog` → `api(rss)`).
+- Features do not declare Gradle dependencies on other features (Konsist).
+- `:core:playback` depends on `:core:catalog`; catalog does not depend on playback.
+- `:core:catalog` does not depend on `:core:designsystem`.
+- Features that need analytics or ranking depend on `:core:analytics` / `:core:ranking` directly. Catalog does not re-export analytics; ranking is not an `api` edge from catalog.
+- Feature sources do not import PostHog (`scripts/ci/check-feature-no-posthog.sh`).
+- Enums shared by catalog and UI (for example `AutoTranscriptState`) live in `:core:model`.
+- `:core:domain` holds ports; `:core:catalog` implements catalog-facing ports.
+- `:core:network` is HTTP/API only. `RssFeedClient` lives in `:core:rss` and reaches callers through `:core:catalog`’s `api(rss)` edge.
 
-## Upgrade failsafes (permanent)
+## Composition root
+
+`AppContainer` (in `:app`) owns the shared object graph and is created only in `BoxLoreApplication`. `MainActivity`, `BoxLoreNavHost`, and feature assemblers read `application.container`. They do not build repositories or a second graph.
+
+Home, Settings, and Info ViewModels are built through assemblers (`HomeViewModelAssembler`, `SettingsViewModelAssembler`, `InfoViewModelAssembler`). Narrow ports under `core.domain.ports` let ViewModels and workers take fakes without depending on full repositories or `BoxLoreDatabase`. Production wiring uses `RoomLocalCatalog` and `RoomEpisodeOfflineLookup` from `AppContainer`. `ListeningHistoryBackupPort` lives in `core.catalog.ports`.
+
+## Product surfaces
+
+| Surface | Module | Notes |
+| :--- | :--- | :--- |
+| Home, Settings hub, Add RSS | `:feature:home` | Settings hosts the RSS dialog |
+| Learn / LearnHistory | `:feature:explore` | Learn is a bottom-nav tab |
+| Player overlay | `:feature:player` | `PlayerSheetScaffold`, not a NavHost route |
+| Podcast / episode detail | `:feature:info` | Dual episode routes and deep links |
+| Playback, queue, Media3 | `:core:playback` | Includes permanent `core.data.service` stubs |
+| HTTP API | `:core:network` | Separate from RSS |
+| Ranking | `:core:ranking` | Own adaptive Room database |
+| RSS catalog | `:core:rss` | Negative / `rss:` IDs; exposed through catalog |
+
+## Upgrade failsafes
+
+Historical FQCNs and preference file names remain reachable so upgrades from older installs keep working. These bridges are permanent.
 
 ### Workers
 
-| Old FQCN | Current FQCN | Failsafe |
+| Historical FQCN | Implementation | Bridge |
 | :--- | :--- | :--- |
 | `cx.aswin.boxcast.core.data.SmartDownloadWorker` | `cx.aswin.boxlore.core.downloads.SmartDownloadWorker` | `LegacyWorkerFactory` |
 | `cx.aswin.boxcast.core.data.AutoDownloadWorker` | `cx.aswin.boxlore.core.downloads.AutoDownloadWorker` | `LegacyWorkerFactory` |
@@ -196,7 +198,7 @@ Primary stack: **playback → catalog → prefs / domain / database / network / 
 
 ### Services / providers
 
-| Old FQCN | Current FQCN | Failsafe |
+| Historical FQCN | Implementation | Bridge |
 | :--- | :--- | :--- |
 | `cx.aswin.boxlore.core.data.service.BoxLorePlaybackService` | `cx.aswin.boxlore.core.playback.service.BoxLorePlaybackService` | Manifest + stub |
 | `cx.aswin.boxlore.core.data.service.MediaDownloadService` | `cx.aswin.boxlore.core.playback.service.MediaDownloadService` | Manifest + stub |
@@ -204,7 +206,7 @@ Primary stack: **playback → catalog → prefs / domain / database / network / 
 
 ### SharedPreferences files
 
-| Old file | New file | Opener |
+| Legacy file | Current file | Opened by |
 | :--- | :--- | :--- |
 | `boxcast_prefs` | `boxlore_prefs` | `BoxcastPrefs` via `PrefsFileMigrator` |
 | `boxcast_theme_fast_cache` | `boxlore_theme_fast_cache` | `UserPreferencesRepository` |
@@ -213,45 +215,30 @@ Primary stack: **playback → catalog → prefs / domain / database / network / 
 | `boxcast_api_config` | `boxlore_api_config` | `BoxLoreAppRoot` |
 | `boxcast_referrer_prefs` | `boxlore_referrer_prefs` | `InstallReferrerManager` |
 
-ProGuard dual-keeps permanent `core.data.**` stubs and aligned `core.catalog|prefs|analytics|rss|ranking|downloads|playback|database.**`.
+ProGuard keeps the permanent `core.data.**` stubs alongside `core.catalog|prefs|analytics|rss|ranking|downloads|playback|database.**`.
 
-## Composition root
+## Source file size
 
-There is no Hilt/Koin. `AppContainer` (in `:app`) owns the shared graph and is **created only in `BoxLoreApplication`**. `MainActivity`, `BoxLoreNavHost`, and feature assemblers **consume** `application.container` — they do not construct repositories or a parallel graph.
+Kotlin sources under `*/src/main/**` stay under **1000 lines**. Larger units are split into same-package helpers or composables without changing public APIs or the identity/FQCN contracts above.
 
-Home / Settings / Info construct VMs via assemblers (`HomeViewModelAssembler`, `SettingsViewModelAssembler`, `InfoViewModelAssembler`). Narrow ports under `core.domain.ports` exist so ViewModels and workers can take fakes without full repositories / `BoxLoreDatabase`. Production: `RoomLocalCatalog` / `RoomEpisodeOfflineLookup` from `AppContainer`. `ListeningHistoryBackupPort` lives in `core.catalog.ports`.
+## Verification
 
-## Notable surfaces
+How the tree is tested — commands, coverage floors, and layer status — is in [`docs/TESTING.md`](docs/TESTING.md).
 
-| Surface | Module | Notes |
-| :--- | :--- | :--- |
-| Home + Settings hub + Add RSS | `:feature:home` | Settings includes RSS dialog |
-| Learn / LearnHistory (bottom nav) | `:feature:explore` | Learn is a tab |
-| Player overlay | `:feature:player` | `PlayerSheetScaffold` — not a NavHost route |
-| Podcast / Episode info | `:feature:info` | Dual episode routes + deep links |
-| Playback / queue / Media3 | `:core:playback` | Permanent service stubs under `core.data.service` |
-| HTTP API | `:core:network` | Not RSS |
-| Ranking | `:core:ranking` | Own adaptive Room DB |
-| RSS catalog | `:core:rss` | Negative / `rss:` IDs; re-exported through catalog |
-
-## Testing layers (summary)
-
-| Layer | Purpose | Detail |
+| Layer | Role | Where |
 | :--- | :--- | :--- |
 | JVM unit | Logic, ports, ViewModel slices | [`docs/TESTING.md`](docs/TESTING.md) |
-| Compose UI | Controls, tags, nav wiring | [`docs/TESTING.md`](docs/TESTING.md) |
+| Compose UI | Controls, tags, navigation wiring | [`docs/TESTING.md`](docs/TESTING.md) |
 | Maestro | Device E2E smoke | [`maestro/README.md`](maestro/README.md) |
-| Architecture-as-code | Konsist / filesystem guards | `:core:testing` |
+| Architecture-as-code | Konsist and filesystem guards | `:core:testing` |
 | Screenshots | Visual baselines | [`docs/screenshots/README.md`](docs/screenshots/README.md) |
 
-No MockK / Hilt unless this contract is amended. Shared fixtures belong in `:core:testing`.
+Shared test fixtures live in `:core:testing`. The project does not use MockK or Hilt.
 
-## Related docs
+## Related documents
 
-| Doc | Role |
+| Document | Contents |
 | :--- | :--- |
-| [`docs/TESTING.md`](docs/TESTING.md) | End-state testing plan and status |
-| [`docs/ANALYTICS_EVENT_GLOSSARY.md`](docs/ANALYTICS_EVENT_GLOSSARY.md) | Formal analytics events (name + meaning + properties) |
-| [`docs/MODULE_README_TEMPLATE.md`](docs/MODULE_README_TEMPLATE.md) | Module README contract |
-| [`docs/recommendation-system.md`](docs/recommendation-system.md) | Ranking / recommendation product detail |
+| [`docs/MODULE_README_TEMPLATE.md`](docs/MODULE_README_TEMPLATE.md) | Module README shape |
+| [`docs/recommendation-system.md`](docs/recommendation-system.md) | Ranking and recommendation behavior |
 | [`maestro/README.md`](maestro/README.md) | Local Maestro flows |

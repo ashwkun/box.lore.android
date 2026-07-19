@@ -1,10 +1,6 @@
 # Testing
 
-End-state testing contract for Boxlore. Status tags are truthful: **Done** = verified in-repo; **WIP** = partial; **Yet to start** = aspirational for a later testing phase.
-
-Implementing **Yet to start** rows is out of scope for architecture/docs/LOC work. This file is the map.
-
-Module-local notes live in each folder `README.md` (see [`docs/MODULE_README_TEMPLATE.md`](MODULE_README_TEMPLATE.md)). Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
+How Boxlore is tested: layers, commands, coverage, and what each layer currently covers.
 
 ## Status legend
 
@@ -12,7 +8,7 @@ Module-local notes live in each folder `README.md` (see [`docs/MODULE_README_TEM
 | :--- | :--- |
 | **Done** | Present and exercised |
 | **WIP** | Exists but shallow or incomplete |
-| **Yet to start** | Target for a later testing phase |
+| **Yet to start** | Not implemented yet |
 
 ## Layers
 
@@ -26,6 +22,8 @@ Module-local notes live in each folder `README.md` (see [`docs/MODULE_README_TEM
 | Compose UI | `androidTest` (primarily `:feature:home`) | Dead controls, dialog wiring | WIP |
 | Maestro | `maestro/` + nightly validate | Real-device flow regressions | WIP |
 | Screenshots | `screenshots/baselines/` + Roborazzi | Visual regressions | Yet to start |
+
+Architecture boundaries and module ownership that these guards enforce are described in [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ## Stack
 
