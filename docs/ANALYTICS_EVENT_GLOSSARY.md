@@ -7,15 +7,19 @@ Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 ## Enums
 
 ### entry_point
+
 `home_hero_resume`, `home_hero_jump_back_in`, `home_hero_new_episodes`, `home_hero_spotlight`, `home_mixtape`, `home_adaptive_*`, `home_because_you_like`, `home_discover_grid`, `home_recommendations`, `briefing`, `explore_for_you`, `explore_trending`, `explore_category`, `explore_search_shows`, `explore_search_episodes`, `learn`, `podcast_detail`, `episode_detail`, `queue`, `downloads`, `history`, `liked`, `notification`, `deep_link`, `share`, `install_referrer`, `android_auto`, `android_auto_continue`, `android_auto_queue`, `android_auto_new_episodes`, `android_auto_mixtape`, `android_auto_downloads`, `android_auto_liked`, `android_auto_history`, `android_auto_discover`, `android_auto_voice`, `android_auto_play_all`, `mini_player`, `session_restore`, `player_up_next`, `smart_queue`, `onboarding_suggestion`, `unknown`
 
 ### surface
+
 `home`, `explore`, `learn`, `library_hub`, `library_subscriptions`, `library_liked`, `library_downloads`, `library_history`, `podcast_detail`, `episode_detail`, `player_full`, `player_mini`, `queue_sheet`, `settings`, `onboarding`, `briefing`, `android_auto`, `system_notification`, `share_sheet`
 
 ### content_type
+
 `podcast`, `episode`, `briefing`, `mixtape`, `announcement`, `unknown`
 
 ### Other
+
 - playback_mode: `stream` | `offline`
 - client_surface: `phone` | `android_auto`
 - install_channel: `play_store` | `apk_github` | `share_referrer` | `unknown`
@@ -90,7 +94,7 @@ Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 | `feature_announcement_action` | In-app/feature announcement viewed/dismissed/acted | action:string | feature_id:string; category:string | none |
 | `offline_mode_entered` | App detected offline / offline UI | — | reason:string | none |
 | `player_chrome_interaction` | Mini/full player or control bar action | surface:string; action:string | — | none |
-| `daily_briefing_action` | Briefing impression or interaction | action:string | region:string; content_id:string | none |
+| `daily_briefing_action` | Briefing impression or interaction | action:string; region:string; date:string | content_id:string; source:string; chapter_index:int; chapter_title:string; method:string; playback_status:string; previous_region:string; episode_id:string; episode_title:string; podcast_id:string; podcast_title:string | none |
 | `home_import_banner_action` | Import banner shown/clicked/dismissed | action:string | — | none |
 | `android_auto_connected` | Auto session began | — | session_id:string | none |
 | `android_auto_disconnected` | Auto session ended | — | session_id:string; duration_seconds:int | none |
@@ -120,7 +124,7 @@ Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ## Logging policy
 
-- Always log raw `user_input_text` on AI chat turns (`pii_risk=logged_by_policy`).
-- Always log raw `search_query` on search events (`pii_risk=logged_by_policy`).
-- Forbid emails, passwords, and audio/enclosure URLs.
+- Log `user_input_text` on AI chat turns and `search_query` on search events (`pii_risk=logged_by_policy`).
+- Before emission, scrub those fields: remove email addresses, password-like tokens, and any `http(s)` audio/enclosure/media URLs. Keep the remaining free-text query/message.
+- Never emit emails, passwords, or audio/enclosure URLs as standalone property values.
 - `entry_point` is required on all `playback_*` events.

@@ -1,6 +1,5 @@
 package cx.aswin.boxlore.feature.briefing
 
-import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -68,18 +67,20 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.interaction.DragInteraction
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -92,8 +93,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -101,14 +100,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.palette.graphics.Palette
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxlore.core.designsystem.components.ExpressivePlayButton
 import cx.aswin.boxlore.core.designsystem.components.ExpressivePlayButtonState
-import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.designsystem.theme.SectionHeaderFontFamily
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxlore.core.model.Briefing
@@ -133,9 +128,16 @@ internal fun BriefingStoriesPager(
         { page: Int? -> userClickedPage = page }
     }
 
-    // 1. Playback -> UI Paging Sync
-    val activeChapterIndex by remember(chapters, currentPositionMs) {
-        derivedStateOf { activeChapterIndexFor(chapters, currentPositionMs) }
+    // Keep one derivedStateOf instance; tick position via mutable state so the
+    // chapter scan only invalidates downstream when the chapter index changes.
+    var positionMs by remember {
+        mutableLongStateOf(currentPositionMs)
+    }
+    SideEffect {
+        positionMs = currentPositionMs
+    }
+    val activeChapterIndex by remember(chapters) {
+        derivedStateOf { activeChapterIndexFor(chapters, positionMs) }
     }
 
     BriefingPagerEffects(
@@ -213,6 +215,8 @@ private fun BriefingPagerEffects(
     userClickedPage: Int?,
     onUserClickedPageChange: (Int?) -> Unit,
 ) {
+    val latestUserClickedPage = rememberUpdatedState(userClickedPage)
+
     LaunchedEffect(activeChapterIndex) {
         syncPagerToPlayback(
             chapters = chapters,
@@ -224,14 +228,40 @@ private fun BriefingPagerEffects(
         )
     }
 
-    LaunchedEffect(pagerState.currentPage) {
-        trackChapterPageInteraction(
-            briefing = briefing,
-            chapter = chapters.getOrNull(pagerState.currentPage),
-            page = pagerState.currentPage,
-            isDragged = isDragged,
-            userClickedPage = userClickedPage,
-        )
+    // Capture swipe intent via DragInteraction, then attribute after the page
+    // settles (including post-fling), so we don't lose swipes when isDragged clears.
+    LaunchedEffect(pagerState, briefing, chapters) {
+        var pendingSwipe = false
+        var lastSettledPage = pagerState.currentPage
+        launch {
+            pagerState.interactionSource.interactions.collect { interaction ->
+                when (interaction) {
+                    is DragInteraction.Start -> pendingSwipe = true
+                    is DragInteraction.Cancel -> pendingSwipe = false
+                    else -> Unit
+                }
+            }
+        }
+        snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { (page, scrolling) ->
+                if (scrolling) return@collect
+                if (page == lastSettledPage) {
+                    pendingSwipe = false
+                    return@collect
+                }
+                val swiped = pendingSwipe
+                val clicked = latestUserClickedPage.value
+                pendingSwipe = false
+                trackChapterPageInteraction(
+                    briefing = briefing,
+                    chapter = chapters.getOrNull(page),
+                    page = page,
+                    isSwipe = swiped,
+                    userClickedPage = clicked,
+                )
+                lastSettledPage = page
+            }
     }
 }
 
@@ -257,20 +287,21 @@ private fun trackChapterPageInteraction(
     briefing: Briefing,
     chapter: cx.aswin.boxlore.core.model.Chapter?,
     page: Int,
-    isDragged: Boolean,
+    isSwipe: Boolean,
     userClickedPage: Int?,
 ) {
-    if (chapter == null || (!isDragged && userClickedPage == null)) return
-    val isSwipe = isDragged
+    if (chapter == null || (!isSwipe && userClickedPage == null)) return
+    val swiped = isSwipe && userClickedPage == null
     AnalyticsHelper.trackDailyBriefingInteraction(
-        action = if (isSwipe) "chapter_swiped" else "chapter_clicked",
+        action = if (swiped) "chapter_swiped" else "chapter_clicked",
         region = briefing.region,
         date = briefing.date,
-        extraProps = mapOf(
-            "chapter_index" to page,
-            "chapter_title" to chapter.title,
-            "method" to if (isSwipe) "swipe" else "click"
-        )
+        extraProps =
+            mapOf(
+                "chapter_index" to page,
+                "chapter_title" to chapter.title,
+                "method" to if (swiped) "swipe" else "click",
+            ),
     )
 }
 
