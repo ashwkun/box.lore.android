@@ -5,11 +5,12 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class SeekbarLogicTest {
-    private val chapters = listOf(
-        chapter(10.0, "Opening"),
-        chapter(60.0, "Main story"),
-        chapter(120.5, "Interview")
-    )
+    private val chapters =
+        listOf(
+            chapter(10.0, "Opening"),
+            chapter(60.0, "Main story"),
+            chapter(120.5, "Interview"),
+        )
 
     @Test
     fun chapterSelectionHandlesTimelineBoundaries() {

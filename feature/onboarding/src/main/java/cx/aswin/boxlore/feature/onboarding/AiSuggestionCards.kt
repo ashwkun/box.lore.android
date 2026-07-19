@@ -31,8 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,9 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -58,7 +58,7 @@ internal fun HeroPodcastCard(
     categoryName: String,
     isSubscribed: Boolean,
     onToggleSubscription: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
 
@@ -70,12 +70,13 @@ internal fun HeroPodcastCard(
         colors = CardDefaults.cardColors(containerColor = cardStyle.background),
         border = cardStyle.border,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = cardModifier
+        modifier = cardModifier,
     ) {
         Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .then(if (expanded) Modifier.wrapContentHeight() else Modifier.fillMaxHeight())
+            modifier =
+                Modifier
+                    .padding(16.dp)
+                    .then(if (expanded) Modifier.wrapContentHeight() else Modifier.fillMaxHeight()),
         ) {
             HeroPodcastCover(podcast)
 
@@ -125,12 +126,18 @@ internal data class PodcastDescriptionStyle(
 private fun heroPodcastCardStyle(isSubscribed: Boolean): PodcastCardStyle =
     if (isSubscribed) {
         PodcastCardStyle(
-            background = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f).compositeOver(MaterialTheme.colorScheme.surface),
+            background =
+                MaterialTheme.colorScheme.primary
+                    .copy(alpha = 0.08f)
+                    .compositeOver(MaterialTheme.colorScheme.surface),
             border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
         )
     } else {
         PodcastCardStyle(
-            background = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f).compositeOver(MaterialTheme.colorScheme.surface),
+            background =
+                MaterialTheme.colorScheme.surfaceVariant
+                    .copy(alpha = 0.25f)
+                    .compositeOver(MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         )
     }
@@ -147,19 +154,20 @@ private fun heroPodcastCardModifier(
 @Composable
 private fun HeroPodcastCover(podcast: Podcast) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentWidth(Alignment.CenterHorizontally)
-            .size(120.dp)
-            .shadow(6.dp, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .size(120.dp)
+                .shadow(6.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp)),
     ) {
         OptimizedImage(
             url = podcast.imageUrl,
             proxyWidth = 240,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
@@ -169,7 +177,7 @@ private fun HeroPodcastBadges(categoryName: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         PodcastBadge(
             text = "AI TOP PICK",
@@ -197,17 +205,19 @@ private fun PodcastBadge(
     letterSpacing: androidx.compose.ui.unit.TextUnit,
 ) {
     Box(
-        modifier = Modifier
-            .background(color = background, shape = RoundedCornerShape(100.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
+        modifier =
+            Modifier
+                .background(color = background, shape = RoundedCornerShape(100.dp))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(
             text = text,
             color = contentColor,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = fontWeight,
-                letterSpacing = letterSpacing
-            )
+            style =
+                MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = fontWeight,
+                    letterSpacing = letterSpacing,
+                ),
         )
     }
 }
@@ -216,14 +226,15 @@ private fun PodcastBadge(
 private fun PodcastTitleAndArtist(podcast: Podcast) {
     Text(
         text = podcast.title,
-        style = MaterialTheme.typography.titleMedium.copy(
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 20.sp
-        ),
+        style =
+            MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                lineHeight = 20.sp,
+            ),
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(top = 8.dp)
+        modifier = Modifier.padding(top = 8.dp),
     )
     Text(
         text = podcast.artist,
@@ -231,7 +242,7 @@ private fun PodcastTitleAndArtist(podcast: Podcast) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 2.dp)
+        modifier = Modifier.padding(top = 2.dp),
     )
 }
 
@@ -243,29 +254,32 @@ internal fun ExpandablePodcastDescription(
     collapsedLines: Int,
     modifier: Modifier = Modifier,
 ) {
-    val description = remember(podcast.id, podcast.description, podcast.title, podcast.artist) {
-        podcastDescription(podcast)
-    }
+    val description =
+        remember(podcast.id, podcast.description, podcast.title, podcast.artist) {
+            podcastDescription(podcast)
+        }
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize()
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .animateContentSize(),
     ) {
         Text(
             text = description,
             style = style.bodyStyle,
             maxLines = if (expanded) Int.MAX_VALUE else collapsedLines,
             overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = style.alpha)
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = style.alpha),
         )
         Text(
             text = if (expanded) "Show less" else "Read more",
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = style.readMoreFontSize,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            ),
-            modifier = Modifier.padding(top = style.readMoreTopPadding)
+            style =
+                MaterialTheme.typography.labelSmall.copy(
+                    fontSize = style.readMoreFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                ),
+            modifier = Modifier.padding(top = style.readMoreTopPadding),
         )
     }
 }
@@ -299,27 +313,28 @@ internal fun PodcastSubscriptionButton(
 ) {
     val buttonStyle = subscriptionButtonStyle(isSubscribed, selectedText, unselectedText)
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(buttonStyle.background, RoundedCornerShape(24.dp))
-            .expressiveClickable(shape = RoundedCornerShape(24.dp)) {
-                onToggleSubscription(podcastId)
-            },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(buttonStyle.background, RoundedCornerShape(24.dp))
+                .expressiveClickable(shape = RoundedCornerShape(24.dp)) {
+                    onToggleSubscription(podcastId)
+                },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Center,
     ) {
         Icon(
             imageVector = buttonStyle.icon,
             contentDescription = null,
             tint = buttonStyle.contentColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(18.dp),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = buttonStyle.text,
             color = buttonStyle.contentColor,
             fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.labelLarge
+            style = MaterialTheme.typography.labelLarge,
         )
     }
 }

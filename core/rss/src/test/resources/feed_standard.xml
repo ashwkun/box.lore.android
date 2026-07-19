@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Test Standard Podcast</title>
+    <description>A hermetic test feed for the library parser.</description>
+    <lastBuildDate>Wed, 03 Jan 2020 00:00:00 GMT</lastBuildDate>
+    <itunes:author>Test Author</itunes:author>
+    <itunes:type>episodic</itunes:type>
+    <itunes:image href="https://example.com/channel-art.jpg"/>
+    <itunes:category text="Technology"/>
+    <item>
+      <title>Episode One</title>
+      <description>The first episode.</description>
+      <guid>guid-episode-one</guid>
+      <pubDate>Wed, 01 Jan 2020 00:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep1.mp3" type="audio/mpeg" length="1000"/>
+      <itunes:duration>00:30:00</itunes:duration>
+      <itunes:season>1</itunes:season>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    <item>
+      <title>Episode Two</title>
+      <description>The second episode, published later.</description>
+      <guid>guid-episode-two</guid>
+      <pubDate>Wed, 02 Jan 2020 00:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep2.mp3" type="audio/mpeg" length="2000"/>
+      <itunes:duration>3600</itunes:duration>
+    </item>
+  </channel>
+</rss>

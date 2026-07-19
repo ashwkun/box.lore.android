@@ -1,12 +1,11 @@
 package cx.aswin.boxlore.core.downloads
 
-import cx.aswin.boxlore.core.catalog.SharedAppDependenciesHolder
-
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Data
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
+import cx.aswin.boxlore.core.catalog.SharedAppDependenciesHolder
 import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -23,7 +22,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class AutoDownloadWorkerTest {
-
     private lateinit var context: Context
 
     @Before
@@ -44,7 +42,8 @@ class AutoDownloadWorkerTest {
         val worker =
             TestListenableWorkerBuilder<AutoDownloadWorker>(context)
                 .setInputData(
-                    Data.Builder()
+                    Data
+                        .Builder()
                         .putString(AutoDownloadWorker.KEY_PODCAST_ID, "pod-1")
                         .build(),
                 ).build()
@@ -58,7 +57,8 @@ class AutoDownloadWorkerTest {
         val worker =
             TestListenableWorkerBuilder<AutoDownloadWorker>(context)
                 .setInputData(
-                    Data.Builder()
+                    Data
+                        .Builder()
                         .putString(AutoDownloadWorker.KEY_EPISODE_ID, "ep-1")
                         .build(),
                 ).build()

@@ -9,12 +9,13 @@ import org.junit.jupiter.api.Test
 class AiChatMessageListLogicTest {
     @Test
     fun buildMessages_alwaysStartsWithInitialAssistant() {
-        val messages = AiChatMessageListLogic.buildMessages(
-            history = emptyList(),
-            isAiLoading = false,
-            isSynthesizing = false,
-            onboardingError = null,
-        )
+        val messages =
+            AiChatMessageListLogic.buildMessages(
+                history = emptyList(),
+                isAiLoading = false,
+                isSynthesizing = false,
+                onboardingError = null,
+            )
         assertEquals(1, messages.size)
         val first = messages.first() as ChatMessage.ModelMessage
         assertEquals(AiChatMessageListLogic.INITIAL_ASSISTANT_MESSAGE, first.text)

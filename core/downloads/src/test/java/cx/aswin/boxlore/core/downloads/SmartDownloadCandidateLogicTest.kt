@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.downloads
 
-import cx.aswin.boxlore.core.downloads.SmartDownloadCandidateLogic.MixtapeCandidate
 import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
 import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.database.PodcastEntity
+import cx.aswin.boxlore.core.downloads.SmartDownloadCandidateLogic.MixtapeCandidate
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,16 +18,16 @@ import org.junit.jupiter.api.Test
  * entities by hand so candidate scoring, filtering, and ordering stay deterministic.
  */
 class SmartDownloadCandidateLogicTest {
-
     private val nowMs = 1_700_000_000_000L
     private val nowSeconds = nowMs / 1000L
 
     @Test
     fun `in-progress score decays with hours since last play`() {
-        val score = SmartDownloadCandidateLogic.scoreInProgressCandidate(
-            lastPlayedAt = nowMs - 48L * 60 * 60 * 1000,
-            nowMs = nowMs,
-        )
+        val score =
+            SmartDownloadCandidateLogic.scoreInProgressCandidate(
+                lastPlayedAt = nowMs - 48L * 60 * 60 * 1000,
+                nowMs = nowMs,
+            )
 
         assertEquals(1166.666, score, 0.001)
     }
@@ -35,20 +35,22 @@ class SmartDownloadCandidateLogicTest {
     @Test
     fun `in-progress candidates use latest unfinished history for subscribed podcasts`() {
         val subscribed = podcastEntity("sub1")
-        val history = listOf(
-            history("old", "sub1", progressMs = 20_000, lastPlayedAt = nowMs - 2_000),
-            history("latest", "sub1", progressMs = 30_000, lastPlayedAt = nowMs - 1_000),
-            history("zero", "sub1", progressMs = 0, lastPlayedAt = nowMs),
-            history("done", "sub1", progressMs = 40_000, isCompleted = true, lastPlayedAt = nowMs),
-            history("other", "unsubscribed", progressMs = 50_000, lastPlayedAt = nowMs),
-        )
+        val history =
+            listOf(
+                history("old", "sub1", progressMs = 20_000, lastPlayedAt = nowMs - 2_000),
+                history("latest", "sub1", progressMs = 30_000, lastPlayedAt = nowMs - 1_000),
+                history("zero", "sub1", progressMs = 0, lastPlayedAt = nowMs),
+                history("done", "sub1", progressMs = 40_000, isCompleted = true, lastPlayedAt = nowMs),
+                history("other", "unsubscribed", progressMs = 50_000, lastPlayedAt = nowMs),
+            )
 
-        val candidates = SmartDownloadCandidateLogic.buildInProgressMixtapeCandidates(
-            subsMap = mapOf("sub1" to subscribed),
-            allHistory = history,
-            subIds = setOf("sub1"),
-            nowMs = nowMs,
-        )
+        val candidates =
+            SmartDownloadCandidateLogic.buildInProgressMixtapeCandidates(
+                subsMap = mapOf("sub1" to subscribed),
+                allHistory = history,
+                subIds = setOf("sub1"),
+                nowMs = nowMs,
+            )
 
         assertEquals(listOf("latest"), candidates.map { it.episodeId })
         val candidate = candidates.single()
@@ -66,11 +68,12 @@ class SmartDownloadCandidateLogicTest {
         val resolved = episode("next", "serial")
         val podcast = podcastEntity("serial", preferredSort = "oldest", latestEpisode = latest)
 
-        val candidate = SmartDownloadCandidateLogic.resolveUnplayedDropCandidate(
-            pod = podcast,
-            resolvedSerial = mapOf("serial" to resolved),
-            historyByEpisode = emptyMap(),
-        )
+        val candidate =
+            SmartDownloadCandidateLogic.resolveUnplayedDropCandidate(
+                pod = podcast,
+                resolvedSerial = mapOf("serial" to resolved),
+                historyByEpisode = emptyMap(),
+            )
 
         assertNotNull(candidate)
         assertEquals("next", candidate!!.second.id)
@@ -84,10 +87,11 @@ class SmartDownloadCandidateLogicTest {
         val unplayed = episode("unplayed", "pod1")
         val completed = episode("completed", "pod1")
         val inProgress = episode("progress", "pod1")
-        val historyByEpisode = mapOf(
-            "completed" to history("completed", "pod1", progressMs = 0, isCompleted = true),
-            "progress" to history("progress", "pod1", progressMs = 10_000),
-        )
+        val historyByEpisode =
+            mapOf(
+                "completed" to history("completed", "pod1", progressMs = 0, isCompleted = true),
+                "progress" to history("progress", "pod1", progressMs = 10_000),
+            )
 
         assertNotNull(SmartDownloadCandidateLogic.buildUnplayedDropCandidate(podcast, unplayed, historyByEpisode))
         assertNull(SmartDownloadCandidateLogic.buildUnplayedDropCandidate(podcast, completed, historyByEpisode))
@@ -96,19 +100,21 @@ class SmartDownloadCandidateLogicTest {
 
     @Test
     fun `unplayed drop scoring combines freshness new tag serial and podcast score boosts`() {
-        val podcast = podcastEntity(
-            "pod1",
-            subscribedAt = (nowSeconds - 3L * 24 * 60 * 60) * 1000L,
-            preferredSort = "oldest",
-        )
+        val podcast =
+            podcastEntity(
+                "pod1",
+                subscribedAt = (nowSeconds - 3L * 24 * 60 * 60) * 1000L,
+                preferredSort = "oldest",
+            )
         val oneDayOld = episode("ep1", "pod1", publishedDate = nowSeconds - 24L * 60 * 60)
 
-        val score = SmartDownloadCandidateLogic.scoreUnplayedDropCandidate(
-            pod = podcast,
-            episode = oneDayOld,
-            podScoresMap = mapOf("pod1" to 100.0),
-            nowMs = nowMs,
-        )
+        val score =
+            SmartDownloadCandidateLogic.scoreUnplayedDropCandidate(
+                pod = podcast,
+                episode = oneDayOld,
+                podScoresMap = mapOf("pod1" to 100.0),
+                nowMs = nowMs,
+            )
 
         assertEquals(1080.0, score, 0.001)
     }
@@ -121,10 +127,11 @@ class SmartDownloadCandidateLogicTest {
         val unplayedPod3 = candidate("unplayed-3", "pod3", score = 60.0, isProgress = false)
         val duplicateEpisode = candidate("progress-1", "pod4", score = 1.0, isProgress = false)
 
-        val ordered = SmartDownloadCandidateLogic.deduplicateAndOrderMixtapeCandidates(
-            inProgressMixtapeCandidates = listOf(progressPod1, progressPod2),
-            unplayedDropsMixtapeCandidates = listOf(unplayedPod1, unplayedPod3, duplicateEpisode),
-        )
+        val ordered =
+            SmartDownloadCandidateLogic.deduplicateAndOrderMixtapeCandidates(
+                inProgressMixtapeCandidates = listOf(progressPod1, progressPod2),
+                unplayedDropsMixtapeCandidates = listOf(unplayedPod1, unplayedPod3, duplicateEpisode),
+            )
 
         assertEquals(
             listOf("progress-1", "unplayed-1", "progress-2", "unplayed-3"),
@@ -136,13 +143,14 @@ class SmartDownloadCandidateLogicTest {
     fun `candidate slot rules allow progress plus new tagged unplayed from one podcast`() {
         val progress = candidate("progress", "pod1", isProgress = true)
         val oldUnplayed = candidate("old", "pod1", isProgress = false, subscribedAt = nowMs, publishedDate = 1)
-        val newUnplayed = candidate(
-            "new",
-            "pod1",
-            isProgress = false,
-            subscribedAt = nowMs - 10_000,
-            publishedDate = nowSeconds,
-        )
+        val newUnplayed =
+            candidate(
+                "new",
+                "pod1",
+                isProgress = false,
+                subscribedAt = nowMs - 10_000,
+                publishedDate = nowSeconds,
+            )
 
         assertTrue(SmartDownloadCandidateLogic.shouldIncludeCandidate(progress, emptySet()))
         assertFalse(SmartDownloadCandidateLogic.shouldIncludeCandidate(oldUnplayed, setOf(false)))
@@ -155,14 +163,15 @@ class SmartDownloadCandidateLogicTest {
         val pod2 = podcastEntity("pod2", latestEpisode = episode("drop-2", "pod2", publishedDate = nowSeconds))
         val history = listOf(history("resume-1", "pod1", progressMs = 40_000, lastPlayedAt = nowMs - 1_000))
 
-        val candidates = SmartDownloadCandidateLogic.generateMixtapeCandidates(
-            subs = listOf(pod1, pod2),
-            allHistory = history,
-            historyByEpisode = history.associateBy { it.episodeId },
-            resolvedSerial = emptyMap(),
-            podScoresMap = mapOf("pod2" to 50.0),
-            nowMs = nowMs,
-        )
+        val candidates =
+            SmartDownloadCandidateLogic.generateMixtapeCandidates(
+                subs = listOf(pod1, pod2),
+                allHistory = history,
+                historyByEpisode = history.associateBy { it.episodeId },
+                resolvedSerial = emptyMap(),
+                podScoresMap = mapOf("pod2" to 50.0),
+                nowMs = nowMs,
+            )
 
         assertEquals(listOf("resume-1", "next-1", "drop-2"), candidates.map { it.episodeId })
         assertEquals(listOf(true, false, false), candidates.map { it.isProgress })
@@ -172,15 +181,21 @@ class SmartDownloadCandidateLogicTest {
     fun `size estimation handles completed downloading unknown and queued downloads`() {
         assertEquals(
             12_345L,
-            SmartDownloadCandidateLogic.estimateDownloadSize(download("done", status = DownloadedEpisodeEntity.STATUS_COMPLETED, sizeBytes = 12_345L)),
+            SmartDownloadCandidateLogic.estimateDownloadSize(
+                download("done", status = DownloadedEpisodeEntity.STATUS_COMPLETED, sizeBytes = 12_345L),
+            ),
         )
         assertEquals(
             720_000L,
-            SmartDownloadCandidateLogic.estimateDownloadSize(download("downloading", status = DownloadedEpisodeEntity.STATUS_DOWNLOADING, durationMs = 60_000L)),
+            SmartDownloadCandidateLogic.estimateDownloadSize(
+                download("downloading", status = DownloadedEpisodeEntity.STATUS_DOWNLOADING, durationMs = 60_000L),
+            ),
         )
         assertEquals(
             50L * 1024 * 1024,
-            SmartDownloadCandidateLogic.estimateDownloadSize(download("unknown", status = DownloadedEpisodeEntity.STATUS_DOWNLOADING, durationMs = 0L)),
+            SmartDownloadCandidateLogic.estimateDownloadSize(
+                download("unknown", status = DownloadedEpisodeEntity.STATUS_DOWNLOADING, durationMs = 0L),
+            ),
         )
         assertEquals(
             0L,
@@ -274,13 +289,14 @@ class SmartDownloadCandidateLogicTest {
         episodeId = episodeId,
         score = score,
         isProgress = isProgress,
-        podcast = Podcast(
-            id = podcastId,
-            title = "Podcast $podcastId",
-            artist = "Artist $podcastId",
-            imageUrl = "https://img/$podcastId.png",
-            subscribedAt = subscribedAt,
-        ),
+        podcast =
+            Podcast(
+                id = podcastId,
+                title = "Podcast $podcastId",
+                artist = "Artist $podcastId",
+                imageUrl = "https://img/$podcastId.png",
+                subscribedAt = subscribedAt,
+            ),
         episode = episode(episodeId, podcastId, publishedDate = publishedDate),
     )
 

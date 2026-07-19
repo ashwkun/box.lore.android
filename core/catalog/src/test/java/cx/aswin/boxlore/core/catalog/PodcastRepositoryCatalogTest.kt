@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PodcastRepositoryCatalogTest {
-
     private lateinit var server: MockWebServer
     private lateinit var repository: PodcastRepository
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -47,7 +46,8 @@ class PodcastRepositoryCatalogTest {
         val context = fakeContext()
         val database = fakeDatabase()
         val client =
-            OkHttpClient.Builder()
+            OkHttpClient
+                .Builder()
                 .connectTimeout(5, TimeUnit.SECONDS)
                 .readTimeout(5, TimeUnit.SECONDS)
                 .build()

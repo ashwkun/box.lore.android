@@ -14,11 +14,12 @@ class SubscriptionSortTest {
     @Test
     fun defaultFallbackMatchesLibraryViewModelBehavior() {
         val sortName = "not_a_real_sort"
-        val resolved = try {
-            SubscriptionSort.valueOf(sortName)
-        } catch (_: Exception) {
-            SubscriptionSort.SmartRank
-        }
+        val resolved =
+            try {
+                SubscriptionSort.valueOf(sortName)
+            } catch (_: Exception) {
+                SubscriptionSort.SmartRank
+            }
         assertEquals(SubscriptionSort.SmartRank, resolved)
     }
 }

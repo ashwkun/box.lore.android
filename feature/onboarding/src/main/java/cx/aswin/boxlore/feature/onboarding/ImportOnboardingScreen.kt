@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 internal fun ImportOnboardingScreen() {
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text("Import library flow placeholder - to be refined later.")
     }

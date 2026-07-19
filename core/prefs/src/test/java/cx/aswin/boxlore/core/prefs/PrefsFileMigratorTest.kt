@@ -14,7 +14,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PrefsFileMigratorTest {
-
     private lateinit var context: Context
 
     @Before
@@ -25,22 +24,28 @@ class PrefsFileMigratorTest {
     }
 
     private fun clear(name: String) {
-        context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences(name, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
     }
 
     @Test
     fun oldOnlyInstall_valuesReadableAfterOpen() {
-        context.getSharedPreferences(PrefsFileMigrator.LegacyFiles.PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PrefsFileMigrator.LegacyFiles.PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean("onboarding_completed", true)
             .putString("user_note", "hello")
             .commit()
 
-        val prefs = PrefsFileMigrator.open(
-            context,
-            newName = PrefsFileMigrator.Files.PREFS,
-            oldName = PrefsFileMigrator.LegacyFiles.PREFS,
-        )
+        val prefs =
+            PrefsFileMigrator.open(
+                context,
+                newName = PrefsFileMigrator.Files.PREFS,
+                oldName = PrefsFileMigrator.LegacyFiles.PREFS,
+            )
 
         assertTrue(prefs.getBoolean("onboarding_completed", false))
         assertEquals("hello", prefs.getString("user_note", null))
@@ -52,38 +57,43 @@ class PrefsFileMigratorTest {
 
     @Test
     fun newOnlyInstall_noCrashAndWritesStick() {
-        val prefs = PrefsFileMigrator.open(
-            context,
-            newName = PrefsFileMigrator.Files.PREFS,
-            oldName = PrefsFileMigrator.LegacyFiles.PREFS,
-        )
+        val prefs =
+            PrefsFileMigrator.open(
+                context,
+                newName = PrefsFileMigrator.Files.PREFS,
+                oldName = PrefsFileMigrator.LegacyFiles.PREFS,
+            )
         prefs.edit().putInt("score", 7).commit()
         assertEquals(7, prefs.getInt("score", 0))
     }
 
     @Test
     fun bothPresent_preferNew() {
-        context.getSharedPreferences(PrefsFileMigrator.LegacyFiles.PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PrefsFileMigrator.LegacyFiles.PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString("channel", "old")
             .commit()
-        context.getSharedPreferences(PrefsFileMigrator.Files.PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PrefsFileMigrator.Files.PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString("channel", "new")
             .putString(PrefsFileMigrator.MARKER_KEY, PrefsFileMigrator.LegacyFiles.PREFS)
             .commit()
 
-        val prefs = PrefsFileMigrator.open(
-            context,
-            newName = PrefsFileMigrator.Files.PREFS,
-            oldName = PrefsFileMigrator.LegacyFiles.PREFS,
-        )
+        val prefs =
+            PrefsFileMigrator.open(
+                context,
+                newName = PrefsFileMigrator.Files.PREFS,
+                oldName = PrefsFileMigrator.LegacyFiles.PREFS,
+            )
         assertEquals("new", prefs.getString("channel", null))
     }
 
     @Test
     fun emptyNewPlusFullOld_copiesEntries() {
-        context.getSharedPreferences(PrefsFileMigrator.LegacyFiles.PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PrefsFileMigrator.LegacyFiles.PREFS, Context.MODE_PRIVATE)
             .edit()
             .putStringSet("genres", setOf("news", "tech"))
             .putLong("ts", 42L)

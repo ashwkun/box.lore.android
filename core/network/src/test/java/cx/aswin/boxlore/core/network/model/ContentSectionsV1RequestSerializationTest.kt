@@ -14,14 +14,15 @@ class ContentSectionsV1RequestSerializationTest {
 
     @Test
     fun `contract version is explicit while optional enrichment stays omitted`() {
-        val encoded = json.encodeToString(
-            ContentSectionsV1Request(
-                contractVersion = 1,
-                surface = "home",
-                localMinuteOfDay = 600,
-                country = "us",
-            ),
-        )
+        val encoded =
+            json.encodeToString(
+                ContentSectionsV1Request(
+                    contractVersion = 1,
+                    surface = "home",
+                    localMinuteOfDay = 600,
+                    country = "us",
+                ),
+            )
 
         assertTrue("\"contractVersion\":1" in encoded)
         assertFalse("\"tasteSignals\"" in encoded)
@@ -31,16 +32,17 @@ class ContentSectionsV1RequestSerializationTest {
 
     @Test
     fun `legacy request decodes with safe enrichment defaults`() {
-        val decoded = json.decodeFromString<ContentSectionsV1Request>(
-            """
-            {
-              "contractVersion": 1,
-              "surface": "home",
-              "localMinuteOfDay": 600,
-              "country": "us"
-            }
-            """.trimIndent(),
-        )
+        val decoded =
+            json.decodeFromString<ContentSectionsV1Request>(
+                """
+                {
+                  "contractVersion": 1,
+                  "surface": "home",
+                  "localMinuteOfDay": 600,
+                  "country": "us"
+                }
+                """.trimIndent(),
+            )
 
         assertEquals(emptyList<ContentTasteSignalDto>(), decoded.tasteSignals)
         assertEquals(emptyList<String>(), decoded.recentSectionIds)
@@ -53,21 +55,22 @@ class ContentSectionsV1RequestSerializationTest {
 
     @Test
     fun `enrichment fields serialize with coordinated names`() {
-        val encoded = json.encodeToString(
-            ContentSectionsV1Request(
-                contractVersion = 1,
-                surface = "home",
-                localMinuteOfDay = 600,
-                country = "us",
-                tasteSignals = listOf(ContentTasteSignalDto("Technology", -0.25)),
-                recentSectionIds = listOf("tech-afternoon-brief"),
-                durationPreference = ContentDurationPreferenceDto(15, 55),
-                historyMaturity = 3,
-                noveltyPreference = 0.6,
-                localDate = "2026-07-17",
-                timezoneOffsetMinutes = 330,
-            ),
-        )
+        val encoded =
+            json.encodeToString(
+                ContentSectionsV1Request(
+                    contractVersion = 1,
+                    surface = "home",
+                    localMinuteOfDay = 600,
+                    country = "us",
+                    tasteSignals = listOf(ContentTasteSignalDto("Technology", -0.25)),
+                    recentSectionIds = listOf("tech-afternoon-brief"),
+                    durationPreference = ContentDurationPreferenceDto(15, 55),
+                    historyMaturity = 3,
+                    noveltyPreference = 0.6,
+                    localDate = "2026-07-17",
+                    timezoneOffsetMinutes = 330,
+                ),
+            )
 
         assertTrue("\"tasteSignals\":[{\"genre\":\"Technology\",\"weight\":-0.25}]" in encoded)
         assertTrue("\"recentSectionIds\":[\"tech-afternoon-brief\"]" in encoded)

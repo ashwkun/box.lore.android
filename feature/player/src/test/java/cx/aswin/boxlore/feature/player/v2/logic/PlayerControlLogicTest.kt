@@ -27,9 +27,11 @@ class PlayerControlLogicTest {
     @Test
     fun redistributionPreservesTotalWidth() {
         weights.indices.forEach { active ->
-            val total = weights.indices.sumOf {
-                targetControlWeight(it, active, weights).toDouble()
-            }.toFloat()
+            val total =
+                weights.indices
+                    .sumOf {
+                        targetControlWeight(it, active, weights).toDouble()
+                    }.toFloat()
             assertEquals(weights.sum(), total, 0.0001f)
         }
     }

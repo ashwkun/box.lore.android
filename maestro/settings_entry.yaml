@@ -1,0 +1,17 @@
+appId: cx.aswin.boxlore
+---
+- launchApp
+# Only optional line: first-run consent / permission chrome varies by device state.
+- tapOn:
+    text: ".*(Accept|Allow|Continue|Skip|Not now).*"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_settings_button"
+    timeout: 20000
+# Strict: opening the home Settings affordance lands on the Settings hub.
+- tapOn:
+    id: "home_settings_button"
+- assertVisible: "Settings"
+- assertVisible: "Appearance"
+- assertVisible: "Privacy"

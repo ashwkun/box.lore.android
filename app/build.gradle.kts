@@ -7,6 +7,15 @@ plugins {
     alias(libs.plugins.firebaseCrashlytics)
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.dependencyGuard)
+    alias(libs.plugins.kover)
+}
+
+kover {
+    currentProject {
+        createVariant("merged") {
+            add("debug")
+        }
+    }
 }
 
 android {
@@ -26,7 +35,10 @@ android {
         localPropsFile.inputStream().use { localProps.load(it) }
     }
 
-    fun Properties.dual(newKey: String, oldKey: String): String {
+    fun Properties.dual(
+        newKey: String,
+        oldKey: String,
+    ): String {
         val newest = getProperty(newKey)?.trim().orEmpty()
         if (newest.isNotEmpty()) return newest
         return getProperty(oldKey, "") ?: ""
@@ -54,7 +66,6 @@ android {
         buildConfigField("String", "BOXCAST_PUBLIC_KEY", "\"$resolvedPublicKey\"")
         buildConfigField("String", "POSTHOG_API_KEY", "\"${localProps.getProperty("posthog.apiKey", "")}\"")
         buildConfigField("String", "POSTHOG_HOST", "\"${localProps.getProperty("posthog.host", "")}\"")
-
     }
 
     signingConfigs {
@@ -73,7 +84,7 @@ android {
             // isShrinkResources = true // Cannot shrink resources without code shrinking (minify enabled)
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -198,4 +209,3 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
-

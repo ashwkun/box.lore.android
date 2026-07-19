@@ -6,13 +6,13 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RankingResetPortTest {
-
     @Test
-    fun `fake port returns configured reset result`() = runTest {
-        val ok: RankingResetPort = RankingResetPort { true }
-        val fail: RankingResetPort = RankingResetPort { false }
+    fun `fake port returns configured reset result`() =
+        runTest {
+            val ok: RankingResetPort = RankingResetPort { true }
+            val fail: RankingResetPort = RankingResetPort { false }
 
-        assertTrue(ok.reset())
-        assertFalse(fail.reset())
-    }
+            assertTrue(ok.reset())
+            assertFalse(fail.reset())
+        }
 }

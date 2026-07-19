@@ -12,15 +12,15 @@ class MiniPlayerDismissLogicTest {
     fun hiddenConfirmationAppearsPastHalfThreshold() {
         assertEquals(
             ConfirmationVisibility.UNCHANGED,
-            confirmationVisibility(50f, threshold, currentlyVisible = false)
+            confirmationVisibility(50f, threshold, currentlyVisible = false),
         )
         assertEquals(
             ConfirmationVisibility.SHOW,
-            confirmationVisibility(50.1f, threshold, currentlyVisible = false)
+            confirmationVisibility(50.1f, threshold, currentlyVisible = false),
         )
         assertEquals(
             ConfirmationVisibility.SHOW,
-            confirmationVisibility(-50.1f, threshold, currentlyVisible = false)
+            confirmationVisibility(-50.1f, threshold, currentlyVisible = false),
         )
     }
 
@@ -28,15 +28,15 @@ class MiniPlayerDismissLogicTest {
     fun visibleConfirmationHidesBelowThirtyPercent() {
         assertEquals(
             ConfirmationVisibility.UNCHANGED,
-            confirmationVisibility(31f, threshold, currentlyVisible = true)
+            confirmationVisibility(31f, threshold, currentlyVisible = true),
         )
         assertEquals(
             ConfirmationVisibility.HIDE,
-            confirmationVisibility(29f, threshold, currentlyVisible = true)
+            confirmationVisibility(29f, threshold, currentlyVisible = true),
         )
         assertEquals(
             ConfirmationVisibility.HIDE,
-            confirmationVisibility(-29f, threshold, currentlyVisible = true)
+            confirmationVisibility(-29f, threshold, currentlyVisible = true),
         )
     }
 
@@ -44,11 +44,11 @@ class MiniPlayerDismissLogicTest {
     fun visibilityStaysUnchangedInsideHysteresisBand() {
         assertEquals(
             ConfirmationVisibility.UNCHANGED,
-            confirmationVisibility(40f, threshold, currentlyVisible = false)
+            confirmationVisibility(40f, threshold, currentlyVisible = false),
         )
         assertEquals(
             ConfirmationVisibility.UNCHANGED,
-            confirmationVisibility(40f, threshold, currentlyVisible = true)
+            confirmationVisibility(40f, threshold, currentlyVisible = true),
         )
     }
 

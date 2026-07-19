@@ -1,23 +1,22 @@
 package cx.aswin.boxlore.core.downloads
 
-import cx.aswin.boxlore.core.catalog.SharedAppDependencies
-import cx.aswin.boxlore.core.catalog.SharedAppDependenciesHolder
-import cx.aswin.boxlore.core.catalog.PodcastRepository
-import cx.aswin.boxlore.core.catalog.SubscriptionRepository
-import cx.aswin.boxlore.core.rss.RssPodcastRepository
-import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
-
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
+import cx.aswin.boxlore.core.catalog.PodcastRepository
+import cx.aswin.boxlore.core.catalog.SharedAppDependencies
+import cx.aswin.boxlore.core.catalog.SharedAppDependenciesHolder
+import cx.aswin.boxlore.core.catalog.SubscriptionRepository
 import cx.aswin.boxlore.core.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
+import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.ranking.RankingRuntimeControls
-import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
-import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
+import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -34,7 +33,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class SmartDownloadWorkerTest {
-
     private lateinit var context: Context
     private lateinit var userPrefs: UserPreferencesRepository
 

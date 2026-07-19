@@ -154,13 +154,18 @@ The primary runtime stack is **playback → catalog → prefs / domain / databas
 ### Rules enforced in the graph
 
 - Features do not declare Gradle dependencies on other features (Konsist).
-- `:core:playback` depends on `:core:catalog`; catalog does not depend on playback.
-- `:core:catalog` does not depend on `:core:designsystem`.
-- Features that need analytics or ranking depend on `:core:analytics` / `:core:ranking` directly. Catalog does not re-export analytics; ranking is not an `api` edge from catalog.
+- Features do not import other feature packages (Konsist).
+- `:core:playback` depends on `:core:catalog`; catalog does not depend on playback (Konsist).
+- `:core:catalog` does not depend on `:core:designsystem` (Konsist).
+- `:core:catalog` must not `api(` `:core:analytics` or `:core:ranking` (Konsist; ranking may be `implementation` only).
+- Features that need analytics or ranking depend on `:core:analytics` / `:core:ranking` directly.
 - Feature sources do not import PostHog (`scripts/ci/check-feature-no-posthog.sh`).
+- No Hilt, Koin, Dagger, or MockK in production sources or Gradle test deps (Konsist).
 - Enums shared by catalog and UI (for example `AutoTranscriptState`) live in `:core:model`.
 - `:core:domain` holds ports; `:core:catalog` implements catalog-facing ports.
 - `:core:network` is HTTP/API only. `RssFeedClient` lives in `:core:rss` and reaches callers through `:core:catalog`’s `api(rss)` edge.
+- `getInstance` call sites stay on the AppContainer / Room / WorkManager / Calendar / MessageDigest / Firebase allowlist (Konsist).
+- Extracted core modules keep `package` equal to the module root (permanent `core.data.*` stubs allowlisted).
 
 ## Composition root
 

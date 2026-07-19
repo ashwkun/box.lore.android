@@ -1,0 +1,22 @@
+appId: cx.aswin.boxlore
+---
+- launchApp
+# Only optional line: first-run consent / permission chrome varies by device state.
+- tapOn:
+    text: ".*(Accept|Allow|Continue|Skip|Not now).*"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_settings_button"
+    timeout: 20000
+# Strict (requires network + a region briefing): start playback from the briefing card.
+- extendedWaitUntil:
+    visible: "Play briefing"
+    timeout: 20000
+- tapOn: "Play briefing"
+# Starting playback raises the mini player with its artwork and pause control.
+- extendedWaitUntil:
+    visible: "Episode artwork"
+    timeout: 15000
+- assertVisible: "Episode artwork"
+- assertVisible: "Pause"

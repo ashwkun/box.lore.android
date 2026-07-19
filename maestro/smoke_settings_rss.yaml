@@ -1,33 +1,29 @@
 appId: cx.aswin.boxlore
 ---
 - launchApp
+# Only optional line: first-run consent / permission chrome varies by device state.
 - tapOn:
     text: ".*(Accept|Allow|Continue|Skip|Not now).*"
     optional: true
-# Open Settings from the home top bar (testTag or accessibility label).
+- extendedWaitUntil:
+    visible:
+      id: "home_settings_button"
+    timeout: 20000
+# Open Settings from the home top bar (stable testTag).
 - tapOn:
     id: "home_settings_button"
-    optional: true
-- tapOn:
-    text: "Settings"
-    optional: true
+- assertVisible: "Settings"
+# Enter the Library settings category (tap its description to avoid the bottom-nav "Library").
+- tapOn: "Region, RSS feeds, import and export"
+- assertVisible: "Add podcast by RSS feed"
+# Open the Add RSS dialog and assert its tagged URL field, then cancel.
+- tapOn: "Add podcast by RSS feed"
 - extendedWaitUntil:
-    visible: "Settings"
+    visible:
+      id: "settings_add_rss_url"
     timeout: 10000
-    optional: true
-# Navigate Library → Add RSS when the hub is reachable.
-- tapOn:
-    text: "Library"
-    optional: true
-- tapOn:
-    text: ".*Add podcast by RSS.*"
-    optional: true
-- assertVisible:
-    text: "Add RSS feed"
-    optional: true
 - assertVisible:
     id: "settings_add_rss_url"
-    optional: true
+- assertVisible: "Add RSS feed"
 - tapOn:
     id: "settings_add_rss_cancel"
-    optional: true

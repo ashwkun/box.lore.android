@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit
  * MockWebServer contract tests for critical [BoxLoreApi] endpoints and DTO decoding.
  */
 class BoxLoreApiContractTest {
-
     private lateinit var server: MockWebServer
     private lateinit var api: BoxLoreApi
 
@@ -29,10 +28,12 @@ class BoxLoreApiContractTest {
     fun setUp() {
         server = MockWebServer()
         server.start()
-        val client = OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
-            .build()
+        val client =
+            OkHttpClient
+                .Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .build()
         api = NetworkModule.createBoxLoreApi(server.url("/").toString(), client)
     }
 
@@ -45,13 +46,15 @@ class BoxLoreApiContractTest {
     fun `getTrending decodes feeds and query params`() {
         enqueueFixture("fixtures/trending.json")
 
-        val response = api.getTrending(
-            publicKey = APP_KEY,
-            country = "us",
-            limit = 10,
-            category = "News",
-            offset = 0,
-        ).execute()
+        val response =
+            api
+                .getTrending(
+                    publicKey = APP_KEY,
+                    country = "us",
+                    limit = 10,
+                    category = "News",
+                    offset = 0,
+                ).execute()
 
         assertTrue(response.isSuccessful)
         val body = requireNotNull(response.body())
@@ -134,17 +137,20 @@ class BoxLoreApiContractTest {
     fun `getHomeBootstrap decodes briefing trending vibes and recommendations`() {
         enqueueFixture("fixtures/bootstrap.json")
 
-        val response = api.getHomeBootstrap(
-            publicKey = APP_KEY,
-            deviceUuid = DEVICE_UUID,
-            request = BootstrapRequest(
-                country = "us",
-                vibeIds = listOf("focus"),
-                deviceUuid = DEVICE_UUID,
-                contractVersion = 1,
-                intentIds = listOf("learn"),
-            ),
-        ).execute()
+        val response =
+            api
+                .getHomeBootstrap(
+                    publicKey = APP_KEY,
+                    deviceUuid = DEVICE_UUID,
+                    request =
+                        BootstrapRequest(
+                            country = "us",
+                            vibeIds = listOf("focus"),
+                            deviceUuid = DEVICE_UUID,
+                            contractVersion = 1,
+                            intentIds = listOf("learn"),
+                        ),
+                ).execute()
 
         assertTrue(response.isSuccessful)
         val body = requireNotNull(response.body())
@@ -176,41 +182,44 @@ class BoxLoreApiContractTest {
     }
 
     @Test
-    fun `getContentSectionsV1 decodes sections and items`() = runTest {
-        enqueueFixture("fixtures/content_sections_v1.json")
+    fun `getContentSectionsV1 decodes sections and items`() =
+        runTest {
+            enqueueFixture("fixtures/content_sections_v1.json")
 
-        val body = api.getContentSectionsV1(
-            publicKey = APP_KEY,
-            deviceUuid = DEVICE_UUID,
-            request = ContentSectionsV1Request(
-                contractVersion = 1,
-                surface = "home",
-                localMinuteOfDay = 540,
-                country = "us",
-            ),
-        )
+            val body =
+                api.getContentSectionsV1(
+                    publicKey = APP_KEY,
+                    deviceUuid = DEVICE_UUID,
+                    request =
+                        ContentSectionsV1Request(
+                            contractVersion = 1,
+                            surface = "home",
+                            localMinuteOfDay = 540,
+                            country = "us",
+                        ),
+                )
 
-        assertEquals("true", body.status)
-        assertEquals(1, body.contractVersion)
-        assertEquals("morning", body.resolvedDaypart)
-        assertFalse(body.isFallback)
-        assertEquals(1, body.sections.size)
+            assertEquals("true", body.status)
+            assertEquals(1, body.contractVersion)
+            assertEquals("morning", body.resolvedDaypart)
+            assertFalse(body.isFallback)
+            assertEquals(1, body.sections.size)
 
-        val section = body.sections.single()
-        assertEquals("morning-brief", section.intent.id)
-        assertEquals("Morning brief", section.intent.titleFallback)
-        assertEquals("rail", section.layout)
-        val item = section.items.single()
-        assertEquals(5555L, item.id)
-        assertEquals("Section Episode", item.title)
-        assertEquals(0.91, item.retrievalScore, 0.0001)
-        assertEquals(1, item.serverRank)
+            val section = body.sections.single()
+            assertEquals("morning-brief", section.intent.id)
+            assertEquals("Morning brief", section.intent.titleFallback)
+            assertEquals("rail", section.layout)
+            val item = section.items.single()
+            assertEquals(5555L, item.id)
+            assertEquals("Section Episode", item.title)
+            assertEquals(0.91, item.retrievalScore, 0.0001)
+            assertEquals(1, item.serverRank)
 
-        val recorded = server.takeRequest()
-        assertEquals("POST", recorded.method)
-        assertEquals("/content/sections/v1", recorded.path)
-        assertEquals(DEVICE_UUID, recorded.getHeader("X-Device-UUID"))
-    }
+            val recorded = server.takeRequest()
+            assertEquals("POST", recorded.method)
+            assertEquals("/content/sections/v1", recorded.path)
+            assertEquals(DEVICE_UUID, recorded.getHeader("X-Device-UUID"))
+        }
 
     @Test
     fun `Call endpoint surfaces non-success for 404`() {
@@ -227,32 +236,36 @@ class BoxLoreApiContractTest {
     }
 
     @Test
-    fun `suspend endpoint throws HttpException on 500`() = runTest {
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(500)
-                .setBody("""{"status":"false","error":"boom"}"""),
-        )
-
-        val error = assertThrows<HttpException> {
-            api.getContentSectionsV1(
-                publicKey = APP_KEY,
-                deviceUuid = DEVICE_UUID,
-                request = ContentSectionsV1Request(
-                    contractVersion = 1,
-                    surface = "home",
-                    localMinuteOfDay = 600,
-                    country = "us",
-                ),
+    fun `suspend endpoint throws HttpException on 500`() =
+        runTest {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(500)
+                    .setBody("""{"status":"false","error":"boom"}"""),
             )
+
+            val error =
+                assertThrows<HttpException> {
+                    api.getContentSectionsV1(
+                        publicKey = APP_KEY,
+                        deviceUuid = DEVICE_UUID,
+                        request =
+                            ContentSectionsV1Request(
+                                contractVersion = 1,
+                                surface = "home",
+                                localMinuteOfDay = 600,
+                                country = "us",
+                            ),
+                    )
+                }
+            assertEquals(500, error.code())
         }
-        assertEquals(500, error.code())
-    }
 
     private fun enqueueFixture(resourcePath: String) {
-        val json = requireNotNull(javaClass.classLoader?.getResource(resourcePath)) {
-            "Missing test fixture: $resourcePath"
-        }.readText()
+        val json =
+            requireNotNull(javaClass.classLoader?.getResource(resourcePath)) {
+                "Missing test fixture: $resourcePath"
+            }.readText()
         server.enqueue(
             MockResponse()
                 .setResponseCode(200)

@@ -84,7 +84,8 @@ class SettingsViewModelDialogTest {
                     rssPodcastId: String,
                     podcastIndexId: String,
                 ): cx.aswin.boxlore.core.model.Podcast =
-                    cx.aswin.boxlore.core.testing.TestFixtures.podcast()
+                    cx.aswin.boxlore.core.testing.TestFixtures
+                        .podcast()
             }
 
         fun ranking(): RankingResetPort =

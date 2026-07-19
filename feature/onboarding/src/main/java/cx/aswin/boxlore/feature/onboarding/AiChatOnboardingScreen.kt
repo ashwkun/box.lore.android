@@ -46,7 +46,6 @@ sealed class ChatMessage {
     ) : ChatMessage()
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun AiChatOnboardingScreen(
@@ -338,7 +337,6 @@ internal fun AiChatOnboardingScreen(
                         )
                     }
                 }
-
 
                 AiChatInputPanel(
                     uiState = uiState,

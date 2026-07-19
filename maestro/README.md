@@ -37,8 +37,8 @@ Run a single flow:
 
 ```bash
 maestro test maestro/smoke_launch.yaml
-maestro test maestro/smoke_settings_rss.yaml
-maestro test maestro/smoke_home_visible.yaml
+maestro test maestro/settings_entry.yaml
+maestro test maestro/learn_tab.yaml
 ```
 
 ## Flows
@@ -46,10 +46,16 @@ maestro test maestro/smoke_home_visible.yaml
 | File | Intent |
 | :--- | :--- |
 | `smoke_launch.yaml` | Cold launch with a strict assertion on `home_settings_button` |
-| `smoke_home_visible.yaml` | Home visibility with a strict assertion on `home_settings_button` and soft navigation text checks |
-| `smoke_settings_rss.yaml` | Settings to Library to Add RSS, with optional steps for device state variance |
+| `smoke_home_visible.yaml` | Home visibility with strict assertions on `home_settings_button` and the `Home`/`Library` bottom-nav labels |
+| `settings_entry.yaml` | Home Settings button opens the Settings hub (strict `Settings`/`Appearance`/`Privacy`) |
+| `smoke_settings_rss.yaml` | Settings → Library → Add podcast by RSS, strict through the tagged `settings_add_rss_url` field and Cancel |
+| `learn_tab.yaml` | The `Lore` bottom-nav tab navigates off the home shell (strict `home_settings_button` disappears) |
+| `briefing_from_home.yaml` | The daily briefing card opens the full briefing screen (strict, needs network) |
+| `play_mini_player.yaml` | Playing the briefing card raises the mini player (strict, needs network) |
 
-Flows prefer Compose `testTag`s such as `home_settings_button` and `settings_add_rss_*`, with visible text fallback where noted. Optional first-run taps keep flows usable across devices with different onboarding or consent state.
+Flows prefer Compose `testTag`s such as `home_settings_button` and `settings_add_rss_*`, and otherwise use stable `contentDescription`/label text (`Lore`, `Add podcast by RSS feed`, `The Boxlore Brief`, `Episode artwork`).
+
+Every flow keeps a single optional line — the first-run consent/permission tap (`Accept|Allow|Continue|Skip|Not now`) — because that chrome varies by device state. All other steps are strict assertions. `briefing_from_home.yaml` and `play_mini_player.yaml` are strict but depend on a networked, onboarded device that has a region briefing available; run them against a device that has completed onboarding.
 
 ## CI
 

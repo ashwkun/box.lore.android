@@ -9,15 +9,16 @@ class HomeMappingLogicTest {
     @Test
     fun `to recommendation podcast maps episode metadata`() {
         val episode =
-            TestFixtures.episode(
-                id = "ep-1",
-                podcastId = "pod-1",
-                podcastTitle = "Show",
-            ).copy(
-                podcastArtist = "Artist",
-                podcastImageUrl = "https://example.com/podcast.jpg",
-                imageUrl = "https://example.com/episode.jpg",
-            )
+            TestFixtures
+                .episode(
+                    id = "ep-1",
+                    podcastId = "pod-1",
+                    podcastTitle = "Show",
+                ).copy(
+                    podcastArtist = "Artist",
+                    podcastImageUrl = "https://example.com/podcast.jpg",
+                    imageUrl = "https://example.com/episode.jpg",
+                )
 
         val podcast = episode.toRecommendationPodcast()
 

@@ -19,20 +19,21 @@ class QueueLabelLogicTest {
 
     @Test
     fun knownAutoFillSourcesHaveSpecificLabels() {
-        val expectations = mapOf(
-            "same_podcast" to "Continuing series",
-            "resume" to "Pick up where you left off",
-            "subscription" to "From your subscriptions",
-            "server_rec" to "Recommended for you",
-            "personalized_rec" to "Recommended for you",
-            "similar_episode" to "Based on what you're playing",
-            "similar_liked" to "Based on something you liked"
-        )
+        val expectations =
+            mapOf(
+                "same_podcast" to "Continuing series",
+                "resume" to "Pick up where you left off",
+                "subscription" to "From your subscriptions",
+                "server_rec" to "Recommended for you",
+                "personalized_rec" to "Recommended for you",
+                "similar_episode" to "Based on what you're playing",
+                "similar_liked" to "Based on something you liked",
+            )
 
         expectations.forEach { (source, expected) ->
             assertEquals(
                 expected,
-                queueSourceLabel(episode(contextType = "AUTO_FILL", contextSourceId = source))
+                queueSourceLabel(episode(contextType = "AUTO_FILL", contextSourceId = source)),
             )
         }
     }
@@ -45,9 +46,9 @@ class QueueLabelLogicTest {
                 episode(
                     contextType = "AUTO_FILL",
                     contextSourceId = "trending",
-                    podcastGenre = "Technology"
-                )
-            )
+                    podcastGenre = "Technology",
+                ),
+            ),
         )
     }
 
@@ -59,9 +60,9 @@ class QueueLabelLogicTest {
                 episode(
                     contextType = "AUTO_FILL",
                     contextSourceId = "trending",
-                    podcastGenre = "Podcast"
-                )
-            )
+                    podcastGenre = "Podcast",
+                ),
+            ),
         )
         assertEquals(
             "Trending now",
@@ -69,9 +70,9 @@ class QueueLabelLogicTest {
                 episode(
                     contextType = "AUTO_FILL",
                     contextSourceId = "trending",
-                    podcastGenre = " "
-                )
-            )
+                    podcastGenre = " ",
+                ),
+            ),
         )
         assertEquals(
             "Trending now",
@@ -79,9 +80,9 @@ class QueueLabelLogicTest {
                 episode(
                     contextType = "AUTO_FILL",
                     contextSourceId = "trending",
-                    podcastGenre = null
-                )
-            )
+                    podcastGenre = null,
+                ),
+            ),
         )
     }
 
@@ -90,12 +91,12 @@ class QueueLabelLogicTest {
         assertEquals(
             "Added for you",
             queueSourceLabel(
-                episode(contextType = "AUTO_FILL", contextSourceId = "future_source")
-            )
+                episode(contextType = "AUTO_FILL", contextSourceId = "future_source"),
+            ),
         )
         assertEquals(
             "Added for you",
-            queueSourceLabel(episode(contextType = "AUTO_FILL", contextSourceId = null))
+            queueSourceLabel(episode(contextType = "AUTO_FILL", contextSourceId = null)),
         )
     }
 }

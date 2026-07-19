@@ -1,0 +1,21 @@
+appId: cx.aswin.boxlore
+---
+- launchApp
+# Only optional line: first-run consent / permission chrome varies by device state.
+- tapOn:
+    text: ".*(Accept|Allow|Continue|Skip|Not now).*"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_settings_button"
+    timeout: 20000
+# Strict (requires network + a region briefing): the daily briefing card is on home.
+- extendedWaitUntil:
+    visible: "The Boxlore Brief"
+    timeout: 20000
+- tapOn: "The Boxlore Brief"
+# Landing on the full briefing screen exposes its top-bar back affordance.
+- extendedWaitUntil:
+    visible: "Go back"
+    timeout: 10000
+- assertVisible: "Go back"

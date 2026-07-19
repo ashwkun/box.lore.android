@@ -14,9 +14,10 @@ class SharedAppDependenciesHolderTest {
     @Test
     fun `require throws when instance is unset`() {
         SharedAppDependenciesHolder.instance = null
-        val error = assertThrows(IllegalStateException::class.java) {
-            SharedAppDependenciesHolder.require()
-        }
+        val error =
+            assertThrows(IllegalStateException::class.java) {
+                SharedAppDependenciesHolder.require()
+            }
         assertTrue(error.message!!.contains("SharedAppDependencies not installed"))
     }
 }

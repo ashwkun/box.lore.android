@@ -14,9 +14,10 @@ class DownloadsDependenciesHolderTest {
     @Test
     fun `require throws when instance is unset`() {
         DownloadsDependenciesHolder.instance = null
-        val error = assertThrows(IllegalStateException::class.java) {
-            DownloadsDependenciesHolder.require()
-        }
+        val error =
+            assertThrows(IllegalStateException::class.java) {
+                DownloadsDependenciesHolder.require()
+            }
         assertTrue(error.message!!.contains("DownloadsDependencies not installed"))
     }
 }

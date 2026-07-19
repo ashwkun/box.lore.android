@@ -31,6 +31,7 @@ android {
 
 dependencies {
     api(projects.core.model)
+    api(projects.core.domain)
     api(libs.junit.jupiter)
     api(libs.kotlinx.coroutines.test)
     api(libs.turbine)

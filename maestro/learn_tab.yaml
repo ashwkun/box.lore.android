@@ -1,0 +1,20 @@
+appId: cx.aswin.boxlore
+---
+- launchApp
+# Only optional line: first-run consent / permission chrome varies by device state.
+- tapOn:
+    text: ".*(Accept|Allow|Continue|Skip|Not now).*"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_settings_button"
+    timeout: 20000
+# Strict: the Lore (learn) bottom-nav tab navigates away from the home shell.
+- tapOn: "Lore"
+- extendedWaitUntil:
+    notVisible:
+      id: "home_settings_button"
+    timeout: 10000
+- assertNotVisible:
+    id: "home_settings_button"
+- assertVisible: "Lore"

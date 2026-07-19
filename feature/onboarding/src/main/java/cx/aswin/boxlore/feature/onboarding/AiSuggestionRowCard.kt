@@ -24,14 +24,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,11 @@ import androidx.compose.ui.unit.sp
 import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
 import cx.aswin.boxlore.core.model.Podcast
+
+/** Stable Compose [testTag] ids for onboarding suggestion instrumentation / Maestro. */
+internal object SuggestedPodcastTestTags {
+    const val TOGGLE = "onboarding_subscribe_toggle"
+}
 
 @Composable
 internal fun SuggestedPodcastRowItem(
@@ -101,7 +107,10 @@ internal fun SuggestedPodcastRowItem(
 private fun suggestedPodcastCardStyle(isSubscribed: Boolean): PodcastCardStyle =
     if (isSubscribed) {
         PodcastCardStyle(
-            background = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f).compositeOver(MaterialTheme.colorScheme.surface),
+            background =
+                MaterialTheme.colorScheme.primary
+                    .copy(alpha = 0.05f)
+                    .compositeOver(MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
         )
     } else {
@@ -138,8 +147,7 @@ private fun SuggestedPodcastGenre(genre: String) {
                 .background(
                     color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(4.dp),
-                )
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                ).padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Text(
             text = genre.uppercase(),
@@ -192,6 +200,7 @@ private fun SuggestedPodcastToggle(
             Modifier
                 .padding(top = 4.dp)
                 .size(40.dp)
+                .testTag(SuggestedPodcastTestTags.TOGGLE)
                 .expressiveClickable(shape = androidx.compose.foundation.shape.CircleShape) {
                     onToggleSubscription(podcastId)
                 },
@@ -204,8 +213,7 @@ private fun SuggestedPodcastToggle(
                     .background(
                         color = if (isSubscribed) MaterialTheme.colorScheme.primary else Color.Transparent,
                         shape = androidx.compose.foundation.shape.CircleShape,
-                    )
-                    .border(
+                    ).border(
                         width = 2.dp,
                         color = if (isSubscribed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         shape = androidx.compose.foundation.shape.CircleShape,

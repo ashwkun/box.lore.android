@@ -2,16 +2,28 @@ name: Instrumented Tests
 
 # Same merge-gate as unit tests: only when `merge-ci` is on the PR (or merge
 # queue / manual). Emulator jobs are too expensive for every intermediate push.
+# Pushes do NOT re-trigger — remove+re-add `merge-ci`, or workflow_dispatch
+# with an optional single `module` to re-run one failed matrix cell.
 # Direct bot/owner pushes to master do not use PRs and are unaffected.
 on:
   pull_request:
-    types: [labeled, synchronize, opened, reopened, ready_for_review]
+    types: [labeled, opened, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
+    inputs:
+      module:
+        description: "Optional single module (e.g. feature:library). Empty = full matrix."
+        required: false
+        default: ""
+
+# One active matrix run per PR/ref — later dispatches cancel stale emulator jobs.
+concurrency:
+  group: instrumented-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   compose-android-test:
-    name: feature:home connectedDebugAndroidTest
+    name: ${{ matrix.module }} connectedDebugAndroidTest
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'merge_group' ||
@@ -19,6 +31,12 @@ jobs:
        contains(github.event.pull_request.labels.*.name, 'merge-ci'))
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      # Cap concurrent emulators so one PR does not monopolize the org queue.
+      max-parallel: 2
+      matrix:
+        module: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.module != '' && format('["{0}"]', inputs.module) || '["feature:home","feature:info","feature:player","feature:explore","feature:library","feature:onboarding","feature:briefing"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -57,7 +75,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
-          script: ./gradlew :feature:home:connectedDebugAndroidTest --continue
+          script: ./gradlew :${{ matrix.module }}:connectedDebugAndroidTest --continue
 
       - name: Scrub google-services.json
         if: always()

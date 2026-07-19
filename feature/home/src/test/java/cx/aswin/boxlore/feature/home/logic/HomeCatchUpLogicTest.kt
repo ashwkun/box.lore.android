@@ -45,9 +45,19 @@ class HomeCatchUpLogicTest {
         assertEquals(listOf("u"), buckets.unplayed.map { it.id })
         assertEquals(EpisodeStatus.UNPLAYED, buckets.unplayed.single().episodeStatus)
         assertEquals(listOf("p"), buckets.inProgress.map { it.first.id })
-        assertEquals(0.1f, buckets.inProgress.single().first.resumeProgress)
+        assertEquals(
+            0.1f,
+            buckets.inProgress
+                .single()
+                .first.resumeProgress,
+        )
         assertEquals(listOf("d"), buckets.completed.map { it.first.id })
-        assertEquals(EpisodeStatus.COMPLETED, buckets.completed.single().first.episodeStatus)
+        assertEquals(
+            EpisodeStatus.COMPLETED,
+            buckets.completed
+                .single()
+                .first.episodeStatus,
+        )
     }
 
     private fun history(

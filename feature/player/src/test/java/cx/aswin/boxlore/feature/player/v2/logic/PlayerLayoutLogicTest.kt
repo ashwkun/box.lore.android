@@ -51,13 +51,14 @@ class PlayerLayoutLogicTest {
 
     @Test
     fun collapsedSheetUsesMiniPlayerGeometry() {
-        val geometry = calculatePlayerSheetGeometry(
-            sheetOffset = 1_000f,
-            collapsedTargetY = 1_000f,
-            containerHeight = 800.dp,
-            collapsedHorizontalPadding = 12.dp,
-            fullEntranceOffsetPx = 24f
-        )
+        val geometry =
+            calculatePlayerSheetGeometry(
+                sheetOffset = 1_000f,
+                collapsedTargetY = 1_000f,
+                containerHeight = 800.dp,
+                collapsedHorizontalPadding = 12.dp,
+                fullEntranceOffsetPx = 24f,
+            )
 
         assertEquals(0f, geometry.expansionFraction, 0.001f)
         assertEquals(72f, geometry.sheetHeight.value, 0.001f)
@@ -72,13 +73,14 @@ class PlayerLayoutLogicTest {
 
     @Test
     fun expandedSheetUsesFullPlayerGeometry() {
-        val geometry = calculatePlayerSheetGeometry(
-            sheetOffset = 0f,
-            collapsedTargetY = 1_000f,
-            containerHeight = 800.dp,
-            collapsedHorizontalPadding = 12.dp,
-            fullEntranceOffsetPx = 24f
-        )
+        val geometry =
+            calculatePlayerSheetGeometry(
+                sheetOffset = 0f,
+                collapsedTargetY = 1_000f,
+                containerHeight = 800.dp,
+                collapsedHorizontalPadding = 12.dp,
+                fullEntranceOffsetPx = 24f,
+            )
 
         assertEquals(1f, geometry.expansionFraction, 0.001f)
         assertEquals(800f, geometry.sheetHeight.value, 0.001f)
@@ -93,12 +95,22 @@ class PlayerLayoutLogicTest {
 
     @Test
     fun sheetFractionIsClampedAtBothEnds() {
-        val beyondExpanded = calculatePlayerSheetGeometry(
-            -200f, 1_000f, 800.dp, 12.dp, 24f
-        )
-        val beyondCollapsed = calculatePlayerSheetGeometry(
-            1_200f, 1_000f, 800.dp, 12.dp, 24f
-        )
+        val beyondExpanded =
+            calculatePlayerSheetGeometry(
+                -200f,
+                1_000f,
+                800.dp,
+                12.dp,
+                24f,
+            )
+        val beyondCollapsed =
+            calculatePlayerSheetGeometry(
+                1_200f,
+                1_000f,
+                800.dp,
+                12.dp,
+                24f,
+            )
 
         assertEquals(1f, beyondExpanded.expansionFraction, 0.001f)
         assertEquals(0f, beyondCollapsed.expansionFraction, 0.001f)
@@ -106,9 +118,14 @@ class PlayerLayoutLogicTest {
 
     @Test
     fun invalidCollapsedTargetFallsBackToCollapsedFraction() {
-        val geometry = calculatePlayerSheetGeometry(
-            0f, 0f, 800.dp, 12.dp, 24f
-        )
+        val geometry =
+            calculatePlayerSheetGeometry(
+                0f,
+                0f,
+                800.dp,
+                12.dp,
+                24f,
+            )
 
         assertEquals(0f, geometry.expansionFraction, 0.001f)
         assertEquals(72f, geometry.sheetHeight.value, 0.001f)

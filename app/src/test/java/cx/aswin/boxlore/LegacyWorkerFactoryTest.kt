@@ -13,7 +13,6 @@ import org.junit.Test
  * and every transitional `core.data` stub must resolve with Class.forName.
  */
 class LegacyWorkerFactoryTest {
-
     @Test
     fun factoryAliasTargetsAreWorkers() {
         assertEquals(6, LegacyWorkerFactory.LEGACY_WORKER_ALIASES.size)
@@ -31,11 +30,12 @@ class LegacyWorkerFactoryTest {
 
     @Test
     fun oldFqcnStubsResolve() {
-        val stubs = listOf(
-            "cx.aswin.boxlore.core.data.SmartDownloadWorker",
-            "cx.aswin.boxlore.core.data.AutoDownloadWorker",
-            "cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker",
-        )
+        val stubs =
+            listOf(
+                "cx.aswin.boxlore.core.data.SmartDownloadWorker",
+                "cx.aswin.boxlore.core.data.AutoDownloadWorker",
+                "cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker",
+            )
         for (fqcn in stubs) {
             val clazz = Class.forName(fqcn)
             assertNotNull(fqcn, clazz)

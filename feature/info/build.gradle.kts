@@ -2,6 +2,15 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.kotlinCompose)
+    alias(libs.plugins.kover)
+}
+
+kover {
+    currentProject {
+        createVariant("merged") {
+            add("debug")
+        }
+    }
 }
 
 android {
@@ -15,6 +24,7 @@ android {
 
     defaultConfig {
         minSdk = 31
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
         compose = true
@@ -66,4 +76,11 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+
+    // Compose UI tests (JUnit4 + AndroidJUnitRunner; CI via android-instrumented-tests.yml)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.activity.compose)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

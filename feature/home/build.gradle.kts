@@ -14,6 +14,13 @@ kover {
     }
 }
 
+// Roborazzi goldens live at the repo root so they read as reviewable app baselines.
+// Paired with `roborazzi.record.filePathStrategy` in gradle.properties, the short
+// names passed to captureRoboImage() resolve directly under screenshots/baselines/.
+roborazzi {
+    outputDir.set(rootProject.layout.projectDirectory.dir("screenshots/baselines"))
+}
+
 android {
     namespace = "cx.aswin.boxlore.feature.home"
     // compileSdk 36: androidTest pulls activity-compose / core 1.18 AAR metadata

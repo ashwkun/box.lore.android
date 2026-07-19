@@ -1,6 +1,15 @@
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinCompose)
+    alias(libs.plugins.kover)
+}
+
+kover {
+    currentProject {
+        createVariant("merged") {
+            add("debug")
+        }
+    }
 }
 
 android {
@@ -23,7 +32,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -39,7 +48,6 @@ android {
     buildFeatures {
         compose = true
     }
-
 }
 
 dependencies {
@@ -51,7 +59,7 @@ dependencies {
     implementation(projects.core.designsystem)
     implementation(projects.core.analytics)
     implementation(projects.core.ranking)
-    
+
     // Feature Dependencies (for Navigation if needed, though mostly callbacks)
     // implementation(projects.feature.info) // Not strictly needed if we use callbacks
 
@@ -64,7 +72,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
-    
+
     // Expressive
     implementation(libs.androidx.material3.adaptive)
 
@@ -78,6 +86,12 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.turbine)
+
+    // Compose UI tests (JUnit4 + AndroidJUnitRunner; CI via android-instrumented-tests.yml)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.activity.compose)
     androidTestImplementation(libs.androidx.espresso.core)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

@@ -13,16 +13,17 @@ import org.junit.jupiter.api.Test
 class AdaptiveRankingTest {
     @Test
     fun `feature builder returns finite bounded schema`() {
-        val features = CandidateFeatureBuilder.build(
-            CandidateSignals(
-                showAffinity = 4.0,
-                genreAffinity = -2.0,
-                ageHours = 24.0,
-                progressRatio = 2.0,
-                recentExposureCount = 20,
-                explicitPreference = -4.0,
-            ),
-        )
+        val features =
+            CandidateFeatureBuilder.build(
+                CandidateSignals(
+                    showAffinity = 4.0,
+                    genreAffinity = -2.0,
+                    ageHours = 24.0,
+                    progressRatio = 2.0,
+                    recentExposureCount = 20,
+                    explicitPreference = -4.0,
+                ),
+            )
 
         assertEquals(RankingFeatureSchema.dimension, features.values.size)
         assertTrue(features.values.all(Double::isFinite))
@@ -63,15 +64,17 @@ class AdaptiveRankingTest {
     @Test
     fun `cold start uses legacy prior and grows learned influence gradually`() {
         val model = AdaptiveLinearModel()
-        val features = CandidateFeatureBuilder.build(
-            CandidateSignals(showAffinity = 1.0, ageHours = null),
-        )
-        val cold = model.score(
-            objective = RankingObjective.DISCOVERY,
-            features = features,
-            priorScore = 0.7,
-            state = AdaptiveModelState(),
-        )
+        val features =
+            CandidateFeatureBuilder.build(
+                CandidateSignals(showAffinity = 1.0, ageHours = null),
+            )
+        val cold =
+            model.score(
+                objective = RankingObjective.DISCOVERY,
+                features = features,
+                priorScore = 0.7,
+                state = AdaptiveModelState(),
+            )
 
         assertEquals(0.7, cold.finalScore, 0.0001)
         assertEquals(0.0, cold.learnedBlend, 0.0)
@@ -83,12 +86,13 @@ class AdaptiveRankingTest {
         repeat(50) {
             state = model.update(features, reward = 1.0, state = state)
         }
-        val learned = model.score(
-            objective = RankingObjective.DISCOVERY,
-            features = features,
-            priorScore = 0.0,
-            state = state,
-        )
+        val learned =
+            model.score(
+                objective = RankingObjective.DISCOVERY,
+                features = features,
+                priorScore = 0.0,
+                state = state,
+            )
         assertEquals(0.65, learned.learnedBlend, 0.0001)
         assertTrue(learned.learnedScore > 0.0)
         assertTrue(learned.explorationBonus > 0.0)
@@ -127,10 +131,11 @@ class AdaptiveRankingTest {
     @Test
     fun `serialization preserves doubles exactly`() {
         val values = doubleArrayOf(-1.0, 0.0, 0.25, Math.PI)
-        val restored = RankingSerialization.decode(
-            RankingSerialization.encode(values),
-            values.size,
-        )
+        val restored =
+            RankingSerialization.decode(
+                RankingSerialization.encode(values),
+                values.size,
+            )
 
         assertTrue(values.contentEquals(restored))
     }
@@ -138,8 +143,9 @@ class AdaptiveRankingTest {
     @Test
     fun `bayesian facets decay toward neutral and learn both signs`() {
         val day = 24L * 60L * 60L * 1_000L
-        val positive = BayesianPreferenceFacet(updatedAt = 0)
-            .update(1.0, now = day)
+        val positive =
+            BayesianPreferenceFacet(updatedAt = 0)
+                .update(1.0, now = day)
         val negative = positive.update(-1.0, now = day * 2)
 
         assertTrue(positive.affinity(day) > 0.0)
@@ -157,11 +163,12 @@ class AdaptiveRankingTest {
             1.0,
             RankingReward.calculate(
                 RankingOutcome(
-                    actions = setOf(
-                        RankingAction.LIKE,
-                        RankingAction.SUBSCRIBE,
-                        RankingAction.COMPLETE,
-                    ),
+                    actions =
+                        setOf(
+                            RankingAction.LIKE,
+                            RankingAction.SUBSCRIBE,
+                            RankingAction.COMPLETE,
+                        ),
                     listenSeconds = 3_600,
                     durationSeconds = 3_600,
                 ),
@@ -172,10 +179,11 @@ class AdaptiveRankingTest {
             -1.0,
             RankingReward.calculate(
                 RankingOutcome(
-                    actions = setOf(
-                        RankingAction.EARLY_SKIP,
-                        RankingAction.REMOVE_AUTOFILLED,
-                    ),
+                    actions =
+                        setOf(
+                            RankingAction.EARLY_SKIP,
+                            RankingAction.REMOVE_AUTOFILLED,
+                        ),
                 ),
             ),
             0.0,
@@ -184,22 +192,24 @@ class AdaptiveRankingTest {
 
     @Test
     fun `diversity reranker removes duplicates caps shows and reserves novelty`() {
-        val candidates = listOf(
-            RankedCandidate("a", "1", "show-a", "news", 1.0),
-            RankedCandidate("duplicate", "1", "show-a", "news", 0.99),
-            RankedCandidate("b", "2", "show-a", "news", 0.9),
-            RankedCandidate("c", "3", "show-b", "news", 0.8),
-            RankedCandidate("novel", "4", "show-c", "science", 0.2, isNovel = true),
-        )
+        val candidates =
+            listOf(
+                RankedCandidate("a", "1", "show-a", "news", 1.0),
+                RankedCandidate("duplicate", "1", "show-a", "news", 0.99),
+                RankedCandidate("b", "2", "show-a", "news", 0.9),
+                RankedCandidate("c", "3", "show-b", "news", 0.8),
+                RankedCandidate("novel", "4", "show-c", "science", 0.2, isNovel = true),
+            )
 
-        val ranked = DiversityReranker.rerank(
-            candidates,
-            DiversityPolicy(
-                limit = 3,
-                maxPerShow = 1,
-                reserveNovelSlot = true,
-            ),
-        )
+        val ranked =
+            DiversityReranker.rerank(
+                candidates,
+                DiversityPolicy(
+                    limit = 3,
+                    maxPerShow = 1,
+                    reserveNovelSlot = true,
+                ),
+            )
 
         assertEquals(3, ranked.size)
         assertEquals(ranked.size, ranked.map { it.episodeId }.distinct().size)
@@ -210,18 +220,21 @@ class AdaptiveRankingTest {
 
     @Test
     fun `novel candidate can replace capped item from the same show`() {
-        val ranked = DiversityReranker.rerank(
-            candidates = listOf(
-                RankedCandidate("top", "1", "show-a", "news", 1.0),
-                RankedCandidate("evicted", "2", "show-b", "science", 0.9),
-                RankedCandidate("novel", "3", "show-b", "science", 0.1, isNovel = true),
-            ),
-            policy = DiversityPolicy(
-                limit = 2,
-                maxPerShow = 1,
-                reserveNovelSlot = true,
-            ),
-        )
+        val ranked =
+            DiversityReranker.rerank(
+                candidates =
+                    listOf(
+                        RankedCandidate("top", "1", "show-a", "news", 1.0),
+                        RankedCandidate("evicted", "2", "show-b", "science", 0.9),
+                        RankedCandidate("novel", "3", "show-b", "science", 0.1, isNovel = true),
+                    ),
+                policy =
+                    DiversityPolicy(
+                        limit = 2,
+                        maxPerShow = 1,
+                        reserveNovelSlot = true,
+                    ),
+            )
 
         assertEquals(listOf("top", "novel"), ranked.map(RankedCandidate<String>::value))
     }
@@ -247,39 +260,42 @@ class AdaptiveRankingTest {
 
     @Test
     fun `adaptive learning backup survives json round trip`() {
-        val model = AdaptiveModelEntity(
-            objective = RankingObjective.DISCOVERY.name,
-            featureSchemaVersion = RankingFeatureSchema.VERSION,
-            dimension = RankingFeatureSchema.dimension,
-            covariance = byteArrayOf(1, 2, 3),
-            inverseCovariance = byteArrayOf(4, 5, 6),
-            rewardVector = byteArrayOf(7, 8),
-            updateCount = 42,
-            updatedAt = 100,
-        )
+        val model =
+            AdaptiveModelEntity(
+                objective = RankingObjective.DISCOVERY.name,
+                featureSchemaVersion = RankingFeatureSchema.VERSION,
+                dimension = RankingFeatureSchema.dimension,
+                covariance = byteArrayOf(1, 2, 3),
+                inverseCovariance = byteArrayOf(4, 5, 6),
+                rewardVector = byteArrayOf(7, 8),
+                updateCount = 42,
+                updatedAt = 100,
+            )
         val facet = PreferenceFacetEntity("GENRE", "science", 3.0, 1.0, 101)
-        val exposure = RankingExposureEntity(
-            exposureId = "exposure",
-            episodeId = "episode",
-            podcastId = "podcast",
-            objective = RankingObjective.DISCOVERY.name,
-            surface = RankingSurface.HOME.name,
-            source = CandidateSource.SERVER_RECOMMENDATION.name,
-            featureSchemaVersion = RankingFeatureSchema.VERSION,
-            featureVector = byteArrayOf(9, 10),
-            shownAt = 102,
-            resolvedAt = null,
-            reward = null,
-            listenSeconds = 0,
-            entryPoint = "home",
-            online = true,
-        )
+        val exposure =
+            RankingExposureEntity(
+                exposureId = "exposure",
+                episodeId = "episode",
+                podcastId = "podcast",
+                objective = RankingObjective.DISCOVERY.name,
+                surface = RankingSurface.HOME.name,
+                source = CandidateSource.SERVER_RECOMMENDATION.name,
+                featureSchemaVersion = RankingFeatureSchema.VERSION,
+                featureVector = byteArrayOf(9, 10),
+                shownAt = 102,
+                resolvedAt = null,
+                reward = null,
+                listenSeconds = 0,
+                entryPoint = "home",
+                online = true,
+            )
         val gson = Gson()
 
-        val restored = gson.fromJson(
-            gson.toJson(AdaptiveRankingBackup(models = listOf(model), facets = listOf(facet), exposures = listOf(exposure))),
-            AdaptiveRankingBackup::class.java,
-        )
+        val restored =
+            gson.fromJson(
+                gson.toJson(AdaptiveRankingBackup(models = listOf(model), facets = listOf(facet), exposures = listOf(exposure))),
+                AdaptiveRankingBackup::class.java,
+            )
 
         assertEquals(1, restored.version)
         assertArrayEquals(model.covariance, restored.models!!.single().covariance)

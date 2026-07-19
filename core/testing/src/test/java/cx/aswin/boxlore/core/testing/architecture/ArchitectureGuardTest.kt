@@ -102,6 +102,121 @@ class ArchitectureGuardTest {
     }
 
     @Test
+    fun `core catalog build file does not depend on playback`() {
+        val buildFile = File(projectRoot, "core/catalog/build.gradle.kts")
+        assertTrue(buildFile.isFile, "Missing ${buildFile.relativeTo(projectRoot)}")
+        val activeDeps =
+            buildFile.readLines().map { it.substringBefore("//").trim() }.filter { it.isNotEmpty() }
+        val hits =
+            activeDeps.filter {
+                it.contains("projects.core.playback") ||
+                    Regex("""\b:core:playback\b""").containsMatchIn(it)
+            }
+        assertTrue(
+            hits.isEmpty(),
+            ":core:catalog must not depend on :core:playback:\n" + hits.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun `core catalog does not api-export analytics or ranking`() {
+        val buildFile = File(projectRoot, "core/catalog/build.gradle.kts")
+        assertTrue(buildFile.isFile, "Missing ${buildFile.relativeTo(projectRoot)}")
+        val violations = mutableListOf<String>()
+        buildFile.readLines().forEachIndexed { index, raw ->
+            val line = raw.substringBefore("//").trim()
+            if (!line.startsWith("api(")) return@forEachIndexed
+            if (line.contains("projects.core.analytics") || line.contains("projects.core.ranking")) {
+                violations += "${buildFile.relativeTo(projectRoot)}:${index + 1}: $line"
+            }
+        }
+        assertTrue(
+            violations.isEmpty(),
+            ":core:catalog must not api( analytics or ranking ); use implementation or none:\n" +
+                violations.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun `no Hilt Koin Dagger or MockK in production sources or Gradle deps`() {
+        val forbiddenGradle =
+            Regex(
+                """(?i)(hilt|koin|dagger|mockk|com\.google\.dagger|io\.insert-koin|io\.mockk)""",
+            )
+        val forbiddenImport =
+            Regex(
+                """^import\s+(dagger\.|.*\.hilt\.|org\.koin\.|io\.mockk\.)""",
+            )
+        val violations = mutableListOf<String>()
+
+        val buildFiles =
+            listOf("app", "core", "feature")
+                .map { File(projectRoot, it) }
+                .filter { it.isDirectory }
+                .flatMap { root ->
+                    root
+                        .walkTopDown()
+                        .onEnter { dir -> dir.name != "build" && dir.name != ".gradle" }
+                        .filter { it.isFile && it.name == "build.gradle.kts" }
+                        .toList()
+                }
+        for (buildFile in buildFiles) {
+            buildFile.readLines().forEachIndexed { index, raw ->
+                val line = raw.substringBefore("//").trim()
+                if (line.isEmpty()) return@forEachIndexed
+                // Comments about "no MockK" are fine; only dependency-like lines.
+                if (!line.contains("implementation") &&
+                    !line.contains("api(") &&
+                    !line.contains("testImplementation") &&
+                    !line.contains("androidTestImplementation") &&
+                    !line.contains("ksp(") &&
+                    !line.contains("classpath") &&
+                    !line.contains("alias(libs")
+                ) {
+                    return@forEachIndexed
+                }
+                if (forbiddenGradle.containsMatchIn(line) &&
+                    !line.contains("no MockK", ignoreCase = true)
+                ) {
+                    violations +=
+                        "${buildFile.relativeTo(projectRoot)}:${index + 1}: $line"
+                }
+            }
+        }
+
+        val sourceRoots =
+            listOf("app", "core", "feature").map { File(projectRoot, it) }.filter { it.isDirectory }
+        for (root in sourceRoots) {
+            root
+                .walkTopDown()
+                .onEnter { dir -> dir.name != "build" && dir.name != ".gradle" }
+                .filter {
+                    it.isFile &&
+                        it.extension == "kt" &&
+                        (
+                            it.path.contains("/src/main/") ||
+                                it.path.contains("/src/test/") ||
+                                it.path.contains("/src/androidTest/")
+                        )
+                }.forEach { file ->
+                    file.readLines().forEachIndexed { index, line ->
+                        val code = line.trim()
+                        if (forbiddenImport.containsMatchIn(code)) {
+                            violations +=
+                                "${file.relativeTo(projectRoot)}:${index + 1}: $code"
+                        }
+                    }
+                }
+        }
+
+        assertTrue(
+            violations.isEmpty(),
+            "Hilt/Koin/Dagger/MockK are forbidden (manual AppContainer + fakes):\n" +
+                violations.joinToString("\n"),
+        )
+    }
+
+    @Test
     fun `included app core and feature modules have README md`() {
         val settings = File(projectRoot, "settings.gradle.kts").readText()
         val includes =
@@ -183,6 +298,97 @@ class ArchitectureGuardTest {
             violations.isEmpty(),
             "getInstance outside allowlist (AppContainer, companion installers, " +
                 "Room DB files, WorkManager/Calendar/MessageDigest/Firebase):\n" +
+                violations.joinToString("\n"),
+        )
+    }
+
+    /**
+     * AndroidViewModels that are hard to construct hermetically (Application-backed, heavy repo
+     * graphs) but whose behaviour is already exercised by hermetic `logic/` package suites.
+     * These are allowlisted so the guard still forces a matching `*Test.kt` for any NEW ViewModel.
+     */
+    private val viewModelTestAllowlist =
+        setOf(
+            "BriefingViewModel",
+            "DebugViewModel",
+            "EpisodeInfoViewModel",
+            "ExploreViewModel",
+            "HistoryViewModel",
+            "LearnHistoryViewModel",
+            "LearnViewModel",
+            "LibraryViewModel",
+            "OnboardingViewModel",
+        )
+
+    /**
+     * Repositories covered by differently-named suites or irreducible Media3 orchestration.
+     * `PlaybackRepository` is excluded from the merged line gate entirely (see docs/TESTING.md).
+     */
+    private val repositoryTestAllowlist =
+        setOf(
+            // Media3 MediaController orchestration; covered by policy unit tests + Maestro.
+            "PlaybackRepository",
+            // Media3 DownloadManager-bound; covered by AutoDownload/SmartDownload worker suites.
+            "DownloadRepository",
+            // Covered by RssRepositoryHelpers/RssSourceMatcher suites + Room DAO paths.
+            "RssPodcastRepository",
+        )
+
+    @Test
+    fun `new ViewModels and Repositories ship with a matching test suite`() {
+        val stubMarker = "/src/main/java/cx/aswin/boxlore/core/data/"
+        val roots =
+            listOf("app", "core", "feature").map { File(projectRoot, it) }.filter { it.isDirectory }
+
+        val mainFiles =
+            roots.flatMap { root ->
+                root
+                    .walkTopDown()
+                    .onEnter { dir -> dir.name != "build" && dir.name != ".gradle" }
+                    .filter { file ->
+                        file.isFile &&
+                            file.extension == "kt" &&
+                            file.path.replace('\\', '/').contains("/src/main/") &&
+                            (
+                                file.name.endsWith("ViewModel.kt") ||
+                                    file.name.endsWith("Repository.kt")
+                            )
+                    }.toList()
+            }
+        require(mainFiles.isNotEmpty()) { "No ViewModel/Repository sources found under $projectRoot" }
+
+        val violations = mutableListOf<String>()
+        for (mainFile in mainFiles) {
+            val normalized = mainFile.path.replace('\\', '/')
+            if (normalized.contains(stubMarker)) continue
+
+            val baseName = mainFile.nameWithoutExtension
+            val isViewModel = baseName.endsWith("ViewModel")
+            val allowlist = if (isViewModel) viewModelTestAllowlist else repositoryTestAllowlist
+            if (baseName in allowlist) continue
+
+            val moduleRoot = normalized.substringBefore("/src/main/")
+            val testDirs =
+                listOf("$moduleRoot/src/test", "$moduleRoot/src/androidTest").map(::File)
+            val hasMatchingTest =
+                testDirs
+                    .filter { it.isDirectory }
+                    .any { dir ->
+                        dir
+                            .walkTopDown()
+                            .any { it.isFile && it.name.startsWith(baseName) && it.name.endsWith("Test.kt") }
+                    }
+            if (!hasMatchingTest) {
+                violations +=
+                    "${mainFile.relativeTo(projectRoot).path.replace('\\', '/')}: " +
+                    "needs a matching $baseName*Test.kt under the module's src/test or " +
+                    "src/androidTest (or add it to the documented allowlist in ArchitectureGuardTest)"
+            }
+        }
+
+        assertTrue(
+            violations.isEmpty(),
+            "New *ViewModel / *Repository sources must ship with a similarly named test suite:\n" +
                 violations.joinToString("\n"),
         )
     }

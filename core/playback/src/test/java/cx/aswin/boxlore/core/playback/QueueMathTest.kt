@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test
  * can silently corrupt the queue, so they're pinned down here.
  */
 class QueueMathTest {
-
     // ── media-id prefix handling ────────────────────────────────────────────
 
     @Test
@@ -65,7 +64,7 @@ class QueueMathTest {
     @Test
     fun `persisted context types detect normal queues across restarts`() {
         assertTrue(QueueMath.hasNonLoreContextTypes(listOf("LORE", "MANUAL")))
-        assertTrue(QueueMath.hasNonLoreContextTypes(listOf(null)))       // legacy rows
+        assertTrue(QueueMath.hasNonLoreContextTypes(listOf(null))) // legacy rows
         assertTrue(QueueMath.hasNonLoreContextTypes(listOf("AUTO_FILL")))
         assertFalse(QueueMath.hasNonLoreContextTypes(listOf("LORE", "LORE")))
         assertFalse(QueueMath.hasNonLoreContextTypes(emptyList()))

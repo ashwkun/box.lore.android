@@ -49,7 +49,7 @@ class TranscriptDialogLogicTest {
         assertTrue(state.limitReached)
         assertEquals(
             "Daily AI limit reached. Please try again tomorrow.",
-            state.supportingText
+            state.supportingText,
         )
     }
 

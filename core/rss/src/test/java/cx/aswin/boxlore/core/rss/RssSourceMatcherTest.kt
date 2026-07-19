@@ -9,12 +9,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RssSourceMatcherTest {
-
     @Test
     fun `exact feed URL ignores fragments and trailing slash`() {
-        val candidate = podcast(
-            feedUrl = "https://example.com/show/feed.xml/",
-        )
+        val candidate =
+            podcast(
+                feedUrl = "https://example.com/show/feed.xml/",
+            )
 
         assertTrue(
             RssSourceMatcher.feedIdentityMatches(
@@ -27,10 +27,11 @@ class RssSourceMatcherTest {
 
     @Test
     fun `podcast GUID is an exact identity signal`() {
-        val candidate = podcast(
-            feedUrl = null,
-            podcastGuid = "ABC-123",
-        )
+        val candidate =
+            podcast(
+                feedUrl = null,
+                podcastGuid = "ABC-123",
+            )
 
         assertTrue(
             RssSourceMatcher.feedIdentityMatches(
@@ -56,12 +57,13 @@ class RssSourceMatcherTest {
 
     @Test
     fun `episode enclosure URL wins over title differences`() {
-        val expected = episode(
-            id = "-1",
-            title = "Renamed episode",
-            audioUrl = "https://cdn.example/ep.mp3",
-            publishedDate = 100L,
-        )
+        val expected =
+            episode(
+                id = "-1",
+                title = "Renamed episode",
+                audioUrl = "https://cdn.example/ep.mp3",
+                publishedDate = 100L,
+            )
 
         assertEquals(
             expected,
@@ -76,10 +78,11 @@ class RssSourceMatcherTest {
 
     @Test
     fun `ambiguous title without date remains unlinked`() {
-        val episodes = listOf(
-            episode("-1", "News update", "https://cdn.example/1.mp3", 100L),
-            episode("-2", "News update", "https://cdn.example/2.mp3", 200L),
-        )
+        val episodes =
+            listOf(
+                episode("-1", "News update", "https://cdn.example/1.mp3", 100L),
+                episode("-2", "News update", "https://cdn.example/2.mp3", 200L),
+            )
 
         assertNull(
             RssSourceMatcher.findMatchingEpisode(

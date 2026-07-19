@@ -5,10 +5,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class TranscriptRepositoryTest {
-
     @Test
     fun testParseVtt_stripsHtmlAndVttTags() {
-        val vttContent = """
+        val vttContent =
+            """
             WEBVTT
 
             00:00:01.000 --> 00:00:04.000
@@ -16,7 +16,7 @@ class TranscriptRepositoryTest {
 
             00:00:04.500 --> 00:00:08.000
             <c.yellow>Thank you for having me.</c>
-        """.trimIndent()
+            """.trimIndent()
 
         val segments = TranscriptRepository.parseVtt(vttContent)
 
@@ -32,7 +32,8 @@ class TranscriptRepositoryTest {
 
     @Test
     fun testParseSrt_stripsHtmlTags() {
-        val srtContent = """
+        val srtContent =
+            """
             1
             00:00:01,000 --> 00:00:04,000
             Hello <b>world</b>!
@@ -40,7 +41,7 @@ class TranscriptRepositoryTest {
             2
             00:00:05,000 --> 00:00:09,000
             This is a <font color="red">test</font>.
-        """.trimIndent()
+            """.trimIndent()
 
         val segments = TranscriptRepository.parseSrt(srtContent)
 
@@ -57,12 +58,13 @@ class TranscriptRepositoryTest {
     @Test
     fun testParseVtt_timelineHealing() {
         // Test timeline healing where end time is before start time or non-chronological
-        val vttContent = """
+        val vttContent =
+            """
             WEBVTT
 
             00:00:05.000 --> 00:00:02.000
             Malformed timing segment
-        """.trimIndent()
+            """.trimIndent()
 
         val segments = TranscriptRepository.parseVtt(vttContent)
 

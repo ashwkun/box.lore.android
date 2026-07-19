@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Mixed Playable Feed</title>
+    <description>One item has audio, one does not.</description>
+    <itunes:author>Mixed Author</itunes:author>
+    <item>
+      <title>Playable Episode</title>
+      <description>Has an mp3 enclosure.</description>
+      <guid>guid-playable</guid>
+      <pubDate>Wed, 01 Jan 2020 00:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/playable.mp3" type="audio/mpeg" length="1000"/>
+    </item>
+    <item>
+      <title>Article Without Audio</title>
+      <description>No enclosure, should be skipped.</description>
+      <guid>guid-no-audio</guid>
+      <pubDate>Thu, 02 Jan 2020 00:00:00 GMT</pubDate>
+      <link>https://example.com/article</link>
+    </item>
+  </channel>
+</rss>

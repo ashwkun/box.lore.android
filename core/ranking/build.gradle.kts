@@ -1,6 +1,15 @@
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kover)
+}
+
+kover {
+    currentProject {
+        createVariant("merged") {
+            add("debug")
+        }
+    }
 }
 
 android {
@@ -58,4 +67,6 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.gson)
+    testImplementation(libs.robolectric)
+    testImplementation("androidx.test:core:1.6.1")
 }

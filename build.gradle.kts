@@ -57,7 +57,7 @@ subprojects {
 }
 
 dependencies {
-    // Merged coverage for modest verify gate (see docs/TESTING.md).
+    // Merged coverage for max-coverage gate (see docs/TESTING.md).
     kover(projects.core.catalog)
     kover(projects.core.domain)
     kover(projects.feature.home)
@@ -65,6 +65,18 @@ dependencies {
     kover(projects.core.rss)
     kover(projects.core.downloads)
     kover(projects.core.playback)
+    kover(projects.core.ranking)
+    kover(projects.core.prefs)
+    kover(projects.core.network)
+    kover(projects.core.database)
+    kover(projects.core.model)
+    kover(projects.feature.info)
+    kover(projects.feature.explore)
+    kover(projects.feature.library)
+    kover(projects.feature.onboarding)
+    kover(projects.feature.briefing)
+    kover(projects.feature.player)
+    kover(projects.app)
 }
 
 kover {
@@ -84,12 +96,21 @@ kover {
                     "*.R",
                     "*.R$*",
                     "*.databinding.*",
-                    // Fat Media3 / Auto orchestration (Phase 2 PR4 extracts + tests).
-                    // Merged gate still includes :core:playback pure helpers under core.playback.*.
+                    // Irreducible Media3 / Auto orchestration — covered by policy tests + Maestro.
                     "cx.aswin.boxlore.core.playback.PlaybackRepository",
                     "cx.aswin.boxlore.core.playback.PlaybackRepository$*",
                     "cx.aswin.boxlore.core.playback.service.*",
                     "cx.aswin.boxlore.core.playback.service.auto.*",
+                    // Application / Activity glue — covered by instrumented / Maestro.
+                    "cx.aswin.boxlore.BoxLoreApplication",
+                    "cx.aswin.boxlore.BoxLoreApplication$*",
+                    "cx.aswin.boxlore.MainActivity",
+                    "cx.aswin.boxlore.MainActivity$*",
+                    // :app Compose nav / FCM / survey chrome — covered by androidTest + Maestro.
+                    "cx.aswin.boxlore.navigation.*",
+                    "cx.aswin.boxlore.ui.*",
+                    "cx.aswin.boxlore.fcm.*",
+                    "cx.aswin.boxlore.surveys.*",
                 )
                 annotatedBy(
                     "androidx.compose.runtime.Composable",
@@ -99,11 +120,10 @@ kover {
         }
         variant("merged") {
             verify {
-                // Coverage ratchet path: 8 → 10 → 12 → 15 → 20 → 25 (see docs/TESTING.md).
-                // Soft future gates may add module-specific floors for ranking/downloads.
-                rule("Modest line coverage (data/domain/home + analytics/rss/downloads/playback)") {
-                    // Coverage ratchet: 8 → 10 → 12 → 15 → 20 (Phase 2 PR3) → 25.
-                    minBound(20)
+                // Max-coverage ratchet: 40 → 45 → 55 → 70 → 80 (see docs/TESTING.md).
+                // Measured ≈47.9% with current hermetic suites; lock 45 with headroom.
+                rule("Merged line coverage (max-coverage gated modules)") {
+                    minBound(45)
                 }
             }
         }

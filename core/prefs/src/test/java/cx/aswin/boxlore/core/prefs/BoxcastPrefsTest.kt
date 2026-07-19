@@ -15,13 +15,13 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class BoxcastPrefsTest {
-
     private lateinit var prefs: BoxcastPrefs
 
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences(BoxcastPrefs.PREFS_NAME, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(BoxcastPrefs.PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()

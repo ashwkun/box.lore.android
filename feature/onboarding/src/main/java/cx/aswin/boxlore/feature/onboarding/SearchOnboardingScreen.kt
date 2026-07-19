@@ -23,9 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cx.aswin.boxlore.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
-import cx.aswin.boxlore.core.designsystem.components.BoxLoreLoader
 import cx.aswin.boxlore.core.model.Podcast
 
 data class SearchCategoryItem(
@@ -33,17 +33,18 @@ data class SearchCategoryItem(
     val categoryValue: String?,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val containerColor: Color,
-    val contentColor: Color
+    val contentColor: Color,
 )
 
-val SEARCH_CATEGORIES = listOf(
-    SearchCategoryItem("Trending", null, Icons.Rounded.Whatshot, Color(0xFFE0F7FA), Color(0xFF006064)),
-    SearchCategoryItem("Comedy", "Comedy", Icons.Rounded.SentimentVerySatisfied, Color(0xFFF3E5F5), Color(0xFF4A148C)),
-    SearchCategoryItem("True Crime", "True Crime", Icons.Rounded.Fingerprint, Color(0xFFFFEBEE), Color(0xFF880E4F)),
-    SearchCategoryItem("Tech", "Technology", Icons.Rounded.Computer, Color(0xFFE3F2FD), Color(0xFF0D47A1)),
-    SearchCategoryItem("News", "News", Icons.Rounded.Newspaper, Color(0xFFE8F5E9), Color(0xFF1B5E20)),
-    SearchCategoryItem("Business", "Business", Icons.Rounded.Work, Color(0xFFFFF3E0), Color(0xFFE65100))
-)
+val SEARCH_CATEGORIES =
+    listOf(
+        SearchCategoryItem("Trending", null, Icons.Rounded.Whatshot, Color(0xFFE0F7FA), Color(0xFF006064)),
+        SearchCategoryItem("Comedy", "Comedy", Icons.Rounded.SentimentVerySatisfied, Color(0xFFF3E5F5), Color(0xFF4A148C)),
+        SearchCategoryItem("True Crime", "True Crime", Icons.Rounded.Fingerprint, Color(0xFFFFEBEE), Color(0xFF880E4F)),
+        SearchCategoryItem("Tech", "Technology", Icons.Rounded.Computer, Color(0xFFE3F2FD), Color(0xFF0D47A1)),
+        SearchCategoryItem("News", "News", Icons.Rounded.Newspaper, Color(0xFFE8F5E9), Color(0xFF1B5E20)),
+        SearchCategoryItem("Business", "Business", Icons.Rounded.Work, Color(0xFFFFF3E0), Color(0xFFE65100)),
+    )
 
 @Composable
 internal fun OnboardingSearchScreen(
@@ -60,20 +61,22 @@ internal fun OnboardingSearchScreen(
     isPopularLoading: Boolean,
     selectedSearchGenre: String?,
     onGenreSelect: (String?) -> Unit,
-    isAiSideTrip: Boolean = false
+    isAiSideTrip: Boolean = false,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .windowInsetsPadding(WindowInsets.statusBars)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
+                .windowInsetsPadding(WindowInsets.statusBars),
     ) {
         // Prominent search bar in top row next to back button
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
                 onClick = {
@@ -83,43 +86,47 @@ internal fun OnboardingSearchScreen(
                         onBack()
                     }
                 },
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
                     modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            
+
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(56.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(56.dp),
                 placeholder = {
                     Text(
                         text = "Search titles, hosts, or topics...",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                 },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
+                shape =
+                    androidx.compose.foundation.shape
+                        .RoundedCornerShape(percent = 50),
                 leadingIcon = {
                     Icon(
                         Icons.Rounded.Search,
                         null,
                         modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 },
                 trailingIcon = {
@@ -128,7 +135,7 @@ internal fun OnboardingSearchScreen(
                             Icon(Icons.Rounded.Close, "Clear", modifier = Modifier.size(20.dp))
                         }
                     }
-                }
+                },
             )
         }
 
@@ -137,54 +144,59 @@ internal fun OnboardingSearchScreen(
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 6.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 items(SEARCH_CATEGORIES) { category ->
                     val isSelected = selectedSearchGenre == category.categoryValue
-                    val containerColor = if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                    }
-                    val contentColor = if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    
+                    val containerColor =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        }
+                    val contentColor =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+
                     Surface(
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
+                        shape =
+                            androidx.compose.foundation.shape
+                                .RoundedCornerShape(percent = 50),
                         color = containerColor,
                         contentColor = contentColor,
-                        modifier = Modifier
-                            .clickable { onGenreSelect(category.categoryValue) }
+                        modifier =
+                            Modifier
+                                .clickable { onGenreSelect(category.categoryValue) },
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Icon(
                                 imageVector = category.icon,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(14.dp),
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = category.label,
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                     }
                 }
             }
         }
-        
+
         when {
             isSearching -> {
                 Box(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     BoxLoreLoader.Expressive(size = 100.dp)
                 }
@@ -192,9 +204,10 @@ internal fun OnboardingSearchScreen(
             query.isEmpty() -> {
                 // Discovery view: Trending shows
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                 ) {
                     val titleLabel = SEARCH_CATEGORIES.find { it.categoryValue == selectedSearchGenre }?.label ?: "Trending"
                     val sectionTitle = if (selectedSearchGenre == null) "Trending Shows" else "Popular in $titleLabel"
@@ -202,20 +215,20 @@ internal fun OnboardingSearchScreen(
                         text = sectionTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 8.dp),
                     )
 
                     if (isPopularLoading) {
                         Box(
                             modifier = Modifier.fillMaxWidth().weight(1f),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             BoxLoreLoader.Expressive(size = 80.dp)
                         }
                     } else if (popularPodcasts.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxWidth().weight(1f),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text("No recommendations found", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -226,14 +239,14 @@ internal fun OnboardingSearchScreen(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         ) {
                             items(distinctPopular, key = { it.id }) { podcast ->
                                 val isSubscribed = podcast.id in subscribedIds
                                 PopularPodcastGridItem(
                                     podcast = podcast,
                                     isSubscribed = isSubscribed,
-                                    onClick = { onSubscribe(podcast) }
+                                    onClick = { onSubscribe(podcast) },
                                 )
                             }
                         }
@@ -243,28 +256,28 @@ internal fun OnboardingSearchScreen(
             results.isEmpty() && !isSearching -> {
                 Box(
                     modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Rounded.SearchOff,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "No Podcasts Found",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Please try searching for the exact word or name of the podcast you are looking for, and double-check spacing and spelling.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
@@ -274,77 +287,80 @@ internal fun OnboardingSearchScreen(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(distinctResults, key = { it.id }) { podcast ->
                         SearchResultRow(
                             podcast = podcast,
                             isSubscribed = podcast.id in subscribedIds,
-                            onSubscribe = { onSubscribe(podcast) }
+                            onSubscribe = { onSubscribe(podcast) },
                         )
                     }
                 }
             }
         }
-        
+
         // Done button panel at bottom with selected shows bar
         if (subscribedIds.isNotEmpty()) {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 tonalElevation = 2.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
                 ) {
                     Text(
                         text = "Selected Shows (${subscribedIds.size})",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(vertical = 4.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         val selectedPodcastsList = subscribedIds.mapNotNull { selectedPodcasts[it] }
                         items(selectedPodcastsList, key = { it.id }) { podcast ->
                             Box(
-                                modifier = Modifier.size(56.dp)
+                                modifier = Modifier.size(56.dp),
                             ) {
                                 OptimizedImage(
                                     url = podcast.imageUrl,
                                     proxyWidth = 150,
                                     contentDescription = podcast.title,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(MaterialTheme.shapes.medium)
-                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    modifier =
+                                        Modifier
+                                            .fillMaxSize()
+                                            .clip(MaterialTheme.shapes.medium)
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                                 )
                                 // Tiny custom circular close badge on top-right (avoids IconButton target size constraint)
                                 Box(
                                     contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 4.dp, y = (-4).dp)
-                                        .size(16.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.error,
-                                            shape = androidx.compose.foundation.shape.CircleShape
-                                        )
-                                        .clickable { onSubscribe(podcast) }
+                                    modifier =
+                                        Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 4.dp, y = (-4).dp)
+                                            .size(16.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.error,
+                                                shape = androidx.compose.foundation.shape.CircleShape,
+                                            ).clickable { onSubscribe(podcast) },
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Close,
                                         contentDescription = "Remove",
                                         tint = MaterialTheme.colorScheme.onError,
-                                        modifier = Modifier.size(10.dp)
+                                        modifier = Modifier.size(10.dp),
                                     )
                                 }
                             }
@@ -357,24 +373,26 @@ internal fun OnboardingSearchScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     Button(
                         onClick = onDone,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = MaterialTheme.shapes.extraLarge
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
                     ) {
                         Text(
-                            if (isAiSideTrip)
+                            if (isAiSideTrip) {
                                 "Subscribe & Continue Chat (${subscribedIds.size})"
-                            else
-                                "Done (${subscribedIds.size} selected)",
+                            } else {
+                                "Done (${subscribedIds.size} selected)"
+                            },
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -387,74 +405,80 @@ internal fun OnboardingSearchScreen(
 private fun PopularPodcastGridItem(
     podcast: Podcast,
     isSubscribed: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .expressiveClickable(onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier
-                .aspectRatio(1f)
+        modifier =
+            Modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.large)
+                .expressiveClickable(onClick = onClick),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .aspectRatio(1f)
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.large),
         ) {
             OptimizedImage(
                 url = podcast.imageUrl,
                 proxyWidth = 400,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             )
-            
+
             // Subscribed indicator overlay
-            val containerColor = if (isSubscribed) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-            }
-            val contentColor = if (isSubscribed) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            }
-            
+            val containerColor =
+                if (isSubscribed) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                }
+            val contentColor =
+                if (isSubscribed) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+
             Surface(
                 shape = androidx.compose.foundation.shape.CircleShape,
                 color = containerColor,
                 contentColor = contentColor,
                 shadowElevation = 4.dp,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(32.dp)
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .size(32.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 ) {
                     Icon(
                         imageVector = if (isSubscribed) Icons.Rounded.Check else Icons.Rounded.Add,
                         contentDescription = if (isSubscribed) "Selected" else "Select",
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(6.dp))
-        
+
         Text(
             text = podcast.title,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 4.dp)
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
         Text(
             text = podcast.artist,
@@ -462,7 +486,7 @@ private fun PopularPodcastGridItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp),
         )
     }
 }
@@ -471,71 +495,74 @@ private fun PopularPodcastGridItem(
 private fun SearchResultRow(
     podcast: Podcast,
     isSubscribed: Boolean,
-    onSubscribe: () -> Unit
+    onSubscribe: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .expressiveClickable(onClick = onSubscribe)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .expressiveClickable(onClick = onSubscribe)
+                .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         OptimizedImage(
             url = podcast.imageUrl,
             proxyWidth = 400,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(56.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            modifier =
+                Modifier
+                    .size(56.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         )
-        
+
         Spacer(modifier = Modifier.width(14.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 podcast.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 podcast.artist,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
-        
+
         Spacer(modifier = Modifier.width(8.dp))
-        
+
         if (isSubscribed) {
             FilledIconButton(
                 onClick = onSubscribe,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.size(36.dp)
+                colors =
+                    IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     Icons.Rounded.Check,
                     contentDescription = "Selected",
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
             }
         } else {
             OutlinedIconButton(
                 onClick = onSubscribe,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     Icons.Rounded.Add,
                     contentDescription = "Select",
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }

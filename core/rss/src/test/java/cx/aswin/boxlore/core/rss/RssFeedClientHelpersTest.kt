@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test
  * those stay follow-ups. Helpers are the deterministic JVM slice.
  */
 class RssFeedClientHelpersTest {
-
     @Test
     fun `parseDuration accepts seconds integer`() {
         assertEquals(90, parseDuration("90"))

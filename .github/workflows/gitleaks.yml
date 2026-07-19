@@ -1,10 +1,16 @@
 name: Gitleaks Scan
 
+# Uses the Gitleaks CLI directly (not gitleaks-action) so organization
+# repositories do not require a paid GITLEAKS_LICENSE secret.
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
+
+concurrency:
+  group: gitleaks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   gitleaks:
@@ -16,7 +22,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Gitleaks Scan
-        uses: gitleaks/gitleaks-action@v2
+      - name: Install Gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: "8.24.3"
+        run: |
+          set -euo pipefail
+          curl -sSLfo /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Gitleaks Scan
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            gitleaks detect \
+              --source . \
+              --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" \
+              --verbose \
+              --redact
+          else
+            gitleaks detect --source . --verbose --redact
+          fi

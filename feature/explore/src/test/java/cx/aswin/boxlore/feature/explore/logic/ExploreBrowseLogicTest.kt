@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ExploreBrowseLogicTest {
-
     @Test
     fun `morning hour puts news vibes first`() {
         val vibes = ExploreBrowseLogic.vibesForHour(8)
@@ -20,11 +19,12 @@ class ExploreBrowseLogicTest {
 
     @Test
     fun `substring filter matches title or artist case-insensitively`() {
-        val podcasts = listOf(
-            TestFixtures.podcast(id = "1", title = "Alpha Show", artist = "Zed"),
-            TestFixtures.podcast(id = "2", title = "Beta", artist = "Alpha Artist"),
-            TestFixtures.podcast(id = "3", title = "Gamma", artist = "Other"),
-        )
+        val podcasts =
+            listOf(
+                TestFixtures.podcast(id = "1", title = "Alpha Show", artist = "Zed"),
+                TestFixtures.podcast(id = "2", title = "Beta", artist = "Alpha Artist"),
+                TestFixtures.podcast(id = "3", title = "Gamma", artist = "Other"),
+            )
         val matches = ExploreBrowseLogic.filterPodcastsBySubstring("alpha", podcasts)
         assertEquals(listOf("1", "2"), matches.map { it.id })
     }
@@ -39,11 +39,13 @@ class ExploreBrowseLogicTest {
 
     @Test
     fun `episodeToSearchPodcast maps podcast fields`() {
-        val episode = TestFixtures.episode(
-            id = "e",
-            podcastId = "p",
-            podcastTitle = "Show",
-        ).copy(podcastArtist = "Host", podcastImageUrl = "img", podcastGenre = "News")
+        val episode =
+            TestFixtures
+                .episode(
+                    id = "e",
+                    podcastId = "p",
+                    podcastTitle = "Show",
+                ).copy(podcastArtist = "Host", podcastImageUrl = "img", podcastGenre = "News")
         val podcast = ExploreBrowseLogic.episodeToSearchPodcast(episode)
         assertEquals("p", podcast.id)
         assertEquals("Show", podcast.title)

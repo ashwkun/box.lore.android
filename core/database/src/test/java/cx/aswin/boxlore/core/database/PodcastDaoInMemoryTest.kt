@@ -23,7 +23,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PodcastDaoInMemoryTest {
-
     private lateinit var database: BoxLoreDatabase
     private lateinit var dao: PodcastDao
 
@@ -31,7 +30,8 @@ class PodcastDaoInMemoryTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
-            Room.inMemoryDatabaseBuilder(context, BoxLoreDatabase::class.java)
+            Room
+                .inMemoryDatabaseBuilder(context, BoxLoreDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
         dao = database.podcastDao()

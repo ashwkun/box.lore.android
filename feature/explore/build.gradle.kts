@@ -1,10 +1,20 @@
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinCompose)
+    alias(libs.plugins.kover)
+}
+
+kover {
+    currentProject {
+        createVariant("merged") {
+            add("debug")
+        }
+    }
 }
 
 android {
     testOptions {
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.useJUnitPlatform()
         }
@@ -42,7 +52,6 @@ android {
     buildFeatures {
         compose = true
     }
-
 }
 
 dependencies {
@@ -73,4 +82,14 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Robolectric: SharedPreferences-backed BoxcastPrefs + org.json for the curiosity history store.
+    testImplementation(libs.robolectric)
+    testImplementation("androidx.test:core:1.6.1")
+
+    // Compose UI tests (JUnit4 + AndroidJUnitRunner; CI via android-instrumented-tests.yml)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.activity.compose)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

@@ -11,7 +11,8 @@ appId: cx.aswin.boxlore
     timeout: 20000
 - assertVisible:
     id: "home_settings_button"
-# Secondary nav affordances stay soft — first-run chrome may still settle.
+# Bottom navigation labels are always present on the home shell (strict).
 - assertVisible:
-    text: ".*(Home|Library|Explore|Settings).*"
-    optional: true
+    text: "Home"
+- assertVisible:
+    text: "Library"

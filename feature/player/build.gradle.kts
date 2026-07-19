@@ -1,6 +1,15 @@
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinCompose)
+    alias(libs.plugins.kover)
+}
+
+kover {
+    currentProject {
+        createVariant("merged") {
+            add("debug")
+        }
+    }
 }
 
 android {
@@ -14,6 +23,7 @@ android {
 
     defaultConfig {
         minSdk = 31
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
         compose = true
@@ -38,7 +48,7 @@ dependencies {
     implementation(projects.core.network)
     implementation(projects.core.designsystem)
     implementation(projects.core.analytics)
-    
+
     // Media & Palette
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
@@ -51,7 +61,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
-    
+
     // UI
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -71,4 +81,11 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+
+    // Compose UI tests (JUnit4 + AndroidJUnitRunner; CI via android-instrumented-tests.yml)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.activity.compose)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

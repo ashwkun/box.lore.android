@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class RecordingAnalyticsTest {
-
     private lateinit var analytics: RecordingAnalytics
 
     @BeforeEach
@@ -34,7 +33,12 @@ class RecordingAnalyticsTest {
         analytics.capture("nav_tab_clicked")
 
         assertEquals(1, analytics.eventCount("nav_tab_clicked"))
-        assertTrue(analytics.events.first().properties.isEmpty())
+        assertTrue(
+            analytics.events
+                .first()
+                .properties
+                .isEmpty(),
+        )
     }
 
     @Test
@@ -81,10 +85,11 @@ class RecordingAnalyticsTest {
 
     @Test
     fun `trackAdaptiveRankingStatus emits adaptive_ranking_status`() {
-        val telemetry = listOf(
-            RankingAggregateTelemetry("DISCOVERY", 1, "adaptive", "50_199", true),
-            RankingAggregateTelemetry("COMPLETION", 1, "learning", "10_49", false),
-        )
+        val telemetry =
+            listOf(
+                RankingAggregateTelemetry("DISCOVERY", 1, "adaptive", "50_199", true),
+                RankingAggregateTelemetry("COMPLETION", 1, "learning", "10_49", false),
+            )
 
         analytics.trackAdaptiveRankingStatus(telemetry)
 
@@ -122,7 +127,6 @@ class RecordingAnalyticsTest {
 }
 
 class DeriveGenrePersonaTest {
-
     @Test
     fun `single knowledge genre gives highly_focused knowledge_seeker`() {
         val result = AnalyticsHelper.deriveGenrePersona(setOf("News"))
@@ -145,9 +149,10 @@ class DeriveGenrePersonaTest {
 
     @Test
     fun `six or more genres gives obsessive enthusiasm`() {
-        val result = AnalyticsHelper.deriveGenrePersona(
-            setOf("News", "Technology", "Business", "Education", "Science", "History"),
-        )
+        val result =
+            AnalyticsHelper.deriveGenrePersona(
+                setOf("News", "Technology", "Business", "Education", "Science", "History"),
+            )
         assertEquals("obsessive", result["genre_enthusiasm"])
     }
 
@@ -160,7 +165,6 @@ class DeriveGenrePersonaTest {
 }
 
 class AnalyticsGlossaryAllowlistTest {
-
     @Test
     fun `phase A union B has expected cardinality`() {
         // 35 Phase A + 1 A/B (search_performed) + 28 Phase B = 64
@@ -256,7 +260,6 @@ class AnalyticsGlossaryAllowlistTest {
 }
 
 class AnalyticsRawTextAndEntryPointTest {
-
     @Test
     fun `normalizeEntryPoint maps legacy strings`() {
         assertEquals("home_hero_resume", AnalyticsGlossary.normalizeEntryPoint("home_hero_resume_grid"))
@@ -326,9 +329,11 @@ class AnalyticsRawTextAndEntryPointTest {
         assertEquals("best tech shows", explore.second["search_query"])
         assertEquals(12, explore.second["results_count"])
 
-        val onboardingUnified = captured.filter {
-            it.first == "search_performed" && it.second["surface"] == "onboarding"
-        }.first()
+        val onboardingUnified =
+            captured
+                .filter {
+                    it.first == "search_performed" && it.second["surface"] == "onboarding"
+                }.first()
         assertEquals("history wars", onboardingUnified.second["search_query"])
 
         val onboardingLegacy = captured.first { it.first == "onboarding_search_performed" }

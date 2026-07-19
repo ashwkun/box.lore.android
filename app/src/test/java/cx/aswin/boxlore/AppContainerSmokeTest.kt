@@ -22,7 +22,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class AppContainerSmokeTest {
-
     private lateinit var context: Context
 
     @Before
@@ -33,24 +32,26 @@ class AppContainerSmokeTest {
     @Test
     fun sharedUserPreferencesIsSameInstanceAsContainer() {
         val prefs = UserPreferencesRepository(context)
-        val container = AppContainer(
-            context = context,
-            apiBaseUrl = "https://example.test",
-            publicKey = "test-key",
-            sharedUserPreferences = prefs,
-        )
+        val container =
+            AppContainer(
+                context = context,
+                apiBaseUrl = "https://example.test",
+                publicKey = "test-key",
+                sharedUserPreferences = prefs,
+            )
         assertSame(prefs, container.userPreferencesRepository)
     }
 
     @Test
     fun rssAndRankingPeersAreStableSingletonsWithinContainer() {
         val prefs = UserPreferencesRepository(context)
-        val container = AppContainer(
-            context = context,
-            apiBaseUrl = "https://example.test",
-            publicKey = "test-key",
-            sharedUserPreferences = prefs,
-        )
+        val container =
+            AppContainer(
+                context = context,
+                apiBaseUrl = "https://example.test",
+                publicKey = "test-key",
+                sharedUserPreferences = prefs,
+            )
 
         val rss1 = container.rssPodcastRepository
         val rss2 = container.rssPodcastRepository

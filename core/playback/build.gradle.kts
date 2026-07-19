@@ -83,4 +83,7 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Robolectric: in-memory Room (QueueRepository) + SharedPreferences/Uri (AutoArtworkRepository).
+    testImplementation(libs.robolectric)
+    testImplementation("androidx.test:core:1.6.1")
 }
