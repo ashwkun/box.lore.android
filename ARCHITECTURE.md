@@ -54,7 +54,7 @@ On disk, the folder path matches the Gradle id (`core/playback` → `:core:playb
 | `:core:analytics` | Analytics façade (`AnalyticsHelper`, `Analytics`, `RecordingAnalytics`); PostHog init stays in `:app`. Event names and properties: [`docs/ANALYTICS_EVENT_GLOSSARY.md`](docs/ANALYTICS_EVENT_GLOSSARY.md) | [`core/analytics/README.md`](core/analytics/README.md) |
 | `:core:catalog` | Catalog orchestration: `PodcastRepository`, subscriptions, content sections, backup/restore | [`core/catalog/README.md`](core/catalog/README.md) |
 | `:core:rss` | RSS fetch/parse, `RssPodcastRepository`, `rss:` / negative IDs | [`core/rss/README.md`](core/rss/README.md) |
-| `:core:ranking` | Adaptive scoring, LinUCB, feedback, `AdaptiveRankingDatabase` | [`core/ranking/README.md`](core/ranking/README.md) |
+| `:core:ranking` | Adaptive scoring, LinUCB, feedback, `AdaptiveRankingDatabase`. Behavior detail: [`docs/recommendation-system.md`](docs/recommendation-system.md) | [`core/ranking/README.md`](core/ranking/README.md) |
 | `:core:downloads` | `DownloadRepository`, Smart Downloads, related WorkManager workers | [`core/downloads/README.md`](core/downloads/README.md) |
 | `:core:playback` | `PlaybackRepository`, queue, Media3 services, smart-queue helpers | [`core/playback/README.md`](core/playback/README.md) |
 | `:core:designsystem` | Theme and shared composables; no data or network ownership | [`core/designsystem/README.md`](core/designsystem/README.md) |
@@ -178,7 +178,7 @@ Home, Settings, and Info ViewModels are built through assemblers (`HomeViewModel
 | Podcast / episode detail | `:feature:info` | Dual episode routes and deep links |
 | Playback, queue, Media3 | `:core:playback` | Includes permanent `core.data.service` stubs |
 | HTTP API | `:core:network` | Separate from RSS |
-| Ranking | `:core:ranking` | Own adaptive Room database |
+| Ranking | `:core:ranking` | Own adaptive Room database; personalization detail in [`docs/recommendation-system.md`](docs/recommendation-system.md) |
 | RSS catalog | `:core:rss` | Negative / `rss:` IDs; exposed through catalog |
 
 ## Upgrade failsafes
@@ -240,5 +240,4 @@ Shared test fixtures live in `:core:testing`. The project does not use MockK or 
 | Document | Contents |
 | :--- | :--- |
 | [`docs/MODULE_README_TEMPLATE.md`](docs/MODULE_README_TEMPLATE.md) | Module README shape |
-| [`docs/recommendation-system.md`](docs/recommendation-system.md) | Ranking and recommendation behavior |
 | [`maestro/README.md`](maestro/README.md) | Local Maestro flows |
