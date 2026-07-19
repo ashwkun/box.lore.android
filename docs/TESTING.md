@@ -174,8 +174,8 @@ Protected inputs:
 
 ## Module README checklist
 
-Every `app/`, `core/*/`, and `feature/*/` module must keep a folder README aligned with [`MODULE_README_TEMPLATE.md`](MODULE_README_TEMPLATE.md), including Testing notes and the primary Gradle test command. Konsist fails if an included module lacks `README.md`.
+Every `app/`, `core/*/`, and `feature/*/` module keeps a folder README. Shape and required sections follow [`MODULE_README_TEMPLATE.md`](MODULE_README_TEMPLATE.md), including Testing notes and the primary Gradle test command. Konsist fails if an included module lacks `README.md`.
 
-## Next phase
+## Open gaps
 
-A later testing phase owns implementation of every **Yet to start** row above (Application-backed Home/Info suites or hermetic equivalents, broader androidTest, additional strict Maestro flows, screenshot goldens, Kover ratchet). This document is the aspirational map; do not claim those rows Done until verified.
+Rows marked **Yet to start** above are still empty: Application-backed Home/Info suites (or hermetic equivalents), broader `androidTest`, additional strict Maestro flows, screenshot goldens, and a higher Kover floor. Treat those statuses as inventory, not a claim that the work is finished.
