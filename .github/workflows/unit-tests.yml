@@ -2,7 +2,9 @@ name: Unit Tests
 
 # Merge queue only (plus manual dispatch):
 # - `merge_group` runs the suite inside the master merge queue.
-# - `workflow_dispatch` for a manual full gate.
+# - `workflow_dispatch` for a manual full gate (always runs; ignores [skip unit]).
+# - Put `[skip unit]` in the PR title to no-op the merge-queue job (still reports
+#   green as `testDebugUnitTest`). Use only for docs/chore with no logic risk.
 # Unit tests do NOT run on pull_request (merge queue / workflow_dispatch only).
 # Bot pushes to master use boxlore-master-pusher (ruleset Integration bypass).
 on:
@@ -19,52 +21,95 @@ jobs:
     name: testDebugUnitTest
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
+      - name: Detect [skip unit] in PR title
+        id: skip
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          set -euo pipefail
+          echo "merge_group.head_ref=$HEAD_REF"
+          if [[ "$HEAD_REF" =~ /pr-([0-9]+)- ]]; then
+            PR_NUMBER="${BASH_REMATCH[1]}"
+            TITLE=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .title)
+            echo "PR #${PR_NUMBER} title: ${TITLE}"
+            if echo "$TITLE" | grep -qi '\[skip unit\]'; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "skipped via [skip unit]"
+            else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Could not parse PR number from head_ref; running full suite"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip unit suite
+        if: github.event_name == 'merge_group' && steps.skip.outputs.skip == 'true'
+        run: echo "Skipping unit suite ([skip unit] in PR title)"
+
       - name: Checkout
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         uses: actions/checkout@v5
 
       - name: Set up JDK 17
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Setup Gradle
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         uses: gradle/actions/setup-gradle@v5
 
       # Real google-services.json lives in the GitHub Environment "release"
       # (GOOGLE_SERVICES_JSON_BASE64) and is not available to PR/push CI.
       # This stub only satisfies the Google Services Gradle plugin for unit tests.
       - name: Write CI stub google-services.json
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         uses: ./.github/actions/write-ci-google-services
 
       - name: Architecture guards (boundaries + Konsist)
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: |
           bash scripts/ci/check-feature-no-boxlore-database.sh
           bash scripts/ci/check-feature-no-posthog.sh
           ./gradlew :core:testing:testDebugUnitTest
 
       - name: Run detekt
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew detekt
 
       - name: Run ktlint
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew ktlintCheck
 
       - name: Run unit tests
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew testDebugUnitTest --continue
 
       - name: Verify Roborazzi screenshots
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew :feature:home:verifyRoborazziDebug
 
       - name: Verify merged Kover coverage floor
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew :koverVerifyMerged
 
       - name: Lint debug
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew lintDebug
 
       - name: Dependency guard (app + core modules)
+        if: github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true'
         run: ./gradlew :app:dependencyGuard :core:catalog:dependencyGuard :core:playback:dependencyGuard
 
       - name: Scrub google-services.json
-        if: always()
+        if: always() && (github.event_name != 'merge_group' || steps.skip.outputs.skip != 'true')
         run: rm -f app/google-services.json

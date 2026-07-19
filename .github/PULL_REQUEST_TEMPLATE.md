@@ -6,6 +6,7 @@ Use Conventional Commits. Examples from this repo:
 - `fix(scope): short description`
 - `chore: short description`
 - `release: vX.Y.Z [skip changelog]`
+- `docs: … [skip unit]` / `chore: … [skip unit]` — no-ops merge-queue unit suite (still reports green). **Only** for docs/chore with no logic risk.
 
 Do **not** use sentence-case titles without a type prefix (e.g. avoid `Polish the announcement dialog`).
 
@@ -15,7 +16,7 @@ Unit tests, detekt, ktlint, Roborazzi, and the Kover coverage gate run **only in
 
 Master uses a **merge queue**. Required checks before merge:
 
-1. **`testDebugUnitTest`** — runs when the PR enters the merge queue
+1. **`testDebugUnitTest`** — runs when the PR enters the merge queue (put `[skip unit]` in the PR title to no-op for safe docs/chore only; check still reports green)
 2. **`SonarCloud Code Analysis`** — quality gate must pass (aim: zero open issues)
 3. **`CodeRabbit`** — review must be green; resolve all review threads
 

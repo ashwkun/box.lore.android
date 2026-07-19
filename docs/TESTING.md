@@ -171,7 +171,7 @@ See [`docs/screenshots/README.md`](screenshots/README.md).
 | `merge-queue-external-gates.yml` | Re-assert SonarCloud + CodeRabbit on merge group SHA | merge queue | Done |
 | `maestro-nightly.yml` | Validate Maestro YAML | Nightly / manual | Done |
 
-**Merge gate:** master uses a merge queue. Required checks: **`testDebugUnitTest`**, **`SonarCloud Code Analysis`**, **`CodeRabbit`** (resolve all review threads). The unit suite runs in the merge queue (or via Actions → Run workflow). Bots push to master via **boxlore-master-pusher** (ruleset Integration bypass).
+**Merge gate:** master uses a merge queue. Required checks: **`testDebugUnitTest`**, **`SonarCloud Code Analysis`**, **`CodeRabbit`** (resolve all review threads). The unit suite runs in the merge queue (or via Actions → Run workflow). Put `[skip unit]` in the PR title to no-op that job for docs/chore-only changes (still reports green; `workflow_dispatch` always runs full). Bots push to master via **boxlore-master-pusher** (ruleset Integration bypass).
 
 Protected inputs: `app/google-services.json` is gitignored; CI writes a non-secret stub.
 
