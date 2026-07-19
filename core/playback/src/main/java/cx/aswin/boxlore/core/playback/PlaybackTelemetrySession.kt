@@ -443,6 +443,35 @@ internal class PlaybackTelemetrySession(
             )
         }
 
+        val sessionStartedAt = startTimeMs
+        val sessionConsumedMs = consumedAudioMs
+        val sessionPodcastIdForRecord = currentPodcastId
+        scope.launch {
+            try {
+                val entity =
+                    ListeningSessionRecordLogic.buildSession(
+                        ListeningSessionRecordLogic.BuildSessionInput(
+                            sessionId =
+                                java.util.UUID
+                                    .randomUUID()
+                                    .toString(),
+                            episodeId = currentEpisodeId,
+                            podcastId = sessionPodcastIdForRecord.orEmpty(),
+                            startedAt = sessionStartedAt,
+                            endedAt = System.currentTimeMillis(),
+                            consumedMs = sessionConsumedMs,
+                            completed = isCompleted,
+                        ),
+                    ) ?: return@launch
+                ListeningSessionRecordLogic.persistSessionAndRollUp(
+                    dao = database.listeningInsightsDao(),
+                    session = entity,
+                )
+            } catch (e: Exception) {
+                Log.e("BoxLorePlaybackService", "Failed to persist listening session", e)
+            }
+        }
+
         AnalyticsHelper.flush()
         reset()
     }

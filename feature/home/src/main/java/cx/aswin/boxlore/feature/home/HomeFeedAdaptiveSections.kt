@@ -143,22 +143,25 @@ internal fun AdaptiveSectionVisibilityEffect(
 ) {
     val sectionKey = "adaptive_${section.stableId}"
     val currentOnAdaptiveSectionVisible = rememberUpdatedState(onAdaptiveSectionVisible)
-    LaunchedEffect(section, gridState, rowState) {
+    val currentSection = rememberUpdatedState(section)
+    LaunchedEffect(section.stableId, gridState, rowState) {
         snapshotFlow {
             val sectionVisible =
                 gridState.layoutInfo.visibleItemsInfo.any {
                     it.key == sectionKey
                 }
-            if (sectionVisible) {
-                rowState.layoutInfo.visibleItemsInfo
-                    .mapNotNull { it.key as? String }
-                    .toSet()
-            } else {
-                emptySet()
+            if (!sectionVisible) {
+                return@snapshotFlow emptySet<String>()
             }
+            val items = currentSection.value.items
+            // Prefer indices over key casts: nested LazyRow keys are not always String
+            // (default index keys fail `as? String` and silently drop every impression).
+            rowState.layoutInfo.visibleItemsInfo
+                .mapNotNull { info -> items.getOrNull(info.index)?.id }
+                .toSet()
         }.distinctUntilChanged().collect { visibleCandidateIds ->
             if (visibleCandidateIds.isNotEmpty()) {
-                currentOnAdaptiveSectionVisible.value(section, visibleCandidateIds)
+                currentOnAdaptiveSectionVisible.value(currentSection.value, visibleCandidateIds)
             }
         }
     }

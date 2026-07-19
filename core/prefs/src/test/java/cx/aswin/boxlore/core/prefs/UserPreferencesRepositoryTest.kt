@@ -234,16 +234,19 @@ class UserPreferencesRepositoryTest {
             assertFalse(repository.hasSeenTitleTapTip.first())
             assertFalse(repository.hasSeenSwipeMinimizeTip.first())
             assertFalse(repository.hasSeenMarkPlayedTip.first())
+            assertFalse(repository.hasSeenListeningHistoryTrackingNotice.first())
 
             repository.markSwipeDismissTipSeen()
             repository.markTitleTapTipSeen()
             repository.markSwipeMinimizeTipSeen()
             repository.markMarkPlayedTipSeen()
+            repository.markListeningHistoryTrackingNoticeSeen()
 
             assertTrue(repository.hasSeenSwipeDismissTip.first())
             assertTrue(repository.hasSeenTitleTapTip.first())
             assertTrue(repository.hasSeenSwipeMinimizeTip.first())
             assertTrue(repository.hasSeenMarkPlayedTip.first())
+            assertTrue(repository.hasSeenListeningHistoryTrackingNotice.first())
         }
 
     @Test

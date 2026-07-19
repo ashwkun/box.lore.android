@@ -1,5 +1,6 @@
 # CodeRabbit configuration for boxlore (Android / Kotlin / Jetpack Compose).
 # Docs: https://docs.coderabbit.ai/reference/configuration
+# Aligns with AGENTS.md, ARCHITECTURE.md, and .cursor/rules/*.mdc
 
 language: en-US
 
@@ -24,20 +25,60 @@ reviews:
     Use imperative mood. Keep under ~72 characters. Example: fix(home): reduce tab lag on feed scroll
 
   instructions: |
-    Boxlore is a Kotlin Android app using Jetpack Compose, Hilt, Room/Turso, and OkHttp.
+    Boxlore is a multi-module Kotlin Android app (Jetpack Compose). Composition root is AppContainer
+    (no Hilt/Koin/Dagger). Source of truth: ARCHITECTURE.md, AGENTS.md, docs/TESTING.md,
+    docs/MODULE_README_TEMPLATE.md, and each module README.md.
 
     For every finding, format as:
     **Issue:** [clear description]
     **Impact:** [what breaks or degrades if unfixed]
     **Fix:** [actionable suggestion]
 
-    Global rules:
-    - Flag unnecessary Compose recompositions and unstable lambda/object parameters passed to composables.
-    - Ensure database and network work never runs on the Main thread.
-    - Verify meaningful exception handling for Crashlytics on failure paths.
-    - Flag missing keys in LazyColumn/LazyRow/LazyVerticalStaggeredGrid items.
+    ## Architecture (must enforce — see ARCHITECTURE.md)
+
+    - No feature→feature Gradle deps or package imports. Features depend on :core:* only.
+    - Features must not import or call PostHog; use :core:analytics only.
+    - No Hilt, Koin, Dagger, or MockK in production or test dependencies.
+    - Do not build a second object graph; deps come from AppContainer / assemblers / ports.
+    - Prefer narrow ports (core.domain.ports / catalog ports) and hermetic fakes (:core:testing).
+    - Never break identity/storage contracts: applicationId, DataStore user_preferences, Room
+      filenames, rss: / negative IDs, deep links, WorkManager FQCNs, single UI-scoped
+      PlaybackRepository, Smart Queue refill only in BoxLorePlaybackService.
+    - Catalog must not depend on designsystem or playback; playback may depend on catalog.
+    - Flag any PR that renames prefs/DB/media IDs without an explicit migration story.
+
+    ## Module README (must enforce)
+
+    - If the PR changes any production Kotlin under app/, core/<module>/, or feature/<module>/
+      (paths containing src/main), the matching module README.md must be updated in the same PR
+      (see docs/MODULE_README_TEMPLATE.md). No exceptions for "internal-only", formatting-adjacent,
+      or "behavior unchanged" claims when production sources in that module changed.
+    - Flag missing module README updates whenever production Kotlin in that module changed.
+    - Do not require hand-edits to root CHANGELOG.md or README Upcoming (changelog-on-merge owns those).
+
+    ## Unit tests (must enforce)
+
+    - Touched production logic must ship or extend hermetic JVM tests under src/test
+      (prefer logic/ packages + :core:testing fakes). Flag missing tests for new/changed
+      public behavior-owning types (engines, repositories, ViewModel logic, pure helpers).
+    - Bug fixes must include a regression test for the failure mode when practical.
+    - Do not suggest Compose androidTest, Espresso, or emulator CI — removed on purpose.
+    - Do not demand Application-backed Home/Info suites; prefer ports + assemblers + Turbine.
+
+    ## Product / UI
+
+    - Product name in user-facing copy is "boxlore" (all lowercase).
+    - Cards/panels: solid Material 3 surfaces only — no glassmorphism / translucent card backgrounds.
+    - Flag unnecessary Compose recompositions and unstable lambda/object parameters.
+    - Database and network work must not run on the Main thread.
+    - Meaningful exception handling on failure paths (Crashlytics-friendly).
+    - LazyColumn/LazyRow/LazyVerticalStaggeredGrid items need stable keys.
+
+    ## Out of scope for review nits
+
     - Do not comment on Gradle formatting or Spotless-style nits already enforced by CI.
     - Do not suggest committing secrets (local.properties, .env, keystores, google-services.json).
+    - Do not suggest mentioning proxy/backend internal repo details in public PR text.
 
   path_filters:
     - "!**/gradle/**"
@@ -56,30 +97,47 @@ reviews:
     - "!**/google-services.json"
 
   path_instructions:
+    - path: "ARCHITECTURE.md"
+      instructions: |
+        Treat this file as the architecture contract. When reviewing other files in the PR,
+        verify changes still comply with dependency direction and identity/storage rules here.
     - path: "feature/**/*.kt"
       instructions: |
-        Jetpack Compose UI review focus:
-        - Unstable parameters causing recomposition (lambdas, lists, state holders).
-        - Heavy work during composition or animation frames.
-        - Scroll state loss from conditional/lazy rendering patterns.
-        - Prefer keyed lazy items and incremental section composition for large feeds.
-    - path: "core/data/**"
+        Feature module rules:
+        - Must not import other feature packages or PostHog.
+        - Jetpack Compose: unstable params, heavy work in composition, keyed lazy items.
+        - If any production Kotlin under feature/<name>/src/main/ changed, require
+          feature/<name>/README.md updated in the same PR (unconditional).
+        - Require matching JVM src/test coverage for new/changed logic helpers and ViewModel logic.
+    - path: "core/**/*.kt"
       instructions: |
-        Data layer review focus:
-        - DAO/repository calls must not block the main thread.
-        - Flow/coroutine cancellation and error propagation.
-        - Cache invalidation and migration safety.
+        Core module rules:
+        - Respect module ownership in ARCHITECTURE.md (catalog vs playback vs downloads, etc.).
+        - DAO/repository/network must not block the main thread.
+        - If any production Kotlin under core/<name>/src/main/ changed, require
+          core/<name>/README.md updated in the same PR (unconditional).
+        - Require hermetic JVM tests for new/changed engines, DAOs math, and pure helpers.
     - path: "core/network/**"
       instructions: |
-        Network layer review focus:
-        - OkHttp interceptors must not log secrets (App Check tokens, API keys).
-        - Timeouts, retries, and structured error mapping.
-        - App Check header usage on authenticated routes.
+        Network layer: OkHttp must not log secrets; timeouts/retries; structured error mapping;
+        App Check headers on authenticated routes.
     - path: "app/**"
       instructions: |
-        App shell / navigation review focus:
-        - NavHost transition cost and double-animation conflicts.
-        - Lifecycle-aware state collection (repeatOnLifecycle, collectAsStateWithLifecycle).
+        App shell: AppContainer is the only composition root. No second graph.
+        NavHost lifecycle-aware collection.
+        If any production Kotlin under app/src/main/ changed, require app/README.md updated
+        in the same PR (unconditional).
+        Prefer JVM tests for pure helpers; do not demand androidTest.
+    - path: "**/src/main/**/*.kt"
+      instructions: |
+        For each substantially changed main source, check the PR also adds or extends a related
+        *Test.kt under src/test for that behavior. Flag gaps explicitly.
+    - path: "**/README.md"
+      instructions: |
+        Module READMEs must match MODULE_README_TEMPLATE sections.
+        Whenever production Kotlin in the same module changed in the PR, the README must also
+        change in the PR (unconditional).
+        Flag READMEs that claim androidTest/Espresso/instrumented suites (removed).
 
   auto_review:
     enabled: true
@@ -117,6 +175,31 @@ reviews:
           Fail if any CodeRabbit review comments or other review threads remain
           unresolved. All findings must be fixed and marked resolved, or explicitly
           dismissed with a short rationale, before merge.
+      - name: Architecture compliance
+        mode: error
+        instructions: |
+          Fail if the PR introduces architecture violations relative to ARCHITECTURE.md:
+          feature→feature dependencies or imports; PostHog usage in feature modules;
+          Hilt/Koin/Dagger/MockK; a second PlaybackRepository or AppContainer graph;
+          catalog depending on designsystem or playback; broken identity/storage contracts
+          without migration. Request changes with a concrete fix pointing at ARCHITECTURE.md.
+      - name: Module README updated
+        mode: error
+        instructions: |
+          Fail whenever the PR changes any production Kotlin under app/src/main/,
+          core/<module>/src/main/, or feature/<module>/src/main/ unless the matching
+          module README.md is also modified in the same PR (see docs/MODULE_README_TEMPLATE.md).
+          This is unconditional — do not exempt "internal-only", "no API change", or
+          "behavior unchanged" claims. Pure test-only PRs (no src/main production Kotlin
+          changes) may pass. Do not require CHANGELOG.md edits.
+      - name: JVM tests for changed logic
+        mode: error
+        instructions: |
+          If the PR adds or substantially changes production logic (engines, repositories,
+          ViewModel logic, pure helpers under logic/), fail unless the PR also adds or extends
+          hermetic JVM unit tests under src/test covering the new behavior (happy/empty/error
+          as applicable). Bug-fix PRs should include a regression test when practical.
+          Do not require Compose androidTest or emulator tests.
 
   tools:
     gitleaks:

@@ -78,6 +78,7 @@ androidx-graphics-shapes = { group = "androidx.graphics", name = "graphics-shape
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version = "2.8.4" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version = "2.8.4" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version = "2.8.4" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version = "2.8.4" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
 # Third Party

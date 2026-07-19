@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +89,7 @@ fun DebugScreen(
     userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     adaptiveRankingRepository: cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository,
     onBack: () -> Unit,
+    bottomContentPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val application = LocalContext.current.applicationContext as Application
@@ -127,6 +132,10 @@ fun DebugScreen(
     val tabs = remember { DebugTab.entries }
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
+    val scrollBottomPadding =
+        bottomContentPadding +
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+            16.dp
 
     Scaffold(
         modifier = modifier,
@@ -187,22 +196,26 @@ fun DebugScreen(
                             modifier =
                                 Modifier
                                     .fillMaxSize()
-                                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
+                                    .padding(start = 16.dp, end = 16.dp, top = 16.dp),
                         ) {
                             AdaptiveLearnerDebugSection(
-                                snapshot = learnerSnapshot,
-                                events = learningEvents,
-                                logEnabled = logEnabled,
+                                state =
+                                    AdaptiveLearnerDebugState(
+                                        snapshot = learnerSnapshot,
+                                        events = learningEvents,
+                                        logEnabled = logEnabled,
+                                        shadowDiagnostics = shadowDiagnostics,
+                                        loading = learnerLoading,
+                                    ),
                                 onSetLogEnabled = viewModel::setLogEnabled,
-                                shadowDiagnostics = shadowDiagnostics,
-                                loading = learnerLoading,
                                 onRefresh = viewModel::refreshLearnerSnapshot,
+                                bottomContentPadding = scrollBottomPadding,
                             )
                         }
                     }
 
                     DebugTab.Sleep ->
-                        DebugTabScrollPane {
+                        DebugTabScrollPane(bottomContentPadding = scrollBottomPadding) {
                             SleepTestingSection(
                                 state =
                                     SleepTestingState(
@@ -223,7 +236,7 @@ fun DebugScreen(
                         }
 
                     DebugTab.Playback ->
-                        DebugTabScrollPane {
+                        DebugTabScrollPane(bottomContentPadding = scrollBottomPadding) {
                             PlaybackStateSection(
                                 episodeTitle = playerState.currentEpisode?.title,
                                 podcastTitle = playerState.currentPodcast?.title,
@@ -235,7 +248,7 @@ fun DebugScreen(
                         }
 
                     DebugTab.Database ->
-                        DebugTabScrollPane {
+                        DebugTabScrollPane(bottomContentPadding = scrollBottomPadding) {
                             DbInspectorSection(
                                 history = history,
                                 podcasts = podcasts,
@@ -244,7 +257,7 @@ fun DebugScreen(
                         }
 
                     DebugTab.Flags ->
-                        DebugTabScrollPane {
+                        DebugTabScrollPane(bottomContentPadding = scrollBottomPadding) {
                             FlagsCacheSection(
                                 onResetFeatureFlag = viewModel::resetFeatureFlag,
                                 onClearDismissedCuriosities = viewModel::clearDismissedCuriosities,
@@ -257,10 +270,19 @@ fun DebugScreen(
 }
 
 @Composable
-private fun DebugTabScrollPane(content: @Composable () -> Unit) {
+private fun DebugTabScrollPane(
+    bottomContentPadding: Dp,
+    content: @Composable () -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
+        contentPadding =
+            PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = bottomContentPadding,
+            ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { content() }

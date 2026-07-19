@@ -45,7 +45,7 @@ proxy/
 admin-panel/
 telemetry-worker/
 
-# Hosting site lives in private repo ashwkun/aswin-cx (local docs/web may remain for deploy).
+# Hosting lives in aswin.cx / ashwkun/aswin-cx — ignore any leftover local docs/web.
 # Only the web site — not the rest of docs/.
 docs/web/
 

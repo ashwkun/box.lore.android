@@ -96,6 +96,7 @@ Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 | `player_chrome_interaction` | Mini/full player or control bar action | surface:string; action:string | — | none |
 | `daily_briefing_action` | Briefing impression or interaction | action:string; region:string; date:string | content_id:string; source:string; chapter_index:int; chapter_title:string; method:string; playback_status:string; previous_region:string; episode_id:string; episode_title:string; podcast_id:string; podcast_title:string | none |
 | `home_import_banner_action` | Import banner shown/clicked/dismissed | action:string | — | none |
+| `library_history_tracking_notice` | One-time listening-history tracking reset notice shown/dismissed | action:string | — | none |
 | `android_auto_connected` | Auto session began | — | session_id:string | none |
 | `android_auto_disconnected` | Auto session ended | — | session_id:string; duration_seconds:int | none |
 | `android_auto_browse` | User browsed Auto media tree | node:string | action:string | none |

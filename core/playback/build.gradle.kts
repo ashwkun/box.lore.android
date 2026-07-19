@@ -54,6 +54,7 @@ dependencies {
     api(projects.core.network)
     api(projects.core.database)
     api(projects.core.catalog)
+    api(projects.core.domain)
     implementation(projects.core.downloads)
     // SmartQueueEngine / MixtapeEngine score via ranking (no longer re-exported by catalog).
     implementation(projects.core.ranking)

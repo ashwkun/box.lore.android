@@ -12,10 +12,12 @@ Short entrypoint for Cursor / Codex / cloud agents. Prefer this over long essays
 - Commit / push / open a PR **only when the user asks**. Conventional Commits titles.
 - Every PR needs **exactly one** user-impact label (`user-impact-high|medium|low` or `no-user-impact`); optional `backend-change`. Changelog / README upcoming workflows depend on these — see [`.cursor/rules/pr-impact-labels.mdc`](.cursor/rules/pr-impact-labels.mdc).
 - Merge via **Merge when ready** (merge queue). Unit suite runs there; use `[skip unit]` / `[skip changelog]` only when appropriate. No `merge-ci`.
-- Zero open SonarCloud issues; resolve all CodeRabbit review threads before merge.
+- SonarCloud: **0 new-code issues** (quality gate must fail if any new issue). Resolve all CodeRabbit review threads before merge.
 - Never commit secrets (`local.properties`, `.env`, keystores, `google-services.json`).
 - Do **not** hand-edit `CHANGELOG.md` or README Upcoming — `changelog-on-merge` owns that.
 - **boxlore-only:** do not change other `boxcreate` repos or org-wide bot settings unless asked. Keep proxy/backend internals out of public Android PR text.
+- Product name in user-facing copy is **boxlore** (all lowercase), not “Boxlore” / “BoxLore”.
+- Cards / panels: solid Material 3 surfaces only — no glassmorphism / translucent card backgrounds.
 
 ## Source of truth (priority order)
 

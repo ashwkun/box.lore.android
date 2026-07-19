@@ -15,10 +15,15 @@ import cx.aswin.boxlore.core.playback.PlaybackQueueCoordinator
 import cx.aswin.boxlore.core.playback.PlaybackSkipPolicy
 import cx.aswin.boxlore.core.playback.PlaybackTransportHelper
 import cx.aswin.boxlore.core.catalog.ports.ListeningHistoryBackupPort
+import cx.aswin.boxlore.core.domain.ports.ListeningHistoryPort
 import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.playback.service.BoxLorePlaybackService
 import cx.aswin.boxlore.core.model.AutoTranscriptState
 import cx.aswin.boxlore.core.model.Episode
+import cx.aswin.boxlore.core.model.ListeningHistoryItem
+import cx.aswin.boxlore.core.model.ListeningHistoryRemoval
+import cx.aswin.boxlore.core.model.ListeningInsightSummary
+import cx.aswin.boxlore.core.model.ListeningPeriod
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
@@ -88,11 +93,12 @@ object PlaybackLifecycleSignals {
 class PlaybackRepository(
     private val context: Context,
     private val listeningHistoryDao: cx.aswin.boxlore.core.database.ListeningHistoryDao,
+    private val listeningInsightsDao: cx.aswin.boxlore.core.database.ListeningInsightsDao,
     private val queueRepository: cx.aswin.boxlore.core.playback.QueueRepository,
     private val podcastRepository: PodcastRepository,
     private val rankingFeedbackRepository: RankingFeedbackRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-) : ListeningHistoryBackupPort {
+) : ListeningHistoryBackupPort, ListeningHistoryPort {
     /** Nested alias so existing `PlaybackRepository.RemovedQueueItem` call sites keep compiling. */
     typealias RemovedQueueItem = cx.aswin.boxlore.core.playback.RemovedQueueItem
 
@@ -156,6 +162,7 @@ class PlaybackRepository(
             playerState = playerState,
             playerStateFlow = _playerState,
             listeningHistoryDao = listeningHistoryDao,
+            listeningInsightsDao = listeningInsightsDao,
             podcastRepository = podcastRepository,
             rankingFeedbackRepository = rankingFeedbackRepository,
         )
@@ -903,9 +910,24 @@ class PlaybackRepository(
         historyStore.upsertHistoryEntity(entity)
     }
 
-    suspend fun removeHistoryItem(episodeId: String) = historyStore.removeHistoryItem(episodeId)
+    override fun observeHistoryTimeline(): Flow<List<ListeningHistoryItem>> =
+        historyStore.observeHistoryTimeline()
 
-    suspend fun clearHistory() = historyStore.clearHistory()
+    override fun observeInsights(period: ListeningPeriod): Flow<ListeningInsightSummary> =
+        historyStore.observeInsights(period)
+
+    override suspend fun removeHistoryItem(episodeId: String): ListeningHistoryRemoval? =
+        historyStore.removeHistoryItem(episodeId)
+
+    override suspend fun restoreHistoryRemoval(removal: ListeningHistoryRemoval) =
+        historyStore.restoreHistoryRemoval(removal)
+
+    override suspend fun clearHistory() = historyStore.clearHistory()
+
+    override suspend fun maintainListeningAnalytics() = historyStore.maintainListeningAnalytics()
+
+    suspend fun recordListeningSession(session: cx.aswin.boxlore.core.database.ListeningSessionEntity) =
+        historyStore.recordListeningSession(session)
 
     suspend fun toggleLike(
         episode: Episode,

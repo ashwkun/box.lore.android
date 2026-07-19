@@ -108,6 +108,13 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
+    fun trackLibraryHistoryTrackingNotice(action: String) {
+        AnalyticsEmit.event(
+            "library_history_tracking_notice",
+            mapOf("action" to action),
+        )
+    }
+
     fun trackTopControlbarInteraction(action: String, screen: String) {
         AnalyticsEmit.event(
             "player_chrome_interaction",

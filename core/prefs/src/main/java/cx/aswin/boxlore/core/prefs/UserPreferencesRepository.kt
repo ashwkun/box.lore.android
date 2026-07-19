@@ -403,6 +403,8 @@ class UserPreferencesRepository(context: Context) {
         val HAS_SEEN_TITLE_TAP_TIP = androidx.datastore.preferences.core.booleanPreferencesKey("has_seen_title_tap_tip")
         val HAS_SEEN_SWIPE_MINIMIZE_TIP = androidx.datastore.preferences.core.booleanPreferencesKey("has_seen_swipe_minimize_tip")
         val HAS_SEEN_MARK_PLAYED_TIP = androidx.datastore.preferences.core.booleanPreferencesKey("has_seen_mark_played_tip")
+        val HAS_SEEN_LISTENING_HISTORY_TRACKING_NOTICE =
+            androidx.datastore.preferences.core.booleanPreferencesKey("has_seen_listening_history_tracking_notice")
     }
 
     val hasSeenSwipeDismissTip: Flow<Boolean> = dataStore.data
@@ -439,6 +441,15 @@ class UserPreferencesRepository(context: Context) {
 
     suspend fun markMarkPlayedTipSeen() {
         dataStore.edit { it[TooltipKeys.HAS_SEEN_MARK_PLAYED_TIP] = true }
+    }
+
+    val hasSeenListeningHistoryTrackingNotice: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[TooltipKeys.HAS_SEEN_LISTENING_HISTORY_TRACKING_NOTICE] ?: false }
+        .distinctUntilChanged()
+
+    suspend fun markListeningHistoryTrackingNoticeSeen() {
+        dataStore.edit { it[TooltipKeys.HAS_SEEN_LISTENING_HISTORY_TRACKING_NOTICE] = true }
     }
 
     // ANALYTICS & REVIEW KEYS

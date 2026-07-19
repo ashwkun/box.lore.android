@@ -19,6 +19,11 @@ android {
     defaultConfig {
         minSdk = 31
     }
+
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+        arg("room.incremental", "true")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -59,4 +64,5 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation("androidx.test:core:1.6.1")
+    testImplementation(libs.androidx.room.testing)
 }

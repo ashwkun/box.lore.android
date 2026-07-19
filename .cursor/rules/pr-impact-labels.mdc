@@ -39,7 +39,7 @@ Master is protected by a **merge queue** ruleset. Required checks:
 | Check | Meaning |
 |:--|:--|
 | `testDebugUnitTest` | Full unit / static / Kover / Roborazzi gate (runs in merge queue) |
-| `SonarCloud Code Analysis` | SonarCloud quality gate must pass (aim: zero open issues) |
+| `SonarCloud Code Analysis` | SonarCloud quality gate must pass (**0 new-code issues**) |
 | `CodeRabbit` | CodeRabbit review green; resolve all review threads |
 
 Agent / maintainer flow:

@@ -124,6 +124,7 @@ class AppContainer(
         PlaybackRepository(
             context = appContext,
             listeningHistoryDao = database.listeningHistoryDao(),
+            listeningInsightsDao = database.listeningInsightsDao(),
             queueRepository = queueRepository,
             podcastRepository = podcastRepository,
             rankingFeedbackRepository = rankingFeedbackRepository,

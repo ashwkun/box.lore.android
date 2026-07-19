@@ -470,6 +470,7 @@ object AnalyticsHelper : Analytics {
     fun trackLibraryDownloadsSession(timeSpentSeconds: Float, episodesClickedCount: Int, episodesDeletedCount: Int) = LibraryAnalyticsTracks.trackLibraryDownloadsSession(timeSpentSeconds, episodesClickedCount, episodesDeletedCount)
     fun trackLibraryHistoryViewed(sourceEntryPoint: String) = LibraryAnalyticsTracks.trackLibraryHistoryViewed(sourceEntryPoint)
     fun trackLibraryHistorySession(timeSpentSeconds: Float, episodesClickedCount: Int, itemsDeletedCount: Int) = LibraryAnalyticsTracks.trackLibraryHistorySession(timeSpentSeconds, episodesClickedCount, itemsDeletedCount)
+    fun trackLibraryHistoryTrackingNotice(action: String) = LibraryAnalyticsTracks.trackLibraryHistoryTrackingNotice(action)
     fun trackTopControlbarInteraction(action: String, screen: String) = LibraryAnalyticsTracks.trackTopControlbarInteraction(action, screen)
     fun trackSettingsScreenViewed(sourceEntryPoint: String) = LibraryAnalyticsTracks.trackSettingsScreenViewed(sourceEntryPoint)
     fun trackSettingsInteraction(action: String, value: String? = null) = LibraryAnalyticsTracks.trackSettingsInteraction(action, value)

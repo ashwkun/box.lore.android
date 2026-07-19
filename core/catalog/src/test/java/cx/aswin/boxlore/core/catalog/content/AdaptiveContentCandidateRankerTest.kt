@@ -5,7 +5,10 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
+import cx.aswin.boxlore.core.ranking.CandidateFeatureBuilder
+import cx.aswin.boxlore.core.ranking.CandidateSignals
 import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.RankingExposure
 import cx.aswin.boxlore.core.ranking.RankingObjective
 import cx.aswin.boxlore.core.ranking.RankingRuntimeControls
 import cx.aswin.boxlore.core.ranking.RankingSurface
@@ -25,6 +28,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class AdaptiveContentCandidateRankerTest {
     private lateinit var database: AdaptiveRankingDatabase
+    private lateinit var rankingRepository: AdaptiveRankingRepository
     private lateinit var scorer: AdaptiveCandidateScorer
 
     @Before
@@ -40,9 +44,10 @@ class AdaptiveContentCandidateRankerTest {
                 .inMemoryDatabaseBuilder(context, AdaptiveRankingDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
+        rankingRepository = AdaptiveRankingRepository.create(context, database)
         scorer =
             AdaptiveCandidateScorer.create(
-                rankingRepository = AdaptiveRankingRepository.create(context, database),
+                rankingRepository = rankingRepository,
                 runtimeControls = RankingRuntimeControls.create(context),
             )
     }
@@ -154,5 +159,51 @@ class AdaptiveContentCandidateRankerTest {
                 )
             val ranked = ranker.rank(candidates, intent(), context())
             assertEquals(2, ranked.size)
+        }
+
+    @Test
+    fun positiveResolvesRaiseLikedCandidateAboveEqualPriorPeer() =
+        runTest {
+            val likedFeatures =
+                CandidateFeatureBuilder.build(CandidateSignals(showAffinity = 1.0))
+            val objective = RankingObjective.YOUR_SHOWS
+            repeat(60) { index ->
+                val exposureId =
+                    rankingRepository.recordExposure(
+                        RankingExposure(
+                            episodeId = "train-$index",
+                            podcastId = "pod-e1",
+                            objective = objective,
+                            surface = RankingSurface.HOME,
+                            source = CandidateSource.SERVER_RECOMMENDATION,
+                            features = likedFeatures,
+                            entryPoint = "home",
+                            online = true,
+                            shownAt = index.toLong(),
+                        ),
+                    )
+                assertTrue(rankingRepository.resolveExposure(exposureId, reward = 1.0))
+            }
+            rankingRepository.updateFacet(
+                cx.aswin.boxlore.core.ranking.PreferenceFacetType.SHOW,
+                "pod-e1",
+                reward = 1.0,
+            )
+
+            val yourShowsIntent =
+                intent().copy(id = "your-shows", objective = objective, title = "Your shows")
+            val ranker = AdaptiveContentCandidateRanker(scorer) { emptyList() }
+            val ranked =
+                ranker.rank(
+                    listOf(
+                        episodeCandidate("e1", 0.5),
+                        episodeCandidate("e2", 0.5),
+                    ),
+                    yourShowsIntent,
+                    context(),
+                )
+
+            assertEquals(listOf("e1", "e2"), ranked.map(ContentCandidate::id))
+            assertTrue(ranked[0].rankingScore > ranked[1].rankingScore)
         }
 }

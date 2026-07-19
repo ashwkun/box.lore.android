@@ -11,17 +11,20 @@ import cx.aswin.boxlore.core.database.dao.QueueDao
 @Database(
     entities = [
         ListeningHistoryEntity::class,
+        ListeningSessionEntity::class,
+        ListeningRollupEntity::class,
         PodcastEntity::class,
         DownloadedEpisodeEntity::class,
         QueueItem::class,
         RssEpisodeEntity::class,
     ],
-    version = 29,
-    exportSchema = false
+    version = 30,
+    exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class BoxLoreDatabase : RoomDatabase() {
     abstract fun listeningHistoryDao(): ListeningHistoryDao
+    abstract fun listeningInsightsDao(): ListeningInsightsDao
     abstract fun podcastDao(): PodcastDao
     abstract fun rssEpisodeDao(): RssEpisodeDao
     abstract fun downloadedEpisodeDao(): DownloadedEpisodeDao
@@ -182,6 +185,12 @@ abstract class BoxLoreDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BoxLoreDatabaseMigrations.migrate29To30(db)
+            }
+        }
+
         @Volatile
         private var INSTANCE: BoxLoreDatabase? = null
 
@@ -241,6 +250,7 @@ abstract class BoxLoreDatabase : RoomDatabase() {
                     MIGRATION_26_27,
                     MIGRATION_27_28,
                     MIGRATION_28_29,
+                    MIGRATION_29_30,
                 )
                 .fallbackToDestructiveMigration(dropAllTables = true) // For development simplicity on older versions
                 .build()

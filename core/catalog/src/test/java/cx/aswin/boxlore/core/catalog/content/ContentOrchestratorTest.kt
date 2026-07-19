@@ -202,6 +202,108 @@ class ContentOrchestratorTest {
         }
 
     @Test
+    fun `daypart refresh policy invalidates slate when daypart changes`() =
+        runTest {
+            var calls = 0
+            val daypartIntent = intent("daypart", refreshPolicy = ContentRefreshPolicy.DAYPART)
+            val daypartCatalog =
+                ContentCatalogSnapshot(
+                    schemaVersion = 1,
+                    catalogVersion = "daypart-test",
+                    validUntil = Long.MAX_VALUE,
+                    intents = listOf(daypartIntent),
+                )
+            val orchestrator =
+                ContentOrchestrator(
+                    providers =
+                        listOf(
+                            provider(CandidateSource.TRENDING) {
+                                calls++
+                                listOf(candidate("episode-$calls", "show-$calls", score = 1.0))
+                            },
+                        ),
+                    ranker = ContentCandidateRanker { candidates, _, _ -> candidates },
+                )
+
+            val morning = orchestrator.compose(context(ContentDaypart.MORNING), daypartCatalog, now = 1)
+            val morningCached =
+                orchestrator.compose(context(ContentDaypart.MORNING), daypartCatalog, now = 1)
+            val afternoon =
+                orchestrator.compose(context(ContentDaypart.AFTERNOON), daypartCatalog, now = 1)
+
+            assertSame(morning, morningCached)
+            assertNotSame(morning, afternoon)
+            assertEquals(2, calls)
+        }
+
+    @Test
+    fun `resolver keeps only daypart-and-surface eligible intents`() {
+        val morningOnly =
+            intent("morning").copy(eligibleDayparts = setOf(ContentDaypart.MORNING))
+        val eveningOnly =
+            intent("evening").copy(eligibleDayparts = setOf(ContentDaypart.EVENING))
+        val exploreOnly =
+            intent("explore").copy(
+                eligibleSurfaces = setOf(RankingSurface.EXPLORE),
+                eligibleDayparts = setOf(ContentDaypart.MORNING),
+            )
+        val catalog =
+            ContentCatalogSnapshot(
+                schemaVersion = 1,
+                catalogVersion = "eligible-test",
+                validUntil = Long.MAX_VALUE,
+                intents = listOf(morningOnly, eveningOnly, exploreOnly),
+            )
+
+        val (_, intents) =
+            ContentIntentResolver().resolve(
+                catalog,
+                context(ContentDaypart.MORNING),
+                now = 1,
+            )
+
+        assertEquals(listOf("morning"), intents.map(ContentIntent::id))
+    }
+
+    @Test
+    fun `force refresh without budget reset drops previously composed ids`() =
+        runTest {
+            var calls = 0
+            val orchestrator =
+                ContentOrchestrator(
+                    providers =
+                        listOf(
+                            provider(CandidateSource.TRENDING) {
+                                calls++
+                                listOf(
+                                    candidate("episode-a", "show-a", score = 1.0),
+                                    candidate("episode-b", "show-b", score = 0.9),
+                                )
+                            },
+                        ),
+                    ranker = ContentCandidateRanker { candidates, _, _ -> candidates },
+                )
+
+            val first = orchestrator.compose(context(), catalog(), forceRefresh = true, now = 1)
+            val second = orchestrator.compose(context(), catalog(), forceRefresh = true, now = 2)
+
+            assertEquals(
+                listOf("episode-a", "episode-b"),
+                first.sections.single().items.map(ContentCandidate::id),
+            )
+            assertTrue(second.sections.isEmpty())
+            assertEquals(2, calls)
+
+            orchestrator.resetExposureBudget()
+            val third = orchestrator.compose(context(), catalog(), forceRefresh = true, now = 3)
+
+            assertEquals(
+                listOf("episode-a", "episode-b"),
+                third.sections.single().items.map(ContentCandidate::id),
+            )
+        }
+
+    @Test
     fun `recommendation v2 request excludes raw behavioral history`() {
         val request =
             RecommendationsV2Request(
@@ -263,12 +365,12 @@ class ContentOrchestratorTest {
             protected = protected,
         )
 
-    private fun context(): ContentContext =
+    private fun context(daypart: ContentDaypart = ContentDaypart.MORNING): ContentContext =
         ContentContext(
             surface = RankingSurface.HOME,
             localMinuteOfDay = 600,
             weekday = 3,
-            daypart = ContentDaypart.MORNING,
+            daypart = daypart,
             region = "us",
             isDriving = false,
             isOnline = true,

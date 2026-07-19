@@ -31,7 +31,7 @@ src/main/java/cx/aswin/boxlore/feature/library/
 ## Dependencies
 
 - Project dependencies: `:core:model`, `:core:catalog`, `:core:downloads`, `:core:playback`, `:core:designsystem`, `:core:analytics`, and `:core:ranking`.
-- Libraries: Compose, Navigation, Activity Compose, lifecycle ViewModel/runtime, Coil, Material adaptive, Espresso/JUnit for Android tests, and Turbine for JVM tests.
+- Libraries: Compose, Navigation, Activity Compose, lifecycle ViewModel/runtime, Coil, Material adaptive, Turbine / JUnit for JVM tests.
 - Reverse-edge rule: feature modules must not depend on other feature modules or create local repository graphs.
 
 ## Threading / lifecycle

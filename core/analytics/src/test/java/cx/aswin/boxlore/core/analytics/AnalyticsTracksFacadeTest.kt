@@ -282,13 +282,17 @@ class AnalyticsTracksFacadeTest {
         AnalyticsHelper.trackLibraryDownloadsSession(10f, 1, 2)
         AnalyticsHelper.trackLibraryHistoryViewed("nav")
         AnalyticsHelper.trackLibraryHistorySession(10f, 1, 2)
+        AnalyticsHelper.trackLibraryHistoryTrackingNotice("shown")
+        AnalyticsHelper.trackLibraryHistoryTrackingNotice("dismissed")
         AnalyticsHelper.trackLibrarySubscriptionsLayoutToggled(true)
         AnalyticsHelper.trackLibrarySubscriptionsLayoutToggled(false)
         AnalyticsHelper.trackLibrarySubscriptionsSortChanged("recent", "shows")
         AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered("News", "shows")
 
         assertTrue("library_destination_viewed" in names())
+        assertTrue("library_history_tracking_notice" in names())
         assertEquals(16, names().count { it == "library_destination_viewed" })
+        assertEquals(2, names().count { it == "library_history_tracking_notice" })
     }
 
     @Test

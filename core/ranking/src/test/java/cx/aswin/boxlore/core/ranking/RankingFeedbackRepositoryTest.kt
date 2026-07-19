@@ -170,6 +170,40 @@ class RankingFeedbackRepositoryTest {
         }
 
     @Test
+    fun recordPlaybackMeaningfulProgressRatioLearnsWithoutSixtySeconds() =
+        runTest {
+            feedback.recordExposure(exposureFor("ep-ratio", podcastId = "pod-ratio"))
+
+            feedback.recordPlayback(
+                target = FeedbackTarget(episodeId = "ep-ratio", podcastId = "pod-ratio"),
+                listenSeconds = 30,
+                durationSeconds = 100,
+                completed = false,
+                earlySkip = false,
+            )
+
+            assertEquals(1, database.adaptiveRankingDao().getAllExposures().count { it.resolvedAt != null })
+            assertTrue(adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-ratio") > 0.0)
+        }
+
+    @Test
+    fun recordPlaybackBelowProgressRatioAndSecondsIsNoOp() =
+        runTest {
+            feedback.recordExposure(exposureFor("ep-shallow", podcastId = "pod-shallow"))
+
+            feedback.recordPlayback(
+                target = FeedbackTarget(episodeId = "ep-shallow", podcastId = "pod-shallow"),
+                listenSeconds = 10,
+                durationSeconds = 100,
+                completed = false,
+                earlySkip = false,
+            )
+
+            assertEquals(0, database.adaptiveRankingDao().getAllExposures().count { it.resolvedAt != null })
+            assertEquals(0.0, adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-shallow"), 0.0)
+        }
+
+    @Test
     fun recordPlaybackCompletedResolvesExposure() =
         runTest {
             feedback.recordExposure(exposureFor("ep-6", podcastId = "pod-9"))

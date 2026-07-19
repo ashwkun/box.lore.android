@@ -3,8 +3,10 @@ package cx.aswin.boxlore.core.ranking
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import cx.aswin.boxlore.core.ranking.database.AdaptiveModelEntity
 import cx.aswin.boxlore.core.ranking.database.AdaptiveRankingDatabase
 import cx.aswin.boxlore.core.ranking.database.PreferenceFacetEntity
+import cx.aswin.boxlore.core.ranking.database.RankingExposureEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -377,5 +379,100 @@ class AdaptiveRankingRepositoryTest {
             assertEquals(1, snapshot.resolvedExposureCount)
             assertEquals(0, snapshot.pendingExposureCount)
             assertTrue(snapshot.facets.any { it.type == PreferenceFacetType.GENRE })
+        }
+
+    @Test
+    fun resolveExposureRejectsMismatchedFeatureSchema() =
+        runTest {
+            val features = features(showAffinity = 1.0)
+            database.adaptiveRankingDao().insertExposure(
+                RankingExposureEntity(
+                    exposureId = "stale-schema",
+                    episodeId = "ep-stale",
+                    podcastId = "pod-1",
+                    objective = RankingObjective.DISCOVERY.name,
+                    surface = RankingSurface.HOME.name,
+                    source = CandidateSource.SERVER_RECOMMENDATION.name,
+                    featureSchemaVersion = RankingFeatureSchema.VERSION - 1,
+                    featureVector = RankingSerialization.encode(features.values),
+                    shownAt = 1_000L,
+                    resolvedAt = null,
+                    reward = null,
+                    listenSeconds = 0,
+                    entryPoint = "home",
+                    online = true,
+                ),
+            )
+
+            assertFalse(repository.resolveExposure("stale-schema", reward = 1.0))
+            assertNull(database.adaptiveRankingDao().getExposure("stale-schema")!!.resolvedAt)
+            assertNull(database.adaptiveRankingDao().getModel(RankingObjective.DISCOVERY.name))
+        }
+
+    @Test
+    fun scoreDiscardsIncompatiblePersistedModel() =
+        runTest {
+            val cold = AdaptiveModelState()
+            database.adaptiveRankingDao().upsertModel(
+                AdaptiveModelEntity(
+                    objective = RankingObjective.DISCOVERY.name,
+                    featureSchemaVersion = RankingFeatureSchema.VERSION + 1,
+                    dimension = cold.dimension,
+                    covariance = RankingSerialization.encode(cold.covariance),
+                    inverseCovariance = RankingSerialization.encode(cold.inverseCovariance),
+                    rewardVector = RankingSerialization.encode(cold.rewardVector),
+                    updateCount = 99,
+                    updatedAt = 1_000L,
+                ),
+            )
+
+            val score = repository.score(RankingObjective.DISCOVERY, features(), priorScore = 0.4)
+
+            assertEquals(0.4, score.finalScore, 1e-9)
+            assertEquals(0.0, score.learnedBlend, 0.0)
+            assertEquals(0L, score.updateCount)
+        }
+
+    @Test
+    fun resolveThenRescorePrefersTrainedFeaturePattern() =
+        runTest {
+            val liked = CandidateFeatureBuilder.build(CandidateSignals(showAffinity = 1.0))
+            val other = CandidateFeatureBuilder.build(CandidateSignals(showAffinity = 0.0))
+            val prior = 0.5
+            val objective = RankingObjective.YOUR_SHOWS
+
+            assertEquals(
+                repository.score(objective, liked, prior).finalScore,
+                repository.score(objective, other, prior).finalScore,
+                1e-9,
+            )
+
+            repeat(60) { index ->
+                val id =
+                    repository.recordExposure(
+                        RankingExposure(
+                            episodeId = "train-$index",
+                            podcastId = "pod-liked",
+                            objective = objective,
+                            surface = RankingSurface.HOME,
+                            source = CandidateSource.SERVER_RECOMMENDATION,
+                            features = liked,
+                            entryPoint = "home",
+                            online = true,
+                            shownAt = index.toLong(),
+                        ),
+                    )
+                assertTrue(repository.resolveExposure(id, reward = 1.0, listenSeconds = 120))
+            }
+
+            val likedScore = repository.score(objective, liked, prior)
+            val otherScore = repository.score(objective, other, prior)
+
+            assertTrue(likedScore.learnedBlend > 0.0)
+            assertTrue(likedScore.updateCount >= 50L)
+            assertTrue(
+                "liked=${likedScore.finalScore} other=${otherScore.finalScore}",
+                likedScore.finalScore > otherScore.finalScore,
+            )
         }
 }

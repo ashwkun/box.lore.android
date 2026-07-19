@@ -78,6 +78,7 @@ object AnalyticsGlossary {
         "player_chrome_interaction",
         "daily_briefing_action",
         "home_import_banner_action",
+        "library_history_tracking_notice",
     )
 
     /** Phase C (Auto + polish) — shipped PR9. */

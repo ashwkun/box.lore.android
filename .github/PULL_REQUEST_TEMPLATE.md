@@ -17,7 +17,7 @@ Unit tests, detekt, ktlint, Roborazzi, and the Kover coverage gate run **only in
 Master uses a **merge queue**. Required checks before merge:
 
 1. **`testDebugUnitTest`** — runs when the PR enters the merge queue (put `[skip unit]` in the PR title to no-op for safe docs/chore only; check still reports green)
-2. **`SonarCloud Code Analysis`** — quality gate must pass (aim: zero open issues)
+2. **`SonarCloud Code Analysis`** — quality gate must pass (**0 new-code issues**)
 3. **`CodeRabbit`** — review must be green; resolve all review threads
 
 1. Open the PR and iterate as usual (Sonar + CodeRabbit still run).

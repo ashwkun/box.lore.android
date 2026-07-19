@@ -193,6 +193,7 @@ internal fun androidx.navigation.NavGraphBuilder.addDebugDestination(w: NavGraph
             subscriptionRepository = subscriptionRepository,
             userPreferencesRepository = userPrefs,
             adaptiveRankingRepository = container.adaptiveRankingRepository,
+            bottomContentPadding = w.session.miniPlayerPadding,
             onBack = { navController.popBackStack() },
         )
     }
@@ -243,24 +244,32 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
             factory = object : androidx.lifecycle.ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.HistoryViewModel(playbackRepository) as T
+                    cx.aswin.boxlore.feature.library.HistoryViewModel(
+                        playbackRepository,
+                        userPrefs,
+                    ) as T
             },
         )
         cx.aswin.boxlore.feature.library.HistoryScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
-            onEpisodeClick = { entity ->
+            onEpisodeClick = { item ->
                 fun encode(s: String?) = android.net.Uri.encode(s?.ifEmpty { "_" } ?: "_")
                 val desc = "Resuming from History"
                 navController.navigate(
-                    "episode/${entity.episodeId}/${encode(entity.episodeTitle)}/" +
+                    "episode/${item.episodeId}/${encode(item.episodeTitle)}/" +
                         "${encode(desc)}/" +
-                        "${encode(entity.episodeImageUrl ?: entity.podcastImageUrl)}/" +
-                        "${encode(entity.episodeAudioUrl)}/" +
-                        "${entity.durationMs}/${encode(entity.podcastId)}/" +
-                        "${encode(entity.podcastName)}" +
+                        "${encode(item.episodeImageUrl ?: item.podcastImageUrl)}/" +
+                        "${encode(item.episodeAudioUrl)}/" +
+                        "${item.durationMs}/${encode(item.podcastId)}/" +
+                        "${encode(item.podcastName)}" +
                         "?entryPoint=library_history",
                 )
+            },
+            onExploreClick = {
+                navController.navigate("explore?entryPoint=library_history_empty_state") {
+                    popUpTo("home")
+                }
             },
         )
     }
