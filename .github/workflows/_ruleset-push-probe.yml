@@ -1,0 +1,30 @@
+# Temporary probe — delete after verifying ruleset allows github-actions[bot] pushes.
+name: Ruleset Push Probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Attempt GITHUB_TOKEN push to master
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          date -u +'%Y-%m-%dT%H:%M:%SZ' > .github/ruleset-push-probe.txt
+          git add .github/ruleset-push-probe.txt
+          git commit -m "chore: ruleset push probe [skip ci]"
+          if git push origin master; then
+            echo "PROBE_RESULT=success" >> "$GITHUB_STEP_SUMMARY"
+            echo "GITHUB_TOKEN push to master SUCCEEDED"
+          else
+            echo "PROBE_RESULT=failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "GITHUB_TOKEN push to master FAILED"
+            exit 1
+          fi
