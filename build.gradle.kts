@@ -120,9 +120,10 @@ kover {
         }
         variant("merged") {
             verify {
-                // Max-coverage ratchet: 40 → 55 → 70 → 80 (see docs/TESTING.md).
+                // Max-coverage ratchet: 40 → 45 → 55 → 70 → 80 (see docs/TESTING.md).
+                // Measured ≈47.9% with current hermetic suites; lock 45 with headroom.
                 rule("Merged line coverage (max-coverage gated modules)") {
-                    minBound(40)
+                    minBound(45)
                 }
             }
         }
