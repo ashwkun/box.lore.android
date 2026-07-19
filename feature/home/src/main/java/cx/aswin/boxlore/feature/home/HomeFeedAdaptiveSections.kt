@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
@@ -14,6 +13,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -74,6 +74,8 @@ internal fun LazyStaggeredGridScope.adaptiveSectionItem(
         key = "adaptive_${section.stableId}",
         contentType = "adaptive_section",
     ) {
+        // Saveable row state (keyed by stableId) restores horizontal scroll without pinning
+        // every adaptive rail in composition while the outer grid recycles items.
         AdaptiveSectionContent(
             section = section,
             gridState = gridState,
@@ -96,7 +98,10 @@ internal fun AdaptiveSectionContent(
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
 ) {
-    val rowState = rememberLazyListState()
+    val rowState =
+        rememberSaveable(section.stableId, saver = LazyListState.Saver) {
+            LazyListState()
+        }
     AdaptiveSectionVisibilityEffect(
         section = section,
         gridState = gridState,

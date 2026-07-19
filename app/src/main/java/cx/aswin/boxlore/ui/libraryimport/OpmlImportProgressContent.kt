@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,39 +52,43 @@ import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 
 private val ImportCorner = RoundedCornerShape(24.dp)
 
-internal fun contentKeyFor(state: OpmlImportState): String = when (state) {
-    OpmlImportState.Idle -> "idle"
-    OpmlImportState.ShowSelector -> "selector"
-    OpmlImportState.ImportingJson -> "importing_json"
-    is OpmlImportState.Parsing -> "parsing"
-    is OpmlImportState.Importing -> "importing"
-    is OpmlImportState.AskCompleted -> "ask"
-    is OpmlImportState.Completing -> "completing"
-    is OpmlImportState.Success -> "success"
-    is OpmlImportState.Error -> "error"
-}
+internal fun contentKeyFor(state: OpmlImportState): String =
+    when (state) {
+        OpmlImportState.Idle -> "idle"
+        OpmlImportState.ShowSelector -> "selector"
+        OpmlImportState.ImportingJson -> "importing_json"
+        is OpmlImportState.Parsing -> "parsing"
+        is OpmlImportState.Importing -> "importing"
+        is OpmlImportState.AskCompleted -> "ask"
+        is OpmlImportState.Completing -> "completing"
+        is OpmlImportState.Success -> "success"
+        is OpmlImportState.Error -> "error"
+    }
 
-internal fun heroVisualFor(state: OpmlImportState): ImportHeroVisual? = when (state) {
-    OpmlImportState.ImportingJson,
-    is OpmlImportState.Parsing -> ImportHeroVisual.Indeterminate
-    is OpmlImportState.Importing -> ImportHeroVisual.Progress(state.progress.coerceIn(0f, 1f))
-    is OpmlImportState.Completing -> ImportHeroVisual.Progress(state.progress.coerceIn(0f, 1f))
-    is OpmlImportState.Success -> ImportHeroVisual.Complete
-    else -> null
-}
+internal fun heroVisualFor(state: OpmlImportState): ImportHeroVisual? =
+    when (state) {
+        OpmlImportState.ImportingJson,
+        is OpmlImportState.Parsing,
+        -> ImportHeroVisual.Indeterminate
+        is OpmlImportState.Importing -> ImportHeroVisual.Progress(state.progress.coerceIn(0f, 1f))
+        is OpmlImportState.Completing -> ImportHeroVisual.Progress(state.progress.coerceIn(0f, 1f))
+        is OpmlImportState.Success -> ImportHeroVisual.Complete
+        else -> null
+    }
 
 @Composable
 internal fun ProgressFlowScaffold(
     hero: ImportHeroVisual,
     state: OpmlImportState,
-    onDone: () -> Unit
+    onDone: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 40.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(top = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         ImportStatusHero(visual = hero)
         Spacer(modifier = Modifier.height(28.dp))
@@ -97,35 +100,40 @@ internal fun ProgressFlowScaffold(
                     fadeOut(tween(160))
             },
             contentKey = { contentKeyFor(it) },
-            label = "import_progress_copy"
+            label = "import_progress_copy",
         ) { current ->
             when (current) {
-                OpmlImportState.ImportingJson -> ProgressCopy(
-                    title = "Restoring backup",
-                    subtitle = "Bringing in shows and playback history"
-                )
+                OpmlImportState.ImportingJson ->
+                    ProgressCopy(
+                        title = "Restoring backup",
+                        subtitle = "Bringing in shows and playback history",
+                    )
 
-                is OpmlImportState.Parsing -> ProgressCopy(
-                    title = "Reading OPML",
-                    subtitle = "Finding podcast feeds in your file"
-                )
+                is OpmlImportState.Parsing ->
+                    ProgressCopy(
+                        title = "Reading OPML",
+                        subtitle = "Finding podcast feeds in your file",
+                    )
 
-                is OpmlImportState.Importing -> ProgressCopy(
-                    title = "Importing podcasts",
-                    subtitle = "Subscribing ${current.currentCount + 1} of ${current.totalCount}",
-                    detail = current.currentFeedTitle
-                )
+                is OpmlImportState.Importing ->
+                    ProgressCopy(
+                        title = "Importing podcasts",
+                        subtitle = "Subscribing ${current.currentCount + 1} of ${current.totalCount}",
+                        detail = current.currentFeedTitle,
+                    )
 
-                is OpmlImportState.Completing -> ProgressCopy(
-                    title = "Marking history played",
-                    subtitle = "Catching up past episodes on selected shows",
-                    detail = current.currentShowTitle
-                )
+                is OpmlImportState.Completing ->
+                    ProgressCopy(
+                        title = "Marking history played",
+                        subtitle = "Catching up past episodes on selected shows",
+                        detail = current.currentShowTitle,
+                    )
 
-                is OpmlImportState.Success -> SuccessCopy(
-                    state = current,
-                    onDone = onDone
-                )
+                is OpmlImportState.Success ->
+                    SuccessCopy(
+                        state = current,
+                        onDone = onDone,
+                    )
 
                 else -> Unit
             }
@@ -137,7 +145,7 @@ internal fun ProgressFlowScaffold(
 internal fun ProgressCopy(
     title: String,
     subtitle: String,
-    detail: String? = null
+    detail: String? = null,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -145,7 +153,7 @@ internal fun ProgressCopy(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -153,7 +161,7 @@ internal fun ProgressCopy(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 20.dp)
+            modifier = Modifier.padding(horizontal = 20.dp),
         )
         if (!detail.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(28.dp))
@@ -161,7 +169,7 @@ internal fun ProgressCopy(
                 modifier = Modifier.fillMaxWidth(),
                 shape = ImportCorner,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 1.dp
+                tonalElevation = 1.dp,
             ) {
                 Text(
                     text = detail,
@@ -171,9 +179,10 @@ internal fun ProgressCopy(
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
                 )
             }
         }
@@ -183,29 +192,31 @@ internal fun ProgressCopy(
 @Composable
 internal fun SelectorContent(
     onJson: () -> Unit,
-    onOpml: () -> Unit
+    onOpml: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 40.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(top = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Box(
-            modifier = Modifier
-                .size(76.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .size(76.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.LibraryBooks,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             )
         }
 
@@ -216,7 +227,7 @@ internal fun SelectorContent(
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -224,7 +235,7 @@ internal fun SelectorContent(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 12.dp)
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
 
         Spacer(modifier = Modifier.height(36.dp))
@@ -234,7 +245,7 @@ internal fun SelectorContent(
             title = "boxlore backup",
             subtitle = "JSON restore with subscriptions, likes, and playback history",
             badge = ".json",
-            onClick = onJson
+            onClick = onJson,
         )
         Spacer(modifier = Modifier.height(12.dp))
         ImportOptionCard(
@@ -242,7 +253,7 @@ internal fun SelectorContent(
             title = "Other app export",
             subtitle = "OPML from Apple Podcasts, Spotify, Pocket Casts, and more",
             badge = ".opml",
-            onClick = onOpml
+            onClick = onOpml,
         )
     }
 }
@@ -253,36 +264,39 @@ internal fun ImportOptionCard(
     title: String,
     subtitle: String,
     badge: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = ImportCorner,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(16.dp)
-                    ),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(52.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(16.dp),
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(26.dp),
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -292,26 +306,26 @@ internal fun ImportOptionCard(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = badge,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                        modifier =
+                            Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(8.dp),
+                                ).padding(horizontal = 8.dp, vertical = 2.dp),
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -322,19 +336,20 @@ internal fun hasPostNotificationPermission(context: android.content.Context): Bo
     if (Build.VERSION.SDK_INT < 33) return true
     return ContextCompat.checkSelfPermission(
         context,
-        Manifest.permission.POST_NOTIFICATIONS
+        Manifest.permission.POST_NOTIFICATIONS,
     ) == PackageManager.PERMISSION_GRANTED
 }
 
 @Composable
 internal fun SuccessCopy(
     state: OpmlImportState.Success,
-    onDone: () -> Unit
+    onDone: () -> Unit,
 ) {
     val context = LocalContext.current
-    val showNotificationPrompt = state.isJson &&
-        state.hasNotificationsEnabled &&
-        !hasPostNotificationPermission(context)
+    val showNotificationPrompt =
+        state.isJson &&
+            state.hasNotificationsEnabled &&
+            !hasPostNotificationPermission(context)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -342,7 +357,7 @@ internal fun SuccessCopy(
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -350,7 +365,7 @@ internal fun SuccessCopy(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -364,46 +379,47 @@ internal fun SuccessCopy(
         Spacer(modifier = Modifier.height(28.dp))
         Button(
             onClick = onDone,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
         ) {
             Text(
                 text = "Continue",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
     }
 }
 
-internal fun successSubtitle(isJson: Boolean): String {
-    return if (isJson) {
+internal fun successSubtitle(isJson: Boolean): String =
+    if (isJson) {
         "Your backup is restored and ready to listen."
     } else {
         "Your shows are imported and ready to listen."
     }
-}
 
 @Composable
 internal fun ImportSuccessSummary(state: OpmlImportState.Success) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = ImportCorner,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = "Summary",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             SummaryRow(label = "Imported shows", value = "${state.importedCount}")
             if (!state.isJson && state.completedCount > 0) {
@@ -415,47 +431,52 @@ internal fun ImportSuccessSummary(state: OpmlImportState.Success) {
 
 @Composable
 internal fun ImportNotificationPermissionCard() {
-    val requestPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            AnalyticsHelper.trackNotificationPermissionDecided(granted)
-        }
-    )
+    val requestPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                AnalyticsHelper.trackNotificationPermissionDecided(granted)
+            },
+        )
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = ImportCorner,
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.error.copy(alpha = 0.28f)
-        )
+        border =
+            androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.error.copy(alpha = 0.28f),
+            ),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
                 imageVector = Icons.Rounded.NotificationsActive,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(26.dp),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Enable notifications",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error
+                color = MaterialTheme.colorScheme.error,
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "This backup includes shows with alerts or auto-downloads. Allow notifications so they can keep working in the background.",
+                text =
+                    "This backup includes shows with alerts or auto-downloads. " +
+                        "Allow notifications so they can keep working in the background.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Button(
@@ -464,10 +485,11 @@ internal fun ImportNotificationPermissionCard() {
                         requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                ),
-                shape = RoundedCornerShape(12.dp)
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text("Grant permission", color = MaterialTheme.colorScheme.onError)
             }
@@ -476,21 +498,24 @@ internal fun ImportNotificationPermissionCard() {
 }
 
 @Composable
-internal fun SummaryRow(label: String, value: String) {
+internal fun SummaryRow(
+    label: String,
+    value: String,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -498,14 +523,15 @@ internal fun SummaryRow(label: String, value: String) {
 @Composable
 internal fun ErrorContent(
     message: String,
-    onClose: () -> Unit
+    onClose: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 40.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(top = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         ImportStatusHero(visual = ImportHeroVisual.Error)
         Spacer(modifier = Modifier.height(24.dp))
@@ -514,39 +540,42 @@ internal fun ErrorContent(
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(14.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = ImportCorner,
-            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
         ) {
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
             )
         }
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = onClose,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error
-            ),
-            shape = RoundedCornerShape(16.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                ),
+            shape = RoundedCornerShape(16.dp),
         ) {
             Text(
                 text = "Close",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
     }

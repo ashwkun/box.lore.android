@@ -25,43 +25,45 @@ internal fun LazyStaggeredGridScope.dailyBriefingItem(
 ) {
     val briefing = feedState.briefing ?: return
     item(span = StaggeredGridItemSpan.FullLine, key = "briefing", contentType = "briefing") {
-        val briefingId = "briefing_${briefing.region}_${briefing.date}"
-        val playbackState = playback.episodePlaybackState.map[briefingId]
-        LaunchedEffect(briefing.region, briefing.date) {
-            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingCardImpression(
-                region = briefing.region,
-                date = briefing.date,
-                playbackStatus = playbackState?.first?.name ?: "NOT_STARTED",
-            )
-        }
-        DailyBriefingCard(
-            briefing = briefing,
-            chapters = feedState.briefingChapters,
-            isPlaying = playback.player.isPlaying && playback.player.currentPlayingEpisodeId == briefingId,
-            playbackStatus = playbackState?.first,
-            playbackProgress = playbackState?.second,
-            isBuffering = playback.player.isPlayerLoading && playback.player.currentPlayingEpisodeId == briefingId,
-            onPlayPauseClick = {
-                playDailyBriefingFromFeed(
-                    briefing = briefing,
-                    briefingId = briefingId,
-                    playback = playback.player,
-                    callbacks = callbacks,
-                    context = context,
-                )
-            },
-            onClick = {
-                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
+        PinnedGridItemContent {
+            val briefingId = "briefing_${briefing.region}_${briefing.date}"
+            val playbackState = playback.episodePlaybackState.map[briefingId]
+            LaunchedEffect(briefing.region, briefing.date) {
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingCardImpression(
                     region = briefing.region,
                     date = briefing.date,
+                    playbackStatus = playbackState?.first?.name ?: "NOT_STARTED",
                 )
-                callbacks.onBriefingClick(briefing.region)
-            },
-            onDismiss = callbacks.onDismissBriefing,
-            onDismissForever = callbacks.onDismissBriefingForever,
-            onFeedbackClick = callbacks.onFeedbackClick,
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
+            }
+            DailyBriefingCard(
+                briefing = briefing,
+                chapters = feedState.briefingChapters,
+                isPlaying = playback.player.isPlaying && playback.player.currentPlayingEpisodeId == briefingId,
+                playbackStatus = playbackState?.first,
+                playbackProgress = playbackState?.second,
+                isBuffering = playback.player.isPlayerLoading && playback.player.currentPlayingEpisodeId == briefingId,
+                onPlayPauseClick = {
+                    playDailyBriefingFromFeed(
+                        briefing = briefing,
+                        briefingId = briefingId,
+                        playback = playback.player,
+                        callbacks = callbacks,
+                        context = context,
+                    )
+                },
+                onClick = {
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
+                        region = briefing.region,
+                        date = briefing.date,
+                    )
+                    callbacks.onBriefingClick(briefing.region)
+                },
+                onDismiss = callbacks.onDismissBriefing,
+                onDismissForever = callbacks.onDismissBriefingForever,
+                onFeedbackClick = callbacks.onFeedbackClick,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
     }
 }
 

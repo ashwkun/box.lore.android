@@ -1,6 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
-    <file name="src/test/java/cx/aswin/boxlore/core/testing/architecture/ArchitectureGuardTest.kt">
-        <error line="232" column="1" source="standard:indent" />
-    </file>
 </baseline>

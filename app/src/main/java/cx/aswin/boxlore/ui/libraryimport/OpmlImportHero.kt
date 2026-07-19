@@ -34,8 +34,13 @@ private val ImportHeroSize = 80.dp
 
 internal sealed interface ImportHeroVisual {
     data object Indeterminate : ImportHeroVisual
-    data class Progress(val value: Float) : ImportHeroVisual
+
+    data class Progress(
+        val value: Float,
+    ) : ImportHeroVisual
+
     data object Complete : ImportHeroVisual
+
     data object Error : ImportHeroVisual
 }
 
@@ -46,18 +51,18 @@ internal sealed interface ImportHeroVisual {
 @Composable
 internal fun ImportStatusHero(
     visual: ImportHeroVisual,
-    size: Dp = ImportHeroSize
+    size: Dp = ImportHeroSize,
 ) {
     val animation = rememberImportHeroAnimation(visual)
 
     Box(
         modifier = Modifier.size(size),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         ImportStatusHeroBody(
             visual = visual,
             size = size,
-            animation = animation
+            animation = animation,
         )
     }
 }
@@ -73,7 +78,7 @@ private fun rememberImportHeroAnimation(visual: ImportHeroVisual): ImportHeroAni
                 showCheck = false
                 ringProgress.animateTo(
                     targetValue = visual.value.coerceIn(0f, 1f),
-                    animationSpec = tween(220, easing = FastOutSlowInEasing)
+                    animationSpec = tween(220, easing = FastOutSlowInEasing),
                 )
             }
             ImportHeroVisual.Indeterminate -> {
@@ -83,7 +88,7 @@ private fun rememberImportHeroAnimation(visual: ImportHeroVisual): ImportHeroAni
                 // Finish the ring, then reveal the check in the same geometry.
                 ringProgress.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(420, easing = FastOutSlowInEasing)
+                    animationSpec = tween(420, easing = FastOutSlowInEasing),
                 )
                 delay(60)
                 showCheck = true
@@ -96,36 +101,37 @@ private fun rememberImportHeroAnimation(visual: ImportHeroVisual): ImportHeroAni
 
     val checkScale by animateFloatAsState(
         targetValue = if (showCheck) 1f else 0.55f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "check_scale"
+        animationSpec =
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        label = "check_scale",
     )
     val checkAlpha by animateFloatAsState(
         targetValue = if (showCheck) 1f else 0f,
         animationSpec = tween(280),
-        label = "check_alpha"
+        label = "check_alpha",
     )
 
     return ImportHeroAnimation(
         ringProgress = ringProgress.value,
         checkScale = checkScale,
-        checkAlpha = checkAlpha
+        checkAlpha = checkAlpha,
     )
 }
 
 private data class ImportHeroAnimation(
     val ringProgress: Float,
     val checkScale: Float,
-    val checkAlpha: Float
+    val checkAlpha: Float,
 )
 
 @Composable
 private fun ImportStatusHeroBody(
     visual: ImportHeroVisual,
     size: Dp,
-    animation: ImportHeroAnimation
+    animation: ImportHeroAnimation,
 ) {
     when (visual) {
         ImportHeroVisual.Error -> ImportErrorHero()
@@ -138,19 +144,20 @@ private fun ImportStatusHeroBody(
 @Composable
 private fun ImportErrorHero() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
-                shape = CircleShape
-            ),
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                    shape = CircleShape,
+                ),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = Icons.Rounded.Warning,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(36.dp),
         )
     }
 }
@@ -158,29 +165,29 @@ private fun ImportErrorHero() {
 @Composable
 private fun ImportCompleteHero(
     size: Dp,
-    animation: ImportHeroAnimation
+    animation: ImportHeroAnimation,
 ) {
     // Keep the wavy ring at full progress under the badge so the motion continues.
     ImportProgressHero(size, animation.ringProgress)
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                scaleX = animation.checkScale
-                scaleY = animation.checkScale
-                alpha = animation.checkAlpha
-            }
-            .background(
-                color = MaterialTheme.colorScheme.primary,
-                shape = CircleShape
-            ),
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = animation.checkScale
+                    scaleY = animation.checkScale
+                    alpha = animation.checkAlpha
+                }.background(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = CircleShape,
+                ),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = Icons.Rounded.Check,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(36.dp),
         )
     }
 }
@@ -188,12 +195,12 @@ private fun ImportCompleteHero(
 @Composable
 private fun ImportProgressHero(
     size: Dp,
-    progress: Float
+    progress: Float,
 ) {
     BoxLoreLoader.CircularWavy(
         progress = progress,
         size = size,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
     )
 }
 
@@ -201,6 +208,6 @@ private fun ImportProgressHero(
 private fun ImportIndeterminateHero(size: Dp) {
     BoxLoreLoader.CircularWavy(
         size = size,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
     )
 }

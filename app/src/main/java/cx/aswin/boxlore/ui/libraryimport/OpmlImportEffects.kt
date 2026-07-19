@@ -5,13 +5,13 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import cx.aswin.boxlore.core.playback.PlaybackRepository
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.catalog.PodcastRepository
 import cx.aswin.boxlore.core.catalog.SubscriptionRepository
-import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
-import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.catalog.backup.LibraryBackupManager
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.core.playback.PlaybackRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -42,12 +42,13 @@ fun OpmlImportEffects(
                         onStateChange(OpmlImportState.Error("Failed to open the selected file."))
                         return@withContext
                     }
-                    val backupManager = LibraryBackupManager(
-                        subscriptionRepository,
-                        playbackRepository,
-                        podcastRepository,
-                        context = context,
-                    )
+                    val backupManager =
+                        LibraryBackupManager(
+                            subscriptionRepository,
+                            playbackRepository,
+                            podcastRepository,
+                            context = context,
+                        )
                     val feeds = backupManager.parseOpmlFeeds(inputStream)
                     inputStream.close()
 
@@ -115,12 +116,13 @@ fun OpmlImportEffects(
         } else if (state is OpmlImportState.Completing) {
             withContext(Dispatchers.IO) {
                 try {
-                    val backupManager = LibraryBackupManager(
-                        subscriptionRepository,
-                        playbackRepository,
-                        podcastRepository,
-                        context = context,
-                    )
+                    val backupManager =
+                        LibraryBackupManager(
+                            subscriptionRepository,
+                            playbackRepository,
+                            podcastRepository,
+                            context = context,
+                        )
                     val total = state.podcastsToMark.size
                     for (index in state.podcastsToMark.indices) {
                         val podcast = state.podcastsToMark[index]
@@ -170,9 +172,10 @@ suspend fun performJsonLibraryImport(
     onStateChange(OpmlImportState.ImportingJson)
     withContext(Dispatchers.IO) {
         try {
-            val jsonStr = context.contentResolver.openInputStream(uri)?.use {
-                it.bufferedReader().readText()
-            }
+            val jsonStr =
+                context.contentResolver.openInputStream(uri)?.use {
+                    it.bufferedReader().readText()
+                }
             if (jsonStr == null) {
                 AnalyticsHelper.trackOnboardingImportFailed("json", "Failed to read the JSON file.")
                 withContext(Dispatchers.Main) {

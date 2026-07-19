@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -242,13 +243,16 @@ internal fun ExpandablePodcastDescription(
     collapsedLines: Int,
     modifier: Modifier = Modifier,
 ) {
+    val description = remember(podcast.id, podcast.description, podcast.title, podcast.artist) {
+        podcastDescription(podcast)
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize()
     ) {
         Text(
-            text = podcastDescription(podcast),
+            text = description,
             style = style.bodyStyle,
             maxLines = if (expanded) Int.MAX_VALUE else collapsedLines,
             overflow = TextOverflow.Ellipsis,

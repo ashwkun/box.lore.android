@@ -1,16 +1,9 @@
 package cx.aswin.boxlore.ui.libraryimport
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,90 +11,50 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ImportExport
-import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.SettingsBackupRestore
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.ContextCompat
-import cx.aswin.boxlore.core.analytics.AnalyticsHelper
-import cx.aswin.boxlore.core.designsystem.components.BoxLoreLoader
-import cx.aswin.boxlore.core.designsystem.components.OptimizedImage
 import cx.aswin.boxlore.core.model.Podcast
-import kotlinx.coroutines.delay
 
 sealed interface OpmlImportState {
     data object Idle : OpmlImportState
+
     data object ShowSelector : OpmlImportState
+
     data object ImportingJson : OpmlImportState
-    data class Parsing(val uri: android.net.Uri) : OpmlImportState
+
+    data class Parsing(
+        val uri: android.net.Uri,
+    ) : OpmlImportState
+
     data class Importing(
         val currentFeedTitle: String,
         val progress: Float,
         val currentCount: Int,
         val totalCount: Int,
-        val importedPodcasts: List<Podcast>
+        val importedPodcasts: List<Podcast>,
     ) : OpmlImportState
 
     data class AskCompleted(
         val importedPodcasts: List<Podcast>,
-        val selectedIds: Set<String>
+        val selectedIds: Set<String>,
     ) : OpmlImportState
 
     data class Completing(
@@ -109,7 +62,7 @@ sealed interface OpmlImportState {
         val currentShowTitle: String,
         val podcastsToMark: List<Podcast>,
         val totalImportedCount: Int,
-        val importedPodcasts: List<Podcast> = emptyList()
+        val importedPodcasts: List<Podcast> = emptyList(),
     ) : OpmlImportState
 
     data class Success(
@@ -117,20 +70,23 @@ sealed interface OpmlImportState {
         val completedCount: Int,
         val isJson: Boolean = false,
         val importedPodcasts: List<Podcast> = emptyList(),
-        val hasNotificationsEnabled: Boolean = false
+        val hasNotificationsEnabled: Boolean = false,
     ) : OpmlImportState
 
-    data class Error(val message: String) : OpmlImportState
+    data class Error(
+        val message: String,
+    ) : OpmlImportState
 }
 
-
-private fun canDismissImportState(state: OpmlImportState): Boolean = when (state) {
-    is OpmlImportState.ShowSelector,
-    is OpmlImportState.AskCompleted,
-    is OpmlImportState.Success,
-    is OpmlImportState.Error -> true
-    else -> false
-}
+private fun canDismissImportState(state: OpmlImportState): Boolean =
+    when (state) {
+        is OpmlImportState.ShowSelector,
+        is OpmlImportState.AskCompleted,
+        is OpmlImportState.Success,
+        is OpmlImportState.Error,
+        -> true
+        else -> false
+    }
 
 @Composable
 fun OpmlImportDialog(
@@ -140,44 +96,47 @@ fun OpmlImportDialog(
     onConfirmCompleted: () -> Unit,
     onSkipCompleted: () -> Unit,
     onImportJsonSelected: (android.net.Uri) -> Unit,
-    onImportOpmlSelected: (android.net.Uri) -> Unit
+    onImportOpmlSelected: (android.net.Uri) -> Unit,
 ) {
     if (state is OpmlImportState.Idle) return
 
-    val importJsonLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let { onImportJsonSelected(it) } }
-    )
-    val importOpmlLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri -> uri?.let { onImportOpmlSelected(it) } }
-    )
+    val importJsonLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+            onResult = { uri -> uri?.let { onImportJsonSelected(it) } },
+        )
+    val importOpmlLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+            onResult = { uri -> uri?.let { onImportOpmlSelected(it) } },
+        )
     val canDismiss = canDismissImportState(state)
 
     Dialog(
         onDismissRequest = {
             if (canDismiss) onDismissRequest()
         },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            color = MaterialTheme.colorScheme.background,
         ) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                containerColor = MaterialTheme.colorScheme.background
+                containerColor = MaterialTheme.colorScheme.background,
             ) { innerPadding ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
                 ) {
                     if (canDismiss) {
                         ImportCloseButton(
                             onClick = onDismissRequest,
-                            modifier = Modifier.align(Alignment.TopEnd)
+                            modifier = Modifier.align(Alignment.TopEnd),
                         )
                     }
                     ImportDialogBody(
@@ -189,7 +148,7 @@ fun OpmlImportDialog(
                         onPickJson = {
                             importJsonLauncher.launch(arrayOf("application/json"))
                         },
-                        onPickOpml = { importOpmlLauncher.launch(arrayOf("*/*")) }
+                        onPickOpml = { importOpmlLauncher.launch(arrayOf("*/*")) },
                     )
                 }
             }
@@ -200,21 +159,22 @@ fun OpmlImportDialog(
 @Composable
 private fun ImportCloseButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     IconButton(
         onClick = onClick,
-        modifier = modifier
-            .size(44.dp)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = CircleShape
-            )
+        modifier =
+            modifier
+                .size(44.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = CircleShape,
+                ),
     ) {
         Icon(
             imageVector = Icons.Rounded.Close,
             contentDescription = "Close",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -227,7 +187,7 @@ private fun ImportDialogBody(
     onConfirmCompleted: () -> Unit,
     onSkipCompleted: () -> Unit,
     onPickJson: () -> Unit,
-    onPickOpml: () -> Unit
+    onPickOpml: () -> Unit,
 ) {
     val progressHeroVisual = heroVisualFor(state)
     if (progressHeroVisual != null) {
@@ -235,7 +195,7 @@ private fun ImportDialogBody(
         ProgressFlowScaffold(
             hero = progressHeroVisual,
             state = state,
-            onDone = onDismissRequest
+            onDone = onDismissRequest,
         )
         return
     }
@@ -244,16 +204,20 @@ private fun ImportDialogBody(
         targetState = state,
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
-            (fadeIn(tween(280, easing = FastOutSlowInEasing)) +
-                scaleIn(
-                    initialScale = 0.98f,
-                    animationSpec = tween(280, easing = FastOutSlowInEasing)
-                )) togetherWith
-                (fadeOut(tween(180)) +
-                    scaleOut(targetScale = 0.98f, animationSpec = tween(180)))
+            (
+                fadeIn(tween(280, easing = FastOutSlowInEasing)) +
+                    scaleIn(
+                        initialScale = 0.98f,
+                        animationSpec = tween(280, easing = FastOutSlowInEasing),
+                    )
+            ) togetherWith
+                (
+                    fadeOut(tween(180)) +
+                        scaleOut(targetScale = 0.98f, animationSpec = tween(180))
+                )
         },
         contentKey = { contentKeyFor(it) },
-        label = "import_content"
+        label = "import_content",
     ) { current ->
         ImportInteractiveContent(
             state = current,
@@ -262,7 +226,7 @@ private fun ImportDialogBody(
             onConfirmCompleted = onConfirmCompleted,
             onSkipCompleted = onSkipCompleted,
             onPickJson = onPickJson,
-            onPickOpml = onPickOpml
+            onPickOpml = onPickOpml,
         )
     }
 }
@@ -275,25 +239,28 @@ private fun ImportInteractiveContent(
     onConfirmCompleted: () -> Unit,
     onSkipCompleted: () -> Unit,
     onPickJson: () -> Unit,
-    onPickOpml: () -> Unit
+    onPickOpml: () -> Unit,
 ) {
     when (state) {
-        is OpmlImportState.ShowSelector -> SelectorContent(
-            onJson = onPickJson,
-            onOpml = onPickOpml
-        )
+        is OpmlImportState.ShowSelector ->
+            SelectorContent(
+                onJson = onPickJson,
+                onOpml = onPickOpml,
+            )
 
-        is OpmlImportState.AskCompleted -> AskCompletedContent(
-            state = state,
-            onSelectionChanged = onSelectionChanged,
-            onConfirmCompleted = onConfirmCompleted,
-            onSkipCompleted = onSkipCompleted
-        )
+        is OpmlImportState.AskCompleted ->
+            AskCompletedContent(
+                state = state,
+                onSelectionChanged = onSelectionChanged,
+                onConfirmCompleted = onConfirmCompleted,
+                onSkipCompleted = onSkipCompleted,
+            )
 
-        is OpmlImportState.Error -> ErrorContent(
-            message = state.message,
-            onClose = onDismissRequest
-        )
+        is OpmlImportState.Error ->
+            ErrorContent(
+                message = state.message,
+                onClose = onDismissRequest,
+            )
 
         else -> Unit
     }

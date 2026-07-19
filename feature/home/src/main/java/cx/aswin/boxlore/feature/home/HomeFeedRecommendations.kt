@@ -82,22 +82,24 @@ private fun LazyStaggeredGridScope.becauseYouLikeItem(
     val podcast = feedState.seemsToLikePodcast ?: return
     if (!derivedState.hasBecauseYouLike) return
     item(span = StaggeredGridItemSpan.FullLine, key = "because_you_like", contentType = "because_you_like") {
-        BecauseYouLikeSection(
-            podcast = podcast,
-            recommendations = recommendationState.becauseYouLikeRecommendations,
-            suggestedPodcasts = recommendationState.becauseYouLikePodcasts,
-            currentPlayingEpisodeId = playback.player.currentPlayingEpisodeId,
-            isPlaying = playback.player.isPlaying,
-            onEpisodeClick = { episode, episodePodcast ->
-                callbacks.onEpisodeClick?.invoke(episode, episodePodcast, "home_because_you_like")
-            },
-            onPlayEpisode = { ep, pod -> callbacks.onPlayEpisode(ep, pod, PlaybackEntryPoint.GENERIC) },
-            onPodcastClick = { clickedPodcast ->
-                callbacks.onPodcastClick(clickedPodcast, "home_because_you_like", null, null)
-            },
-            onChangePodcastClick = recommendationState.onChangePodcastClick,
-            modifier = Modifier.padding(bottom = 16.dp),
-        )
+        PinnedGridItemContent {
+            BecauseYouLikeSection(
+                podcast = podcast,
+                recommendations = recommendationState.becauseYouLikeRecommendations,
+                suggestedPodcasts = recommendationState.becauseYouLikePodcasts,
+                currentPlayingEpisodeId = playback.player.currentPlayingEpisodeId,
+                isPlaying = playback.player.isPlaying,
+                onEpisodeClick = { episode, episodePodcast ->
+                    callbacks.onEpisodeClick?.invoke(episode, episodePodcast, "home_because_you_like")
+                },
+                onPlayEpisode = { ep, pod -> callbacks.onPlayEpisode(ep, pod, PlaybackEntryPoint.GENERIC) },
+                onPodcastClick = { clickedPodcast ->
+                    callbacks.onPodcastClick(clickedPodcast, "home_because_you_like", null, null)
+                },
+                onChangePodcastClick = recommendationState.onChangePodcastClick,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+        }
     }
 }
 
