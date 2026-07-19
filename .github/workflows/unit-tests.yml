@@ -2,7 +2,7 @@ name: Unit Tests
 
 # Merge-gate only (not every PR push):
 # - Add the `merge-ci` label when ready to merge → runs on that commit and on
-#   later pushes while the label stays.
+#   later pushes while the label stays (concurrency cancels prior runs).
 # - `merge_group` kept for orgs that enable a merge queue later.
 # - Manual: Actions → Run workflow.
 # Direct bot/owner pushes to master never open a PR, so they are unaffected.
@@ -11,6 +11,11 @@ on:
     types: [labeled, synchronize, opened, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
+
+# One active run per PR/ref — later pushes cancel the backlog instead of queueing.
+concurrency:
+  group: unit-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-tests:

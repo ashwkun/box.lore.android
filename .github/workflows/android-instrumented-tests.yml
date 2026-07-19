@@ -9,6 +9,11 @@ on:
   merge_group:
   workflow_dispatch:
 
+# One active matrix run per PR/ref — later pushes cancel stale emulator jobs.
+concurrency:
+  group: instrumented-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compose-android-test:
     name: ${{ matrix.module }} connectedDebugAndroidTest
@@ -21,6 +26,8 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      # Cap concurrent emulators so one PR does not monopolize the org queue.
+      max-parallel: 2
       matrix:
         module:
           - feature:home

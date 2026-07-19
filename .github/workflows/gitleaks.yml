@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [master, main]
 
+concurrency:
+  group: gitleaks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gitleaks:
     name: Gitleaks Scan
