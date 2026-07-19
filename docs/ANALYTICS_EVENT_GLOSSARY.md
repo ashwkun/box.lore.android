@@ -6,7 +6,7 @@
 
 Companion CSV (same columns): [`docs/analytics/event_glossary.csv`](analytics/event_glossary.csv).
 
-**PR2 status:** All Phase A/B/C **event rows** present; **Phase A properties complete**; Phase B/C property columns filled enough for planning and completed in PR7/PR9. `replaces_legacy` populated from Jul 2026 codebase `PostHog.capture` inventory (101 legacy names).
+**PR7 status:** Phase A∪B **hard cut shipped** — façade emits only glossary A∪B (+ `$set` person props). Phase C deferred to PR9. Phase A+B property columns complete. `replaces_legacy` populated from Jul 2026 codebase `PostHog.capture` inventory (101 legacy names).
 
 ---
 
@@ -160,11 +160,19 @@ Rebuild these on **new** event names after PR7 (document links in PR description
 
 1. **company_health** — DAU/WAU/MAU from `app_open`; hours from playback pause/complete
 2. **activation** — onboarding → `activated_at` / first `playback_started` within 24h
-3. **entry_point** — breakdown of `playback_started.entry_point` (retained cohort)
-4. **playback** — start → milestone → complete; buffering/errors
-5. **discovery** — `home_surface_tapped` / search / Learn → play
-6. **growth** — `install_attributed` + `deep_link_opened` + share
-7. **auto** (after PR9) — connect/browse + `client_surface=android_auto` listening
+3. **entry_point** — breakdown of `playback_started.entry_point` (retained cohort); note normalizer aliases (`home_hero_resume_grid` → `home_hero_resume`, `resume_mini_player` → `mini_player`, `episode_info_screen` → `episode_detail`)
+4. **playback** — start → milestone → complete; buffering/errors; require `entry_point` on all `playback_*`
+5. **discovery** — `home_surface_tapped` / `search_performed` / `learn_card_action` → play
+6. **growth** — `install_attributed` + `deep_link_opened` + `share_content`
+7. **library** — `library_destination_viewed`, `queue_modified`, downloads
+8. **delight / feedback** — `feedback_submitted` (replaces `survey_nps_*`, `engagement_prompt_shown`, `promoter_review_handoff`); **update PostHog survey display conditions** to the new event name
+9. **auto** (after PR9) — connect/browse + `client_surface=android_auto` listening
+
+### PR7 cutover notes
+- Stop querying legacy names for live dashboards; use `replaces_legacy` only for historical ranges.
+- Person props: prefer `first_seen_at` / `first_play_at` (`$set_once`); `first_seen_date` is legacy.
+- Raw text: AI turns use `user_input_text`; search uses `search_query` (never hashed).
+- Phase C events (`adaptive_ranking_status`, Auto chapters/transcripts, `proxy_fallback_triggered`, late-night safeguard) are **not emitted** until PR9.
 
 ---
 

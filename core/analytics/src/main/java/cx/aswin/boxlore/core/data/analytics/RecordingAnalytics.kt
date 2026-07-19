@@ -38,23 +38,20 @@ class RecordingAnalytics : Analytics {
     // ── Analytics interface ────────────────────────────────────────
 
     override fun capture(event: String, properties: Map<String, Any>) {
+        if (!AnalyticsGlossary.isAllowedEvent(event)) return
         _events.add(CapturedEvent(event, properties))
     }
 
     override fun trackFirstLaunchIfNecessary(context: Context) {
-        capture("first_launch_check")
+        capture("app_open", mapOf("is_first_open" to true))
     }
 
     override fun flush() {
         /* no-op in recording mode */
     }
 
-    override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
-        capture(
-            "adaptive_ranking_status",
-            mapOf("objective_count" to statuses.size),
-        )
-    }
+    /** Phase C — no-op until PR9. */
+    override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) = Unit
 
     override fun trackEngagementPromptShown(
         promptType: String,
@@ -62,9 +59,9 @@ class RecordingAnalytics : Analytics {
         completedEpisodes: Int?,
     ) {
         capture(
-            "engagement_prompt_shown",
+            "feedback_submitted",
             buildMap {
-                put("prompt_type", promptType)
+                put("feedback_type", promptType)
                 put("source", source)
                 completedEpisodes?.let { put("completed_episodes", it) }
             },
@@ -73,20 +70,33 @@ class RecordingAnalytics : Analytics {
 
     override fun trackSurveyNpsEligible(completedEpisodes: Int?, triggerContext: String) {
         capture(
-            "survey_nps_eligible",
+            "feedback_submitted",
             buildMap {
-                put("trigger_context", triggerContext)
+                put("feedback_type", "nps_eligible")
+                put("source", triggerContext)
                 completedEpisodes?.let { put("completed_episodes", it) }
             },
         )
     }
 
     override fun trackSurveyNpsManualTrigger(source: String) {
-        capture("survey_nps_manual_trigger", mapOf("trigger_source" to source))
+        capture(
+            "feedback_submitted",
+            mapOf(
+                "feedback_type" to "nps_manual",
+                "source" to source,
+            ),
+        )
     }
 
     override fun trackPromoterReviewHandoff(npsScore: Int?) {
-        capture("promoter_review_handoff", buildMap { npsScore?.let { put("nps_score", it) } })
+        capture(
+            "feedback_submitted",
+            buildMap {
+                put("feedback_type", "promoter_review_handoff")
+                npsScore?.let { put("score", it) }
+            },
+        )
     }
 
     override fun trackFirstEpisodePlayed() {

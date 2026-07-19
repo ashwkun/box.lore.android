@@ -82,8 +82,15 @@ internal class PlaybackTelemetrySession(
 
     fun onBufferingEnded() {
         if (bufferingStartTimeMs > 0) {
-            totalBufferedTimeMs += System.currentTimeMillis() - bufferingStartTimeMs
+            val bufferMs = System.currentTimeMillis() - bufferingStartTimeMs
+            totalBufferedTimeMs += bufferMs
             bufferingStartTimeMs = 0L
+            AnalyticsHelper.trackPlaybackBuffering(
+                episodeId = episodeId,
+                podcastId = podcastId,
+                entryPoint = entryPoint,
+                bufferDurationMs = bufferMs,
+            )
         }
     }
 
@@ -346,6 +353,7 @@ internal class PlaybackTelemetrySession(
                     totalDurationSeconds = sessionTotalDurationMs / 1000f,
                     heartbeatPercentage = 100,
                     heartbeatType = "percent",
+                    entryPoint = sessionEntryPoint,
                 )
             }
 
@@ -509,6 +517,7 @@ internal class PlaybackTelemetrySession(
                     totalDurationSeconds = durationSec,
                     heartbeatPercentage = milestone,
                     heartbeatType = "percent",
+                    entryPoint = entryPoint,
                 )
             }
         }
@@ -533,6 +542,7 @@ internal class PlaybackTelemetrySession(
                     totalDurationSeconds = durationSec,
                     heartbeatPercentage = 0,
                     heartbeatType = "interval",
+                    entryPoint = entryPoint,
                 )
             }
         }

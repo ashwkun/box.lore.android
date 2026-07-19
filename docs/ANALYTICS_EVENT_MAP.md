@@ -30,8 +30,9 @@ Events: `app_open`, `app_background`, `install_attributed`, `deep_link_opened`, 
 
 ## Legacy handling (not “keep forever”)
 - Inventory all current `PostHog.capture` / track* names in PR2 → fill `replaces_legacy`
-- PR7 deletes call sites for names not in glossary A∪B
+- **PR7 (shipped):** deletes / remaps call sites for names not in glossary A∪B; façade allowlists via `AnalyticsGlossary` + `AnalyticsEmit`
 - Historical PostHog: query old names via glossary mapping; do not keep emitting them
+- **PR9:** Phase C events (Auto, chapters/transcripts, ranking status, proxy fallback, late-night)
 
 ## entry_point glossary
 See EVENT_GLOSSARY enum sheet. Normalize legacy strings (`home_hero_resume_grid`, `resume_mini_player`, `episode_info_screen`, …) in one helper.

@@ -316,6 +316,7 @@ class BoxLorePlaybackService :
                                 toPositionSeconds = newPosition.positionMs / 1000f,
                                 totalDurationSeconds = telemetrySession.totalDurationMs / 1000f,
                                 seekSource = source,
+                                entryPoint = telemetrySession.entryPoint,
                             )
                         }
                     }
@@ -480,8 +481,7 @@ class BoxLorePlaybackService :
         android.util.Log.d("BoxCastPlayer", "$source to ${target}ms")
     }
 
-    private fun lifecycleEpisodeId(item: MediaItem?): String? =
-        item?.mediaId?.stripEpisodePrefix()
+    private fun lifecycleEpisodeId(item: MediaItem?): String? = item?.mediaId?.stripEpisodePrefix()
 
     private fun handleMediaItemTransition(
         player: ExoPlayer,

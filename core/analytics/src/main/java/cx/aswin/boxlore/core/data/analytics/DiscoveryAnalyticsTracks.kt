@@ -1,21 +1,18 @@
 package cx.aswin.boxlore.core.data.analytics
 
-import com.posthog.PostHog
-
-// ── 8. Feature Announcements ───────────────────────────────────
-
+@Suppress("LongParameterList")
 internal object DiscoveryAnalyticsTracks {
     fun trackFeatureAnnouncementViewed(featureId: String) {
-        PostHog.capture(
-            event = "feature_announcement_viewed",
-            properties = mapOf("feature_id" to featureId)
+        AnalyticsEmit.event(
+            "feature_announcement_action",
+            mapOf("action" to "viewed", "feature_id" to featureId),
         )
     }
 
     fun trackFeatureAnnouncementDismissed(featureId: String) {
-        PostHog.capture(
-            event = "feature_announcement_dismissed",
-            properties = mapOf("feature_id" to featureId)
+        AnalyticsEmit.event(
+            "feature_announcement_action",
+            mapOf("action" to "dismissed", "feature_id" to featureId),
         )
     }
 
@@ -24,14 +21,14 @@ internal object DiscoveryAnalyticsTracks {
         hasImage: Boolean,
         hasAction: Boolean,
     ) {
-        PostHog.capture(
-            event = "in_app_announcement_viewed",
-            properties =
-                mapOf(
-                    "category" to category,
-                    "has_image" to hasImage,
-                    "has_action" to hasAction,
-                ),
+        AnalyticsEmit.event(
+            "feature_announcement_action",
+            mapOf(
+                "action" to "viewed",
+                "category" to category,
+                "has_image" to hasImage,
+                "has_action" to hasAction,
+            ),
         )
     }
 
@@ -40,14 +37,14 @@ internal object DiscoveryAnalyticsTracks {
         hasImage: Boolean,
         hasAction: Boolean,
     ) {
-        PostHog.capture(
-            event = "in_app_announcement_dismissed",
-            properties =
-                mapOf(
-                    "category" to category,
-                    "has_image" to hasImage,
-                    "has_action" to hasAction,
-                ),
+        AnalyticsEmit.event(
+            "feature_announcement_action",
+            mapOf(
+                "action" to "dismissed",
+                "category" to category,
+                "has_image" to hasImage,
+                "has_action" to hasAction,
+            ),
         )
     }
 
@@ -56,70 +53,65 @@ internal object DiscoveryAnalyticsTracks {
         hasImage: Boolean,
         actionLabel: String,
     ) {
-        PostHog.capture(
-            event = "in_app_announcement_action",
-            properties =
-                mapOf(
-                    "category" to category,
-                    "has_image" to hasImage,
-                    "action_label" to actionLabel,
-                ),
+        AnalyticsEmit.event(
+            "feature_announcement_action",
+            mapOf(
+                "action" to "acted",
+                "category" to category,
+                "has_image" to hasImage,
+                "feature_id" to actionLabel,
+                "action_label" to actionLabel,
+            ),
         )
     }
 
-    // ── 9. Permissions ──────────────────────────────────────────────
-
     fun trackNotificationPermissionRequested() {
-        PostHog.capture("notification_permission_requested")
+        AnalyticsEmit.event("notification_permission_requested")
     }
 
     fun trackNotificationPermissionDecided(isGranted: Boolean) {
-        PostHog.capture(
-            event = "notification_permission_decided",
-            properties = mapOf("granted" to isGranted)
+        AnalyticsEmit.event(
+            "notification_permission_decided",
+            mapOf("granted" to isGranted),
         )
-    
-        PostHog.capture(
-            event = "\$set",
-            userProperties = mapOf("notifications_enabled" to isGranted)
-        )
+        AnalyticsEmit.personSet(mapOf("notifications_enabled" to isGranted))
     }
 
-    // ── 10. Playback ───────────────────────────────────────────────
-
     fun trackHomeHeroCarouselSwiped(maxCardIndexViewed: Int, totalCardsAvailable: Int) {
-        PostHog.capture(
-            event = "home_hero_carousel_swiped",
-            properties = mapOf(
-                "\$screen_name" to "App Home",
-                "max_card_index_viewed" to maxCardIndexViewed,
-                "total_cards_available" to totalCardsAvailable
-            )
+        AnalyticsEmit.event(
+            "home_surface_tapped",
+            mapOf(
+                "surface_component" to "hero_carousel_swipe",
+                "position_index" to maxCardIndexViewed,
+                "items_count" to totalCardsAvailable,
+            ),
         )
     }
 
     fun trackCuratedBlockImpression(blockTitle: String, vibeIds: List<String>) {
-        PostHog.capture(
-            event = "curated_block_impression",
-            properties = mapOf(
+        AnalyticsEmit.event(
+            "home_surface_impression",
+            mapOf(
+                "surface_component" to "curated_block",
+                "items_count" to vibeIds.size,
                 "block_title" to blockTitle,
-                "vibes_shown_count" to vibeIds.size,
-                "vibe_ids" to vibeIds
-            )
+                "vibe_ids" to vibeIds,
+            ),
         )
     }
 
     fun trackHomeRecommendationsImpression(
         recommendationsCount: Int,
         episodeIds: List<String>,
-        timeBlockTitle: String?
+        timeBlockTitle: String?,
     ) {
         val props = mutableMapOf<String, Any>(
-            "recommendations_count" to recommendationsCount,
-            "episode_ids" to episodeIds
+            "surface_component" to "recommendations",
+            "items_count" to recommendationsCount,
+            "episode_ids" to episodeIds,
         )
-        timeBlockTitle?.let { props["time_block_title"] = it }
-        PostHog.capture(event = "home_recommendations_impression", properties = props)
+        timeBlockTitle?.let { props["rail_intent"] = it }
+        AnalyticsEmit.event("home_surface_impression", props)
     }
 
     fun trackHomeRecommendationCardTapped(
@@ -128,29 +120,33 @@ internal object DiscoveryAnalyticsTracks {
         podcastId: String,
         podcastName: String?,
         positionIndex: Int,
-        timeBlockTitle: String?
+        timeBlockTitle: String?,
     ) {
         val props = mutableMapOf<String, Any>(
+            "surface_component" to "recommendations",
+            "content_id" to episodeId,
             "episode_id" to episodeId,
             "podcast_id" to podcastId,
-            "position_index" to positionIndex
+            "position_index" to positionIndex,
         )
         episodeTitle?.let { props["episode_title"] = it }
         podcastName?.let { props["podcast_name"] = it }
-        timeBlockTitle?.let { props["time_block_title"] = it }
-        PostHog.capture(event = "home_recommendation_card_tapped", properties = props)
+        timeBlockTitle?.let { props["rail_intent"] = it }
+        AnalyticsEmit.event("home_surface_tapped", props)
     }
 
     fun trackExploreRecommendationsImpression(
         recommendationsCount: Int,
-        episodeIds: List<String>
+        episodeIds: List<String>,
     ) {
-        PostHog.capture(
-            event = "explore_recommendations_impression",
-            properties = mapOf(
+        AnalyticsEmit.event(
+            "explore_recommendation_tapped",
+            mapOf(
+                "rail" to "for_you",
+                "position_index" to -1,
                 "recommendations_count" to recommendationsCount,
-                "episode_ids" to episodeIds
-            )
+                "episode_ids" to episodeIds,
+            ),
         )
     }
 
@@ -159,20 +155,18 @@ internal object DiscoveryAnalyticsTracks {
         episodeTitle: String?,
         podcastId: String,
         podcastName: String?,
-        positionIndex: Int
+        positionIndex: Int,
     ) {
         val props = mutableMapOf<String, Any>(
-            "episode_id" to episodeId,
             "podcast_id" to podcastId,
-            "position_index" to positionIndex
+            "episode_id" to episodeId,
+            "position_index" to positionIndex,
+            "rail" to "for_you",
         )
         episodeTitle?.let { props["episode_title"] = it }
         podcastName?.let { props["podcast_name"] = it }
-        PostHog.capture(event = "explore_recommendation_card_tapped", properties = props)
+        AnalyticsEmit.event("explore_recommendation_tapped", props)
     }
-
-
-    // ── 11. Podcast Info Screen ────────────────────────────────────
 
     fun trackPodcastInfoScreenViewed(
         podcastId: String,
@@ -180,31 +174,31 @@ internal object DiscoveryAnalyticsTracks {
         entryPoint: String? = null,
         genreFilter: String? = null,
         scrollDepth: Int? = null,
-        searchQuery: String? = null
+        searchQuery: String? = null,
     ) {
         val props = mutableMapOf<String, Any>("podcast_id" to podcastId)
         podcastName?.let { props["podcast_name"] = it }
-        entryPoint?.let { props["source_entry_point"] = it }
+        entryPoint?.let { props["source"] = it }
         genreFilter?.let { props["genre_filter"] = it }
         scrollDepth?.let { props["scroll_depth"] = it }
         searchQuery?.let { props["search_query"] = it }
-
-        PostHog.capture(event = "podcast_info_screen_viewed", properties = props)
+        AnalyticsEmit.event("podcast_detail_viewed", props)
     }
 
     fun trackPodcastSubscriptionToggled(
         podcastId: String,
         podcastName: String?,
         isSubscribed: Boolean,
-        entryPoint: String
+        entryPoint: String,
     ) {
         val props = mutableMapOf<String, Any>(
             "podcast_id" to podcastId,
             "is_subscribed" to isSubscribed,
-            "entry_point" to entryPoint
+            "source" to entryPoint,
+            "surface" to entryPoint,
         )
         podcastName?.let { props["podcast_name"] = it }
-        PostHog.capture(event = "podcast_subscription_toggled", properties = props)
+        AnalyticsEmit.event("podcast_subscription_toggled", props)
     }
 
     fun trackPodcastInfoScreenSession(
@@ -217,22 +211,22 @@ internal object DiscoveryAnalyticsTracks {
         didSearch: Boolean,
         didSortEpisodes: Boolean,
         episodesPlayedCount: Int,
-        episodesClickedCount: Int
+        episodesClickedCount: Int,
     ) {
-        PostHog.capture(
-            event = "podcast_info_screen_session",
-            properties = mapOf(
+        AnalyticsEmit.event(
+            "podcast_detail_viewed",
+            mapOf(
                 "podcast_id" to podcastId,
                 "podcast_name" to podcastName,
+                "is_subscribed" to wasSubscribed,
                 "time_spent_seconds" to timeSpentSeconds,
-                "was_subscribed" to wasSubscribed,
                 "did_subscribe" to didSubscribe,
                 "did_unsubscribe" to didUnsubscribe,
                 "did_search" to didSearch,
                 "did_sort_episodes" to didSortEpisodes,
                 "episodes_played_count" to episodesPlayedCount,
-                "episodes_clicked_count" to episodesClickedCount
-            )
+                "episodes_clicked_count" to episodesClickedCount,
+            ),
         )
     }
 
@@ -240,38 +234,39 @@ internal object DiscoveryAnalyticsTracks {
         podcastId: String,
         podcastName: String?,
         vibeId: String,
-        positionIndex: Int
+        positionIndex: Int,
     ) {
         val props = mutableMapOf<String, Any>(
+            "surface_component" to "curated_card",
+            "content_id" to podcastId,
             "podcast_id" to podcastId,
-            "vibe_id" to vibeId,
-            "carousel_position" to positionIndex
+            "rail_intent" to vibeId,
+            "position_index" to positionIndex,
         )
         if (podcastName != null) props["podcast_name"] = podcastName
-        PostHog.capture(event = "curated_card_tapped", properties = props)
+        AnalyticsEmit.event("home_surface_tapped", props)
     }
 
     fun trackEpisodeInfoScreenViewed(properties: Map<String, Any>) {
-        PostHog.capture(event = "episode_info_screen_viewed", properties = properties)
+        val props = properties.toMutableMap()
+        // Prefer glossary keys when callers still send legacy names.
+        if (!props.containsKey("episode_id") && props.containsKey("id")) {
+            props["episode_id"] = props["id"] as Any
+        }
+        AnalyticsEmit.event("episode_detail_viewed", props)
     }
 
     fun trackEpisodeInfoScreenSession(properties: Map<String, Any>) {
-        PostHog.capture(event = "episode_info_screen_session", properties = properties)
+        AnalyticsEmit.event("episode_detail_viewed", properties)
     }
 
+    /** Phase C — stopped in PR7; no-op until PR9 `proxy_fallback_triggered`. */
+    @Suppress("UNUSED_PARAMETER")
     fun trackProxyFallbackTriggered(
         imageHost: String,
         proxyWidth: Int,
         sampleMultiplier: Int = 10,
     ) {
-        PostHog.capture(
-            event = "proxy_fallback_triggered",
-            properties =
-                mapOf(
-                    "image_host" to imageHost,
-                    "proxy_width" to proxyWidth,
-                    "sample_multiplier" to sampleMultiplier,
-                ),
-        )
+        // Intentionally no-op (Phase C).
     }
 }

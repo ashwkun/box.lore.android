@@ -72,11 +72,19 @@ Do **not** rename these; changing them resets first-launch state for existing us
 - Pure unit tests live in `src/test/java/cx/aswin/boxlore/core/analytics/`.
 - Use `RecordingAnalytics` as the test double for any class that takes `Analytics`.
 - `DeriveGenrePersonaTest` exercises `AnalyticsHelper.deriveGenrePersona` without PostHog.
+- `AnalyticsGlossaryAllowlistTest` + `AnalyticsRawTextAndEntryPointTest` assert Phase A∪B allowlist,
+  entry_point normalization, and raw `user_input_text` / `search_query` attachment via `AnalyticsEmit` sink.
 - No Robolectric or Android instrumentation required for these tests.
 
 ```bash
 ./gradlew :core:analytics:testDebugUnitTest
 ```
+
+## Glossary contract (PR7)
+
+Emitted event names must be ⊆ Phase A∪B in `docs/ANALYTICS_EVENT_GLOSSARY.md`
+(plus `$set` person properties). Phase C is deferred to PR9 — façade methods for
+Phase C events are no-ops. All captures go through `AnalyticsEmit` (allowlist gate).
 
 ## CI relevance
 

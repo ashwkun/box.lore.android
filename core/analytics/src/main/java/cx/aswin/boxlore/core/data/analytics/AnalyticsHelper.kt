@@ -43,12 +43,11 @@ object AnalyticsHelper : Analytics {
         val isFirstLaunch = prefs.getBoolean(KEY_FIRST_LAUNCH, true)
 
         if (isFirstLaunch) {
-            PostHog.capture(
-                event = "\$set",
-                userProperties = mapOf(
-                    "first_seen_date" to Instant.now().toString(),
-                    "onboarding_status" to "pending"
-                )
+            AnalyticsEmit.personSet(
+                mapOf(
+                    "first_seen_at" to Instant.now().toString(),
+                    "onboarding_status" to "pending",
+                ),
             )
             prefs.edit().putBoolean(KEY_FIRST_LAUNCH, false).apply()
         }
@@ -61,51 +60,57 @@ object AnalyticsHelper : Analytics {
      * attached automatically by PostHog, so adoption can be sliced by build.
      */
     override fun trackAppCheckStatus(tokenObtained: Boolean, provider: String) {
-        PostHog.capture(
+        AnalyticsEmit.event(
             "app_check_status",
-            properties = mapOf(
+            mapOf(
                 "token_obtained" to tokenObtained,
-                "provider" to provider
-            )
+                "provider" to provider,
+            ),
         )
     }
 
     override fun trackFirstEpisodePlayed() {
-        PostHog.capture(
+        AnalyticsEmit.event(
             "first_episode_played",
-            properties = mapOf(
-                "\$set_once" to mapOf("first_episode_played_logged" to true)
-            )
+            mapOf(
+                "\$set_once" to mapOf(
+                    "first_episode_played_logged" to true,
+                    "first_play_at" to Instant.now().toString(),
+                ),
+            ),
         )
     }
 
-    // ── PostHog Surveys: NPS triggers ──────────────────────────────
-    // These events are display-condition triggers for the "Boxcast NPS +
-    // Feature Ideas" survey. The app only emits the trigger; PostHog owns the
-    // survey content, branching, and targeting.
+    // ── Feedback / NPS (glossary: feedback_submitted) ───────────────
+    // PostHog survey display conditions should key off feedback_submitted
+    // after the PR7 dashboard rebuild (see glossary checklist).
 
     /** Deferred automatic trigger, fired on app open once the user hits the eligibility milestone. */
     override fun trackSurveyNpsEligible(completedEpisodes: Int?, triggerContext: String) {
-        PostHog.capture(
-            event = "survey_nps_eligible",
-            properties = buildMap {
+        AnalyticsEmit.event(
+            "feedback_submitted",
+            buildMap {
+                put("feedback_type", "nps_eligible")
+                put("source", triggerContext)
                 put("trigger_type", "automatic")
                 put("trigger_context", triggerContext)
                 completedEpisodes?.let { put("completed_episodes", it) }
-            }
+            },
         )
         deliverSurveyTriggerEvent()
     }
 
     /** Manual trigger from a long-press or a remote console feature flag. */
     override fun trackSurveyNpsManualTrigger(source: String) {
-        PostHog.capture(
-            event = "survey_nps_manual_trigger",
-            properties = mapOf(
+        AnalyticsEmit.event(
+            "feedback_submitted",
+            mapOf(
+                "feedback_type" to "nps_manual",
+                "source" to source,
                 "trigger_source" to source,
                 "trigger_type" to "manual",
-                "trigger_context" to if (source == "remote_flag") "console" else "manual"
-            )
+                "trigger_context" to if (source == "remote_flag") "console" else "manual",
+            ),
         )
         deliverSurveyTriggerEvent()
     }
@@ -122,10 +127,10 @@ object AnalyticsHelper : Analytics {
 
     /** Tracks when a proactive engagement modal (NPS, review, etc.) is shown. */
     override fun trackEngagementPromptShown(promptType: String, source: String, completedEpisodes: Int?) {
-        PostHog.capture(
-            event = "engagement_prompt_shown",
-            properties = buildMap {
-                put("prompt_type", promptType)
+        AnalyticsEmit.event(
+            "feedback_submitted",
+            buildMap {
+                put("feedback_type", promptType)
                 put("source", source)
                 completedEpisodes?.let { put("completed_episodes", it) }
             },
@@ -134,17 +139,20 @@ object AnalyticsHelper : Analytics {
 
     /** Fired when a promoter (NPS 8+) is routed to the Play Store review sheet on a later open. */
     override fun trackPromoterReviewHandoff(npsScore: Int?) {
-        PostHog.capture(
-            event = "promoter_review_handoff",
-            properties = buildMap {
-                npsScore?.let { put("nps_score", it) }
+        AnalyticsEmit.event(
+            "feedback_submitted",
+            buildMap {
+                put("feedback_type", "promoter_review_handoff")
+                npsScore?.let {
+                    put("score", it)
+                    put("nps_score", it)
+                }
             },
         )
     }
 
-
-
     fun resetIdentity() {
+        AnalyticsEmit.event("identity_reset", mapOf("reason" to "user_reset"))
         PostHog.reset()
     }
 
@@ -152,18 +160,9 @@ object AnalyticsHelper : Analytics {
         return PostHog.distinctId()
     }
 
-    fun trackLateNightSafeguardDecision(decision: String, durationMinutes: Int? = null) {
-        val props = mutableMapOf<String, Any>(
-            "decision" to decision
-        )
-        if (durationMinutes != null) {
-            props["duration_minutes"] = durationMinutes
-        }
-        PostHog.capture(
-            event = "late_night_safeguard_decision",
-            properties = props
-        )
-    }
+    /** Phase C — stopped in PR7; no-op until PR9. */
+    @Suppress("UNUSED_PARAMETER")
+    fun trackLateNightSafeguardDecision(decision: String, durationMinutes: Int? = null) = Unit
 
     data class SmartQueueRefillEvent(
         val triggeringEpisodeId: String,
@@ -381,8 +380,12 @@ object AnalyticsHelper : Analytics {
     currentPositionSeconds: Float,
     totalDurationSeconds: Float,
     heartbeatPercentage: Int,
-    heartbeatType: String
-) = PlaybackAnalyticsTracks.trackPlaybackHeartbeat(podcastId, podcastName, episodeId, episodeTitle, currentPositionSeconds, totalDurationSeconds, heartbeatPercentage, heartbeatType)
+    heartbeatType: String,
+    entryPoint: String? = null,
+) = PlaybackAnalyticsTracks.trackPlaybackHeartbeat(
+        podcastId, podcastName, episodeId, episodeTitle,
+        currentPositionSeconds, totalDurationSeconds, heartbeatPercentage, heartbeatType, entryPoint,
+    )
     fun trackPlaybackSeeked(
     podcastId: String?,
     podcastName: String?,
@@ -391,8 +394,18 @@ object AnalyticsHelper : Analytics {
     fromPositionSeconds: Float,
     toPositionSeconds: Float,
     totalDurationSeconds: Float,
-    seekSource: String
-) = PlaybackAnalyticsTracks.trackPlaybackSeeked(podcastId, podcastName, episodeId, episodeTitle, fromPositionSeconds, toPositionSeconds, totalDurationSeconds, seekSource)
+    seekSource: String,
+    entryPoint: String? = null,
+) = PlaybackAnalyticsTracks.trackPlaybackSeeked(
+        podcastId, podcastName, episodeId, episodeTitle,
+        fromPositionSeconds, toPositionSeconds, totalDurationSeconds, seekSource, entryPoint,
+    )
+    fun trackPlaybackBuffering(
+        episodeId: String? = null,
+        podcastId: String? = null,
+        entryPoint: String? = null,
+        bufferDurationMs: Long? = null,
+    ) = PlaybackAnalyticsTracks.trackPlaybackBuffering(episodeId, podcastId, entryPoint, bufferDurationMs)
     fun trackPlaybackError(
     errorCode: String,
     errorMessage: String,
@@ -515,26 +528,9 @@ object AnalyticsHelper : Analytics {
     infosClickedCount: Int
 ) = QueueContentAnalyticsTracks.trackLearnScreenSession(timeSpentSeconds, cardsDismissedCount, cardsQueuedCount, playsCount, podcastsClickedCount, infosClickedCount)
 
+    /** Phase C — stopped in PR7; no-op until PR9 `adaptive_ranking_status`. */
     override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
-        if (statuses.isEmpty()) return
-        PostHog.capture(
-            event = "adaptive_ranking_status",
-            properties = mapOf(
-                "ranker_version" to statuses.maxOf(RankingAggregateTelemetry::rankerVersion),
-                "objectives" to statuses.map(RankingAggregateTelemetry::objective),
-                "ranker_versions" to statuses.map(RankingAggregateTelemetry::rankerVersion),
-                "ranker_versions_by_objective" to statuses.associate {
-                    it.objective to it.rankerVersion
-                },
-                "learning_stages" to statuses.map(RankingAggregateTelemetry::learningStage),
-                "outcome_count_buckets" to statuses.map(
-                    RankingAggregateTelemetry::outcomeCountBucket,
-                ),
-                "exploration_eligible" to statuses.map(
-                    RankingAggregateTelemetry::explorationEligible,
-                ),
-            ),
-        )
+        // Intentionally no-op (Phase C).
     }
 
     override fun flush() {
@@ -549,6 +545,6 @@ object AnalyticsHelper : Analytics {
         event: String,
         properties: Map<String, Any>,
     ) {
-        PostHog.capture(event = event, properties = properties)
+        AnalyticsEmit.event(event, properties)
     }
 }
