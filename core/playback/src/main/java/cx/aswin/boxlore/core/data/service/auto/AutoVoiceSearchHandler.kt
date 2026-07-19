@@ -357,7 +357,7 @@ internal class AutoVoiceSearchHandler(
                 .sortedByDescending { (ep, _) -> ep.publishedDate }
                 .take(20)
 
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_new_episodes"),
         )
         return newEpisodes
@@ -376,7 +376,7 @@ internal class AutoVoiceSearchHandler(
     }
 
     suspend fun handlePlayAllLiked(): MutableList<MediaItem> {
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_liked"),
         )
         return host.database
@@ -402,14 +402,14 @@ internal class AutoVoiceSearchHandler(
     }
 
     suspend fun handlePlayAllDownloads(): MutableList<MediaItem> {
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_downloads"),
         )
         return treeBuilder.getDownloadEpisodeItems().toMutableList()
     }
 
     suspend fun handlePlayAllDrivePicks(): MutableList<MediaItem> {
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_drive_picks"),
         )
         return treeBuilder.getDrivePicksChildren()
@@ -418,7 +418,7 @@ internal class AutoVoiceSearchHandler(
     }
 
     suspend fun handlePlayAllMixtape(): MutableList<MediaItem> {
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_mixtape"),
         )
         return treeBuilder.getMixtapeChildren()
@@ -435,7 +435,7 @@ internal class AutoVoiceSearchHandler(
                 it.mediaId.stripEpisodePrefix() == episodeId
             }
         if (selectedIndex < 0) return mutableListOf()
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_mixtape"),
         )
         return mixtape.drop(selectedIndex).toMutableList()
@@ -448,7 +448,7 @@ internal class AutoVoiceSearchHandler(
             android.util.Log.w("AutoBrowse", "Ignoring stale queue selection: $episodeId")
             return mutableListOf()
         }
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_queue"),
         )
         return queue

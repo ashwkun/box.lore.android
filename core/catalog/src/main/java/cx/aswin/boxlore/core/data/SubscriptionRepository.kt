@@ -3,9 +3,9 @@ package cx.aswin.boxlore.core.data
 import cx.aswin.boxlore.core.data.database.PodcastDao
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import cx.aswin.boxlore.core.model.Podcast
-import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
-import cx.aswin.boxlore.core.data.ranking.RankingAction
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.FeedbackTarget
+import cx.aswin.boxlore.core.ranking.RankingAction
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

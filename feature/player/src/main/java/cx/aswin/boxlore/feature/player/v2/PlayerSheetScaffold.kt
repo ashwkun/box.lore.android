@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxlore.core.designsystem.theme.LocalEffectiveDarkTheme
 import cx.aswin.boxlore.feature.player.v2.logic.calculatePlayerSheetGeometry
@@ -94,7 +94,7 @@ data class PlayerSheetActions(
 @Composable
 fun PlayerSheetScaffold(
     playbackRepository: PlaybackRepository,
-    downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
+    downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
     userPrefs: UserPreferencesRepository,
     layout: PlayerSheetLayout,
     actions: PlayerSheetActions = PlayerSheetActions(),
@@ -218,7 +218,7 @@ private data class PlayerSheetContentState(
 
 private data class PlayerSheetResources(
     val playbackRepository: PlaybackRepository,
-    val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
+    val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
     val userPrefs: UserPreferencesRepository,
     val stateHolder: androidx.compose.runtime.saveable.SaveableStateHolder,
     val scope: kotlinx.coroutines.CoroutineScope,
@@ -448,7 +448,7 @@ private fun miniPlayerActions(
 )
 
 private fun trackMiniPlayerAction(action: String, content: PlayerSheetContentState) {
-    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
         action,
         content.podcast?.id,
         content.episode.id,
@@ -559,21 +559,21 @@ private fun updatePlayerSession(
     podcast: cx.aswin.boxlore.core.model.Podcast?
 ) {
     if (value == PlayerSheetValue.Expanded) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackMiniPlayerInteraction(
             "expanded",
             podcast?.id,
             episode.id,
             podcast?.title,
             episode.title
         )
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.startSession(
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.startSession(
             podcast?.id,
             episode.id,
             podcast?.title,
             episode.title
         )
     } else {
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.endSession()
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.endSession()
     }
 }
 

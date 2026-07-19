@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.core.data.playback
 
-import cx.aswin.boxlore.core.data.PlaybackSkipBounds
+import cx.aswin.boxlore.core.prefs.PlaybackSkipBounds
 
 object PlaybackSkipPolicy {
     const val DEFAULT_SKIP_BEGINNING_MS = PlaybackSkipBounds.DEFAULT_SKIP_BEGINNING_MS

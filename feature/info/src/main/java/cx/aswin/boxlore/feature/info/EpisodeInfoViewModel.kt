@@ -48,9 +48,9 @@ class EpisodeInfoViewModel(
     application: Application,
     private val podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
     private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
-    private val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
+    private val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
     private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
-    private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    private val userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     private val localCatalog: LocalCatalogPort,
     private val episodeOfflineLookup: EpisodeOfflineLookupPort,
 ) : AndroidViewModel(application) {
@@ -294,7 +294,7 @@ class EpisodeInfoViewModel(
                             }
                         }
                     }
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackEpisodeInfoScreenViewed(props)
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackEpisodeInfoScreenViewed(props)
 
                 // 2. Fetch full details if we haven't already
                 if (finalEpisodeDescription.isEmpty()) {
@@ -506,7 +506,7 @@ class EpisodeInfoViewModel(
                         bundleValueOrNull(finalBundle, key)?.let { map[key] = it }
                     }
                     if (map.isNotEmpty()) {
-                        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint
+                        cx.aswin.boxlore.core.analytics.PendingEntryPoint
                             .set(map)
                     }
                 }
@@ -652,7 +652,7 @@ class EpisodeInfoViewModel(
                     put("source_entry_point", sourceEntryPoint!!)
                 }
             }
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackEpisodeInfoScreenSession(props)
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackEpisodeInfoScreenSession(props)
     }
 
     private fun detectCrossPromotion(

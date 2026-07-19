@@ -8,8 +8,8 @@ singleton) and `RecordingAnalytics` (a test-double that records events in-memory
 dependency). Also owns `ErrorReporter` (non-fatal error sink; `:app` may install Crashlytics).
 
 **Does not own:** PostHog SDK initialisation (stays in `:app`), UI, repositories, or any
-persistence beyond the `boxcast_analytics_prefs` SharedPreferences key used for first-launch
-detection.
+persistence beyond the `boxlore_analytics_prefs` SharedPreferences file used for first-launch
+detection (migrated from `boxcast_analytics_prefs` via `PrefsFileMigrator`).
 
 ## Public API
 
@@ -22,12 +22,12 @@ detection.
 | `PendingEntryPoint` | Thread-safe singleton bridging playback entry-point across the MediaController IPC boundary |
 | `PlayerSessionAggregator` | Aggregates per-episode player interactions, flushed at session end |
 
-Package kept at `cx.aswin.boxlore.core.data.analytics` (no import changes in consumers).
+**Package root:** `cx.aswin.boxlore.core.analytics` (matches module).
 
 ## Internal structure
 
 ```text
-src/main/java/cx/aswin/boxlore/core/data/analytics/
+src/main/java/cx/aswin/boxlore/core/analytics/
   Analytics.kt              # façade interface
   AnalyticsHelper.kt        # PostHog-backed singleton (implements Analytics)
   RecordingAnalytics.kt     # in-memory test double (implements Analytics)
@@ -40,6 +40,7 @@ src/main/java/cx/aswin/boxlore/core/data/analytics/
 ## Dependencies
 
 - → `:core:model` (`RankingAggregateTelemetry`, model types)
+- → `:core:prefs` (`PrefsFileMigrator` for analytics prefs file)
 - → `libs.posthog.android` (PostHog SDK)
 - → `libs.androidx.core.ktx`
 
@@ -62,10 +63,10 @@ emit events must declare `implementation(projects.core.analytics)` directly. CI 
 
 | Stable key | Reason |
 | :--- | :--- |
-| `boxcast_analytics_prefs` SharedPreferences name | First-launch flag persisted on device |
+| `boxlore_analytics_prefs` SharedPreferences name | First-launch flag (migrated from `boxcast_analytics_prefs`) |
 | `is_first_launch` SharedPreferences key | First-launch flag key |
 
-Do **not** rename these; changing them resets first-launch state for existing users.
+Do **not** rename the key; file identity migrates only via `PrefsFileMigrator`.
 
 ## Testing notes
 

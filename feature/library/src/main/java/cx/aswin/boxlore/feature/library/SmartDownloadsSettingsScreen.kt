@@ -38,7 +38,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -135,10 +135,10 @@ fun SmartDownloadsSettingsScreen(
                                     val nextVal = !isEnabled
                                     userPrefs.setSmartDownloadsEnabled(nextVal)
                                     if (nextVal) {
-                                        cx.aswin.boxlore.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
+                                        cx.aswin.boxlore.core.downloads.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
                                     } else {
-                                        cx.aswin.boxlore.core.data.SmartDownloadManager.cancelPeriodicSync(context)
-                                        cx.aswin.boxlore.core.data.SmartDownloadManager.purgeAllSmartDownloads(context)
+                                        cx.aswin.boxlore.core.downloads.SmartDownloadManager.cancelPeriodicSync(context)
+                                        cx.aswin.boxlore.core.downloads.SmartDownloadManager.purgeAllSmartDownloads(context)
                                     }
                                 }
                             },
@@ -179,10 +179,10 @@ fun SmartDownloadsSettingsScreen(
                                 scope.launch {
                                     userPrefs.setSmartDownloadsEnabled(checked)
                                     if (checked) {
-                                        cx.aswin.boxlore.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
+                                        cx.aswin.boxlore.core.downloads.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly, chargingOnly)
                                     } else {
-                                        cx.aswin.boxlore.core.data.SmartDownloadManager.cancelPeriodicSync(context)
-                                        cx.aswin.boxlore.core.data.SmartDownloadManager.purgeAllSmartDownloads(context)
+                                        cx.aswin.boxlore.core.downloads.SmartDownloadManager.cancelPeriodicSync(context)
+                                        cx.aswin.boxlore.core.downloads.SmartDownloadManager.purgeAllSmartDownloads(context)
                                     }
                                 }
                             }
@@ -381,7 +381,7 @@ fun SmartDownloadsSettingsScreen(
                                         val nextVal = !wifiOnly
                                         userPrefs.setSmartDownloadsWifiOnly(nextVal)
                                         if (isEnabled) {
-                                            cx.aswin.boxlore.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = nextVal, chargingOnly = chargingOnly)
+                                            cx.aswin.boxlore.core.downloads.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = nextVal, chargingOnly = chargingOnly)
                                         }
                                     }
                                 }
@@ -413,7 +413,7 @@ fun SmartDownloadsSettingsScreen(
                                     scope.launch {
                                         userPrefs.setSmartDownloadsWifiOnly(checked)
                                         if (isEnabled) {
-                                            cx.aswin.boxlore.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = checked, chargingOnly = chargingOnly)
+                                            cx.aswin.boxlore.core.downloads.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = checked, chargingOnly = chargingOnly)
                                         }
                                     }
                                 }
@@ -431,7 +431,7 @@ fun SmartDownloadsSettingsScreen(
                                         val nextVal = !chargingOnly
                                         userPrefs.setSmartDownloadsChargingOnly(nextVal)
                                         if (isEnabled) {
-                                            cx.aswin.boxlore.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = wifiOnly, chargingOnly = nextVal)
+                                            cx.aswin.boxlore.core.downloads.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = wifiOnly, chargingOnly = nextVal)
                                         }
                                     }
                                 }
@@ -463,7 +463,7 @@ fun SmartDownloadsSettingsScreen(
                                     scope.launch {
                                         userPrefs.setSmartDownloadsChargingOnly(checked)
                                         if (isEnabled) {
-                                            cx.aswin.boxlore.core.data.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = wifiOnly, chargingOnly = checked)
+                                            cx.aswin.boxlore.core.downloads.SmartDownloadManager.schedulePeriodicSync(context, wifiOnly = wifiOnly, chargingOnly = checked)
                                         }
                                     }
                                 }

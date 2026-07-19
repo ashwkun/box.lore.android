@@ -37,7 +37,7 @@ fun HeroCarousel(
     androidx.compose.runtime.LaunchedEffect(maxScrolledIndex.intValue) {
         if (maxScrolledIndex.intValue > 0) {
             kotlinx.coroutines.delay(3000) // 3s debounce
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackHomeHeroCarouselSwiped(
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackHomeHeroCarouselSwiped(
                 maxCardIndexViewed = maxScrolledIndex.intValue,
                 totalCardsAvailable = heroItems.list.size,
             )

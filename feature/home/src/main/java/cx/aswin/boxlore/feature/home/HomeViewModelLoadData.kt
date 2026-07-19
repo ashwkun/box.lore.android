@@ -2,12 +2,12 @@ package cx.aswin.boxlore.feature.home
 
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.data.MixtapeEngine
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.DiversityPolicy
-import cx.aswin.boxlore.core.data.ranking.EpisodeRankingInput
-import cx.aswin.boxlore.core.data.ranking.PodcastRankingInput
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.DiversityPolicy
+import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
+import cx.aswin.boxlore.core.ranking.PodcastRankingInput
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.data.toScorable
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
@@ -324,10 +324,10 @@ internal fun HomeViewModel.loadData() {
                                 engagementCoordinator.recordProactivePromptShown()
                                 engagementCoordinator.clearPromoterReviewPending()
                                 val npsScore = userPrefs.npsLastScore()
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackPromoterReviewHandoff(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackPromoterReviewHandoff(
                                     npsScore,
                                 )
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackEngagementPromptShown(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackEngagementPromptShown(
                                     promptType = "promoter_review",
                                     source = "nps_handoff",
                                 )
@@ -339,7 +339,7 @@ internal fun HomeViewModel.loadData() {
                                 val shouldPrompt = userPrefs.shouldShowReviewPrompt(isPlayingNow)
                                 if (shouldPrompt) {
                                     engagementCoordinator.recordProactivePromptShown()
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackEngagementPromptShown(
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackEngagementPromptShown(
                                         promptType = "milestone_review",
                                         source = "episode_milestone",
                                         completedEpisodes = completedCount,

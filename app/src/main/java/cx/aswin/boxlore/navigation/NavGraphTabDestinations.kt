@@ -42,8 +42,8 @@ internal fun androidx.navigation.NavGraphBuilder.addOnboardingDestination(w: Nav
             onBack = { navController.popBackStack() },
             onImportClick = {
                 opmlCallbacks.onSourceChange("welcome_screen")
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackOnboardingFlowSelected("import_library", "welcome_screen")
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackImportSheetOpened()
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackOnboardingFlowSelected("import_library", "welcome_screen")
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackImportSheetOpened()
                 opmlCallbacks.onImportStateChange(OpmlImportState.ShowSelector)
             },
         )
@@ -73,7 +73,7 @@ internal fun androidx.navigation.NavGraphBuilder.addHomeDestination(w: NavGraphW
     composable("home") {
         LaunchedEffect(showFeatureDialog) {
             if (shouldRequestNotificationPermission(showFeatureDialog, context)) {
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackNotificationPermissionRequested()
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackNotificationPermissionRequested()
                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
@@ -185,7 +185,7 @@ internal fun androidx.navigation.NavGraphBuilder.addLearnDestinations(w: NavGrap
                 scope.launchCoroutine {
                     try {
                         if (playbackRepository.hasNonLoreQueue()) {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLoreQueueConflictShown(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLoreQueueConflictShown(
                                 episodeId = episode.id,
                                 normalQueueSize = playbackRepository.playerState.value.queue.size,
                             )

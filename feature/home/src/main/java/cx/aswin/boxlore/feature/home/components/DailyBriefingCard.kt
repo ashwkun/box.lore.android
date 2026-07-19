@@ -266,14 +266,14 @@ fun DailyBriefingCard(
                 IconButton(
                     onClick = {
                         if (cardState == DailyBriefingCardState.NORMAL) {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                 action = "dismiss_initiated",
                                 region = briefing.region,
                                 date = briefing.date,
                             )
                             cardState = DailyBriefingCardState.CONFIRM_DISMISS
                         } else {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                 action = "dismiss_cancelled",
                                 region = briefing.region,
                                 date = briefing.date,
@@ -514,7 +514,7 @@ private fun DailyBriefingChaptersList(
                     expanded = expanded,
                     onToggleExpanded = {
                         val nextExpanded = !expanded
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                             action = "card_chapters_toggled",
                             region = briefingRegion,
                             date = briefingDate,
@@ -595,7 +595,7 @@ private fun DailyBriefingDismissContent(
                     .widthIn(min = 180.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .clickable {
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                             action = "dismissed_today",
                             region = briefing.region,
                             date = briefing.date,
@@ -632,7 +632,7 @@ private fun DailyBriefingDismissContent(
                 Modifier
                     .padding(horizontal = 20.dp)
                     .clickable {
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                             action = "dismiss_forever_initiated",
                             region = briefing.region,
                             date = briefing.date,
@@ -697,7 +697,7 @@ private fun DailyBriefingForeverContent(
                         .weight(1f)
                         .clip(RoundedCornerShape(24.dp))
                         .clickable {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                 action = "feedback_clicked",
                                 region = briefing.region,
                                 date = briefing.date,
@@ -729,7 +729,7 @@ private fun DailyBriefingForeverContent(
                         .weight(1f)
                         .clip(RoundedCornerShape(24.dp))
                         .clickable {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                 action = "dismissed_forever",
                                 region = briefing.region,
                                 date = briefing.date,

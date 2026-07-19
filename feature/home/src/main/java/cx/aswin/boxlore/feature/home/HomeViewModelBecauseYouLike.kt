@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.feature.home
 
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.EpisodeRankingInput
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.logic.HomeBecauseYouLikeLogic

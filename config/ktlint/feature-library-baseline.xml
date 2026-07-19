@@ -91,7 +91,7 @@
         <error line="81" column="53" source="standard:trailing-comma-on-declaration-site" />
         <error line="86" column="22" source="standard:multiline-expression-wrapping" />
         <error line="94" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="108" column="61" source="standard:chain-method-continuation" />
+        <error line="108" column="56" source="standard:chain-method-continuation" />
         <error line="112" column="20" source="standard:multiline-expression-wrapping" />
         <error line="144" column="42" source="standard:trailing-comma-on-call-site" />
         <error line="153" column="34" source="standard:trailing-comma-on-call-site" />
@@ -214,7 +214,7 @@
         <error line="76" column="5" source="standard:function-naming" />
         <error line="82" column="36" source="standard:trailing-comma-on-declaration-site" />
         <error line="88" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="102" column="61" source="standard:chain-method-continuation" />
+        <error line="102" column="56" source="standard:chain-method-continuation" />
         <error line="122" column="10" source="standard:trailing-comma-on-call-site" />
         <error line="128" column="5" source="standard:function-naming" />
         <error line="133" column="36" source="standard:trailing-comma-on-declaration-site" />
@@ -340,7 +340,7 @@
         <error line="198" column="51" source="standard:trailing-comma-on-call-site" />
         <error line="219" column="36" source="standard:trailing-comma-on-call-site" />
         <error line="225" column="50" source="standard:trailing-comma-on-call-site" />
-        <error line="258" column="61" source="standard:chain-method-continuation" />
+        <error line="258" column="56" source="standard:chain-method-continuation" />
         <error line="272" column="59" source="standard:trailing-comma-on-call-site" />
         <error line="284" column="60" source="standard:trailing-comma-on-call-site" />
         <error line="296" column="60" source="standard:trailing-comma-on-call-site" />
@@ -362,7 +362,7 @@
         <error line="47" column="47" source="standard:trailing-comma-on-declaration-site" />
         <error line="52" column="22" source="standard:multiline-expression-wrapping" />
         <error line="59" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="73" column="61" source="standard:chain-method-continuation" />
+        <error line="73" column="56" source="standard:chain-method-continuation" />
         <error line="77" column="20" source="standard:multiline-expression-wrapping" />
         <error line="94" column="26" source="standard:multiline-expression-wrapping" />
         <error line="111" column="60" source="standard:trailing-comma-on-call-site" />
@@ -414,14 +414,14 @@
         <error line="124" column="51" source="standard:trailing-comma-on-call-site" />
         <error line="128" column="70" source="standard:trailing-comma-on-call-site" />
         <error line="131" column="36" source="standard:multiline-expression-wrapping" />
-        <error line="138" column="88" source="standard:chain-method-continuation" />
-        <error line="138" column="110" source="standard:argument-list-wrapping" />
-        <error line="138" column="119" source="standard:argument-list-wrapping" />
-        <error line="138" column="129" source="standard:argument-list-wrapping" />
-        <error line="138" column="141" source="standard:argument-list-wrapping" />
+        <error line="138" column="93" source="standard:chain-method-continuation" />
+        <error line="138" column="115" source="standard:argument-list-wrapping" />
+        <error line="138" column="124" source="standard:argument-list-wrapping" />
+        <error line="138" column="134" source="standard:argument-list-wrapping" />
         <error line="138" column="141" source="standard:max-line-length" />
-        <error line="140" column="88" source="standard:chain-method-continuation" />
-        <error line="141" column="88" source="standard:chain-method-continuation" />
+        <error line="138" column="146" source="standard:argument-list-wrapping" />
+        <error line="140" column="93" source="standard:chain-method-continuation" />
+        <error line="141" column="93" source="standard:chain-method-continuation" />
         <error line="146" column="73" source="standard:trailing-comma-on-call-site" />
         <error line="151" column="83" source="standard:trailing-comma-on-call-site" />
         <error line="156" column="65" source="standard:trailing-comma-on-call-site" />
@@ -432,14 +432,14 @@
         <error line="165" column="168" source="standard:argument-list-wrapping" />
         <error line="166" column="72" source="standard:trailing-comma-on-call-site" />
         <error line="173" column="137" source="standard:trailing-comma-on-call-site" />
-        <error line="182" column="88" source="standard:chain-method-continuation" />
-        <error line="182" column="110" source="standard:argument-list-wrapping" />
-        <error line="182" column="119" source="standard:argument-list-wrapping" />
-        <error line="182" column="129" source="standard:argument-list-wrapping" />
-        <error line="182" column="141" source="standard:argument-list-wrapping" />
+        <error line="182" column="93" source="standard:chain-method-continuation" />
+        <error line="182" column="115" source="standard:argument-list-wrapping" />
+        <error line="182" column="124" source="standard:argument-list-wrapping" />
+        <error line="182" column="134" source="standard:argument-list-wrapping" />
         <error line="182" column="141" source="standard:max-line-length" />
-        <error line="184" column="88" source="standard:chain-method-continuation" />
-        <error line="185" column="88" source="standard:chain-method-continuation" />
+        <error line="182" column="146" source="standard:argument-list-wrapping" />
+        <error line="184" column="93" source="standard:chain-method-continuation" />
+        <error line="185" column="93" source="standard:chain-method-continuation" />
         <error line="188" column="30" source="standard:trailing-comma-on-call-site" />
         <error line="196" column="62" source="standard:trailing-comma-on-call-site" />
         <error line="199" column="40" source="standard:multiline-expression-wrapping" />
@@ -488,42 +488,42 @@
         <error line="369" column="73" source="standard:trailing-comma-on-call-site" />
         <error line="372" column="55" source="standard:trailing-comma-on-call-site" />
         <error line="377" column="40" source="standard:multiline-expression-wrapping" />
-        <error line="384" column="92" source="standard:chain-method-continuation" />
-        <error line="384" column="114" source="standard:argument-list-wrapping" />
-        <error line="384" column="123" source="standard:argument-list-wrapping" />
+        <error line="384" column="97" source="standard:chain-method-continuation" />
+        <error line="384" column="119" source="standard:argument-list-wrapping" />
+        <error line="384" column="128" source="standard:argument-list-wrapping" />
         <error line="384" column="141" source="standard:max-line-length" />
-        <error line="384" column="143" source="standard:argument-list-wrapping" />
-        <error line="384" column="170" source="standard:argument-list-wrapping" />
+        <error line="384" column="148" source="standard:argument-list-wrapping" />
+        <error line="384" column="175" source="standard:argument-list-wrapping" />
         <error line="388" column="33" source="standard:chain-method-continuation" />
         <error line="390" column="77" source="standard:trailing-comma-on-call-site" />
         <error line="395" column="63" source="standard:trailing-comma-on-call-site" />
         <error line="401" column="85" source="standard:trailing-comma-on-call-site" />
         <error line="406" column="91" source="standard:trailing-comma-on-call-site" />
-        <error line="416" column="92" source="standard:chain-method-continuation" />
-        <error line="416" column="114" source="standard:argument-list-wrapping" />
-        <error line="416" column="123" source="standard:argument-list-wrapping" />
+        <error line="416" column="97" source="standard:chain-method-continuation" />
+        <error line="416" column="119" source="standard:argument-list-wrapping" />
+        <error line="416" column="128" source="standard:argument-list-wrapping" />
         <error line="416" column="141" source="standard:max-line-length" />
-        <error line="416" column="143" source="standard:argument-list-wrapping" />
-        <error line="416" column="170" source="standard:argument-list-wrapping" />
+        <error line="416" column="148" source="standard:argument-list-wrapping" />
+        <error line="416" column="175" source="standard:argument-list-wrapping" />
         <error line="419" column="34" source="standard:trailing-comma-on-call-site" />
         <error line="427" column="40" source="standard:multiline-expression-wrapping" />
-        <error line="434" column="92" source="standard:chain-method-continuation" />
-        <error line="434" column="114" source="standard:argument-list-wrapping" />
-        <error line="434" column="123" source="standard:argument-list-wrapping" />
+        <error line="434" column="97" source="standard:chain-method-continuation" />
+        <error line="434" column="119" source="standard:argument-list-wrapping" />
+        <error line="434" column="128" source="standard:argument-list-wrapping" />
         <error line="434" column="141" source="standard:max-line-length" />
-        <error line="434" column="144" source="standard:argument-list-wrapping" />
-        <error line="434" column="166" source="standard:argument-list-wrapping" />
+        <error line="434" column="149" source="standard:argument-list-wrapping" />
+        <error line="434" column="171" source="standard:argument-list-wrapping" />
         <error line="438" column="33" source="standard:chain-method-continuation" />
         <error line="440" column="77" source="standard:trailing-comma-on-call-site" />
         <error line="445" column="63" source="standard:trailing-comma-on-call-site" />
         <error line="451" column="85" source="standard:trailing-comma-on-call-site" />
         <error line="456" column="91" source="standard:trailing-comma-on-call-site" />
-        <error line="466" column="92" source="standard:chain-method-continuation" />
-        <error line="466" column="114" source="standard:argument-list-wrapping" />
-        <error line="466" column="123" source="standard:argument-list-wrapping" />
+        <error line="466" column="97" source="standard:chain-method-continuation" />
+        <error line="466" column="119" source="standard:argument-list-wrapping" />
+        <error line="466" column="128" source="standard:argument-list-wrapping" />
         <error line="466" column="141" source="standard:max-line-length" />
-        <error line="466" column="144" source="standard:argument-list-wrapping" />
-        <error line="466" column="166" source="standard:argument-list-wrapping" />
+        <error line="466" column="149" source="standard:argument-list-wrapping" />
+        <error line="466" column="171" source="standard:argument-list-wrapping" />
         <error line="469" column="34" source="standard:trailing-comma-on-call-site" />
         <error line="477" column="30" source="standard:multiline-expression-wrapping" />
         <error line="478" column="97" source="standard:trailing-comma-on-call-site" />
@@ -718,7 +718,7 @@
         <error line="226" column="1" source="standard:indent" />
         <error line="227" column="1" source="standard:indent" />
         <error line="228" column="1" source="standard:indent" />
-        <error line="228" column="89" source="standard:chain-method-continuation" />
+        <error line="228" column="84" source="standard:chain-method-continuation" />
         <error line="229" column="1" source="standard:indent" />
         <error line="230" column="1" source="standard:indent" />
         <error line="231" column="1" source="standard:indent" />
@@ -747,11 +747,11 @@
         <error line="252" column="1" source="standard:indent" />
         <error line="253" column="1" source="standard:indent" />
         <error line="254" column="1" source="standard:indent" />
-        <error line="254" column="105" source="standard:chain-method-continuation" />
+        <error line="254" column="100" source="standard:chain-method-continuation" />
+        <error line="254" column="138" source="standard:argument-list-wrapping" />
         <error line="254" column="141" source="standard:max-line-length" />
-        <error line="254" column="143" source="standard:argument-list-wrapping" />
-        <error line="254" column="157" source="standard:argument-list-wrapping" />
-        <error line="254" column="164" source="standard:argument-list-wrapping" />
+        <error line="254" column="152" source="standard:argument-list-wrapping" />
+        <error line="254" column="159" source="standard:argument-list-wrapping" />
         <error line="255" column="1" source="standard:indent" />
         <error line="256" column="1" source="standard:indent" />
         <error line="257" column="1" source="standard:indent" />
@@ -766,11 +766,11 @@
         <error line="265" column="1" source="standard:indent" />
         <error line="266" column="1" source="standard:indent" />
         <error line="267" column="1" source="standard:indent" />
-        <error line="267" column="105" source="standard:chain-method-continuation" />
+        <error line="267" column="100" source="standard:chain-method-continuation" />
+        <error line="267" column="138" source="standard:argument-list-wrapping" />
         <error line="267" column="141" source="standard:max-line-length" />
-        <error line="267" column="143" source="standard:argument-list-wrapping" />
-        <error line="267" column="163" source="standard:argument-list-wrapping" />
-        <error line="267" column="170" source="standard:argument-list-wrapping" />
+        <error line="267" column="158" source="standard:argument-list-wrapping" />
+        <error line="267" column="165" source="standard:argument-list-wrapping" />
         <error line="268" column="1" source="standard:indent" />
         <error line="269" column="1" source="standard:indent" />
         <error line="270" column="1" source="standard:indent" />
@@ -785,11 +785,11 @@
         <error line="278" column="1" source="standard:indent" />
         <error line="279" column="1" source="standard:indent" />
         <error line="280" column="1" source="standard:indent" />
-        <error line="280" column="105" source="standard:chain-method-continuation" />
+        <error line="280" column="100" source="standard:chain-method-continuation" />
+        <error line="280" column="138" source="standard:argument-list-wrapping" />
         <error line="280" column="141" source="standard:max-line-length" />
-        <error line="280" column="143" source="standard:argument-list-wrapping" />
-        <error line="280" column="159" source="standard:argument-list-wrapping" />
-        <error line="280" column="166" source="standard:argument-list-wrapping" />
+        <error line="280" column="154" source="standard:argument-list-wrapping" />
+        <error line="280" column="161" source="standard:argument-list-wrapping" />
         <error line="281" column="1" source="standard:indent" />
         <error line="282" column="1" source="standard:indent" />
         <error line="283" column="1" source="standard:indent" />
@@ -804,11 +804,11 @@
         <error line="291" column="1" source="standard:indent" />
         <error line="292" column="1" source="standard:indent" />
         <error line="293" column="1" source="standard:indent" />
-        <error line="293" column="105" source="standard:chain-method-continuation" />
+        <error line="293" column="100" source="standard:chain-method-continuation" />
+        <error line="293" column="138" source="standard:argument-list-wrapping" />
         <error line="293" column="141" source="standard:max-line-length" />
-        <error line="293" column="143" source="standard:argument-list-wrapping" />
-        <error line="293" column="160" source="standard:argument-list-wrapping" />
-        <error line="293" column="167" source="standard:argument-list-wrapping" />
+        <error line="293" column="155" source="standard:argument-list-wrapping" />
+        <error line="293" column="162" source="standard:argument-list-wrapping" />
         <error line="294" column="1" source="standard:indent" />
         <error line="295" column="1" source="standard:indent" />
         <error line="296" column="1" source="standard:indent" />
@@ -824,11 +824,11 @@
         <error line="305" column="1" source="standard:indent" />
         <error line="306" column="1" source="standard:indent" />
         <error line="307" column="1" source="standard:indent" />
-        <error line="307" column="105" source="standard:chain-method-continuation" />
+        <error line="307" column="100" source="standard:chain-method-continuation" />
+        <error line="307" column="138" source="standard:argument-list-wrapping" />
         <error line="307" column="141" source="standard:max-line-length" />
-        <error line="307" column="143" source="standard:argument-list-wrapping" />
-        <error line="307" column="157" source="standard:argument-list-wrapping" />
-        <error line="307" column="165" source="standard:argument-list-wrapping" />
+        <error line="307" column="152" source="standard:argument-list-wrapping" />
+        <error line="307" column="160" source="standard:argument-list-wrapping" />
         <error line="308" column="1" source="standard:indent" />
         <error line="309" column="1" source="standard:indent" />
         <error line="310" column="1" source="standard:indent" />
@@ -843,11 +843,11 @@
         <error line="318" column="1" source="standard:indent" />
         <error line="319" column="1" source="standard:indent" />
         <error line="320" column="1" source="standard:indent" />
-        <error line="320" column="105" source="standard:chain-method-continuation" />
+        <error line="320" column="100" source="standard:chain-method-continuation" />
+        <error line="320" column="138" source="standard:argument-list-wrapping" />
         <error line="320" column="141" source="standard:max-line-length" />
-        <error line="320" column="143" source="standard:argument-list-wrapping" />
-        <error line="320" column="160" source="standard:argument-list-wrapping" />
-        <error line="320" column="168" source="standard:argument-list-wrapping" />
+        <error line="320" column="155" source="standard:argument-list-wrapping" />
+        <error line="320" column="163" source="standard:argument-list-wrapping" />
         <error line="321" column="1" source="standard:indent" />
         <error line="322" column="1" source="standard:indent" />
         <error line="323" column="1" source="standard:indent" />
@@ -990,7 +990,7 @@
         <error line="74" column="36" source="standard:trailing-comma-on-declaration-site" />
         <error line="79" column="22" source="standard:multiline-expression-wrapping" />
         <error line="86" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="100" column="61" source="standard:chain-method-continuation" />
+        <error line="100" column="56" source="standard:chain-method-continuation" />
         <error line="106" column="24" source="standard:multiline-expression-wrapping" />
         <error line="108" column="22" source="standard:multiline-expression-wrapping" />
         <error line="122" column="56" source="standard:trailing-comma-on-call-site" />
@@ -1718,13 +1718,13 @@
         <error line="61" column="50" source="standard:trailing-comma-on-call-site" />
         <error line="65" column="36" source="standard:multiline-expression-wrapping" />
         <error line="67" column="52" source="standard:trailing-comma-on-call-site" />
-        <error line="73" column="85" source="standard:chain-method-continuation" />
+        <error line="73" column="80" source="standard:chain-method-continuation" />
         <error line="75" column="60" source="standard:trailing-comma-on-call-site" />
         <error line="85" column="65" source="standard:trailing-comma-on-call-site" />
         <error line="92" column="50" source="standard:trailing-comma-on-call-site" />
         <error line="96" column="36" source="standard:multiline-expression-wrapping" />
         <error line="98" column="52" source="standard:trailing-comma-on-call-site" />
-        <error line="104" column="85" source="standard:chain-method-continuation" />
+        <error line="104" column="80" source="standard:chain-method-continuation" />
         <error line="107" column="79" source="standard:trailing-comma-on-call-site" />
         <error line="115" column="65" source="standard:trailing-comma-on-call-site" />
         <error line="125" column="14" source="standard:function-naming" />
@@ -1741,7 +1741,7 @@
         <error line="189" column="31" source="standard:multiline-expression-wrapping" />
         <error line="199" column="31" source="standard:multiline-expression-wrapping" />
         <error line="210" column="50" source="standard:trailing-comma-on-call-site" />
-        <error line="217" column="81" source="standard:chain-method-continuation" />
+        <error line="217" column="76" source="standard:chain-method-continuation" />
         <error line="221" column="36" source="standard:multiline-expression-wrapping" />
         <error line="223" column="52" source="standard:trailing-comma-on-call-site" />
         <error line="234" column="38" source="standard:multiline-expression-wrapping" />

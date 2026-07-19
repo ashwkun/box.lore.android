@@ -13,7 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import cx.aswin.boxlore.core.data.DownloadSpeedLimiter
+import cx.aswin.boxlore.core.downloads.DownloadSpeedLimiter
 
 /**
  * Bandwidth-adaptive download throttling: throttle more when playing on a slow link.

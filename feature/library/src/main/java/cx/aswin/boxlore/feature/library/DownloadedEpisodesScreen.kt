@@ -16,7 +16,7 @@ fun DownloadedEpisodeEntity.toPodcast() = downloadedEntityToPodcast()
 @Composable
 fun DownloadedEpisodesScreen(
     viewModel: LibraryViewModel,
-    userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     isOffline: Boolean = false,
     onBack: () -> Unit,
     onExploreClick: () -> Unit,

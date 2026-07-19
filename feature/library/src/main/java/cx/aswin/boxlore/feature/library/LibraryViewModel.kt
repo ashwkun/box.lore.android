@@ -9,11 +9,11 @@ import cx.aswin.boxlore.core.model.EpisodeStatus
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.data.toScorable
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.EpisodeRankingInput
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,8 +45,8 @@ sealed interface LibraryUiState {
 class LibraryViewModel(
     private val subscriptionRepository: SubscriptionRepository,
     private val playbackRepository: PlaybackRepository,
-    private val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
-    private val userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    private val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
+    private val userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     private val adaptiveScorer: AdaptiveCandidateScorer,
 ) : ViewModel() {
 
@@ -255,7 +255,7 @@ class LibraryViewModel(
     fun trackHubExit() {
         if (sessionStartTime == 0L || hasTrackedExit) return
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryHubSession(timeSpent, hubNavigatedTo)
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryHubSession(timeSpent, hubNavigatedTo)
         hasTrackedExit = true
         sessionStartTime = 0L
     }
@@ -263,7 +263,7 @@ class LibraryViewModel(
     fun trackSubscriptionsExit() {
         if (sessionStartTime == 0L || hasTrackedExit) return
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSession(
             timeSpentSeconds = timeSpent,
             tabSwitchesCount = subTabSwitchesCount,
             didSearch = subDidSearch,
@@ -278,7 +278,7 @@ class LibraryViewModel(
     fun trackLikedExit() {
         if (sessionStartTime == 0L || hasTrackedExit) return
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryLikedSession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryLikedSession(
             timeSpentSeconds = timeSpent,
             episodesClickedCount = genericEpisodesClickedCount,
             episodesUnlikedCount = genericItemsRemovedCount
@@ -290,7 +290,7 @@ class LibraryViewModel(
     fun trackDownloadsExit() {
         if (sessionStartTime == 0L || hasTrackedExit) return
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryDownloadsSession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryDownloadsSession(
             timeSpentSeconds = timeSpent,
             episodesClickedCount = genericEpisodesClickedCount,
             episodesDeletedCount = genericItemsRemovedCount

@@ -63,7 +63,7 @@ import cx.aswin.boxlore.feature.library.PlayAllFab
 @Composable
 fun DownloadedEpisodesScreen(
     viewModel: LibraryViewModel,
-    userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     isOffline: Boolean = false,
     onBack: () -> Unit,
     onExploreClick: () -> Unit,
@@ -97,7 +97,7 @@ fun DownloadedEpisodesScreen(
     }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryDownloadsViewed("library_hub_card")
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryDownloadsViewed("library_hub_card")
     }
 
     val downloads = (uiState as? LibraryUiState.Success)?.downloadedEpisodes ?: emptyList()

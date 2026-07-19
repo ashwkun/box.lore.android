@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.data.content
 
 import com.google.gson.Gson
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.network.model.RecommendationSeedV2
 import cx.aswin.boxlore.core.network.model.RecommendationsV2Request

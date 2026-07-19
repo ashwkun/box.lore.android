@@ -273,7 +273,7 @@ flowchart TB
 
 Key packages:
 
-- `core/ranking/.../ranking/` — bandit, facets, reward, features, persistence (extracted to `:core:ranking` in Phase A5; same Kotlin package `cx.aswin.boxlore.core.data.ranking`).
+- `core/ranking/.../ranking/` — bandit, facets, reward, features, persistence (extracted to `:core:ranking` in Phase A5; same Kotlin package `cx.aswin.boxlore.core.ranking`).
 - `core/data/.../content/` — Home retrieval → ranking → layout (including grouped sections).
 - `core/data/MixtapeEngine.kt`, `core/data/SmartQueueEngine.kt` — surface engines.
 - `core/network/.../BoxLoreApi.kt` — Retrofit boundary.

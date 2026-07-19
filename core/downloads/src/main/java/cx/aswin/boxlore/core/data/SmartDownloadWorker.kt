@@ -1,37 +1,16 @@
 package cx.aswin.boxlore.core.data
 
 import android.content.Context
-import android.util.Log
-import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
-import kotlinx.coroutines.flow.first
 
+/**
+ * Permanent upgrade stub: old WorkManager FQCN resolves after package align to
+ * [cx.aswin.boxlore.core.downloads.SmartDownloadWorker].
+ *
+ * Do not delete — [cx.aswin.boxlore.LegacyWorkerFactory] + Class.forName(old) both rely on this.
+ */
+@Deprecated("Permanent upgrade bridge; use cx.aswin.boxlore.core.downloads.SmartDownloadWorker")
 class SmartDownloadWorker(
     appContext: Context,
-    params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
-
-    override suspend fun doWork(): Result {
-        Log.d("SmartDownloadWorker", "WorkManager daily check triggered.")
-
-        val sharedDeps = SharedAppDependenciesHolder.require()
-        val userPrefs = sharedDeps.userPreferencesRepository
-
-        // Check if enabled first
-        val isEnabled = userPrefs.smartDownloadsEnabledStream.first()
-        if (!isEnabled) {
-            Log.d("SmartDownloadWorker", "Smart downloads is disabled. Skipping worker execution.")
-            return Result.success()
-        }
-
-        try {
-            val downloadDeps = DownloadsDependenciesHolder.require()
-            val success = downloadDeps.smartDownloadManager.performSync(isForeground = false)
-            return if (success) Result.success() else Result.retry()
-        } catch (e: Exception) {
-            Log.e("SmartDownloadWorker", "Worker execution failed", e)
-            return Result.failure()
-        }
-    }
-}
+    params: WorkerParameters,
+) : cx.aswin.boxlore.core.downloads.SmartDownloadWorker(appContext, params)

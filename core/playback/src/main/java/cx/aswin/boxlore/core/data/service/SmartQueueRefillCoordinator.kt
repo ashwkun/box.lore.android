@@ -8,8 +8,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.QueueRepository
 import cx.aswin.boxlore.core.data.SmartQueueEngine
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.network.model.EpisodeItem

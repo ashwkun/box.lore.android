@@ -1,11 +1,13 @@
 package cx.aswin.boxlore.core.data
 
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
-import cx.aswin.boxlore.core.data.ranking.RankingRuntimeControls
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.RankingRuntimeControls
 import cx.aswin.boxlore.core.domain.ports.HistoryRecommendationSource
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
+import cx.aswin.boxlore.core.rss.RssPodcastRepository
 
 /**
  * Process-wide façade of Application-scoped instances that workers and Media3 services

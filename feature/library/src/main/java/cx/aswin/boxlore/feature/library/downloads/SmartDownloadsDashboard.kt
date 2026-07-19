@@ -116,7 +116,7 @@ fun SquigglyProgressLoader(
 
 @Composable
 fun SmartDownloadsDashboardCard(
-    userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     downloads: List<cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity>,
     onSettingsClick: () -> Unit,
     onSyncNow: () -> Unit,

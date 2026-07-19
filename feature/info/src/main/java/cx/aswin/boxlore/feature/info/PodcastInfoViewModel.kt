@@ -29,12 +29,12 @@ class PodcastInfoViewModel(
     application: Application,
     private val repository: PodcastRepository,
     private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
-    private val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
+    private val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
     private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
     private val subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
-    private val rssRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
+    private val rssRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
     private val localCatalog: LocalCatalogPort,
-    private val userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    private val userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     private val entryPoint: String?,
     private val genreFilter: String?,
     private val scrollDepth: Int?,
@@ -179,7 +179,7 @@ class PodcastInfoViewModel(
                             ),
                     )
             }
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackSettingsInteraction(
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSettingsInteraction(
                 "podcast_playback_override_changed",
                 "${state.podcast.id}:${beginningMs ?: "default"}:${endingMs ?: "default"}",
             )
@@ -492,7 +492,7 @@ class PodcastInfoViewModel(
         podcastId: String,
         podcastName: String?,
     ) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenViewed(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackPodcastInfoScreenViewed(
             podcastId = podcastId,
             podcastName = podcastName,
             entryPoint = entryPoint,
@@ -731,7 +731,7 @@ class PodcastInfoViewModel(
                         isSubscribed = isSubscribed,
                     )
 
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackPodcastSubscriptionToggled(
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackPodcastSubscriptionToggled(
                     podcastId = currentState.podcast.id,
                     podcastName = currentState.podcast.title,
                     isSubscribed = isSubscribed,
@@ -969,7 +969,7 @@ class PodcastInfoViewModel(
         hasTrackedExit = true
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
         val podcastName = (_uiState.value as? PodcastInfoUiState.Success)?.podcast?.title ?: "Unknown"
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackPodcastInfoScreenSession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackPodcastInfoScreenSession(
             podcastId = currentPodcastId,
             podcastName = podcastName,
             timeSpentSeconds = timeSpent,

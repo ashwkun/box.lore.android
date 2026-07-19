@@ -105,7 +105,7 @@ fun HistoryScreen(
     }
 
     LaunchedEffect(Unit) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryHistoryViewed("library_hub_card")
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryHistoryViewed("library_hub_card")
     }
 
     Scaffold(

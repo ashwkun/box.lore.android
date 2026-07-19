@@ -37,7 +37,7 @@ import com.posthog.PostHog
 import cx.aswin.boxlore.BoxLoreApplication
 import cx.aswin.boxlore.BuildConfig
 import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.designsystem.component.AppMiniPlayerHeight
 import cx.aswin.boxlore.core.designsystem.component.AppMiniPlayerNavGap
 import cx.aswin.boxlore.core.designsystem.component.AppNavigationBarHeight
@@ -49,6 +49,7 @@ import cx.aswin.boxlore.core.designsystem.theme.BoxLoreTheme
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
 import cx.aswin.boxlore.feature.home.ModeSwitchState
 import cx.aswin.boxlore.feature.home.components.FeedbackSheet
 import cx.aswin.boxlore.feature.player.v2.MiniPlayerHeight
@@ -152,7 +153,11 @@ fun BoxLoreAppRoot(
         }
 
     LaunchedEffect(Unit) {
-        val prefs = activity.getSharedPreferences("boxcast_api_config", android.content.Context.MODE_PRIVATE)
+        val prefs = PrefsFileMigrator.open(
+            activity,
+            newName = PrefsFileMigrator.Files.API_CONFIG,
+            oldName = PrefsFileMigrator.LegacyFiles.API_CONFIG,
+        )
         prefs.edit()
             .putString("base_url", BuildConfig.BOXLORE_API_BASE_URL)
             .putString("public_key", BuildConfig.BOXLORE_PUBLIC_KEY)

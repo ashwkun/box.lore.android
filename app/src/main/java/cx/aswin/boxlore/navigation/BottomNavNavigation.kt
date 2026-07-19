@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.navigation
 
 import androidx.navigation.NavHostController
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 
 /** Bottom-nav tab click handler shared by the Activity shell. */
 fun NavHostController.navigateBottomNavTab(route: String, activeTab: String) {

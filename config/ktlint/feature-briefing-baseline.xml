@@ -222,8 +222,6 @@
         <error line="920" column="57" source="standard:multiline-if-else" />
         <error line="920" column="118" source="standard:trailing-comma-on-call-site" />
         <error line="925" column="75" source="standard:trailing-comma-on-call-site" />
-        <error line="933" column="105" source="standard:chain-method-continuation" />
-        <error line="933" column="141" source="standard:max-line-length" />
         <error line="940" column="98" source="standard:trailing-comma-on-call-site" />
         <error line="943" column="50" source="standard:trailing-comma-on-call-site" />
         <error line="957" column="41" source="standard:multiline-expression-wrapping" />

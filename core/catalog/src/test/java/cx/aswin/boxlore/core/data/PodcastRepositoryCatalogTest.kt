@@ -6,6 +6,7 @@ import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.PodcastDao
 import cx.aswin.boxlore.core.data.database.RssEpisodeDao
 import cx.aswin.boxlore.core.network.NetworkModule
+import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest

@@ -199,13 +199,13 @@ fun HomeRoute(
     playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     engagementPromptCoordinator: cx.aswin.boxlore.core.data.EngagementPromptCoordinator,
     subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
-    downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
-    rssPodcastRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
-    adaptiveRankingRepository: cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository,
-    adaptiveCandidateScorer: cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer,
-    rankingFeedbackRepository: cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository,
+    downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
+    rssPodcastRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
+    adaptiveRankingRepository: cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository,
+    adaptiveCandidateScorer: cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer,
+    rankingFeedbackRepository: cx.aswin.boxlore.core.ranking.RankingFeedbackRepository,
     localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
-    userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
@@ -561,22 +561,22 @@ fun HomeScreen(
             TopControlBar(
                 scrollFractionProvider = { scrollFraction },
                 onFeedbackClick = {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .trackTopControlbarInteraction("feedback_clicked", "home")
                     callbacks.feed.onFeedbackClick()
                 },
                 onFeedbackLongClick = {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .trackTopControlbarInteraction("feedback_long_clicked", "home")
                     callbacks.onForceSurveyNps()
                 },
                 onAvatarClick = {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .trackTopControlbarInteraction("settings_clicked", "home")
                     callbacks.onNavigateToSettings?.invoke()
                 },
                 onAvatarLongClick = {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .trackTopControlbarInteraction("avatar_long_clicked", "home")
                     callbacks.onNavigateToDebug()
                 },
@@ -773,27 +773,27 @@ private fun PodcastFeed(
                             )
                         showImportBanner -> {
                             LaunchedEffect(Unit) {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper
                                     .trackHomeImportBannerImpression()
                             }
                             HomeImportBanner(
                                 onAiOnboardingClick = {
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                                         .trackHomeImportBannerClicked("ai")
                                     onAiOnboardingClick()
                                 },
                                 onSearchClick = {
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                                         .trackHomeImportBannerClicked("search")
                                     onNavigateToExplore?.invoke(null, "home_banner", null)
                                 },
                                 onImportClick = {
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                                         .trackHomeImportBannerClicked("import")
                                     onImportClick()
                                 },
                                 onDismiss = {
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                                         .trackHomeImportBannerDismissed()
                                     onDismissImportBanner()
                                 },
@@ -811,7 +811,7 @@ private fun PodcastFeed(
                 val briefingId = "briefing_${briefing.region}_${briefing.date}"
                 val playbackState = episodePlaybackState.map[briefingId]
                 LaunchedEffect(briefing.region, briefing.date) {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingCardImpression(
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingCardImpression(
                         region = briefing.region,
                         date = briefing.date,
                         playbackStatus = playbackState?.first?.name ?: "NOT_STARTED",
@@ -827,13 +827,13 @@ private fun PodcastFeed(
                     onPlayPauseClick = {
                         val isCurrentPlaying = isPlaying && currentPlayingEpisodeId == briefingId
                         if (isCurrentPlaying) {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
                                 region = briefing.region,
                                 date = briefing.date,
                                 source = "home_banner",
                             )
                         } else {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
                                 region = briefing.region,
                                 date = briefing.date,
                                 source = "home_banner",
@@ -893,7 +893,7 @@ private fun PodcastFeed(
                         )
                     },
                     onClick = {
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingBannerTapped(
                             region = briefing.region,
                             date = briefing.date,
                         )

@@ -159,7 +159,7 @@ internal class AutoMediaResolver(
 
     fun resolveDownloadRequestUri(episodeId: String): String? =
         runCatching {
-            cx.aswin.boxlore.core.data.DownloadRepository
+            cx.aswin.boxlore.core.downloads.DownloadRepository
                 .getDownloadManager(host.asContext())
                 .downloadIndex
                 .getDownload(episodeId)

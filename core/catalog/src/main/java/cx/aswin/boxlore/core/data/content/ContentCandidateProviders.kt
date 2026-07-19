@@ -2,10 +2,10 @@ package cx.aswin.boxlore.core.data.content
 
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.EpisodeRankingInput
-import cx.aswin.boxlore.core.data.ranking.PodcastRankingInput
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
+import cx.aswin.boxlore.core.ranking.PodcastRankingInput
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import kotlinx.coroutines.CancellationException

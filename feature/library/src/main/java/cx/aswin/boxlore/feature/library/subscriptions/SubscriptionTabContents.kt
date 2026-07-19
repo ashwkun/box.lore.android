@@ -70,7 +70,7 @@ internal fun ShowsTabContent(
                             selectedGenre = selectedGenre,
                             onGenreChange = {
                                 selectedGenre = it
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "shows")
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "shows")
                             },
                             distinctGenres = distinctGenres
                         )
@@ -101,7 +101,7 @@ internal fun ShowsTabContent(
                             selectedGenre = selectedGenre,
                             onGenreChange = {
                                 selectedGenre = it
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "shows")
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "shows")
                             },
                             distinctGenres = distinctGenres,
                             contentPadding = PaddingValues(horizontal = 16.dp)
@@ -214,7 +214,7 @@ internal fun LatestTabContent(
                         selectedGenre = selectedGenre,
                         onGenreChange = {
                             selectedGenre = it
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "latest")
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsGenreFiltered(it, "latest")
                         },
                         distinctGenres = distinctGenres,
                         contentPadding = PaddingValues(horizontal = 16.dp),

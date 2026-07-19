@@ -15,12 +15,14 @@ import cx.aswin.boxlore.core.data.playback.PlaybackQueueCoordinator
 import cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy
 import cx.aswin.boxlore.core.data.playback.PlaybackTransportHelper
 import cx.aswin.boxlore.core.data.ports.ListeningHistoryBackupPort
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.data.service.BoxLorePlaybackService
 import cx.aswin.boxlore.core.model.AutoTranscriptState
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -99,7 +101,11 @@ class PlaybackRepository(
     val playerState = _playerState.asStateFlow()
 
     // Preferences for session state
-    private val prefs = context.getSharedPreferences("boxcast_player", Context.MODE_PRIVATE)
+    private val prefs = PrefsFileMigrator.open(
+        context,
+        newName = PrefsFileMigrator.Files.PLAYER,
+        oldName = PrefsFileMigrator.LegacyFiles.PLAYER,
+    )
     private val KEY_PLAYER_DISMISSED = "player_dismissed"
     private val KEY_LAST_SLEEP_PROMPT_WINDOW_ID = "last_sleep_prompt_window_id"
     private val KEY_DEBUG_SKIP_SLEEP_WINDOW = "debug_skip_sleep_window"
@@ -535,7 +541,7 @@ class PlaybackRepository(
                 }
             }
             if (map.isNotEmpty()) {
-                cx.aswin.boxlore.core.data.analytics.PendingEntryPoint
+                cx.aswin.boxlore.core.analytics.PendingEntryPoint
                     .set(map)
             }
         }
@@ -734,7 +740,7 @@ class PlaybackRepository(
     }
 
     fun skipForward() {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .setSeekSource("seek_forward")
         val state = _playerState.value
         val incrementMs = PlaybackSkipPolicy.sanitizeSeekForward(state.seekForwardMs)
@@ -742,7 +748,7 @@ class PlaybackRepository(
     }
 
     fun skipBackward() {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .setSeekSource("seek_backward")
         val state = _playerState.value
         val incrementMs = PlaybackSkipPolicy.sanitizeSeekBackward(state.seekBackwardMs)

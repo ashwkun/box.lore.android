@@ -31,19 +31,19 @@ Folder path equals Gradle id (`core/playback` → `:core:playback`).
 
 **Policy (Phase 2 Final):** Kotlin/Java package roots **must match** Gradle module ids (e.g. `:core:playback` → `cx.aswin.boxlore.core.playback`). The old A8 “Gradle id ≠ package is permanent” policy is **retired**.
 
-Package alignment ships in Phase 2 PRs 8–10 with upgrade failsafes (`LegacyWorkerFactory` + old-FQCN stubs, dual ProGuard, prefs file migration, dual deep-link schemes). Until those PRs land, some extracted modules may still use historical `cx.aswin.boxlore.core.data.*` packages — treat that as transitional, not the end state.
+Package alignment for satellite cores (`prefs`, `analytics`, `rss`, `ranking`, `downloads`) landed in PR8 with upgrade failsafes (`LegacyWorkerFactory` + old-FQCN stubs, dual ProGuard, `PrefsFileMigrator`). Playback/database/catalog package align follows in PR9–PR10 — those may still use transitional `cx.aswin.boxlore.core.data.*` until then.
 
 | Module | Owns |
 | :--- | :--- |
 | `:core:network` | Extracted API client (`BoxLoreApi` / `NetworkModule`) + network DTOs |
 | `:core:domain` | Thin ports + `RssSubscriptionResult` (no Room / repos) |
 | `:core:database` | Main Room (`BoxLoreDatabase`, entities, DAOs, migrations) |
-| `:core:prefs` | `UserPreferencesRepository` + `BoxcastPrefs` (`boxcast_prefs` façade) |
-| `:core:analytics` | Analytics event capture façade (`AnalyticsHelper`, `Analytics` interface, `RecordingAnalytics`, `ErrorReporter`); PostHog SDK init stays in `:app`; features must not import PostHog |
+| `:core:prefs` | `UserPreferencesRepository` + `BoxcastPrefs` (`boxlore_prefs` via `PrefsFileMigrator`) |
+| `:core:analytics` | Analytics event capture façade (`AnalyticsHelper`, `Analytics` interface, `RecordingAnalytics`, `ErrorReporter`); PostHog SDK init stays in `:app`; features must not import PostHog; package `cx.aswin.boxlore.core.analytics` |
 | `:core:catalog` | **Catalog/orchestration only** — `PodcastRepository`, `SubscriptionRepository`, content sections, backup/restore, `SharedAppDependencies` bridge; **Phase 2 target** `cx.aswin.boxlore.core.catalog` (transitional `core.data.*` until PR10); re-exports `:core:rss` via `api`; ranking is `implementation` (consumers declare `:core:ranking`); does **not** re-export analytics |
-| `:core:rss` | RSS feed fetch/parse, `RssPodcastRepository`, `RssIdGenerator` (`rss:` prefix + negative episode IDs), `RssSourceMatcher`, `DownloadCacheRelinker` port; packages stay `cx.aswin.boxlore.core.data` for FQCN stability |
-| `:core:ranking` | Adaptive candidate scoring (`AdaptiveCandidateScorer`), LinUCB model, Bayesian facets, diversity re-ranking, feedback loop, own `AdaptiveRankingDatabase`; implements `RankingResetPort` |
-| `:core:downloads` | `DownloadRepository`, `SmartDownloadManager`, WorkManager workers (FQCN-stable under `cx.aswin.boxlore.core.data`) |
+| `:core:rss` | RSS feed fetch/parse, `RssPodcastRepository`, `RssIdGenerator` (`rss:` prefix + negative episode IDs), `RssSourceMatcher`, `DownloadCacheRelinker` port; package `cx.aswin.boxlore.core.rss` |
+| `:core:ranking` | Adaptive candidate scoring (`AdaptiveCandidateScorer`), LinUCB model, Bayesian facets, diversity re-ranking, feedback loop, own `AdaptiveRankingDatabase`; implements `RankingResetPort`; package `cx.aswin.boxlore.core.ranking` |
+| `:core:downloads` | `DownloadRepository`, `SmartDownloadManager`, WorkManager workers under `cx.aswin.boxlore.core.downloads` (+ permanent `core.data` stubs) |
 | `:core:playback` | `PlaybackRepository`, queue, Media3 services, smart-queue helpers (`SmartQueueEngine`, `QueueMath`, `MixtapeEngine`, …) |
 
 ### Dependency direction

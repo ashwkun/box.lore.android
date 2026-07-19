@@ -8,11 +8,12 @@ import androidx.work.WorkerParameters
 /**
  * Permanent upgrade bridge for WorkManager class-name stability.
  *
- * Maps pre-rename worker FQCNs (`cx.aswin.boxcast.*`) to current
- * `cx.aswin.boxlore.*` implementations so scheduled work enqueued before the
- * package rename still resolves after upgrade. Keep this factory for as long as
- * any device may still hold legacy work requests — do **not** delete as a
- * “cleanup” without verified zero inbound legacy work.
+ * Maps pre-rename worker FQCNs (`cx.aswin.boxcast.*` and transitional
+ * `cx.aswin.boxlore.core.data.*`) to current `cx.aswin.boxlore.core.downloads.*`
+ * implementations so scheduled work enqueued before package align still resolves
+ * after upgrade. Keep this factory — do **not** delete as a “cleanup”.
+ *
+ * Belt-and-suspenders: thin stubs also remain at the old `core.data` FQCNs.
  */
 class LegacyWorkerFactory : WorkerFactory() {
     override fun createWorker(
@@ -31,13 +32,22 @@ class LegacyWorkerFactory : WorkerFactory() {
     }
 
     companion object {
-        private val LEGACY_WORKER_ALIASES = mapOf(
+        /**
+         * Public for [LegacyWorkerFactoryTest] / migration-map honesty checks.
+         */
+        val LEGACY_WORKER_ALIASES: Map<String, String> = mapOf(
             "cx.aswin.boxcast.core.data.SmartDownloadWorker" to
-                "cx.aswin.boxlore.core.data.SmartDownloadWorker",
+                "cx.aswin.boxlore.core.downloads.SmartDownloadWorker",
             "cx.aswin.boxcast.core.data.AutoDownloadWorker" to
-                "cx.aswin.boxlore.core.data.AutoDownloadWorker",
+                "cx.aswin.boxlore.core.downloads.AutoDownloadWorker",
             "cx.aswin.boxcast.core.data.PurgeSmartDownloadsWorker" to
-                "cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker",
+                "cx.aswin.boxlore.core.downloads.PurgeSmartDownloadsWorker",
+            "cx.aswin.boxlore.core.data.SmartDownloadWorker" to
+                "cx.aswin.boxlore.core.downloads.SmartDownloadWorker",
+            "cx.aswin.boxlore.core.data.AutoDownloadWorker" to
+                "cx.aswin.boxlore.core.downloads.AutoDownloadWorker",
+            "cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker" to
+                "cx.aswin.boxlore.core.downloads.PurgeSmartDownloadsWorker",
         )
     }
 }

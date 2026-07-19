@@ -4,7 +4,7 @@
 
 Owns the complete RSS podcast stack: feed fetching, parsing, ID generation, episode catalog management, and the RSS subscription port implementation. Deliberately does **not** own download management (lives in `:core:downloads`) or the Podcast Index API client (lives in `:core:network`).
 
-`:core:catalog` re-exports this module via `api(projects.core.rss)` so existing callers of `cx.aswin.boxlore.core.data.RssPodcastRepository` continue to compile without adding a direct `:core:rss` dependency.
+`:core:catalog` re-exports this module via `api(projects.core.rss)` so existing callers of `cx.aswin.boxlore.core.rss.RssPodcastRepository` continue to compile without adding a direct `:core:rss` dependency.
 
 ## Public API
 
@@ -20,14 +20,14 @@ Owns the complete RSS podcast stack: feed fetching, parsing, ID generation, epis
 ## Internal structure
 
 ```text
-src/main/java/cx/aswin/boxlore/core/catalog/
+src/main/java/cx/aswin/boxlore/core/rss/
   RssFeedClient.kt          # HTTP + XML parsing; RssIdGenerator + RssSourceMatcher inside
   RssPodcastRepository.kt   # RssSubscriptionPort impl; escapeForSqlLike helper
   ports/
     DownloadCacheRelinker.kt  # fun interface — implemented in :core:downloads, wired by AppContainer
 ```
 
-> **Package note:** all sources keep the package `cx.aswin.boxlore.core.data` (not `…core.rss`). This is intentional — FQCN / ID opacity stability for persisted references.
+**Package root:** `cx.aswin.boxlore.core.rss` (matches module).
 
 ## Dependencies
 

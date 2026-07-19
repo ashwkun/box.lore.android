@@ -1,7 +1,9 @@
 package cx.aswin.boxlore.core.downloads
 
-import cx.aswin.boxlore.core.data.DownloadRepository
-import cx.aswin.boxlore.core.data.SmartDownloadManager
+import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
+
+import cx.aswin.boxlore.core.downloads.DownloadRepository
+import cx.aswin.boxlore.core.downloads.SmartDownloadManager
 
 /**
  * Process-wide façade for the Application-scoped download instances.

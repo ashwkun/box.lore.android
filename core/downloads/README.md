@@ -16,77 +16,29 @@ Does **not** own playback (Media3 session / `BoxLorePlaybackService` — `:core:
 
 ## Worker FQCN table
 
-These FQCNs are persisted in WorkManager's database and must **not** change without extending `LegacyWorkerFactory`:
+Canonical implementations live under `cx.aswin.boxlore.core.downloads`. Old FQCNs remain via stubs + `LegacyWorkerFactory` (permanent upgrade bridges). See [`docs/PACKAGE_MIGRATION_MAP.md`](../../docs/PACKAGE_MIGRATION_MAP.md).
 
-| Worker class | FQCN |
-|---|---|
-| `SmartDownloadWorker` | `cx.aswin.boxlore.core.data.SmartDownloadWorker` |
-| `AutoDownloadWorker` | `cx.aswin.boxlore.core.data.AutoDownloadWorker` |
-| `PurgeSmartDownloadsWorker` | `cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker` |
-
-**Note:** Package stays `cx.aswin.boxlore.core.data` (not `…core.downloads`) so persisted WorkManager requests continue to resolve.
+| Worker class | Canonical FQCN | Old FQCN (stub) |
+|---|---|---|
+| `SmartDownloadWorker` | `cx.aswin.boxlore.core.downloads.SmartDownloadWorker` | `cx.aswin.boxlore.core.data.SmartDownloadWorker` |
+| `AutoDownloadWorker` | `cx.aswin.boxlore.core.downloads.AutoDownloadWorker` | `cx.aswin.boxlore.core.data.AutoDownloadWorker` |
+| `PurgeSmartDownloadsWorker` | `cx.aswin.boxlore.core.downloads.PurgeSmartDownloadsWorker` | `cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker` |
 
 ## Internal structure
 
 ```text
 src/main/java/cx/aswin/boxlore/core/
-  data/                        # package cx.aswin.boxlore.core.data (FQCN-stable)
+  downloads/                   # package cx.aswin.boxlore.core.downloads
     DownloadRepository.kt
     SmartDownloadManager.kt
     SmartDownloadWorker.kt / AutoDownloadWorker.kt / PurgeSmartDownloadsWorker.kt
     ThrottlingDataSource.kt
+    DownloadsDependencies.kt
     ports/DownloadServiceLauncher.kt
-  downloads/
-    DownloadsDependencies.kt   # interface + DownloadsDependenciesHolder
+  data/                        # permanent stubs at old FQCNs
+    SmartDownloadWorker.kt / AutoDownloadWorker.kt / PurgeSmartDownloadsWorker.kt
 ```
 
-## Dependencies
+## Package root
 
-- → `:core:catalog` (api — catalog/DB/prefs/ranking/domain re-exports)
-- → `:core:database`, `:core:domain`, `:core:model` (implementation)
-- Media3 exoplayer (DownloadManager, Cache, DataSource), WorkManager
-
-Forbidden reverse edges:
-
-- `:core:catalog` ↛ `:core:downloads` (cycle)
-- `:core:downloads` ↛ `:core:playback` — use `DownloadServiceLauncherHolder` instead of compiling against `MediaDownloadService`
-
-## Threading / lifecycle
-
-- Workers run on WorkManager's default executor threads
-- `DownloadRepository` uses `CoroutineScope(Dispatchers.IO)` for DB operations
-- `SmartDownloadManager` is Application-scoped; obtain via `DownloadsDependenciesHolder.require()` in workers
-- `DownloadServiceLauncherHolder` must be installed before download start requests run
-
-## Persistence & identity
-
-| Stable | Why |
-|:---|:---|
-| Worker FQCNs (see table above) | Persisted in WorkManager DB across updates |
-| Media3 download cache dir `filesDir/downloads` | Cached episode bytes |
-| Media3 stream cache dir `cacheDir/stream_cache` | LRU streaming cache |
-| `customCacheKey` = `episodeId` | Playback + download cache identity |
-
-## Testing notes
-
-- `DownloadsDependenciesHolderTest` — holder throws when unset
-- `SmartDownloadCandidateLogicTest` — pure candidate scoring / quota
-- **Workers (Robolectric + `work-testing`):** `SmartDownloadWorkerTest`, `AutoDownloadWorkerTest`
-
-```bash
-./gradlew :core:downloads:testDebugUnitTest
-./gradlew :core:downloads:testDebugUnitTest --tests 'cx.aswin.boxlore.core.data.SmartDownloadWorkerTest'
-```
-
-## CI relevance
-
-Exercised by `unit-tests.yml`. Included in root `:koverVerifyMerged` with data/domain/home/analytics/rss (see `docs/TESTING.md`).
-
-## See also
-
-- Root [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
-- [`docs/TESTING.md`](../../docs/TESTING.md)
-- [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](../../docs/PLAN_MODULAR_ANDROID_HARDENING.md) (Phase A3)
-- [`:app` README](../../app/README.md) — `DownloadServiceLauncherHolder` install
-- [`:core:catalog` README](../catalog/README.md)
-- [`:core:playback` README](../playback/README.md)
+`cx.aswin.boxlore.core.downloads` (matches module).

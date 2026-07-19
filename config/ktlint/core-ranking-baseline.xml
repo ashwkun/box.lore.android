@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/AdaptiveCandidateScorer.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/AdaptiveCandidateScorer.kt">
         <error line="42" column="22" source="standard:multiline-expression-wrapping" />
         <error line="50" column="26" source="standard:multiline-expression-wrapping" />
         <error line="56" column="33" source="standard:multiline-expression-wrapping" />
@@ -65,7 +65,7 @@
         <error line="389" column="53" source="standard:multiline-expression-wrapping" />
         <error line="389" column="53" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/AdaptiveLinearModel.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/AdaptiveLinearModel.kt">
         <error line="10" column="42" source="standard:multiline-expression-wrapping" />
         <error line="52" column="27" source="standard:multiline-expression-wrapping" />
         <error line="60" column="21" source="standard:multiline-expression-wrapping" />
@@ -93,7 +93,7 @@
         <error line="167" column="23" source="standard:function-expression-body" />
         <error line="183" column="19" source="standard:multiline-expression-wrapping" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/AdaptiveRankingRepository.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/AdaptiveRankingRepository.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="106" column="21" source="standard:function-expression-body" />
         <error line="182" column="25" source="standard:multiline-expression-wrapping" />
@@ -147,7 +147,7 @@
         <error line="699" column="51" source="standard:multiline-expression-wrapping" />
         <error line="699" column="51" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/LearningEventLog.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/LearningEventLog.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="19" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="114" column="39" source="standard:multiline-expression-wrapping" />
@@ -168,7 +168,7 @@
         <error line="268" column="61" source="standard:multiline-expression-wrapping" />
         <error line="268" column="61" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingFeedbackRepository.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/RankingFeedbackRepository.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="20" column="67" source="standard:function-expression-body" />
         <error line="44" column="26" source="standard:multiline-expression-wrapping" />
@@ -183,7 +183,7 @@
         <error line="230" column="56" source="standard:function-signature" />
         <error line="230" column="77" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingModels.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/RankingModels.kt">
         <error line="181" column="46" source="standard:function-expression-body" />
         <error line="199" column="21" source="standard:multiline-expression-wrapping" />
         <error line="210" column="73" source="standard:function-expression-body" />
@@ -191,11 +191,11 @@
         <error line="231" column="29" source="standard:multiline-expression-wrapping" />
         <error line="243" column="62" source="standard:function-expression-body" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingReward.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/RankingReward.kt">
         <error line="29" column="33" source="standard:multiline-expression-wrapping" />
         <error line="58" column="29" source="standard:multiline-expression-wrapping" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingRuntimeControls.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/RankingRuntimeControls.kt">
         <error line="16" column="62" source="standard:function-expression-body" />
         <error line="21" column="50" source="standard:class-signature" />
         <error line="21" column="66" source="standard:class-signature" />
@@ -219,14 +219,14 @@
         <error line="109" column="29" source="standard:multiline-expression-wrapping" />
         <error line="118" column="50" source="standard:function-expression-body" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/RankingSerialization.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/RankingSerialization.kt">
         <error line="7" column="48" source="standard:function-expression-body" />
         <error line="8" column="26" source="standard:chain-method-continuation" />
         <error line="14" column="16" source="standard:function-signature" />
         <error line="14" column="34" source="standard:function-signature" />
         <error line="14" column="51" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/database/AdaptiveRankingDao.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/database/AdaptiveRankingDao.kt">
         <error line="30" column="26" source="standard:function-signature" />
         <error line="30" column="45" source="standard:function-signature" />
         <error line="30" column="61" source="standard:function-signature" />
@@ -234,11 +234,11 @@
         <error line="50" column="48" source="standard:function-signature" />
         <error line="50" column="64" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/ranking/database/AdaptiveRankingDatabase.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/ranking/database/AdaptiveRankingDatabase.kt">
         <error line="26" column="68" source="standard:function-expression-body" />
         <error line="28" column="33" source="standard:chain-method-continuation" />
     </file>
-    <file name="src/test/java/cx/aswin/boxlore/core/data/ranking/AdaptiveRankingTest.kt">
+    <file name="src/test/java/cx/aswin/boxlore/core/ranking/AdaptiveRankingTest.kt">
         <error line="16" column="24" source="standard:multiline-expression-wrapping" />
         <error line="66" column="24" source="standard:multiline-expression-wrapping" />
         <error line="69" column="20" source="standard:multiline-expression-wrapping" />

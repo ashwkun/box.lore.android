@@ -8,8 +8,8 @@ import com.posthog.surveys.OnPostHogSurveyShown
 import com.posthog.surveys.PostHogDisplaySurvey
 import com.posthog.surveys.PostHogSurveysDelegate
 import cx.aswin.boxlore.core.data.EngagementPromptCoordinator
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.surveys.internal.ActivityProvider
 import cx.aswin.boxlore.surveys.internal.BoxcastSurveyHost
 

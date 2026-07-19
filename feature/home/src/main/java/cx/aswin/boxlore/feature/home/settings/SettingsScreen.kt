@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.feature.home.settings.dialogs.AddRssFeedDialog
 import cx.aswin.boxlore.feature.home.settings.dialogs.ResetAnalyticsDialog
 import cx.aswin.boxlore.feature.home.settings.dialogs.RssMatchConfirmationDialog
@@ -77,8 +77,8 @@ data class RegionSettings(
 
 /** RSS + ranking ports needed by [SettingsViewModel] (keeps [SettingsScreen] ≤7 params). */
 data class SettingsRepositories(
-    val rssPodcastRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
-    val rankingFeedbackRepository: cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository,
+    val rssPodcastRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
+    val rankingFeedbackRepository: cx.aswin.boxlore.core.ranking.RankingFeedbackRepository,
 )
 
 /** [SettingsScreen]'s top-level identifiers/callbacks that aren't tied to a specific sub-page. */

@@ -81,7 +81,7 @@ fun LearnScreen(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLearnScreenViewed()
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLearnScreenViewed()
     }
 
     TrackScreenSession(
@@ -416,7 +416,7 @@ private fun trackLearnCardAction(
     action: String,
     episode: Episode
 ) {
-    val analytics = cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+    val analytics = cx.aswin.boxlore.core.analytics.AnalyticsHelper
     val episodeId = episode.id
     val episodeTitle = episode.title
     val podcastId = episode.podcastId

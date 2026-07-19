@@ -2,7 +2,7 @@ package cx.aswin.boxlore.core.data.service.auto
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingObjective
 import cx.aswin.boxlore.core.data.toScorable
 import kotlinx.coroutines.flow.first
 
@@ -104,7 +104,7 @@ internal class AutoBrowseTreeBuilder(
                 podcasts = subscriptions.map { it.toScorable() },
                 history = history,
                 objective = RankingObjective.YOUR_SHOWS,
-                surface = cx.aswin.boxlore.core.data.ranking.RankingSurface.ANDROID_AUTO,
+                surface = cx.aswin.boxlore.core.ranking.RankingSurface.ANDROID_AUTO,
             )
         val rankedSubscriptions =
             subscriptions.sortedByDescending {
@@ -389,7 +389,7 @@ internal class AutoBrowseTreeBuilder(
                 adaptiveRanking =
                     cx.aswin.boxlore.core.data.MixtapeEngine.AdaptiveRanking(
                         scorer = host.adaptiveCandidateScorer,
-                        surface = cx.aswin.boxlore.core.data.ranking.RankingSurface.ANDROID_AUTO,
+                        surface = cx.aswin.boxlore.core.ranking.RankingSurface.ANDROID_AUTO,
                     ),
             )
         if (result.episodes.size < 3) {
@@ -415,7 +415,7 @@ internal class AutoBrowseTreeBuilder(
                     adaptiveRanking =
                         cx.aswin.boxlore.core.data.MixtapeEngine.AdaptiveRanking(
                             scorer = host.adaptiveCandidateScorer,
-                            surface = cx.aswin.boxlore.core.data.ranking.RankingSurface.ANDROID_AUTO,
+                            surface = cx.aswin.boxlore.core.ranking.RankingSurface.ANDROID_AUTO,
                         ),
                 )
         }

@@ -13,7 +13,7 @@ import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.BoxLoreApplication
 import cx.aswin.boxlore.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -198,11 +198,11 @@ class BoxLoreFcmService : FirebaseMessagingService() {
                 android.util.Log.i("BoxLore_BackgroundTrace", "[FCM] Preparing AutoDownloadWorker. wifiOnly=$wifiOnly -> networkConstraint=$requiredNetwork")
 
                 val inputData = androidx.work.Data.Builder()
-                    .putString(cx.aswin.boxlore.core.data.AutoDownloadWorker.KEY_PODCAST_ID, podcastId)
-                    .putString(cx.aswin.boxlore.core.data.AutoDownloadWorker.KEY_EPISODE_ID, episodeId)
+                    .putString(cx.aswin.boxlore.core.downloads.AutoDownloadWorker.KEY_PODCAST_ID, podcastId)
+                    .putString(cx.aswin.boxlore.core.downloads.AutoDownloadWorker.KEY_EPISODE_ID, episodeId)
                     .build()
 
-                val workRequest = androidx.work.OneTimeWorkRequestBuilder<cx.aswin.boxlore.core.data.AutoDownloadWorker>()
+                val workRequest = androidx.work.OneTimeWorkRequestBuilder<cx.aswin.boxlore.core.downloads.AutoDownloadWorker>()
                     .setInputData(inputData)
                     .setConstraints(
                         androidx.work.Constraints.Builder()
@@ -221,7 +221,7 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
     private fun triggerSmartDownloadSync() {
         try {
-            val workRequest = androidx.work.OneTimeWorkRequestBuilder<cx.aswin.boxlore.core.data.SmartDownloadWorker>()
+            val workRequest = androidx.work.OneTimeWorkRequestBuilder<cx.aswin.boxlore.core.downloads.SmartDownloadWorker>()
                 .build()
             androidx.work.WorkManager.getInstance(applicationContext).enqueue(workRequest)
             android.util.Log.d("BoxLoreFcmService", "Triggered immediate SmartDownloadWorker sync due to new episode push notification")

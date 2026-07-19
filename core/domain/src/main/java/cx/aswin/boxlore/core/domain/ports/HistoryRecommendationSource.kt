@@ -5,7 +5,7 @@ import cx.aswin.boxlore.core.network.model.HistoryItem
 /**
  * History shaping for personalized recommendations / smart downloads.
  *
- * Workers and [cx.aswin.boxlore.core.data.SmartDownloadManager] depend on this
+ * Workers and [cx.aswin.boxlore.core.downloads.SmartDownloadManager] depend on this
  * instead of constructing a full PlaybackRepository (`:core:playback`).
  *
  * Production: [cx.aswin.boxlore.core.data.DefaultSmartQueueSources] (or any

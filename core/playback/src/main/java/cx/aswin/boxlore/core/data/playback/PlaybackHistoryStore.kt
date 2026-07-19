@@ -6,9 +6,9 @@ import cx.aswin.boxlore.core.data.PlayerState
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.database.ListeningHistoryDao
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
-import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
-import cx.aswin.boxlore.core.data.ranking.RankingAction
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.FeedbackTarget
+import cx.aswin.boxlore.core.ranking.RankingAction
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import kotlinx.coroutines.CoroutineScope

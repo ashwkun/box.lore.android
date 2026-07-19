@@ -3,7 +3,7 @@ package cx.aswin.boxlore
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test

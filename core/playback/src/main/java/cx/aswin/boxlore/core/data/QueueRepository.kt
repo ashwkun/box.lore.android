@@ -3,10 +3,10 @@ package cx.aswin.boxlore.core.data
 import androidx.room.withTransaction
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.entities.QueueItem
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
-import cx.aswin.boxlore.core.data.ranking.RankingAction
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.FeedbackTarget
+import cx.aswin.boxlore.core.ranking.RankingAction
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.model.Person
 import cx.aswin.boxlore.core.model.Transcript
 import cx.aswin.boxlore.core.network.model.EpisodeItem

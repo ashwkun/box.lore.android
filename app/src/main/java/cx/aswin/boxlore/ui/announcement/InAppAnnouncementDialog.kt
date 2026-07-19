@@ -41,8 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-import cx.aswin.boxlore.core.data.UserPreferencesRepository.Announcement
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository.Announcement
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 
 private val ActionShape = RoundedCornerShape(16.dp)
 private val DialogShape = RoundedCornerShape(28.dp)

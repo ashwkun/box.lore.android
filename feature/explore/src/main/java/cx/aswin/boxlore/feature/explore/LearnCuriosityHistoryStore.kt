@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.feature.explore
 
 import android.app.Application
-import cx.aswin.boxlore.core.data.BoxcastPrefs
+import cx.aswin.boxlore.core.prefs.BoxcastPrefs
 import org.json.JSONArray
 import org.json.JSONObject
 

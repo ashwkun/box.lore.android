@@ -4,9 +4,9 @@ import cx.aswin.boxlore.core.data.content.ContentCandidate
 import cx.aswin.boxlore.core.data.content.ContentIntent
 import cx.aswin.boxlore.core.data.content.ContentLayout
 import cx.aswin.boxlore.core.data.content.ContentSection
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.testing.TestFixtures
 import cx.aswin.boxlore.feature.home.HeroType
 import cx.aswin.boxlore.feature.home.SmartHeroItem

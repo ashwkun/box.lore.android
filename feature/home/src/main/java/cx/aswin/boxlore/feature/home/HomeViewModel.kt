@@ -8,7 +8,7 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import cx.aswin.boxlore.core.data.BoxcastPrefs
+import cx.aswin.boxlore.core.prefs.BoxcastPrefs
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.content.AdaptiveContentCandidateRanker
 import cx.aswin.boxlore.core.data.content.ContentContextEngine
@@ -18,9 +18,9 @@ import cx.aswin.boxlore.core.data.content.ContentSectionsDaypartResolver
 import cx.aswin.boxlore.core.data.content.RecentSectionIntentStore
 import cx.aswin.boxlore.core.data.content.ServerGroupedSectionProvider
 import cx.aswin.boxlore.core.data.content.ServerIntentCandidateProvider
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
 import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.model.Briefing
@@ -55,13 +55,13 @@ class HomeViewModel(
     internal val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
     internal val engagementCoordinator: cx.aswin.boxlore.core.data.EngagementPromptCoordinator,
     internal val subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
-    internal val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository,
-    internal val rssRepository: cx.aswin.boxlore.core.data.RssPodcastRepository,
+    internal val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
+    internal val rssRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
     internal val adaptiveRankingRepository: AdaptiveRankingRepository,
     internal val adaptiveScorer: AdaptiveCandidateScorer,
     internal val rankingFeedback: RankingFeedbackRepository,
     internal val localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
-    internal val userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    internal val userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     internal val connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
 ) : AndroidViewModel(application) {
     val downloadedEpisodeIds: StateFlow<Set<String>> =
@@ -398,7 +398,7 @@ class HomeViewModel(
     ) {
         // Auto-selection (single show) shouldn't be reported as a user-driven filter.
         if (!isAuto) {
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper
                 .trackHomePodcastFiltered(podcastId, podcast.title)
         }
 
@@ -466,7 +466,7 @@ class HomeViewModel(
         val episodes = currentUnplayedEpisodes
         if (episodes.isEmpty()) return
 
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .trackPlayMixClicked(episodes.size)
 
         val dummyPodcast =
@@ -544,7 +544,7 @@ class HomeViewModel(
 
     fun selectCategory(category: String?) {
         _selectedCategory.value = category
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .trackDiscoverCategoryFiltered(category ?: "All")
     }
 
@@ -616,7 +616,7 @@ class HomeViewModel(
 
     /** Manually trigger the NPS survey (long-press feedback icon). Bypasses the ep-3 milestone. */
     fun forceSurveyNps() {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .trackSurveyNpsManualTrigger(source = "long_press")
     }
 

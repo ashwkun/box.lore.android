@@ -6,7 +6,7 @@ import cx.aswin.boxlore.core.model.Podcast
 /**
  * Narrow RSS subscribe / Podcast Index link seam for Settings (and tests).
  *
- * Production: [cx.aswin.boxlore.core.data.RssPodcastRepository].
+ * Production: [cx.aswin.boxlore.core.rss.RssPodcastRepository].
  */
 interface RssSubscriptionPort {
     suspend fun addSubscription(rawUrl: String): RssSubscriptionResult

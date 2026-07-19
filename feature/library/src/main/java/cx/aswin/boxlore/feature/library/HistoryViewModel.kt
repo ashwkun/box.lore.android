@@ -253,7 +253,7 @@ class HistoryViewModel(
     fun trackScreenExit() {
         if (sessionStartTime == 0L || hasTrackedExit) return
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryHistorySession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryHistorySession(
             timeSpentSeconds = timeSpent,
             episodesClickedCount = episodesClickedCount,
             itemsDeletedCount = itemsDeletedCount

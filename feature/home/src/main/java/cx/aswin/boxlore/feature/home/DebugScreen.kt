@@ -82,8 +82,8 @@ private enum class DebugTab(
 fun DebugScreen(
     playbackRepository: PlaybackRepository,
     subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
-    userPreferencesRepository: cx.aswin.boxlore.core.data.UserPreferencesRepository,
-    adaptiveRankingRepository: cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository,
+    userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
+    adaptiveRankingRepository: cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {

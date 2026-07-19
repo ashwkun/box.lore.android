@@ -446,10 +446,10 @@ internal class PlaybackChaptersTranscriptController(
                 autoTranscriptState = AutoTranscriptState.GENERATING,
                 autoChaptersState = if (isChaptersEmpty) AutoTranscriptState.GENERATING else playerStateFlow.value.autoChaptersState,
             )
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .trackAutoTranscriptRequested(episodeId, episode.podcastId, episode.audioUrl)
         if (isChaptersEmpty) {
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper
                 .trackAutoChaptersRequested(episodeId, episode.podcastId, episode.audioUrl)
         }
         startAutoTranscriptGeneration(episodeId, episode.audioUrl, episode.transcriptUrl, isTranscriptRequested = true)
@@ -468,7 +468,7 @@ internal class PlaybackChaptersTranscriptController(
             playerStateFlow.value.copy(
                 autoChaptersState = AutoTranscriptState.GENERATING,
             )
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .trackAutoChaptersRequested(episodeId, episode.podcastId, episode.audioUrl)
         startAutoTranscriptGeneration(episodeId, episode.audioUrl, episode.transcriptUrl, isTranscriptRequested = false)
     }
@@ -529,7 +529,7 @@ internal class PlaybackChaptersTranscriptController(
                                         },
                                 )
                             if (isTranscriptRequested) {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoTranscriptCompleted(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoTranscriptCompleted(
                                     episodeId,
                                     currentEp.podcastId,
                                     currentEp.duration.toFloat(),
@@ -537,14 +537,14 @@ internal class PlaybackChaptersTranscriptController(
                                 )
                             }
                             if (autoChapters.isNotEmpty()) {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoChaptersCompleted(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoChaptersCompleted(
                                     episodeId,
                                     currentEp.podcastId,
                                     currentEp.duration.toFloat(),
                                     autoChapters.size,
                                 )
                             } else {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoChaptersFailed(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoChaptersFailed(
                                     episodeId,
                                     currentEp.podcastId,
                                     "Chapters empty or generation failed",
@@ -557,13 +557,13 @@ internal class PlaybackChaptersTranscriptController(
                                     autoChaptersState = AutoTranscriptState.FAILED,
                                 )
                             if (isTranscriptRequested) {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoTranscriptFailed(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoTranscriptFailed(
                                     episodeId,
                                     currentEp.podcastId,
                                     "Transcript empty or generation failed",
                                 )
                             }
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoChaptersFailed(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoChaptersFailed(
                                 episodeId,
                                 currentEp.podcastId,
                                 "Transcript empty or generation failed (required for chapters)",
@@ -580,13 +580,13 @@ internal class PlaybackChaptersTranscriptController(
                                 autoChaptersState = AutoTranscriptState.FAILED,
                             )
                         if (isTranscriptRequested) {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoTranscriptFailed(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoTranscriptFailed(
                                 episodeId,
                                 currentEp.podcastId,
                                 e.message ?: "Unknown error",
                             )
                         }
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAutoChaptersFailed(
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAutoChaptersFailed(
                             episodeId,
                             currentEp.podcastId,
                             e.message ?: "Unknown error",

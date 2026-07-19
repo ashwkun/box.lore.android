@@ -38,6 +38,7 @@ android {
 
 dependencies {
     implementation(projects.core.model)
+    implementation(projects.core.prefs)
     implementation(libs.posthog.android)
     implementation(libs.androidx.core.ktx)
 

@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.analytics
 
-import cx.aswin.boxlore.core.data.analytics.AnalyticsEmit
-import cx.aswin.boxlore.core.data.analytics.AnalyticsGlossary
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
-import cx.aswin.boxlore.core.data.analytics.RecordingAnalytics
+import cx.aswin.boxlore.core.analytics.AnalyticsEmit
+import cx.aswin.boxlore.core.analytics.AnalyticsGlossary
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.analytics.RecordingAnalytics
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

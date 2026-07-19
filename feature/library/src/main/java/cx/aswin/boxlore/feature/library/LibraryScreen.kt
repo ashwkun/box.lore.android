@@ -99,7 +99,7 @@ fun LibraryScreen(
     }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryHubViewed(entryPoint)
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryHubViewed(entryPoint)
     }
 
     LibraryContent(

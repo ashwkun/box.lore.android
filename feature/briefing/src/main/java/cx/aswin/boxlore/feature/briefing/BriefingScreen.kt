@@ -234,7 +234,7 @@ fun BriefingScreen(
                     val successState = uiState as? BriefingUiState.Success ?: return@Crossfade
 
                     LaunchedEffect(successState.briefing.region, successState.briefing.date) {
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingScreenViewed(
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingScreenViewed(
                             region = successState.briefing.region,
                             date = successState.briefing.date,
                             source = initialRegion?.let { "notification" } ?: "home_banner"
@@ -293,7 +293,7 @@ fun BriefingScreen(
                         currentRegion = successState.selectedRegion,
                         onRegionSelect = onRegionSelect,
                         onShowSources = { 
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                 action = "sources_sheet_opened",
                                 region = successState.briefing.region,
                                 date = successState.briefing.date,
@@ -303,13 +303,13 @@ fun BriefingScreen(
                         },
                         onPlayPauseClick = { initialPositionMs ->
                             if (successState.isPlaying) {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingPauseClicked(
                                     region = successState.briefing.region,
                                     date = successState.briefing.date,
                                     source = "briefing_detail"
                                 )
                             } else {
-                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingPlayClicked(
                                     region = successState.briefing.region,
                                     date = successState.briefing.date,
                                     source = "briefing_detail"
@@ -362,7 +362,7 @@ fun BriefingScreen(
                                                 .expressiveClickable(
                                                     shape = RoundedCornerShape(16.dp),
                                                     onClick = { 
-                                                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                                             action = "source_clicked",
                                                             region = successState.briefing.region,
                                                             date = successState.briefing.date,
@@ -528,7 +528,7 @@ fun BriefingContent(
         val chapter = chapters.getOrNull(pagerState.currentPage)
         if (chapter != null && (isDragged || userClickedPage != null)) {
             val method = if (isDragged) "swipe" else "click"
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                 action = "chapter_swiped",
                 region = briefing.region,
                 date = briefing.date,
@@ -725,7 +725,7 @@ fun BriefingContent(
                         modifier = Modifier.weight(1f),
                         selected = isSelected,
                         onClick = {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingRegionChanged(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingRegionChanged(
                                 previousRegion = currentRegion,
                                 newRegion = code,
                                 date = briefing.date
@@ -930,7 +930,7 @@ fun BriefingContent(
                                                 isActiveCard = isThisCardActive,
                                                 accentColor = accentColor,
                                                 onClick = {
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingRelatedEpisodeClicked(
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingRelatedEpisodeClicked(
                                                         region = briefing.region,
                                                         date = briefing.date,
                                                         chapterIndex = page,
@@ -968,7 +968,7 @@ fun BriefingContent(
                                                 "start_time_seconds" to chapter.startTime.toLong()
                                             )
                                             if (isThisCardActive) {
-                                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                                     action = "story_pause_clicked",
                                                     region = briefing.region,
                                                     date = briefing.date,
@@ -980,7 +980,7 @@ fun BriefingContent(
                                                 scope.launch {
                                                     pagerState.animateScrollToPage(page)
                                                 }
-                                                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
+                                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDailyBriefingInteraction(
                                                     action = "story_play_clicked",
                                                     region = briefing.region,
                                                     date = briefing.date,

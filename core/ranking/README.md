@@ -27,7 +27,7 @@ Does **not** own main catalog Room (`:core:database`), Podcast Index HTTP (`:cor
 ## Internal structure
 
 ```text
-src/main/java/cx/aswin/boxlore/core/catalog/ranking/
+src/main/java/cx/aswin/boxlore/core/ranking/
   AdaptiveCandidateScorer.kt
   AdaptiveRankingRepository.kt / AdaptiveLinearModel.kt
   RankingFeedbackRepository.kt / RankingRuntimeControls.kt
@@ -38,7 +38,7 @@ src/main/java/cx/aswin/boxlore/core/catalog/ranking/
     AdaptiveRankingDao.kt / AdaptiveRankingEntities.kt
 ```
 
-**Phase 2 target package root:** `cx.aswin.boxlore.core.ranking` (PR8). Transitional sources may still use `cx.aswin.boxlore.core.data.ranking` until that PR.
+**Phase 2 target package root:** `cx.aswin.boxlore.core.ranking` (PR8). Transitional sources may still use `cx.aswin.boxlore.core.ranking` until that PR.
 
 ## Dependencies
 
@@ -62,7 +62,7 @@ Forbidden: ranking ↛ `:core:catalog`, features, designsystem. `:core:catalog` 
 | :--- | :--- |
 | Room filename `adaptive_ranking_database` | Adaptive models / facets / exposures |
 | SharedPrefs `adaptive_ranking_runtime` | Runtime controls |
-| Package `cx.aswin.boxlore.core.data.ranking` | Opaque refs / import stability |
+| Package `cx.aswin.boxlore.core.ranking` | Opaque refs / import stability |
 
 **Backup exclusion:** app-level backup rules exclude `adaptive_ranking_database` so stale model parameters are not restored across feature-schema versions. See product context in `docs/recommendation-system.md`.
 

@@ -205,7 +205,7 @@ private fun ContentCandidate.meetsConstraints(
     val missingRequiredServerScore =
         intent.quality.minimumSemanticScore > 0.0 &&
             semanticScore == null &&
-            source == cx.aswin.boxlore.core.data.ranking.CandidateSource.SERVER_RECOMMENDATION
+            source == cx.aswin.boxlore.core.ranking.CandidateSource.SERVER_RECOMMENDATION
     if (missingRequiredServerScore || qualityScore < intent.quality.minimumSemanticScore) {
         return false
     }

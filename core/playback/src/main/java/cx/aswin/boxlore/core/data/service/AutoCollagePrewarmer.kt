@@ -9,8 +9,8 @@ import cx.aswin.boxlore.core.data.QueueRepository
 import cx.aswin.boxlore.core.data.SmartQueueSources
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.PodcastEntity
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.data.service.auto.AutoBrowseContract
 import cx.aswin.boxlore.core.model.Podcast
 import kotlinx.coroutines.withTimeout

@@ -56,7 +56,7 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
             value: Long,
             persist: suspend (Long) -> Unit,
         ) {
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper
                 .trackSettingsInteraction(eventName, value.toString())
             scope.launch { persist(value) }
         }
@@ -70,7 +70,7 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                 onBack = { navController.popBackStack() },
                 onResetAnalytics = {
                     try {
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.resetIdentity()
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.resetIdentity()
                     } catch (e: Exception) {
                         android.util.Log.e("Settings", "Failed to reset analytics", e)
                     }

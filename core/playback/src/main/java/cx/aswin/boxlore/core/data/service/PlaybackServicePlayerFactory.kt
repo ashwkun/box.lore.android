@@ -18,7 +18,7 @@ import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.SessionCommand
-import cx.aswin.boxlore.core.data.DownloadRepository
+import cx.aswin.boxlore.core.downloads.DownloadRepository
 import cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy
 import cx.aswin.boxlore.core.data.service.auto.AutoBrowseContract
 import cx.aswin.boxlore.core.data.service.auto.AutoBrowseLibraryCallback

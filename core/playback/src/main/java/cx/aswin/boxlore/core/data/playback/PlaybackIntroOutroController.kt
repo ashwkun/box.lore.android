@@ -6,7 +6,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import cx.aswin.boxlore.core.data.PlaybackLifecycleSignals
 import cx.aswin.boxlore.core.data.SleepTimerHolder
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
 import kotlinx.coroutines.CoroutineScope

@@ -516,7 +516,7 @@
         <error line="24" column="1" source="standard:no-unused-imports" />
         <error line="44" column="1" source="standard:no-unused-imports" />
         <error line="47" column="1" source="standard:no-unused-imports" />
-        <error line="121" column="74" source="standard:trailing-comma-on-declaration-site" />
+        <error line="121" column="79" source="standard:trailing-comma-on-declaration-site" />
         <error line="129" column="46" source="standard:trailing-comma-on-declaration-site" />
         <error line="137" column="53" source="standard:trailing-comma-on-declaration-site" />
         <error line="154" column="38" source="standard:multiline-expression-wrapping" />
@@ -552,7 +552,7 @@
         <error line="371" column="13" source="standard:function-naming" />
         <error line="374" column="26" source="standard:trailing-comma-on-declaration-site" />
         <error line="379" column="58" source="standard:trailing-comma-on-call-site" />
-        <error line="393" column="69" source="standard:chain-method-continuation" />
+        <error line="393" column="64" source="standard:chain-method-continuation" />
         <error line="398" column="56" source="standard:trailing-comma-on-call-site" />
         <error line="403" column="28" source="standard:function-signature" />
         <error line="403" column="48" source="standard:function-signature" />
@@ -589,7 +589,7 @@
         <error line="591" column="47" source="standard:trailing-comma-on-call-site" />
         <error line="599" column="24" source="standard:multiline-expression-wrapping" />
         <error line="601" column="93" source="standard:trailing-comma-on-call-site" />
-        <error line="609" column="81" source="standard:chain-method-continuation" />
+        <error line="609" column="76" source="standard:chain-method-continuation" />
         <error line="612" column="55" source="standard:trailing-comma-on-call-site" />
         <error line="615" column="28" source="standard:multiline-expression-wrapping" />
         <error line="617" column="71" source="standard:trailing-comma-on-call-site" />
@@ -619,7 +619,7 @@
         <error line="769" column="34" source="standard:multiline-expression-wrapping" />
         <error line="770" column="50" source="standard:trailing-comma-on-call-site" />
         <error line="774" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="777" column="77" source="standard:chain-method-continuation" />
+        <error line="777" column="72" source="standard:chain-method-continuation" />
         <error line="781" column="74" source="standard:trailing-comma-on-call-site" />
         <error line="783" column="28" source="standard:multiline-expression-wrapping" />
         <error line="785" column="95" source="standard:trailing-comma-on-call-site" />
@@ -632,13 +632,13 @@
         <error line="817" column="14" source="standard:trailing-comma-on-call-site" />
         <error line="819" column="20" source="standard:multiline-expression-wrapping" />
         <error line="824" column="44" source="standard:trailing-comma-on-call-site" />
-        <error line="829" column="73" source="standard:chain-method-continuation" />
+        <error line="829" column="68" source="standard:chain-method-continuation" />
         <error line="832" column="43" source="standard:trailing-comma-on-call-site" />
         <error line="837" column="13" source="standard:function-naming" />
         <error line="841" column="31" source="standard:trailing-comma-on-declaration-site" />
-        <error line="849" column="73" source="standard:chain-method-continuation" />
+        <error line="849" column="68" source="standard:chain-method-continuation" />
         <error line="852" column="10" source="standard:trailing-comma-on-call-site" />
-        <error line="861" column="73" source="standard:chain-method-continuation" />
+        <error line="861" column="68" source="standard:chain-method-continuation" />
         <error line="864" column="10" source="standard:trailing-comma-on-call-site" />
         <error line="869" column="13" source="standard:function-naming" />
         <error line="874" column="24" source="standard:trailing-comma-on-declaration-site" />
@@ -649,14 +649,14 @@
         <error line="898" column="14" source="standard:trailing-comma-on-call-site" />
         <error line="903" column="13" source="standard:function-naming" />
         <error line="908" column="26" source="standard:trailing-comma-on-declaration-site" />
-        <error line="917" column="77" source="standard:chain-method-continuation" />
+        <error line="917" column="72" source="standard:chain-method-continuation" />
         <error line="920" column="51" source="standard:trailing-comma-on-call-site" />
         <error line="930" column="13" source="standard:function-naming" />
         <error line="932" column="43" source="standard:trailing-comma-on-declaration-site" />
         <error line="938" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="940" column="77" source="standard:chain-method-continuation" />
-        <error line="944" column="77" source="standard:chain-method-continuation" />
-        <error line="948" column="77" source="standard:chain-method-continuation" />
+        <error line="940" column="72" source="standard:chain-method-continuation" />
+        <error line="944" column="72" source="standard:chain-method-continuation" />
+        <error line="948" column="72" source="standard:chain-method-continuation" />
         <error line="952" column="25" source="standard:multiline-expression-wrapping" />
         <error line="960" column="13" source="standard:function-naming" />
         <error line="964" column="26" source="standard:trailing-comma-on-declaration-site" />
@@ -674,21 +674,21 @@
         <error line="1005" column="39" source="standard:trailing-comma-on-call-site" />
         <error line="1008" column="6" source="standard:trailing-comma-on-call-site" />
         <error line="1015" column="26" source="standard:trailing-comma-on-declaration-site" />
-        <error line="1018" column="69" source="standard:chain-method-continuation" />
-        <error line="1022" column="69" source="standard:chain-method-continuation" />
+        <error line="1018" column="64" source="standard:chain-method-continuation" />
+        <error line="1022" column="64" source="standard:chain-method-continuation" />
         <error line="1028" column="88" source="standard:trailing-comma-on-call-site" />
-        <error line="1034" column="69" source="standard:chain-method-continuation" />
-        <error line="1038" column="69" source="standard:chain-method-continuation" />
-        <error line="1042" column="69" source="standard:chain-method-continuation" />
+        <error line="1034" column="64" source="standard:chain-method-continuation" />
+        <error line="1038" column="64" source="standard:chain-method-continuation" />
+        <error line="1042" column="64" source="standard:chain-method-continuation" />
         <error line="1048" column="57" source="standard:trailing-comma-on-call-site" />
         <error line="1051" column="6" source="standard:trailing-comma-on-call-site" />
-        <error line="1056" column="70" source="standard:trailing-comma-on-declaration-site" />
+        <error line="1056" column="75" source="standard:trailing-comma-on-declaration-site" />
         <error line="1066" column="13" source="standard:function-naming" />
         <error line="1073" column="26" source="standard:trailing-comma-on-declaration-site" />
-        <error line="1080" column="77" source="standard:chain-method-continuation" />
-        <error line="1084" column="77" source="standard:chain-method-continuation" />
+        <error line="1080" column="72" source="standard:chain-method-continuation" />
+        <error line="1084" column="72" source="standard:chain-method-continuation" />
         <error line="1086" column="14" source="standard:trailing-comma-on-call-site" />
-        <error line="1094" column="73" source="standard:chain-method-continuation" />
+        <error line="1094" column="68" source="standard:chain-method-continuation" />
         <error line="1097" column="10" source="standard:trailing-comma-on-call-site" />
         <error line="1104" column="33" source="standard:trailing-comma-on-declaration-site" />
         <error line="1111" column="31" source="standard:trailing-comma-on-declaration-site" />
@@ -710,7 +710,7 @@
         <error line="1195" column="13" source="standard:function-naming" />
         <error line="1202" column="26" source="standard:trailing-comma-on-declaration-site" />
         <error line="1209" column="54" source="standard:trailing-comma-on-call-site" />
-        <error line="1216" column="69" source="standard:chain-method-continuation" />
+        <error line="1216" column="64" source="standard:chain-method-continuation" />
         <error line="1223" column="29" source="standard:multiline-expression-wrapping" />
         <error line="1225" column="74" source="standard:trailing-comma-on-call-site" />
         <error line="1231" column="13" source="standard:function-naming" />
@@ -1204,7 +1204,7 @@
         <error line="559" column="50" source="standard:trailing-comma-on-declaration-site" />
         <error line="567" column="26" source="standard:trailing-comma-on-call-site" />
         <error line="573" column="26" source="standard:trailing-comma-on-call-site" />
-        <error line="576" column="69" source="standard:chain-method-continuation" />
+        <error line="576" column="64" source="standard:chain-method-continuation" />
         <error line="581" column="13" source="standard:function-naming" />
         <error line="583" column="24" source="standard:trailing-comma-on-declaration-site" />
         <error line="593" column="13" source="standard:function-naming" />

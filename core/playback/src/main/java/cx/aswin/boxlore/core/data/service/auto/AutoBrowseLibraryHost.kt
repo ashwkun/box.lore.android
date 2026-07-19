@@ -10,10 +10,10 @@ import androidx.media3.session.MediaSession
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.QueueRepository
 import cx.aswin.boxlore.core.data.SmartQueueSources
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.data.database.PodcastEntity
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.model.Podcast
 import kotlinx.coroutines.CoroutineScope
 

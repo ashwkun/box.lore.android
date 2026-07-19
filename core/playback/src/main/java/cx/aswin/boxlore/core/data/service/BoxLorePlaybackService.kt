@@ -293,7 +293,7 @@ class BoxLorePlaybackService :
                             telemetrySession.totalDurationMs,
                         )
                         val source =
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper
                                 .consumeSeekSource()
                         val seekResult =
                             introOutroController.onSeekDiscontinuity(
@@ -307,7 +307,7 @@ class BoxLorePlaybackService :
                         )
                         val epId = telemetrySession.episodeId
                         if (!seekResult.isLifecycleSeek && epId != null) {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackPlaybackSeeked(
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackPlaybackSeeked(
                                 podcastId = telemetrySession.podcastId,
                                 podcastName = telemetrySession.podcastName,
                                 episodeId = epId,
@@ -345,7 +345,7 @@ class BoxLorePlaybackService :
                                 Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST -> "user_voluntary"
                                 else -> "user_voluntary"
                             }
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper
                             .setPauseReason(pauseReason)
                         android.util.Log.d(
                             "BoxCastPlayer",
@@ -356,7 +356,7 @@ class BoxLorePlaybackService :
 
                 override fun onPlaybackSuppressionReasonChanged(reason: Int) {
                     if (reason == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) {
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper
                             .setPauseReason("audio_focus_loss_transient")
                         android.util.Log.d("BoxCastPlayer", "onPlaybackSuppressionReasonChanged: transient audio focus loss")
                     }
@@ -475,7 +475,7 @@ class BoxLorePlaybackService :
     ) {
         val upperBound = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
         val target = (player.currentPosition + deltaMs).coerceIn(0L, upperBound)
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper
             .setSeekSource(source)
         player.seekTo(target)
         android.util.Log.d("BoxCastPlayer", "$source to ${target}ms")

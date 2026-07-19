@@ -70,7 +70,7 @@ fun LikedEpisodesScreen(
     }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibraryLikedViewed("library_hub_card")
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibraryLikedViewed("library_hub_card")
     }
 
     Scaffold(

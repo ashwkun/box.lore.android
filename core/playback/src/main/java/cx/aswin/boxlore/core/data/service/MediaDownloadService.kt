@@ -7,7 +7,7 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.PlatformScheduler
 import androidx.media3.exoplayer.scheduler.Scheduler
-import cx.aswin.boxlore.core.data.DownloadRepository
+import cx.aswin.boxlore.core.downloads.DownloadRepository
 import cx.aswin.boxlore.core.data.R
 
 class MediaDownloadService :

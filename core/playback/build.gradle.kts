@@ -58,6 +58,7 @@ dependencies {
     // SmartQueueEngine / MixtapeEngine score via ranking (no longer re-exported by catalog).
     implementation(projects.core.ranking)
     implementation(projects.core.analytics)
+    implementation(projects.core.prefs)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)

@@ -8,10 +8,10 @@ import cx.aswin.boxlore.core.data.PlayerState
 import cx.aswin.boxlore.core.data.QueueMath
 import cx.aswin.boxlore.core.data.QueueRepository
 import cx.aswin.boxlore.core.data.QueueSkipMemory
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
-import cx.aswin.boxlore.core.data.ranking.RankingAction
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.FeedbackTarget
+import cx.aswin.boxlore.core.ranking.RankingAction
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
 import cx.aswin.boxlore.core.model.Podcast
@@ -277,7 +277,7 @@ internal class PlaybackQueueCoordinator(
             }
 
             if (startPosMs > 0L) {
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper
                     .setSeekSource("resume")
             }
             controller.setMediaItems(mediaItems, uniqueStartIndex, startPosMs)
@@ -521,7 +521,7 @@ internal class PlaybackQueueCoordinator(
     fun confirmQueueRemoval(removed: RemovedQueueItem) {
         if (removed.contextType != "AUTO_FILL") return
         try {
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSmartQueueEpisodeSkipped(
                 episodeId = removed.episode.id,
                 recommendationSource = removed.contextSourceId ?: "unknown",
                 positionInQueue = removed.mediaIndex,
@@ -653,7 +653,7 @@ internal class PlaybackQueueCoordinator(
         if (movedEpisodeId != null && fromQueueIndex != toQueueIndex && fromQueueIndex >= 0 && toQueueIndex >= 0) {
             val movedEpisode = queue.firstOrNull { it.id == movedEpisodeId }
             val contextType = movedEpisode?.contextType
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackQueueReordered(
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackQueueReordered(
                 episodeId = movedEpisodeId,
                 fromPosition = fromQueueIndex,
                 toPosition = toQueueIndex,

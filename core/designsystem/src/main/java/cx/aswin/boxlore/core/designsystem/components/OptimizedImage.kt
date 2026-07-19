@@ -144,7 +144,7 @@ private fun trackProxyFallback(url: String, proxyWidth: Int) {
         } catch (e: Exception) {
             "unknown"
         }
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackProxyFallbackTriggered(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackProxyFallbackTriggered(
             imageHost = imageHost,
             proxyWidth = proxyWidth,
             sampleMultiplier = 10,

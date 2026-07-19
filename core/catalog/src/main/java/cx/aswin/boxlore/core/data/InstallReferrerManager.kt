@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
+import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 private const val TAG = "InstallReferrerManager"
-private const val PREFS_NAME = "boxcast_referrer_prefs"
+private const val PREFS_NAME = PrefsFileMigrator.Files.REFERRER
 private const val KEY_REFERRER_PROCESSED = "referrer_processed"
 
 data class ReferralIntent(
@@ -28,7 +29,11 @@ class InstallReferrerManager(private val context: Context) {
     private val _referralFlow = MutableSharedFlow<ReferralIntent>(replay = 1)
     val referralFlow: SharedFlow<ReferralIntent> = _referralFlow.asSharedFlow()
 
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = PrefsFileMigrator.open(
+        context,
+        newName = PREFS_NAME,
+        oldName = PrefsFileMigrator.LegacyFiles.REFERRER,
+    )
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun checkInstallReferrer() {

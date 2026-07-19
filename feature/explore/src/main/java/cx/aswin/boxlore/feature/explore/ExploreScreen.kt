@@ -153,7 +153,7 @@ fun ExploreScreen(
     }.collectAsStateWithLifecycle(initialValue = false)
     
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreScreenViewed(entryPoint)
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreScreenViewed(entryPoint)
     }
 
     TrackScreenSession(
@@ -223,12 +223,12 @@ fun ExploreContent(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val isRecommendationsFallback = remember {
-        cx.aswin.boxlore.core.data.BoxcastPrefs(context).isRecommendationsFallback()
+        cx.aswin.boxlore.core.prefs.BoxcastPrefs(context).isRecommendationsFallback()
     }
 
     if (state.selectedTab == 1 && state.recommendations.isNotEmpty()) {
         LaunchedEffect(state.recommendations) {
-            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreRecommendationsImpression(
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationsImpression(
                 recommendationsCount = state.recommendations.size,
                 episodeIds = state.recommendations.map { it.id }
             )
@@ -449,7 +449,7 @@ fun ExploreContent(
                                     isFallback = isRecommendationsFallback,
                                     labelText = "FEATURED RESULT",
                                     onClick = {
-                                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                             episodeId = heroEp.id,
                                             episodeTitle = heroEp.title,
                                             podcastId = parentPodcast.id,
@@ -473,7 +473,7 @@ fun ExploreContent(
                                 ExploreEpisodeBentoCard(
                                     episode = episode,
                                     onClick = {
-                                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                             episodeId = episode.id,
                                             episodeTitle = episode.title,
                                             podcastId = parentPodcast.id,
@@ -648,7 +648,7 @@ fun ExploreContent(
                                 episode = heroEp,
                                 isFallback = isRecommendationsFallback,
                                 onClick = {
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                         episodeId = heroEp.id,
                                         episodeTitle = heroEp.title,
                                         podcastId = parentPodcast.id,
@@ -673,7 +673,7 @@ fun ExploreContent(
                             ExploreEpisodeBentoCard(
                                 episode = episode,
                                 onClick = {
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
                                         episodeId = episode.id,
                                         episodeTitle = episode.title,
                                         podcastId = parentPodcast.id,

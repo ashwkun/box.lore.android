@@ -44,7 +44,7 @@ internal class PlaybackTransportHelper(
             if (hasExplicitSource) {
                 storePendingEntryPoint(entryPointContext)
             } else {
-                cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.setIfAbsent(
+                cx.aswin.boxlore.core.analytics.PendingEntryPoint.setIfAbsent(
                     mapOf("entry_point" to default),
                 )
             }
@@ -60,7 +60,7 @@ internal class PlaybackTransportHelper(
             Log.d("PlaybackRepo", "resume(): Controller empty, reloading full queue (${queue.size} items)")
 
             scope.launch {
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper
                     .setSeekSource("resume")
                 if (queue.isNotEmpty() && podcast != null) {
                     // Find current episode in queue and reload from that point
@@ -217,7 +217,7 @@ internal class PlaybackTransportHelper(
 
                     storePendingEntryPoint(entryPointContext)
 
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .setSeekSource("transition")
                     restorePositionAndSeek(controller, targetEpisode.id, i)
                     return

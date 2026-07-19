@@ -137,7 +137,7 @@ fun SubscriptionsScreen(
 
     LaunchedEffect(Unit) {
         val initialTabName = if (initialTab == 0) "shows" else "latest"
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsViewed(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsViewed(
             sourceEntryPoint = "library_hub_card", // From main Library screen
             initialTab = initialTabName
         )
@@ -225,7 +225,7 @@ fun SubscriptionsScreen(
                             if (pagerState.currentPage == 0 && hasSubscribedPodcasts) {
                                 IconButton(onClick = {
                                     isGridView = !isGridView
-                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsLayoutToggled(isGridView)
+                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsLayoutToggled(isGridView)
                                 }) {
                                     Icon(
                                         imageVector = if (isGridView) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
@@ -251,7 +251,7 @@ fun SubscriptionsScreen(
                                                 onClick = {
                                                     viewModel.setSubscriptionSort(SubscriptionSort.SmartRank)
                                                     showSortMenu = false
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "shows")
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "shows")
                                                 },
                                                 trailingIcon = {
                                                     if (currentSort == SubscriptionSort.SmartRank) {
@@ -264,7 +264,7 @@ fun SubscriptionsScreen(
                                                 onClick = {
                                                     viewModel.setSubscriptionSort(SubscriptionSort.RecentlyUpdated)
                                                     showSortMenu = false
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("recently_updated", "shows")
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("recently_updated", "shows")
                                                 },
                                                 trailingIcon = {
                                                     if (currentSort == SubscriptionSort.RecentlyUpdated) {
@@ -277,7 +277,7 @@ fun SubscriptionsScreen(
                                                 onClick = {
                                                     viewModel.setSubscriptionSort(SubscriptionSort.Alphabetical)
                                                     showSortMenu = false
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("alphabetical", "shows")
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("alphabetical", "shows")
                                                 },
                                                 trailingIcon = {
                                                     if (currentSort == SubscriptionSort.Alphabetical) {
@@ -290,7 +290,7 @@ fun SubscriptionsScreen(
                                                 onClick = {
                                                     viewModel.setSubscriptionSort(SubscriptionSort.MostListened)
                                                     showSortMenu = false
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("most_listened", "shows")
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("most_listened", "shows")
                                                 },
                                                 trailingIcon = {
                                                     if (currentSort == SubscriptionSort.MostListened) {
@@ -304,7 +304,7 @@ fun SubscriptionsScreen(
                                                 onClick = {
                                                     viewModel.setUseSmartRank(true)
                                                     showSortMenu = false
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "latest")
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("smart_sort", "latest")
                                                 },
                                                 trailingIcon = {
                                                     if (useSmartRank) {
@@ -317,7 +317,7 @@ fun SubscriptionsScreen(
                                                 onClick = {
                                                     viewModel.setUseSmartRank(false)
                                                     showSortMenu = false
-                                                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("chronological", "latest")
+                                                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLibrarySubscriptionsSortChanged("chronological", "latest")
                                                 },
                                                 trailingIcon = {
                                                     if (!useSmartRank) {

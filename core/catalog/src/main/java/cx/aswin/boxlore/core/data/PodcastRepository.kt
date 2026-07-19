@@ -10,7 +10,7 @@ import cx.aswin.boxlore.core.data.content.contentSectionsCacheKey
 import cx.aswin.boxlore.core.data.content.contentSectionsProfileFingerprint
 import cx.aswin.boxlore.core.data.content.contentSectionsStaleCachePrefix
 import cx.aswin.boxlore.core.data.content.toGroupedContentSections
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Person
 import cx.aswin.boxlore.core.model.Podcast
@@ -36,6 +36,8 @@ import cx.aswin.boxlore.core.network.model.ContentSectionSeedFallbackDto
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Response
 import cx.aswin.boxlore.core.data.BuildConfig
+import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
+import cx.aswin.boxlore.core.rss.RssPodcastRepository
 
 /**
  * Upgrade HTTP URLs to HTTPS to fix Android cleartext traffic restrictions.
@@ -456,7 +458,11 @@ class PodcastRepository(
         }
     }
 
-    private val playerPrefs = context.getSharedPreferences("boxcast_player", android.content.Context.MODE_PRIVATE)
+    private val playerPrefs = PrefsFileMigrator.open(
+        context,
+        newName = PrefsFileMigrator.Files.PLAYER,
+        oldName = PrefsFileMigrator.LegacyFiles.PLAYER,
+    )
 
     private fun getOrCreateDeviceUuid(): String {
         val key = "device_uuid"
@@ -1556,7 +1562,7 @@ internal fun cx.aswin.boxlore.core.network.model.ContentCatalogResponse.toConten
         runCatching {
             cx.aswin.boxlore.core.data.content.ContentIntent(
                 id = intent.id,
-                objective = cx.aswin.boxlore.core.data.ranking.RankingObjective.DISCOVERY,
+                objective = cx.aswin.boxlore.core.ranking.RankingObjective.DISCOVERY,
                 eligibleSurfaces = surfaces,
                 eligibleDayparts = dayparts,
                 title = intent.titleFallback,
@@ -1598,11 +1604,11 @@ internal fun cx.aswin.boxlore.core.network.model.ContentCatalogResponse.toConten
     )
 }
 
-private fun String.toRankingSurface(): cx.aswin.boxlore.core.data.ranking.RankingSurface? {
+private fun String.toRankingSurface(): cx.aswin.boxlore.core.ranking.RankingSurface? {
     return when (lowercase()) {
-        "home" -> cx.aswin.boxlore.core.data.ranking.RankingSurface.HOME
-        "explore" -> cx.aswin.boxlore.core.data.ranking.RankingSurface.EXPLORE
-        "auto" -> cx.aswin.boxlore.core.data.ranking.RankingSurface.ANDROID_AUTO
+        "home" -> cx.aswin.boxlore.core.ranking.RankingSurface.HOME
+        "explore" -> cx.aswin.boxlore.core.ranking.RankingSurface.EXPLORE
+        "auto" -> cx.aswin.boxlore.core.ranking.RankingSurface.ANDROID_AUTO
         else -> null
     }
 }

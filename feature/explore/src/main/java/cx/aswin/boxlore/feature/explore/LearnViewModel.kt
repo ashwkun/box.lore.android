@@ -4,15 +4,15 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.data.PodcastRepository
-import cx.aswin.boxlore.core.data.ranking.CandidateFeatureBuilder
-import cx.aswin.boxlore.core.data.ranking.CandidateSignals
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.FeedbackTarget
-import cx.aswin.boxlore.core.data.ranking.RankingAction
-import cx.aswin.boxlore.core.data.ranking.RankingExposure
-import cx.aswin.boxlore.core.data.ranking.RankingFeedbackRepository
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.CandidateFeatureBuilder
+import cx.aswin.boxlore.core.ranking.CandidateSignals
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.FeedbackTarget
+import cx.aswin.boxlore.core.ranking.RankingAction
+import cx.aswin.boxlore.core.ranking.RankingExposure
+import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.feature.explore.logic.filterAndShuffleNewItems
 import cx.aswin.boxlore.feature.explore.logic.weightedShuffle
 import kotlinx.coroutines.Job
@@ -92,7 +92,7 @@ class LearnViewModel(
         if (hasTrackedExit) return
         hasTrackedExit = true
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackLearnScreenSession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLearnScreenSession(
             timeSpentSeconds = timeSpent,
             cardsDismissedCount = cardsDismissedCount,
             cardsQueuedCount = cardsQueuedCount,

@@ -8,8 +8,8 @@ import androidx.compose.runtime.LaunchedEffect
 import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
-import cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
+import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.data.backup.LibraryBackupManager
 import cx.aswin.boxlore.core.model.Podcast
 import kotlinx.coroutines.Dispatchers

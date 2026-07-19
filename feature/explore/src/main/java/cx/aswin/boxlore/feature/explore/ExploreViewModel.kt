@@ -3,16 +3,16 @@ package cx.aswin.boxlore.feature.explore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
-import cx.aswin.boxlore.core.data.BoxcastPrefs
+import cx.aswin.boxlore.core.prefs.BoxcastPrefs
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.SearchResult
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.data.ranking.CandidateSource
-import cx.aswin.boxlore.core.data.ranking.EpisodeRankingInput
-import cx.aswin.boxlore.core.data.ranking.PodcastRankingInput
-import cx.aswin.boxlore.core.data.ranking.RankingObjective
-import cx.aswin.boxlore.core.data.ranking.RankingSurface
+import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
+import cx.aswin.boxlore.core.ranking.PodcastRankingInput
+import cx.aswin.boxlore.core.ranking.RankingObjective
+import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.model.Podcast
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -96,7 +96,7 @@ class ExploreViewModel(
     application: android.app.Application,
     private val podcastRepository: PodcastRepository,
     private val subscriptionRepository: SubscriptionRepository,
-    private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository,
+    private val userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     private val playbackRepository: PlaybackRepository,
     private val adaptiveScorer: AdaptiveCandidateScorer,
     initialCategory: String? = null,
@@ -497,7 +497,7 @@ class ExploreViewModel(
                 if (searchJob == myJob) {
                     _searchResults.value = rankPodcastsOrOriginal(searchResult.podcasts)
                     searchResult.podcasts.forEach { _seenPodcasts[it.id] = it }
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, searchResult.podcasts.size)
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreSearchPerformed(query, searchResult.podcasts.size)
                 }
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
@@ -638,7 +638,7 @@ class ExploreViewModel(
         if (hasTrackedExit) return
         hasTrackedExit = true
         val timeSpent = (System.currentTimeMillis() - sessionStartTime) / 1000f
-        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackExploreScreenSession(
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreScreenSession(
             timeSpentSeconds = timeSpent,
             categoriesClickedCount = categoriesClickedCount,
             vibesClickedCount = vibesClickedCount,

@@ -118,7 +118,7 @@ import kotlinx.coroutines.launch
  */
 data class FullPlayerDependencies(
     val playbackRepository: PlaybackRepository,
-    val downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository
+    val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository
 )
 
 data class FullPlayerDisplay(
@@ -390,7 +390,7 @@ private fun FullPlayerTranscriptOverlay(
             isSyncEnabled = ui.isSyncEnabled,
             onSyncEnabledChange = { ui.isSyncEnabled = it },
             onSeek = { seekPosition ->
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.setSeekSource("transcript_tap")
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.setSeekSource("transcript_tap")
                 playbackRepository.seekTo(seekPosition)
             },
             onPlayPause = { togglePlayback(model.state, playbackRepository) },
@@ -468,7 +468,7 @@ private fun PlayerSpeedSheet(
         currentSpeed = model.state.playbackSpeed,
         colorScheme = model.colorScheme,
         onSpeedSelected = { speed ->
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction(
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction(
                 "speed_change",
                 value = speed.toString()
             )
@@ -489,7 +489,7 @@ private fun PlayerSleepSheet(
         sleepTimerEnd = model.state.sleepTimerEnd,
         colorScheme = model.colorScheme,
         onDurationSelected = { minutes ->
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction(
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction(
                 "sleep_timer",
                 value = minutes.toString()
             )
@@ -606,7 +606,7 @@ private fun FullPlayerBody(
                 isExpanded = display.isExpanded,
                 onSwipeMinimizeTipDismissed = actions.onSwipeMinimizeTipDismissed,
                 onCollapse = {
-                    cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("collapsed")
+                    cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("collapsed")
                     actions.onCollapse()
                 },
                 onShare = { ui.showShareSheet = true }
@@ -774,7 +774,7 @@ private fun FullPlayerHeroSection(
                 actions = InlineTranscriptActions(
                     onSyncEnabledChange = { ui.isSyncEnabled = it },
                     onSeek = { seekPosition ->
-                        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.setSeekSource("transcript_tap")
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.setSeekSource("transcript_tap")
                         playbackRepository.seekTo(seekPosition)
                     },
                     onShowArtwork = { ui.showInlineTranscript = false },
@@ -826,7 +826,7 @@ private fun ArtworkPlayerHero(
         dimensions = model.dimensions,
         colorScheme = display.colorScheme,
         onSkipNextEpisode = {
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("skip_next_episode")
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("skip_next_episode")
             playbackRepository.skipToNextEpisode()
         },
         modifier = Modifier.fillMaxWidth()
@@ -846,7 +846,7 @@ private fun PlayerMetadata(
         color = colorScheme.onSurface,
         velocity = 26.dp,
         onClick = {
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("episode_info")
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("episode_info")
             actions.onCollapse()
             actions.onEpisodeInfoClick(episode)
         }
@@ -858,7 +858,7 @@ private fun PlayerMetadata(
         color = colorScheme.onSurfaceVariant,
         velocity = 24.dp,
         onClick = {
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("podcast_info")
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("podcast_info")
             actions.onCollapse()
             actions.onPodcastInfoClick(podcast)
         }
@@ -914,7 +914,7 @@ private fun FullPlayerControls(
             isPlaying = model.state.isPlaying,
             colorScheme = model.colorScheme,
             onSeek = {
-                cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("seek")
+                cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("seek")
                 dependencies.playbackRepository.seekTo(it)
             },
             chapters = model.state.currentChapters
@@ -937,15 +937,15 @@ private fun FullPlayerPrimaryControls(
         colorScheme = model.colorScheme,
         actions = PrimaryControlActions(
             onPlayPause = {
-                cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("play_pause")
+                cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("play_pause")
                 if (model.state.isPlaying) playbackRepository.pause() else playbackRepository.resume()
             },
             onReplay = {
-                cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("previous")
+                cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("previous")
                 playbackRepository.skipBackward()
             },
             onForward = {
-                cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("next")
+                cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("next")
                 playbackRepository.skipForward()
             },
         ),
@@ -993,14 +993,14 @@ private fun fullPlayerSelectionActions(
     playbackRepository: PlaybackRepository
 ) = SecondarySelectionActions(
     onSpeedSelected = { speed ->
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction(
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction(
             "speed_change",
             value = speed.toString()
         )
         playbackRepository.setPlaybackSpeed(speed)
     },
     onSleepTimerSelected = { minutes ->
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction(
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction(
             "sleep_timer",
             value = minutes.toString()
         )
@@ -1015,31 +1015,31 @@ private fun fullPlayerClickActions(
     scope: CoroutineScope
 ) = SecondaryClickActions(
     onQueueClick = {
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("queue")
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("queue")
         ui.showQueueSheet = true
     },
     onChaptersClick = {
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("chapters_sheet")
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("chapters_sheet")
         ui.showChaptersSheet = true
     },
     onTranscriptClick = {
         if (model.state.currentTranscript.isNotEmpty()) {
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction(
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction(
                 if (ui.showInlineTranscript) "transcript_hide" else "transcript_inline"
             )
             ui.showInlineTranscript = !ui.showInlineTranscript
         }
     },
     onLikeClick = {
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("like")
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("like")
         scope.launch { dependencies.playbackRepository.toggleLike() }
     },
     onDownloadClick = {
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("download")
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("download")
         scope.launch { toggleEpisodeDownload(model, dependencies.downloadRepository) }
     },
     onMarkPlayedClick = {
-        cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("mark_played")
+        cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("mark_played")
         scope.launch {
             dependencies.playbackRepository.toggleCompletion(
                 episode = model.episode,
@@ -1053,7 +1053,7 @@ private fun fullPlayerClickActions(
 
 private suspend fun toggleEpisodeDownload(
     model: FullPlayerControlModel,
-    downloadRepository: cx.aswin.boxlore.core.data.DownloadRepository
+    downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository
 ) {
     if (model.isDownloaded || model.isDownloading) {
         downloadRepository.removeDownload(model.episode.id)
@@ -1077,11 +1077,11 @@ private fun FullPlayerSupportingContent(
             queuedEpisodes = state.queue.drop(1),
             colorScheme = colorScheme,
             onOpenQueue = {
-                cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("queue")
+                cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("queue")
                 ui.showQueueSheet = true
             },
             onPlayNext = {
-                cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("skip_next_episode")
+                cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("skip_next_episode")
                 playbackRepository.skipToNextEpisode()
             }
         )
@@ -1091,7 +1091,7 @@ private fun FullPlayerSupportingContent(
         description = episode.description,
         colorScheme = colorScheme,
         onOpenEpisodeInfo = {
-            cx.aswin.boxlore.core.data.analytics.PlayerSessionAggregator.logAction("episode_info")
+            cx.aswin.boxlore.core.analytics.PlayerSessionAggregator.logAction("episode_info")
             actions.onCollapse()
             actions.onEpisodeInfoClick(episode)
         }
@@ -1213,7 +1213,7 @@ private fun PlayerChaptersSheet(
             positionFlow = positionFlow,
             colorScheme = colorScheme,
             onSeek = { seekPosition ->
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.setSeekSource("chapters_list")
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.setSeekSource("chapters_list")
                 playbackRepository.seekTo(seekPosition)
                 ui.showChaptersSheet = false
             },

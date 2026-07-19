@@ -15,9 +15,9 @@ import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
 import cx.aswin.boxlore.core.data.EngagementPromptCoordinator
 import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
-import cx.aswin.boxlore.core.data.ranking.LearningEventLog
+import cx.aswin.boxlore.core.ranking.LearningEventLog
 import cx.aswin.boxlore.core.network.NetworkModule
 import cx.aswin.boxlore.surveys.BoxcastPostHogSurveysDelegate
 import java.util.concurrent.TimeUnit
@@ -66,7 +66,7 @@ class BoxLoreApplication : Application(), Configuration.Provider {
         // Live learner signal log: on by default in debug builds, off for release users
         // unless they explicitly opt in via the debug screen toggle. A persisted choice wins.
         LearningEventLog.configure(
-            cx.aswin.boxlore.core.data.BoxcastPrefs(this)
+            cx.aswin.boxlore.core.prefs.BoxcastPrefs(this)
                 .isLearnerLogEnabled(default = BuildConfig.DEBUG),
         )
 
@@ -91,7 +91,7 @@ class BoxLoreApplication : Application(), Configuration.Provider {
         PostHogAndroid.setup(this, config)
 
         // Non-fatal error sink: Crashlytics when available, Logcat fallback inside ErrorReporter.
-        cx.aswin.boxlore.core.data.analytics.ErrorReporter.install { throwable, message ->
+        cx.aswin.boxlore.core.analytics.ErrorReporter.install { throwable, message ->
             try {
                 val crashlytics = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
                 if (message != null) {
@@ -135,14 +135,14 @@ class BoxLoreApplication : Application(), Configuration.Provider {
                     val isConnected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
                     if (!isConnected) {
                         if (hasInternet) {
-                            cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackOfflineModeEntered()
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackOfflineModeEntered()
                         }
                         hasInternet = false
                     }
                 }
             })
         } catch (e: Exception) {
-            cx.aswin.boxlore.core.data.analytics.ErrorReporter.report(
+            cx.aswin.boxlore.core.analytics.ErrorReporter.report(
                 e,
                 "Failed to register connectivity observer",
             )
@@ -155,7 +155,7 @@ class BoxLoreApplication : Application(), Configuration.Provider {
             try {
                 val statuses = container.adaptiveRankingRepository
                     .aggregateTelemetry()
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper
                     .trackAdaptiveRankingStatus(statuses)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
@@ -200,11 +200,11 @@ class BoxLoreApplication : Application(), Configuration.Provider {
             // reported once per launch to PostHog for adoption/health tracking.
             appCheck.getAppCheckToken(false)
                 .addOnSuccessListener {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAppCheckStatus(true, provider)
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAppCheckStatus(true, provider)
                 }
                 .addOnFailureListener { e ->
                     android.util.Log.w("BoxCastApp", "App Check pre-warm failed: ${e.message}")
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackAppCheckStatus(false, provider)
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackAppCheckStatus(false, provider)
                 }
             NetworkModule.appCheckTokenProvider = {
                 try {

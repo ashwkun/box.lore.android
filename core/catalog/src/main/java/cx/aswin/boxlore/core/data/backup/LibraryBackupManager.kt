@@ -1,14 +1,14 @@
 package cx.aswin.boxlore.core.data.backup
 
 import cx.aswin.boxlore.core.data.PodcastRepository
-import cx.aswin.boxlore.core.data.RssPodcastRepository
+import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
 import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.data.database.PodcastEntity
 import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.data.ports.ListeningHistoryBackupPort
-import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingBackup
-import cx.aswin.boxlore.core.data.ranking.AdaptiveRankingRepository
+import cx.aswin.boxlore.core.ranking.AdaptiveRankingBackup
+import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
 import kotlinx.coroutines.flow.first
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -63,7 +63,7 @@ class LibraryBackupManager(
     private val subscriptionRepository: SubscriptionRepository,
     private val listeningHistory: ListeningHistoryBackupPort,
     private val podcastRepository: PodcastRepository,
-    private val userPrefs: cx.aswin.boxlore.core.data.UserPreferencesRepository? = null,
+    private val userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository? = null,
     context: android.content.Context,
     private val adaptiveRankingRepository: AdaptiveRankingRepository =
         SharedAppDependenciesHolder.require().adaptiveRankingRepository,

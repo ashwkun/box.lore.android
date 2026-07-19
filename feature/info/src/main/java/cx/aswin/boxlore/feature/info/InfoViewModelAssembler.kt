@@ -3,13 +3,13 @@ package cx.aswin.boxlore.feature.info
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import cx.aswin.boxlore.core.data.DownloadRepository
+import cx.aswin.boxlore.core.downloads.DownloadRepository
 import cx.aswin.boxlore.core.data.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.QueueManager
-import cx.aswin.boxlore.core.data.RssPodcastRepository
+import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.UserPreferencesRepository
+import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.domain.ports.EpisodeOfflineLookupPort
 import cx.aswin.boxlore.core.domain.ports.LocalCatalogPort
 

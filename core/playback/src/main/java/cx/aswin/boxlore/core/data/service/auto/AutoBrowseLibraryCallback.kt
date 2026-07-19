@@ -137,13 +137,13 @@ internal class AutoBrowseLibraryCallback(
         }
         when (customCommand.customAction) {
             "SEEK_BACK" -> {
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper
                     .setSeekSource("seek_backward")
                 session.player.seekBack()
                 android.util.Log.d("AutoBrowse", "Seek backward")
             }
             "SEEK_FORWARD" -> {
-                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper
                     .setSeekSource("seek_forward")
                 session.player.seekForward()
                 android.util.Log.d("AutoBrowse", "Seek forward")
@@ -255,14 +255,14 @@ internal class AutoBrowseLibraryCallback(
         if (keyEvent != null && keyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
             when (keyEvent.keyCode) {
                 android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .setSeekSource("seek_forward")
                     session.player.seekForward()
                     android.util.Log.d("BoxLorePlaybackService", "onMediaButtonEvent: KEYCODE_MEDIA_NEXT intercepted, seeking forward")
                     return true
                 }
                 android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                    cx.aswin.boxlore.core.data.analytics.AnalyticsHelper
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper
                         .setSeekSource("seek_backward")
                     session.player.seekBack()
                     android.util.Log.d("BoxLorePlaybackService", "onMediaButtonEvent: KEYCODE_MEDIA_PREVIOUS intercepted, seeking backward")
@@ -508,7 +508,7 @@ internal class AutoBrowseLibraryCallback(
 
         return host.serviceScope.future {
             if (mediaItems.size > 1) {
-                cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+                cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
                     mapOf("entry_point" to "android_auto_play_all"),
                 )
                 return@future mediaItems.map { mediaResolver.resolveMediaItem(it) }.toMutableList()
@@ -519,7 +519,7 @@ internal class AutoBrowseLibraryCallback(
 
             if (!searchQuery.isNullOrBlank()) {
                 android.util.Log.d("AutoBrowse", "Voice play request: '$searchQuery'")
-                cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+                cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
                     mapOf("entry_point" to "android_auto_voice"),
                 )
                 return@future voiceSearch.handleVoiceSearchQuery(searchQuery)
@@ -559,7 +559,7 @@ internal class AutoBrowseLibraryCallback(
                 ", ",
             )}",
         )
-        cx.aswin.boxlore.core.data.analytics.PendingEntryPoint.set(
+        cx.aswin.boxlore.core.analytics.PendingEntryPoint.set(
             mapOf("entry_point" to "android_auto_$source"),
         )
         val resolvedItem = mediaResolver.resolveMediaItem(selectedItem)
