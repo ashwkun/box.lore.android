@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import cx.aswin.boxlore.core.catalog.content.ContentSection
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.components.HeroCarousel

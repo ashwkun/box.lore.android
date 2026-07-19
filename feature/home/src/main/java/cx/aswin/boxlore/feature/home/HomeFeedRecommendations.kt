@@ -1,6 +1,5 @@
 package cx.aswin.boxlore.feature.home
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,9 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cx.aswin.boxlore.core.catalog.content.ContentDaypart
-import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
-import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.components.BecauseYouLikeSection
 import cx.aswin.boxlore.feature.home.components.GridSkeletonItem
 import cx.aswin.boxlore.feature.home.components.HomeTopLevelSectionHeader
