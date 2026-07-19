@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <description>This channel has no title element.</description>
+    <itunes:author>No Title Author</itunes:author>
+    <item>
+      <title>Orphan Episode</title>
+      <description>Belongs to a titleless channel.</description>
+      <guid>guid-orphan</guid>
+      <pubDate>Wed, 01 Jan 2020 00:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/orphan.mp3" type="audio/mpeg" length="1000"/>
+    </item>
+  </channel>
+</rss>
