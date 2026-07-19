@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.core.data
 
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
-import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.PodcastEntity
 import cx.aswin.boxlore.core.domain.ports.LocalCatalogPort
 import cx.aswin.boxlore.core.model.Podcast
 

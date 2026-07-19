@@ -196,7 +196,7 @@ data class HomeScreenCallbacks(
 @Suppress("LongParameterList", "LongMethod")
 fun HomeRoute(
     podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
-    playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
+    playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
     engagementPromptCoordinator: cx.aswin.boxlore.core.data.EngagementPromptCoordinator,
     subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
     downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,

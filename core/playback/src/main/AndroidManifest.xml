@@ -8,9 +8,9 @@
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false">
-        <!-- FQCN must stay cx.aswin.boxlore.core.data.service.* (package unchanged). -->
+        <!-- FQCN must stay cx.aswin.boxlore.core.playback.service.* (package unchanged). -->
         <service
-            android:name="cx.aswin.boxlore.core.data.service.MediaDownloadService"
+            android:name="cx.aswin.boxlore.core.playback.service.MediaDownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync">
             <intent-filter>

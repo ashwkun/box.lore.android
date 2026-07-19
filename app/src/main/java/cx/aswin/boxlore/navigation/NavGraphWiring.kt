@@ -535,8 +535,8 @@ internal suspend fun resolveLocalOrFallbackPodcast(
 }
 
 internal suspend fun autoplayDeepLinkEpisodeIfNeeded(
-    playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
-    queueManager: cx.aswin.boxlore.core.data.QueueManager,
+    playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
+    queueManager: cx.aswin.boxlore.core.playback.QueueManager,
     localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     episodeId: String,
     autoplay: String,

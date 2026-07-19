@@ -61,7 +61,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
+import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
 
 @Composable
@@ -117,7 +117,7 @@ fun SquigglyProgressLoader(
 @Composable
 fun SmartDownloadsDashboardCard(
     userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
-    downloads: List<cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity>,
+    downloads: List<cx.aswin.boxlore.core.database.DownloadedEpisodeEntity>,
     onSettingsClick: () -> Unit,
     onSyncNow: () -> Unit,
     isSyncing: Boolean = false

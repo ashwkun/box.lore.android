@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.core.data
 
-import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
 import cx.aswin.boxlore.core.data.content.ContentCatalogSnapshot
 import cx.aswin.boxlore.core.data.content.ContentContext
 import cx.aswin.boxlore.core.data.content.ContentSectionsDaypartResolver

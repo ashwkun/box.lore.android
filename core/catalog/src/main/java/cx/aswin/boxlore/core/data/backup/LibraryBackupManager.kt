@@ -4,8 +4,8 @@ import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import cx.aswin.boxlore.core.data.SharedAppDependenciesHolder
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.database.PodcastEntity
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.data.ports.ListeningHistoryBackupPort
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingBackup
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
@@ -304,7 +304,7 @@ class LibraryBackupManager(
                 }
                 // Reconstruct safe entity to prevent null crashes on non-nullable String fields
                 // Primitives (Long, Boolean) are safe as Gson initializes them to 0/false if missing
-                val safeEntity = cx.aswin.boxlore.core.data.database.ListeningHistoryEntity(
+                val safeEntity = cx.aswin.boxlore.core.database.ListeningHistoryEntity(
                     episodeId = (entity.episodeId as String?) ?: "",
                     podcastId = (entity.podcastId as String?) ?: "",
                     episodeTitle = (entity.episodeTitle as String?) ?: "Unknown",

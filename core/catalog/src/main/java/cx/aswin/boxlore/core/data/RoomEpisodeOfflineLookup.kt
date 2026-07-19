@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.core.data
 
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.domain.ports.EpisodeOfflineLookupPort
 import cx.aswin.boxlore.core.domain.ports.OfflineEpisodeSnapshot
 

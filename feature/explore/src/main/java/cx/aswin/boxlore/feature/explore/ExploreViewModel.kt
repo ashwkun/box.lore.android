@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.feature.explore.logic.ExploreBrowseLogic
 

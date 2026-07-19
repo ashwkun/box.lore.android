@@ -7,9 +7,9 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import cx.aswin.boxlore.core.data.PodcastRepository
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
-import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
-import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
 import cx.aswin.boxlore.core.data.toPodcast
 import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
 import cx.aswin.boxlore.core.model.Episode

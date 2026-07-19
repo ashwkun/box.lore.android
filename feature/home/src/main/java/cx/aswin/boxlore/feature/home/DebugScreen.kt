@@ -56,8 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.playback.PlaybackRepository
+import cx.aswin.boxlore.core.database.PodcastEntity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

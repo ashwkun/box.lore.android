@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.designsystem.theme.ExpressiveMotion
 import cx.aswin.boxlore.core.designsystem.theme.LocalEffectiveDarkTheme
@@ -111,7 +111,7 @@ fun PlayerSheetScaffold(
             .distinctUntilChanged()
     }
     val state by stablePlayerState.collectAsStateWithLifecycle(
-        initialValue = cx.aswin.boxlore.core.data.PlayerState()
+        initialValue = cx.aswin.boxlore.core.playback.PlayerState()
     )
     val episode = state.currentEpisode
     val podcast = state.currentPodcast
@@ -207,7 +207,7 @@ private data class PlayerSheetGeometry(
 )
 
 private data class PlayerSheetContentState(
-    val playerState: cx.aswin.boxlore.core.data.PlayerState,
+    val playerState: cx.aswin.boxlore.core.playback.PlayerState,
     val episode: cx.aswin.boxlore.core.model.Episode,
     val podcast: cx.aswin.boxlore.core.model.Podcast?,
     val colorScheme: ColorScheme,

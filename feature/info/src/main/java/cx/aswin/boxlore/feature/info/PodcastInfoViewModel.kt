@@ -28,9 +28,9 @@ import kotlinx.coroutines.launch
 class PodcastInfoViewModel(
     application: Application,
     private val repository: PodcastRepository,
-    private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
+    private val playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
-    private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
+    private val queueManager: cx.aswin.boxlore.core.playback.QueueManager,
     private val subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
     private val rssRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
     private val localCatalog: LocalCatalogPort,
@@ -109,14 +109,14 @@ class PodcastInfoViewModel(
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
-                cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.DEFAULT_SKIP_BEGINNING_MS,
+                cx.aswin.boxlore.core.playback.PlaybackSkipPolicy.DEFAULT_SKIP_BEGINNING_MS,
             )
     val globalSkipEndingMs: StateFlow<Long> =
         userPrefs.skipEndingMsStream
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
-                cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy.DEFAULT_SKIP_ENDING_MS,
+                cx.aswin.boxlore.core.playback.PlaybackSkipPolicy.DEFAULT_SKIP_ENDING_MS,
             )
 
     val hideCompletedInShowDetails: StateFlow<Boolean> =
@@ -140,7 +140,7 @@ class PodcastInfoViewModel(
         if (!state.isSubscribed) return
         updatePodcastPlaybackOverrides(
             beginningMs =
-                cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy
+                cx.aswin.boxlore.core.playback.PlaybackSkipPolicy
                     .sanitizeTrim(valueMs),
             endingMs = state.podcast.skipEndingOverrideMs ?: globalSkipEndingMs.value,
         )
@@ -152,7 +152,7 @@ class PodcastInfoViewModel(
         updatePodcastPlaybackOverrides(
             beginningMs = state.podcast.skipBeginningOverrideMs ?: globalSkipBeginningMs.value,
             endingMs =
-                cx.aswin.boxlore.core.data.playback.PlaybackSkipPolicy
+                cx.aswin.boxlore.core.playback.PlaybackSkipPolicy
                     .sanitizeTrim(valueMs),
         )
     }
@@ -853,7 +853,7 @@ class PodcastInfoViewModel(
                     history.map { it.toInfoListeningProgressItem() }
                 },
                 _currentPodcastIdFlow,
-            ) { player: cx.aswin.boxlore.core.data.PlayerState, historyList: List<InfoListeningProgressItem>, loadedId: String? ->
+            ) { player: cx.aswin.boxlore.core.playback.PlayerState, historyList: List<InfoListeningProgressItem>, loadedId: String? ->
                 val map = mutableMapOf<String, EpisodePlaybackState>()
 
                 // 1. Map History (Resume State)

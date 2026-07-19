@@ -697,12 +697,12 @@
         <error line="1127" column="60" source="standard:trailing-comma-on-call-site" />
         <error line="1133" column="90" source="standard:trailing-comma-on-call-site" />
         <error line="1142" column="26" source="standard:trailing-comma-on-declaration-site" />
-        <error line="1160" column="49" source="standard:chain-method-continuation" />
-        <error line="1161" column="49" source="standard:chain-method-continuation" />
-        <error line="1161" column="75" source="standard:trailing-comma-on-call-site" />
-        <error line="1168" column="70" source="standard:chain-method-continuation" />
-        <error line="1169" column="68" source="standard:chain-method-continuation" />
-        <error line="1169" column="94" source="standard:trailing-comma-on-call-site" />
+        <error line="1160" column="53" source="standard:chain-method-continuation" />
+        <error line="1161" column="53" source="standard:chain-method-continuation" />
+        <error line="1161" column="79" source="standard:trailing-comma-on-call-site" />
+        <error line="1168" column="74" source="standard:chain-method-continuation" />
+        <error line="1169" column="72" source="standard:chain-method-continuation" />
+        <error line="1169" column="98" source="standard:trailing-comma-on-call-site" />
         <error line="1172" column="6" source="standard:trailing-comma-on-call-site" />
         <error line="1178" column="41" source="standard:trailing-comma-on-declaration-site" />
         <error line="1181" column="18" source="standard:multiline-expression-wrapping" />
@@ -1119,8 +1119,8 @@
         <error line="101" column="34" source="standard:trailing-comma-on-declaration-site" />
         <error line="103" column="29" source="standard:multiline-expression-wrapping" />
         <error line="108" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="114" column="50" source="standard:chain-method-continuation" />
-        <error line="114" column="64" source="standard:trailing-comma-on-call-site" />
+        <error line="114" column="54" source="standard:chain-method-continuation" />
+        <error line="114" column="68" source="standard:trailing-comma-on-call-site" />
         <error line="133" column="1" source="standard:spacing-between-declarations-with-annotations" />
         <error line="136" column="22" source="standard:multiline-expression-wrapping" />
         <error line="144" column="52" source="standard:trailing-comma-on-call-site" />

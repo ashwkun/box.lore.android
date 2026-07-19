@@ -12,8 +12,8 @@ import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
-import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.ranking.FeedbackTarget

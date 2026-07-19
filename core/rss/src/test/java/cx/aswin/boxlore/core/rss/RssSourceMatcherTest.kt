@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.core.rss
 
-import cx.aswin.boxlore.core.data.database.PodcastEntity
-import cx.aswin.boxlore.core.data.database.RssEpisodeEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
+import cx.aswin.boxlore.core.database.RssEpisodeEntity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

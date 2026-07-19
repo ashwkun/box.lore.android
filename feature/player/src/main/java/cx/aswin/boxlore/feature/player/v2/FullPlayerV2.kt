@@ -91,8 +91,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.PlayerState
+import cx.aswin.boxlore.core.playback.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlayerState
 import cx.aswin.boxlore.core.model.AutoTranscriptState
 import cx.aswin.boxlore.core.designsystem.theme.LocalEffectiveDarkTheme
 import cx.aswin.boxlore.core.model.Episode
@@ -1157,16 +1157,16 @@ private fun queueSheetActions(
     onClose = { ui.showQueueSheet = false },
     onMove = { fromUi, toUi ->
         playbackRepository.moveQueueItem(
-            cx.aswin.boxlore.core.data.QueueMath.uiIndexToQueueIndex(fromUi),
-            cx.aswin.boxlore.core.data.QueueMath.uiIndexToQueueIndex(toUi)
+            cx.aswin.boxlore.core.playback.QueueMath.uiIndexToQueueIndex(fromUi),
+            cx.aswin.boxlore.core.playback.QueueMath.uiIndexToQueueIndex(toUi)
         )
     },
     onDragEnd = { episodeId, fromUi, toUi ->
         resources.scope.launch {
             playbackRepository.persistQueueOrder(
                 movedEpisodeId = episodeId,
-                fromQueueIndex = cx.aswin.boxlore.core.data.QueueMath.uiIndexToQueueIndex(fromUi),
-                toQueueIndex = cx.aswin.boxlore.core.data.QueueMath.uiIndexToQueueIndex(toUi)
+                fromQueueIndex = cx.aswin.boxlore.core.playback.QueueMath.uiIndexToQueueIndex(fromUi),
+                toQueueIndex = cx.aswin.boxlore.core.playback.QueueMath.uiIndexToQueueIndex(toUi)
             )
         }
     }

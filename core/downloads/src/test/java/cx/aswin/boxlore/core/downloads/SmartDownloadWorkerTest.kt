@@ -11,7 +11,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository

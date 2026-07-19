@@ -36,7 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.posthog.PostHog
 import cx.aswin.boxlore.BoxLoreApplication
 import cx.aswin.boxlore.BuildConfig
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.core.designsystem.component.AppMiniPlayerHeight
 import cx.aswin.boxlore.core.designsystem.component.AppMiniPlayerNavGap

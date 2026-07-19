@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.feature.info
 
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test

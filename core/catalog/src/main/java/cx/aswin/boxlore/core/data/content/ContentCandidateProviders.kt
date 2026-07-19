@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.core.data.content
 
 import cx.aswin.boxlore.core.data.PodcastRepository
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.CandidateSource
 import cx.aswin.boxlore.core.ranking.EpisodeRankingInput

@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun LearnScreen(
     viewModel: LearnViewModel,
-    playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
+    playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
     bottomContentPadding: Dp,
     onEpisodeClick: (Episode) -> Unit,
     onQueueEpisode: (Episode) -> Unit,
@@ -75,7 +75,7 @@ fun LearnScreen(
             .distinctUntilChanged()
     }
     val playerState by stablePlayerState.collectAsState(
-        initial = cx.aswin.boxlore.core.data.PlayerState()
+        initial = cx.aswin.boxlore.core.playback.PlayerState()
     )
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current

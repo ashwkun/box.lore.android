@@ -2,8 +2,8 @@ package cx.aswin.boxlore.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.playback.PlaybackRepository
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

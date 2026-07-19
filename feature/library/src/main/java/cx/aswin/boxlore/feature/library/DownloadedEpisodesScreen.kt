@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.feature.library
 
 import androidx.compose.runtime.Composable
-import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
+import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.library.downloads.DownloadedEpisodesScreen as DownloadedEpisodesScreenImpl

@@ -165,9 +165,30 @@ object AnalyticsHelper : Analytics {
         return PostHog.distinctId()
     }
 
-    /** Phase C — stopped in PR7; no-op until PR9. */
-    @Suppress("UNUSED_PARAMETER")
-    fun trackLateNightSafeguardDecision(decision: String, durationMinutes: Int? = null) = Unit
+    /** Phase C — Auto + polish (PR9). */
+    fun trackLateNightSafeguardDecision(decision: String, durationMinutes: Int? = null) =
+        PhaseCAnalyticsTracks.trackLateNightSafeguardDecision(decision, durationMinutes)
+
+    fun trackAndroidAutoConnected(sessionId: String? = null) =
+        PhaseCAnalyticsTracks.trackAndroidAutoConnected(sessionId)
+
+    fun trackAndroidAutoDisconnected(sessionId: String? = null, durationSeconds: Int? = null) =
+        PhaseCAnalyticsTracks.trackAndroidAutoDisconnected(sessionId, durationSeconds)
+
+    fun trackAndroidAutoBrowse(node: String, action: String? = null) =
+        PhaseCAnalyticsTracks.trackAndroidAutoBrowse(node, action)
+
+    fun trackLearnCaughtUp(cardsRemaining: Int? = null) =
+        PhaseCAnalyticsTracks.trackLearnCaughtUp(cardsRemaining)
+
+    fun trackCatalogMiss(lookupType: String, key: String? = null) =
+        PhaseCAnalyticsTracks.trackCatalogMiss(lookupType, key)
+
+    fun trackRssRefreshFailed(podcastId: String? = null, errorType: String? = null) =
+        PhaseCAnalyticsTracks.trackRssRefreshFailed(podcastId, errorType)
+
+    fun trackProgressSyncAnomaly(anomalyType: String, episodeId: String? = null) =
+        PhaseCAnalyticsTracks.trackProgressSyncAnomaly(anomalyType, episodeId)
 
     data class SmartQueueRefillEvent(
         val triggeringEpisodeId: String,
@@ -533,9 +554,9 @@ object AnalyticsHelper : Analytics {
     infosClickedCount: Int
 ) = QueueContentAnalyticsTracks.trackLearnScreenSession(timeSpentSeconds, cardsDismissedCount, cardsQueuedCount, playsCount, podcastsClickedCount, infosClickedCount)
 
-    /** Phase C — stopped in PR7; no-op until PR9 `adaptive_ranking_status`. */
+    /** Phase C — `adaptive_ranking_status` (PR9). */
     override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
-        // Intentionally no-op (Phase C).
+        PhaseCAnalyticsTracks.trackAdaptiveRankingStatus(statuses)
     }
 
     override fun flush() {

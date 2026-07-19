@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.downloads
 
 import cx.aswin.boxlore.core.downloads.SmartDownloadCandidateLogic.MixtapeCandidate
-import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
-import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import org.junit.jupiter.api.Assertions.assertEquals

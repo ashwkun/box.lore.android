@@ -6,7 +6,7 @@
 
 Companion CSV (same columns): [`docs/analytics/event_glossary.csv`](analytics/event_glossary.csv).
 
-**PR7 status:** Phase A∪B **hard cut shipped** — façade emits only glossary A∪B (+ `$set` person props). Phase C deferred to PR9. Phase A+B property columns complete. `replaces_legacy` populated from Jul 2026 codebase `PostHog.capture` inventory (101 legacy names).
+**PR9 status:** Phase C Auto + polish **shipped** — façade emits glossary A∪B∪C; allowlist includes Phase C. Auto connect/disconnect/browse wired from `AutoBrowseLibraryCallback`.
 
 ---
 
@@ -118,9 +118,9 @@ Companion CSV (same columns): [`docs/analytics/event_glossary.csv`](analytics/ev
 | player_chrome_interaction | Player chrome interaction | Mini/full player or control bar action | B | Player UX | surface:string:Y;action:string:Y | mini_player_interaction;top_controlbar_interaction;full_player_screen_session | playback |  | none |  |
 | daily_briefing_action | Daily briefing action | Briefing impression or interaction | B | Briefing→play | action:string:Y;region:string:N;content_id:string:N | daily_briefing_screen_viewed;daily_briefing_interaction;daily_briefing_pause_clicked;daily_briefing_region_changed;daily_briefing_related_episode_clicked;daily_briefing_card_impression;daily_briefing_banner_tapped;daily_briefing_play_clicked | discovery;briefing |  | none | home_surface_tapped also covers primary play CTA |
 | home_import_banner_action | Home import banner action | Import banner shown/clicked/dismissed | B | Import from Home | action:string:Y | home_import_banner_impression;home_import_banner_clicked;home_import_banner_dismissed | activation;home |  | none |  |
-| android_auto_connected | Android Auto connected | Auto session began | C | Auto share of listening | session_id:string:N |  | auto | auto_session | none | Ship PR9 |
-| android_auto_disconnected | Android Auto disconnected | Auto session ended | C | Auto session length | session_id:string:N;duration_seconds:int:N |  | auto | auto_session | none | Ship PR9 |
-| android_auto_browse | Android Auto browse | User browsed Auto media tree | C | Auto browse→play | node:string:Y;action:string:N |  | auto |  | none | Ship PR9 |
+| android_auto_connected | Android Auto connected | Auto session began | C | Auto share of listening | session_id:string:N |  | auto | auto_session | none | Shipped PR9 |
+| android_auto_disconnected | Android Auto disconnected | Auto session ended | C | Auto session length | session_id:string:N;duration_seconds:int:N |  | auto | auto_session | none | Shipped PR9 |
+| android_auto_browse | Android Auto browse | User browsed Auto media tree | C | Auto browse→play | node:string:Y;action:string:N |  | auto |  | none | Shipped PR9 |
 | adaptive_ranking_status | Adaptive ranking status | Ranking engine status/update | C | Adaptive vs Discover | status:string:Y;details:string:N | adaptive_ranking_status | discovery;ranking |  | none | Derive more from actions in PR9 |
 | learn_caught_up | Learn caught up | User reached Learn caught-up state | C | Learn return | cards_remaining:int:N |  | learn |  | none | Ship PR9 |
 | catalog_miss | Catalog miss | Catalog/lookup miss | C | Catalog quality | lookup_type:string:Y;key:string:N |  | catalog |  | none | Ship PR9 |

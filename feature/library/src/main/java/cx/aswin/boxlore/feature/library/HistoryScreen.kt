@@ -61,7 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.lerp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.designsystem.component.AppMiniPlayerHeight
 import cx.aswin.boxlore.core.designsystem.component.AppMiniPlayerNavGap
 import cx.aswin.boxlore.core.designsystem.component.AppNavigationBarHeight

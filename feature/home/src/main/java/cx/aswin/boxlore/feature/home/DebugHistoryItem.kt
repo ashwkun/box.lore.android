@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.feature.home
 
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 
 data class DebugHistoryItem(
     val episodeId: String,

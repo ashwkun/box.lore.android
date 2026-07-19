@@ -2,9 +2,9 @@ package cx.aswin.boxlore.core.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
-import cx.aswin.boxlore.core.data.database.PodcastDao
-import cx.aswin.boxlore.core.data.database.RssEpisodeDao
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.PodcastDao
+import cx.aswin.boxlore.core.database.RssEpisodeDao
 import cx.aswin.boxlore.core.network.NetworkModule
 import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -11,7 +11,7 @@ Owns the main Room database (`BoxLoreDatabase`), entities, DAOs, type converters
 - DAOs: `PodcastDao`, `ListeningHistoryDao`, `DownloadedEpisodeDao`, `RssEpisodeDao`, `dao.QueueDao`
 - `Converters` (Room type converters)
 
-Package names stay `cx.aswin.boxlore.core.data.database` (no import renames). Do not rename the on-disk Room DB filename.
+Package names stay `cx.aswin.boxlore.core.database` (no import renames). Do not rename the on-disk Room DB filename.
 
 ## Internal structure
 
@@ -44,7 +44,7 @@ Forbidden: database ↛ `:core:catalog`, features, or designsystem.
 | :--- | :--- |
 | Filename `boxlore_database` | User data (legacy `boxcast_database` auto-renamed on first open) |
 | Entity / table schemas + migrations | Install continuity |
-| Package `cx.aswin.boxlore.core.data.database` | Import / FQCN stability |
+| Package `cx.aswin.boxlore.core.database` | Import / FQCN stability |
 
 Ranking DB (`adaptive_ranking_database`) is **not** in this module — see `:core:ranking`.
 

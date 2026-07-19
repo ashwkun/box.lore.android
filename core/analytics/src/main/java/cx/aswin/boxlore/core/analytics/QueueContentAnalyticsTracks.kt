@@ -88,34 +88,77 @@ internal object QueueContentAnalyticsTracks {
         )
     }
 
-    // Phase C — no-op until PR9 lifecycle events
-    @Suppress("UNUSED_PARAMETER")
-    fun trackAutoChaptersRequested(episodeId: String, podcastId: String?, audioUrl: String) = Unit
+    fun trackAutoChaptersRequested(episodeId: String, podcastId: String?, audioUrl: String) {
+        PhaseCAnalyticsTracks.trackAutoChaptersLifecycle(
+            stage = "requested",
+            episodeId = episodeId,
+            errorMessage = listOfNotNull(
+                podcastId?.let { "podcast_id=$it" },
+                audioUrl.takeIf { it.isNotBlank() }?.let { "has_audio=true" },
+            ).joinToString(";").ifBlank { null },
+        )
+    }
 
-    @Suppress("UNUSED_PARAMETER")
     fun trackAutoChaptersCompleted(
         episodeId: String,
         podcastId: String?,
         durationSeconds: Float,
         chaptersCount: Int,
-    ) = Unit
+    ) {
+        PhaseCAnalyticsTracks.trackAutoChaptersLifecycle(
+            stage = "completed",
+            episodeId = episodeId,
+            errorMessage = listOfNotNull(
+                podcastId?.let { "podcast_id=$it" },
+                "chapters=$chaptersCount",
+                "duration=$durationSeconds",
+            ).joinToString(";"),
+        )
+    }
 
-    @Suppress("UNUSED_PARAMETER")
-    fun trackAutoChaptersFailed(episodeId: String, podcastId: String?, errorMessage: String) = Unit
+    fun trackAutoChaptersFailed(episodeId: String, podcastId: String?, errorMessage: String) {
+        PhaseCAnalyticsTracks.trackAutoChaptersLifecycle(
+            stage = "failed",
+            episodeId = episodeId,
+            errorMessage = listOfNotNull(podcastId?.let { "podcast_id=$it" }, errorMessage).joinToString(";"),
+        )
+    }
 
-    @Suppress("UNUSED_PARAMETER")
-    fun trackAutoTranscriptRequested(episodeId: String, podcastId: String?, audioUrl: String) = Unit
+    fun trackAutoTranscriptRequested(episodeId: String, podcastId: String?, audioUrl: String) {
+        PhaseCAnalyticsTracks.trackAutoTranscriptLifecycle(
+            stage = "requested",
+            episodeId = episodeId,
+            errorMessage = listOfNotNull(
+                podcastId?.let { "podcast_id=$it" },
+                audioUrl.takeIf { it.isNotBlank() }?.let { "has_audio=true" },
+            ).joinToString(";").ifBlank { null },
+        )
+    }
 
-    @Suppress("UNUSED_PARAMETER")
     fun trackAutoTranscriptCompleted(
         episodeId: String,
         podcastId: String?,
         durationSeconds: Float,
         linesCount: Int,
-    ) = Unit
+    ) {
+        PhaseCAnalyticsTracks.trackAutoTranscriptLifecycle(
+            stage = "completed",
+            episodeId = episodeId,
+            errorMessage = listOfNotNull(
+                podcastId?.let { "podcast_id=$it" },
+                "lines=$linesCount",
+                "duration=$durationSeconds",
+            ).joinToString(";"),
+        )
+    }
 
-    @Suppress("UNUSED_PARAMETER")
-    fun trackAutoTranscriptFailed(episodeId: String, podcastId: String?, errorMessage: String) = Unit
+    fun trackAutoTranscriptFailed(episodeId: String, podcastId: String?, errorMessage: String) {
+        PhaseCAnalyticsTracks.trackAutoTranscriptLifecycle(
+            stage = "failed",
+            episodeId = episodeId,
+            errorMessage = listOfNotNull(podcastId?.let { "podcast_id=$it" }, errorMessage).joinToString(";"),
+        )
+    }
 
     fun trackDailyBriefingBannerTapped(region: String, date: String) {
         AnalyticsEmit.event(

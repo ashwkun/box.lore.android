@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.feature.home.logic
 
-import cx.aswin.boxlore.core.data.PlaybackSession
+import cx.aswin.boxlore.core.playback.PlaybackSession
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.HeroType

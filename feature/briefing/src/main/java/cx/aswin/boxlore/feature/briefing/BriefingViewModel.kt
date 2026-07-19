@@ -3,7 +3,7 @@ package cx.aswin.boxlore.feature.briefing
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.ChapterRepository
 import cx.aswin.boxlore.core.model.Briefing
@@ -21,7 +21,7 @@ class BriefingViewModel(
     application: Application,
     private val podcastRepository: PodcastRepository,
     private val playbackRepository: PlaybackRepository,
-    private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
+    private val queueManager: cx.aswin.boxlore.core.playback.QueueManager,
     initialRegion: String? = null
 ) : AndroidViewModel(application) {
 
@@ -32,7 +32,7 @@ class BriefingViewModel(
     private val _briefingChapters = MutableStateFlow<List<Chapter>>(emptyList())
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
-    private val _savedSession = MutableStateFlow<cx.aswin.boxlore.core.data.PlaybackSession?>(null)
+    private val _savedSession = MutableStateFlow<cx.aswin.boxlore.core.playback.PlaybackSession?>(null)
 
     private val _uiState = MutableStateFlow<BriefingUiState>(BriefingUiState.Loading)
     val uiState: StateFlow<BriefingUiState> = _uiState.asStateFlow()
@@ -52,7 +52,7 @@ class BriefingViewModel(
                 if (briefing != null) {
                     val briefingEpisodeId = getBriefingEpisodeId(briefing)
                     if (playerState.currentEpisode?.id == briefingEpisodeId) {
-                        _savedSession.value = cx.aswin.boxlore.core.data.PlaybackSession(
+                        _savedSession.value = cx.aswin.boxlore.core.playback.PlaybackSession(
                             podcastId = "briefing_${briefing.region}",
                             episodeId = briefingEpisodeId,
                             positionMs = playerState.position,

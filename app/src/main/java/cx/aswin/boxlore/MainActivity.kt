@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.posthog.PostHog
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.analytics.AnalyticsHelper
 import cx.aswin.boxlore.surveys.NpsSurveyTriggers
 import cx.aswin.boxlore.ui.BoxLoreAppRoot

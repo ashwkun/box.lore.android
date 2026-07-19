@@ -21,9 +21,9 @@ Stable types/entry points other modules may depend on:
 - `PlaybackRepository.getRecentHistoryList(limit)` — scoring/history slices without feature → DAO access
 - `service.CoilBitmapLoader` — Media3 bitmap loader (extracted from the playback service)
 - Services (FQCN must stay stable across releases):
-  - `cx.aswin.boxlore.core.data.service.BoxLorePlaybackService` — uses `SharedAppDependenciesHolder.require()` for podcast/ranking/download/prefs (no parallel graph)
-  - `cx.aswin.boxlore.core.data.service.MediaDownloadService`
-  - `cx.aswin.boxlore.core.data.service.AutoCollageProvider`
+  - `cx.aswin.boxlore.core.playback.service.BoxLorePlaybackService` — uses `SharedAppDependenciesHolder.require()` for podcast/ranking/download/prefs (no parallel graph)
+  - `cx.aswin.boxlore.core.playback.service.MediaDownloadService`
+  - `cx.aswin.boxlore.core.playback.service.AutoCollageProvider`
 
 Packages remain under `cx.aswin.boxlore.core.data.*` for AndroidManifest / WorkManager / MediaSession stability.
 

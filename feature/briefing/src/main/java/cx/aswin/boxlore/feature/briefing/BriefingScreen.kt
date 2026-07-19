@@ -125,8 +125,8 @@ private fun extractDominantColor(bitmap: android.graphics.Bitmap): Color {
 @Composable
 fun BriefingRoute(
     podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
-    playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
-    queueManager: cx.aswin.boxlore.core.data.QueueManager,
+    playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
+    queueManager: cx.aswin.boxlore.core.playback.QueueManager,
     onBackClick: () -> Unit,
     onEpisodeClick: (Episode) -> Unit,
     onFeedbackClick: () -> Unit,

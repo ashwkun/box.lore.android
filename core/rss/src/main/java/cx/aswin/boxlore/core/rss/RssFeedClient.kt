@@ -2,8 +2,8 @@ package cx.aswin.boxlore.core.rss
 
 import android.util.Xml
 import com.prof18.rssparser.RssParser
-import cx.aswin.boxlore.core.data.database.PodcastEntity
-import cx.aswin.boxlore.core.data.database.RssEpisodeEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
+import cx.aswin.boxlore.core.database.RssEpisodeEntity
 import cx.aswin.boxlore.core.model.Person
 import cx.aswin.boxlore.core.model.Transcript
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull

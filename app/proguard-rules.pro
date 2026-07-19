@@ -53,13 +53,15 @@
 -keep class cx.aswin.boxlore.core.model.** { *; }
 -keep class cx.aswin.boxlore.core.network.** { *; }
 -keep class cx.aswin.boxlore.core.network.model.** { *; }
-# Dual-keep: transitional core.data (stubs + playback/catalog/database until later PRs) + aligned packages
+# Dual-keep: transitional core.data (stubs + catalog until PR10) + aligned packages
 -keep class cx.aswin.boxlore.core.data.** { *; }
 -keep class cx.aswin.boxlore.core.prefs.** { *; }
 -keep class cx.aswin.boxlore.core.analytics.** { *; }
 -keep class cx.aswin.boxlore.core.rss.** { *; }
 -keep class cx.aswin.boxlore.core.ranking.** { *; }
 -keep class cx.aswin.boxlore.core.downloads.** { *; }
+-keep class cx.aswin.boxlore.core.playback.** { *; }
+-keep class cx.aswin.boxlore.core.database.** { *; }
 
 # Also keep Kotlin Metadata to ensure reflection works (sometimes needed by Kotlinx Serialization/Gson adapters)
 -keep class kotlin.Metadata { *; }

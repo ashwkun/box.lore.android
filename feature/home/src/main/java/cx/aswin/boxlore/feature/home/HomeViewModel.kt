@@ -52,7 +52,7 @@ import kotlinx.serialization.json.Json
 class HomeViewModel(
     application: Application,
     val podcastRepository: PodcastRepository,
-    internal val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
+    internal val playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
     internal val engagementCoordinator: cx.aswin.boxlore.core.data.EngagementPromptCoordinator,
     internal val subscriptionRepository: cx.aswin.boxlore.core.data.SubscriptionRepository,
     internal val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,

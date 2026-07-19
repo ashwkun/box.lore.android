@@ -1,12 +1,12 @@
 package cx.aswin.boxlore.core.analytics
 
 /**
- * Glossary Phase A∪B contract (PR7 hard cut).
+ * Glossary Phase A∪B∪C contract (PR7 A+B hard cut; PR9 Phase C Auto + polish).
  * Source of truth: docs/ANALYTICS_EVENT_GLOSSARY.md + docs/analytics/event_glossary.csv
  */
 object AnalyticsGlossary {
 
-    /** Person-property `$set` is allowed alongside Phase A∪B event names. */
+    /** Person-property `$set` is allowed alongside glossary event names. */
     const val PERSON_SET_EVENT = "\$set"
 
     /** Canonical Phase A ∪ Phase B event names (includes A/B `search_performed`). */
@@ -80,8 +80,26 @@ object AnalyticsGlossary {
         "home_import_banner_action",
     )
 
+    /** Phase C (Auto + polish) — shipped PR9. */
+    val PHASE_C: Set<String> = setOf(
+        "android_auto_connected",
+        "android_auto_disconnected",
+        "android_auto_browse",
+        "adaptive_ranking_status",
+        "learn_caught_up",
+        "catalog_miss",
+        "rss_refresh_failed",
+        "progress_sync_anomaly",
+        "late_night_safeguard_decision",
+        "auto_chapters_lifecycle",
+        "auto_transcript_lifecycle",
+        "proxy_fallback_triggered",
+    )
+
+    val PHASE_A_UNION_B_UNION_C: Set<String> = PHASE_A_UNION_B + PHASE_C
+
     fun isAllowedEvent(eventName: String): Boolean =
-        eventName == PERSON_SET_EVENT || eventName in PHASE_A_UNION_B
+        eventName == PERSON_SET_EVENT || eventName in PHASE_A_UNION_B_UNION_C
 
     /**
      * Normalizes legacy / free-form playback entry_point strings to the glossary enum sheet.

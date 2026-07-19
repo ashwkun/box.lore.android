@@ -1,9 +1,9 @@
 package cx.aswin.boxlore.core.ranking
 
 import android.content.Context
-import cx.aswin.boxlore.core.data.PodcastScoring
-import cx.aswin.boxlore.core.data.ScorablePodcast
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.PodcastScoring
+import cx.aswin.boxlore.core.database.ScorablePodcast
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.model.PodcastGenres

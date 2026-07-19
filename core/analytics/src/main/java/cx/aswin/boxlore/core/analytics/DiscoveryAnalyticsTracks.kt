@@ -260,13 +260,11 @@ internal object DiscoveryAnalyticsTracks {
         AnalyticsEmit.event("episode_detail_viewed", properties)
     }
 
-    /** Phase C — stopped in PR7; no-op until PR9 `proxy_fallback_triggered`. */
-    @Suppress("UNUSED_PARAMETER")
     fun trackProxyFallbackTriggered(
         imageHost: String,
         proxyWidth: Int,
         sampleMultiplier: Int = 10,
     ) {
-        // Intentionally no-op (Phase C).
+        PhaseCAnalyticsTracks.trackProxyFallbackTriggered(imageHost, proxyWidth, sampleMultiplier)
     }
 }

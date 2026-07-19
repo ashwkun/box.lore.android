@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.core.data
 
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
@@ -36,7 +36,7 @@ interface SharedAppDependencies {
 /**
  * Holder for the single [SharedAppDependencies] installed by the Application composition root.
  *
- * Workers and [cx.aswin.boxlore.core.data.service.BoxLorePlaybackService] call [require]
+ * Workers and [cx.aswin.boxlore.core.playback.service.BoxLorePlaybackService] call [require]
  * instead of constructing PodcastRepository / ranking / RSS graphs themselves.
  */
 object SharedAppDependenciesHolder {

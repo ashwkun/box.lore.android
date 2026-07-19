@@ -324,9 +324,9 @@
         <error line="145" column="34" source="standard:function-literal" />
         <error line="145" column="71" source="standard:function-literal" />
         <error line="145" column="141" source="standard:max-line-length" />
-        <error line="145" column="149" source="standard:function-literal" />
-        <error line="145" column="191" source="standard:function-literal" />
-        <error line="145" column="214" source="standard:function-literal" />
+        <error line="145" column="144" source="standard:function-literal" />
+        <error line="145" column="186" source="standard:function-literal" />
+        <error line="145" column="209" source="standard:function-literal" />
         <error line="147" column="32" source="standard:multiline-expression-wrapping" />
         <error line="158" column="36" source="standard:multiline-expression-wrapping" />
         <error line="159" column="25" source="standard:multiline-if-else" />

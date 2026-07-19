@@ -12,8 +12,8 @@ Konsist / unit tests must stay aligned with this table.
 | `:core:rss` | `cx.aswin.boxlore.core.rss` |
 | `:core:ranking` | `cx.aswin.boxlore.core.ranking` |
 | `:core:downloads` | `cx.aswin.boxlore.core.downloads` |
-| `:core:playback` | `cx.aswin.boxlore.core.playback` (PR9) |
-| `:core:database` | `cx.aswin.boxlore.core.database` (PR9) |
+| `:core:playback` | `cx.aswin.boxlore.core.playback` |
+| `:core:database` | `cx.aswin.boxlore.core.database` |
 | `:core:catalog` | `cx.aswin.boxlore.core.catalog` (PR10) |
 
 ## Workers (PR8)
@@ -28,6 +28,16 @@ Konsist / unit tests must stay aligned with this table.
 | `cx.aswin.boxlore.core.data.PurgeSmartDownloadsWorker` | `cx.aswin.boxlore.core.downloads.PurgeSmartDownloadsWorker` | factory + **stub** at old FQCN |
 
 Stubs and `LegacyWorkerFactory` are **permanent** upgrade bridges.
+
+## Services / providers (PR9)
+
+| Old FQCN | New FQCN | Failsafe |
+|:--|:--|:--|
+| `cx.aswin.boxlore.core.data.service.BoxLorePlaybackService` | `cx.aswin.boxlore.core.playback.service.BoxLorePlaybackService` | Manifest + **stub** |
+| `cx.aswin.boxlore.core.data.service.MediaDownloadService` | `cx.aswin.boxlore.core.playback.service.MediaDownloadService` | Manifest + **stub** |
+| `cx.aswin.boxlore.core.data.service.AutoCollageProvider` | `cx.aswin.boxlore.core.playback.service.AutoCollageProvider` | Manifest + **stub** |
+
+Room package moves to `cx.aswin.boxlore.core.database` — **no** schema / filename migration (`boxlore_database` unchanged).
 
 ## SharedPreferences files (PR8)
 

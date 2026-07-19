@@ -3,12 +3,12 @@ package cx.aswin.boxlore.feature.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.data.SubscriptionRepository
-import cx.aswin.boxlore.core.data.PlaybackRepository
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.playback.PlaybackRepository
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.model.EpisodeStatus
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.model.Episode
-import cx.aswin.boxlore.core.data.toScorable
+import cx.aswin.boxlore.core.database.toScorable
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.CandidateSource
 import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
@@ -34,7 +34,7 @@ sealed interface LibraryUiState {
     data class Success(
         val subscribedPodcasts: List<Podcast> = emptyList(),
         val likedEpisodes: List<ListeningHistoryEntity> = emptyList(),
-        val downloadedEpisodes: List<cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity> = emptyList(),
+        val downloadedEpisodes: List<cx.aswin.boxlore.core.database.DownloadedEpisodeEntity> = emptyList(),
         val recentHistory: List<ListeningHistoryEntity> = emptyList(),
         val currentSort: SubscriptionSort = SubscriptionSort.SmartRank,
         val allHistory: List<ListeningHistoryEntity> = emptyList()
@@ -142,7 +142,7 @@ class LibraryViewModel(
         downloadRepository.downloads,
         playbackRepository.getAllHistory(),
         subscriptionSort
-    ) { podcasts: List<Podcast>, liked: List<ListeningHistoryEntity>, downloads: List<cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity>, allHistory: List<ListeningHistoryEntity>, sort: SubscriptionSort ->
+    ) { podcasts: List<Podcast>, liked: List<ListeningHistoryEntity>, downloads: List<cx.aswin.boxlore.core.database.DownloadedEpisodeEntity>, allHistory: List<ListeningHistoryEntity>, sort: SubscriptionSort ->
         // Enrich podcasts with episode status from listening history
         val enrichedPodcasts = podcasts.map { podcast ->
             val episode = podcast.latestEpisode ?: return@map podcast

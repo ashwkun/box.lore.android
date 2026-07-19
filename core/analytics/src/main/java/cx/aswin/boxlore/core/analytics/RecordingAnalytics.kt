@@ -50,8 +50,19 @@ class RecordingAnalytics : Analytics {
         /* no-op in recording mode */
     }
 
-    /** Phase C — no-op until PR9. */
-    override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) = Unit
+    /** Phase C — `adaptive_ranking_status`. */
+    override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
+        val statusSummary =
+            statuses.joinToString(separator = ",") { "${it.objective}:${it.learningStage}" }
+                .ifBlank { "empty" }
+        capture(
+            "adaptive_ranking_status",
+            mapOf(
+                "status" to statusSummary,
+                "details" to "count=${statuses.size}",
+            ),
+        )
+    }
 
     override fun trackEngagementPromptShown(
         promptType: String,

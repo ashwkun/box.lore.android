@@ -2,11 +2,11 @@ package cx.aswin.boxlore.core.rss
 
 import android.content.Context
 import androidx.room.withTransaction
-import cx.aswin.boxlore.core.data.database.BoxLoreDatabase
-import cx.aswin.boxlore.core.data.database.DownloadedEpisodeEntity
-import cx.aswin.boxlore.core.data.database.PodcastEntity
-import cx.aswin.boxlore.core.data.database.RssEpisodeEntity
-import cx.aswin.boxlore.core.data.database.RssFeedStateUpdate
+import cx.aswin.boxlore.core.database.BoxLoreDatabase
+import cx.aswin.boxlore.core.database.DownloadedEpisodeEntity
+import cx.aswin.boxlore.core.database.PodcastEntity
+import cx.aswin.boxlore.core.database.RssEpisodeEntity
+import cx.aswin.boxlore.core.database.RssFeedStateUpdate
 import cx.aswin.boxlore.core.domain.RssSubscriptionResult
 import cx.aswin.boxlore.core.domain.ports.RssSubscriptionPort
 import cx.aswin.boxlore.core.model.Episode

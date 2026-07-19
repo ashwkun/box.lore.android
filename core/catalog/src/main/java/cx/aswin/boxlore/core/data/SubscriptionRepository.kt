@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.core.data
 
-import cx.aswin.boxlore.core.data.database.PodcastDao
-import cx.aswin.boxlore.core.data.database.PodcastEntity
+import cx.aswin.boxlore.core.database.PodcastDao
+import cx.aswin.boxlore.core.database.PodcastEntity
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.ranking.FeedbackTarget
 import cx.aswin.boxlore.core.ranking.RankingAction

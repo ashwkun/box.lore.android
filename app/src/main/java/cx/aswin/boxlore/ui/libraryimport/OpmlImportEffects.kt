@@ -5,7 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository
 import cx.aswin.boxlore.core.prefs.UserPreferencesRepository

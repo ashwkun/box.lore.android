@@ -1018,8 +1018,8 @@
         <error line="61" column="5" source="standard:function-naming" />
         <error line="69" column="34" source="standard:trailing-comma-on-declaration-site" />
         <error line="72" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="78" column="45" source="standard:chain-method-continuation" />
-        <error line="78" column="59" source="standard:trailing-comma-on-call-site" />
+        <error line="78" column="49" source="standard:chain-method-continuation" />
+        <error line="78" column="63" source="standard:trailing-comma-on-call-site" />
         <error line="84" column="56" source="standard:chain-method-continuation" />
         <error line="89" column="51" source="standard:trailing-comma-on-call-site" />
         <error line="100" column="40" source="standard:trailing-comma-on-call-site" />

@@ -80,7 +80,7 @@ class RecordingAnalyticsTest {
     }
 
     @Test
-    fun `trackAdaptiveRankingStatus is no-op in Phase A+B`() {
+    fun `trackAdaptiveRankingStatus emits adaptive_ranking_status`() {
         val telemetry = listOf(
             RankingAggregateTelemetry("DISCOVERY", 1, "adaptive", "50_199", true),
             RankingAggregateTelemetry("COMPLETION", 1, "learning", "10_49", false),
@@ -88,7 +88,11 @@ class RecordingAnalyticsTest {
 
         analytics.trackAdaptiveRankingStatus(telemetry)
 
-        assertEquals(0, analytics.events.size)
+        assertEquals(1, analytics.eventCount("adaptive_ranking_status"))
+        assertEquals(
+            "DISCOVERY:adaptive,COMPLETION:learning",
+            analytics.lastEvent!!.properties["status"],
+        )
     }
 
     @Test
@@ -170,7 +174,10 @@ class AnalyticsGlossaryAllowlistTest {
         assertFalse(AnalyticsGlossary.isAllowedEvent("explore_search_performed"))
         assertFalse(AnalyticsGlossary.isAllowedEvent("queue_reordered"))
         assertFalse(AnalyticsGlossary.isAllowedEvent("survey_nps_eligible"))
-        assertFalse(AnalyticsGlossary.isAllowedEvent("adaptive_ranking_status"))
+        assertTrue(AnalyticsGlossary.isAllowedEvent("adaptive_ranking_status"))
+        assertTrue(AnalyticsGlossary.isAllowedEvent("android_auto_connected"))
+        assertTrue(AnalyticsGlossary.isAllowedEvent("android_auto_browse"))
+        assertEquals(12, AnalyticsGlossary.PHASE_C.size)
     }
 
     @Test
@@ -184,7 +191,7 @@ class AnalyticsGlossaryAllowlistTest {
     }
 
     @Test
-    fun `facade emissions after representative tracks are only Phase A union B`() {
+    fun `facade emissions after representative tracks are only glossary Phase A union B union C`() {
         val captured = mutableListOf<Pair<String, Map<String, Any>>>()
         val restore = AnalyticsEmit.installRecordingSink(captured)
         try {
@@ -240,9 +247,10 @@ class AnalyticsGlossaryAllowlistTest {
         assertTrue(eventNames.contains("onboarding_ai_turn_submitted"))
         assertTrue(eventNames.contains("playback_started"))
         assertTrue(eventNames.contains("feedback_submitted"))
-        assertFalse(eventNames.contains("adaptive_ranking_status"))
-        assertFalse(eventNames.contains("late_night_safeguard_decision"))
-        assertFalse(eventNames.contains("proxy_fallback_triggered"))
+        assertTrue(eventNames.contains("adaptive_ranking_status"))
+        assertTrue(eventNames.contains("late_night_safeguard_decision"))
+        assertTrue(eventNames.contains("proxy_fallback_triggered"))
+        assertTrue(eventNames.contains("auto_chapters_lifecycle"))
         assertFalse(eventNames.contains("auto_chapters_requested"))
     }
 }

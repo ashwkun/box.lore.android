@@ -47,9 +47,9 @@ sealed interface EpisodeInfoUiState {
 class EpisodeInfoViewModel(
     application: Application,
     private val podcastRepository: cx.aswin.boxlore.core.data.PodcastRepository,
-    private val playbackRepository: cx.aswin.boxlore.core.data.PlaybackRepository,
+    private val playbackRepository: cx.aswin.boxlore.core.playback.PlaybackRepository,
     private val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
-    private val queueManager: cx.aswin.boxlore.core.data.QueueManager,
+    private val queueManager: cx.aswin.boxlore.core.playback.QueueManager,
     private val userPrefs: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
     private val localCatalog: LocalCatalogPort,
     private val episodeOfflineLookup: EpisodeOfflineLookupPort,

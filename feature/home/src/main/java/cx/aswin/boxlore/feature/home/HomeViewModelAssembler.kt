@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import cx.aswin.boxlore.core.downloads.DownloadRepository
 import cx.aswin.boxlore.core.data.EngagementPromptCoordinator
-import cx.aswin.boxlore.core.data.PlaybackRepository
+import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.data.PodcastRepository
 import cx.aswin.boxlore.core.rss.RssPodcastRepository
 import cx.aswin.boxlore.core.data.SubscriptionRepository

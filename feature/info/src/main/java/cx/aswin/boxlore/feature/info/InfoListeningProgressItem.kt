@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.feature.info
 
-import cx.aswin.boxlore.core.data.database.ListeningHistoryEntity
+import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 
 /**
  * UI-facing listening progress for Podcast Info. Room [ListeningHistoryEntity] stays at the mapper.

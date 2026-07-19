@@ -1,20 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
-    <file name="src/main/java/cx/aswin/boxlore/core/data/PodcastScoring.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="13" column="37" source="standard:trailing-comma-on-declaration-site" />
-        <error line="20" column="49" source="standard:trailing-comma-on-declaration-site" />
-        <error line="33" column="36" source="standard:multiline-expression-wrapping" />
-        <error line="41" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="55" column="35" source="standard:multiline-expression-wrapping" />
-        <error line="70" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="70" column="28" source="standard:function-signature" />
-        <error line="75" column="46" source="standard:trailing-comma-on-call-site" />
-        <error line="78" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="78" column="34" source="standard:function-signature" />
-        <error line="83" column="46" source="standard:trailing-comma-on-call-site" />
-    </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/BoxLoreDatabase.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/BoxLoreDatabase.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="20" column="25" source="standard:trailing-comma-on-call-site" />
         <error line="25" column="5" source="standard:blank-line-before-declaration" />
@@ -74,7 +60,7 @@
         <error line="245" column="17" source="standard:chain-method-continuation" />
         <error line="246" column="1" source="standard:indent" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/Converters.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/Converters.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="14" column="49" source="standard:function-expression-body" />
         <error line="19" column="53" source="standard:function-expression-body" />
@@ -83,19 +69,19 @@
         <error line="46" column="60" source="standard:multiline-expression-wrapping" />
         <error line="46" column="60" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/DownloadedEpisodeDao.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/DownloadedEpisodeDao.kt">
         <error line="36" column="40" source="standard:function-signature" />
         <error line="36" column="59" source="standard:function-signature" />
         <error line="36" column="83" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/DownloadedEpisodeEntity.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/DownloadedEpisodeEntity.kt">
         <error line="19" column="1" source="standard:no-blank-line-in-list" />
         <error line="19" column="1" source="standard:no-trailing-spaces" />
         <error line="22" column="26" source="standard:parameter-list-spacing" />
         <error line="22" column="27" source="standard:no-multi-spaces" />
         <error line="26" column="43" source="standard:trailing-comma-on-declaration-site" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/ListeningHistoryDao.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/ListeningHistoryDao.kt">
         <error line="11" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="11" column="1" source="standard:no-trailing-spaces" />
         <error line="14" column="1" source="standard:no-trailing-spaces" />
@@ -138,7 +124,7 @@
         <error line="105" column="1" source="standard:no-trailing-spaces" />
         <error line="106" column="5" source="standard:blank-line-before-declaration" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/ListeningHistoryEntity.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/ListeningHistoryEntity.kt">
         <error line="11" column="1" source="standard:no-blank-line-in-list" />
         <error line="11" column="1" source="standard:no-trailing-spaces" />
         <error line="18" column="1" source="standard:no-blank-line-in-list" />
@@ -147,7 +133,7 @@
         <error line="25" column="1" source="standard:no-trailing-spaces" />
         <error line="32" column="43" source="standard:trailing-comma-on-declaration-site" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/PodcastDao.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/PodcastDao.kt">
         <error line="28" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="28" column="1" source="standard:no-trailing-spaces" />
         <error line="31" column="1" source="standard:no-trailing-spaces" />
@@ -175,7 +161,7 @@
         <error line="82" column="52" source="standard:function-signature" />
         <error line="82" column="68" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/PodcastEntity.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/PodcastEntity.kt">
         <error line="14" column="1" source="standard:no-blank-line-in-list" />
         <error line="14" column="1" source="standard:no-trailing-spaces" />
         <error line="19" column="1" source="standard:no-blank-line-in-list" />
@@ -192,7 +178,21 @@
         <error line="42" column="1" source="standard:no-trailing-spaces" />
         <error line="50" column="1" source="standard:no-blank-line-in-list" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/RssEpisodeDao.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/PodcastScoring.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="13" column="37" source="standard:trailing-comma-on-declaration-site" />
+        <error line="20" column="49" source="standard:trailing-comma-on-declaration-site" />
+        <error line="33" column="36" source="standard:multiline-expression-wrapping" />
+        <error line="41" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="55" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="70" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="70" column="28" source="standard:function-signature" />
+        <error line="75" column="46" source="standard:trailing-comma-on-call-site" />
+        <error line="78" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="78" column="34" source="standard:function-signature" />
+        <error line="83" column="46" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/main/java/cx/aswin/boxlore/core/database/RssEpisodeDao.kt">
         <error line="24" column="31" source="standard:function-signature" />
         <error line="24" column="50" source="standard:function-signature" />
         <error line="24" column="62" source="standard:function-signature" />
@@ -205,15 +205,15 @@
         <error line="63" column="43" source="standard:function-signature" />
         <error line="63" column="56" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/RssEpisodeEntity.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/RssEpisodeEntity.kt">
         <error line="57" column="18" source="standard:multiline-expression-wrapping" />
         <error line="57" column="18" source="standard:function-signature" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/dao/QueueDao.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/dao/QueueDao.kt">
         <error line="39" column="1" source="standard:no-trailing-spaces" />
         <error line="40" column="5" source="standard:blank-line-before-declaration" />
     </file>
-    <file name="src/main/java/cx/aswin/boxlore/core/data/database/entities/QueueItem.kt">
+    <file name="src/main/java/cx/aswin/boxlore/core/database/entities/QueueItem.kt">
         <error line="11" column="1" source="standard:no-blank-line-in-list" />
         <error line="11" column="1" source="standard:no-trailing-spaces" />
         <error line="25" column="1" source="standard:no-blank-line-in-list" />
@@ -229,7 +229,7 @@
         <error line="44" column="38" source="standard:function-expression-body" />
         <error line="57" column="42" source="standard:trailing-comma-on-call-site" />
     </file>
-    <file name="src/test/java/cx/aswin/boxlore/core/data/database/PodcastDaoInMemoryTest.kt">
+    <file name="src/test/java/cx/aswin/boxlore/core/database/PodcastDaoInMemoryTest.kt">
         <error line="26" column="1" source="standard:no-empty-first-line-in-class-body" />
         <error line="34" column="17" source="standard:chain-method-continuation" />
     </file>

@@ -15,7 +15,7 @@ internal data class SelectedPodcastSignal(
 
 data class HomeDataWrapper(
     val trending: List<Podcast>,
-    val resume: List<cx.aswin.boxlore.core.data.PlaybackSession>,
+    val resume: List<cx.aswin.boxlore.core.playback.PlaybackSession>,
     val subs: List<Podcast>,
     val history: List<HomeListeningHistoryItem>,
     val resolvedSerial: Map<String, Episode>,
@@ -38,7 +38,7 @@ data class HomeDataWrapper(
 
 internal data class HomeCoreSlice(
     val trending: List<Podcast>,
-    val resume: List<cx.aswin.boxlore.core.data.PlaybackSession>,
+    val resume: List<cx.aswin.boxlore.core.playback.PlaybackSession>,
     val subs: List<Podcast>,
     val history: List<HomeListeningHistoryItem>,
     val resolvedSerial: Map<String, Episode>,
