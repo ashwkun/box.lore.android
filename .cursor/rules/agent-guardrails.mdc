@@ -1,0 +1,26 @@
+---
+description: Verification constraints, credentials safety, and scratch-file cleanup for BoxLore agents
+alwaysApply: true
+---
+
+# Agent Guardrails
+
+## Verification Constraints
+
+Never perform automated testing, layout tree dumps (e.g. Android layout), gesture simulations (e.g. `adb shell input tap/swipe`), screen captures, or other device/emulator verifications unless the user explicitly requests it.
+
+Only build and/or deploy the application, and let the user verify behavior manually.
+
+**After code changes:** Always run `./gradlew installDebug` on the connected device when one is available. Do not wait for the user to ask — install is part of the default workflow for UI and app-behavior changes.
+
+## Credentials and Secrets Safety
+
+**Secret locations:**
+- Proxy header authorization key: `local.properties` (boxlore root) as `BOXCAST_PUBLIC_KEY` (sent as `X-App-Key`)
+- Most other credentials: `local.properties` (boxlore) or `.env` (proxy)
+
+**Absolute non-commitment:** Under no circumstances commit `local.properties`, `.env`, or any plaintext secrets/credentials to Git.
+
+## Test and Scratch File Purge
+
+Delete all test scripts, mock JSONs, scratch files, and intermediate logs once the feature PR is completed.

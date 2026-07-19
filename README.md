@@ -336,6 +336,8 @@ Contributions welcome.
 2. **Suggest features** — [Discussions](https://github.com/boxcreate/boxlore/discussions)
 3. **Submit PRs** — Fork, code, open a pull request
 
+Agent / maintainer notes: see [`AGENTS.md`](AGENTS.md).
+
 <p align="center">
   <img src="docs/images/m3/header-license.svg" width="820" alt="License"/>
 </p>

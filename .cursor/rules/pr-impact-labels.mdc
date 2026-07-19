@@ -7,6 +7,8 @@ alwaysApply: true
 
 Every `boxlore` PR must have **exactly one** user-impact label. `backend-change` is optional and **pairable** with any level.
 
+**Changelog / README upcoming workflows read these labels** — do not open a PR without the user-impact level. See also [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md).
+
 ## User impact (pick one)
 
 | Label | Meaning | README / notification |
@@ -23,20 +25,21 @@ Every `boxlore` PR must have **exactly one** user-impact label. `backend-change`
 | `backend-change` | Server / proxy / infra involved — add alongside any user-impact level |
 
 Examples:
+
 - `--label user-impact-high --label backend-change`
 - `--label no-user-impact --label backend-change`
 - `--label user-impact-medium`
 
 ## Merge queue gate — required before merge
 
-Unit CI (and detekt/ktlint/Kover in the unit job) runs **only** on `merge_group` (and optional `workflow_dispatch`). It does **not** run on every PR push.
+There is **no `merge-ci` label flow**. Unit CI (detekt / ktlint / Kover / Roborazzi in the unit job) runs **only** on `merge_group` (and optional `workflow_dispatch`). It does **not** run on every PR push.
 
 Master is protected by a **merge queue** ruleset. Required checks:
 
 | Check | Meaning |
 |:--|:--|
 | `testDebugUnitTest` | Full unit / static / Kover / Roborazzi gate (runs in merge queue) |
-| `SonarCloud Code Analysis` | SonarCloud quality gate must pass |
+| `SonarCloud Code Analysis` | SonarCloud quality gate must pass (aim: zero open issues) |
 | `CodeRabbit` | CodeRabbit review green; resolve all review threads |
 
 Agent / maintainer flow:
@@ -46,7 +49,14 @@ Agent / maintainer flow:
 3. Merge via **Merge when ready** (merge queue, squash) — the queue runs **`testDebugUnitTest`**.
 4. Optional: Actions → Run workflow (`Unit Tests`) for a manual full gate.
 
+**Title skips (when appropriate only):**
+
+- `[skip unit]` in the PR title — no-ops the merge-queue unit suite (still reports green). **Only** for safe docs/chore with no logic risk.
+- `[skip changelog]` — skips changelog-on-merge (e.g. `release: vX.Y.Z [skip changelog]`).
+
 **Bot bypass:** **boxlore-master-pusher** (GitHub App 4340323) and organization admins bypass the ruleset so scheduled workflows can push chore commits to `master` directly. Never remove that Integration bypass.
+
+Do **not** hand-edit `CHANGELOG.md` or README Upcoming before merge — changelog-on-merge owns that (labels help prioritize README / notifications).
 
 ## PR title (required)
 

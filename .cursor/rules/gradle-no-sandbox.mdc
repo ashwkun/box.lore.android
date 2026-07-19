@@ -1,0 +1,21 @@
+---
+description: Always run Gradle outside the Cursor sandbox using the real ~/.gradle home
+alwaysApply: true
+---
+
+# Gradle / Android builds — no sandbox
+
+When running Gradle, `adb`, or any Android build/install command:
+
+1. **Do not use the Cursor sandbox.** Always run with full permissions (`required_permissions: ["all"]` / outside sandbox) so the agent does not inject a temp `GRADLE_USER_HOME`.
+2. **Always use the real Gradle user home:**
+   - Path: `/Users/aswinc/.gradle`
+   - Before every Gradle command, force it explicitly:
+     ```bash
+     unset GRADLE_USER_HOME
+     export GRADLE_USER_HOME="/Users/aswinc/.gradle"
+     export JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"
+     ```
+3. **Never** rely on Cursor’s sandbox cache under `/var/folders/*/T/cursor-sandbox-cache/` for builds. That path re-downloads Gradle distributions and wastes disk.
+4. Prefer the project wrapper from the repo root: `./gradlew …` (not a system `gradle` binary).
+5. For device installs after UI/app changes, continue the default workflow: `./gradlew installDebug` on a connected device when available.

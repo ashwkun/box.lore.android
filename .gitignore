@@ -75,8 +75,8 @@ posthog-setup-report.md
 # Editor / agent settings
 .vscode/
 .claude/
-.agents/
-# Keep cloud-agent install hook committed; ignore other local Cursor files.
-.cursor/*
-!.cursor/environment.json
-!.cursor/rules/pr-impact-labels.mdc
+# Local agent/editor noise (AGENTS.md + .cursor/rules are committed)
+.agents/**/cache/
+.cursor/debug-*.log
+.cursor/plans/
+.cursor/settings.json

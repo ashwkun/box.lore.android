@@ -1,0 +1,29 @@
+---
+description: Module README updates and JVM unit-test expectations for touched code
+alwaysApply: true
+---
+
+# Module docs and tests
+
+## README
+
+Any behavioral, API, or ownership change under `app/`, `core/*/`, or `feature/*/` **updates that folder’s `README.md` in the same PR**.
+
+Shape: [`docs/MODULE_README_TEMPLATE.md`](../../docs/MODULE_README_TEMPLATE.md). Konsist fails if an included module lacks `README.md`.
+
+## Unit tests
+
+- Touched logic gets or extends hermetic JVM tests under `src/test` (prefer `logic/` packages + fakes from `:core:testing`).
+- **Bug fix ⇒ regression test** for that failure mode; if the bug is a shared pattern, cover it app-wide where practical.
+- Nudge Kover upward for gated modules when you add testable surface — see [`docs/TESTING.md`](../../docs/TESTING.md).
+- **Do not** add Compose `androidTest`, emulator suites, or instrumented CI.
+
+## End-of-task checklist
+
+Before claiming done:
+
+- [ ] Architecture boundaries intact (`ARCHITECTURE.md` + Konsist expectations)
+- [ ] Module README updated if ownership / API / behavior changed
+- [ ] Unit tests added or extended (regression if bugfix)
+- [ ] `./gradlew installDebug` if UI/behavior changed and a device is connected
+- [ ] No secrets or scratch files staged

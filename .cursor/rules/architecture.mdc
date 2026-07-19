@@ -1,0 +1,36 @@
+---
+description: Hard architecture boundaries — AppContainer, modules, identity; point to ARCHITECTURE.md
+alwaysApply: true
+---
+
+# Architecture (always)
+
+Full reference: [`ARCHITECTURE.md`](../../ARCHITECTURE.md). **ARCHITECTURE wins** over guesses.
+
+## Composition root
+
+- No Hilt, Koin, or Dagger. Single `AppContainer` in `:app` (created only in `BoxLoreApplication`).
+- Features and workers take deps from `application.container` / assemblers / ports — do not build a second object graph.
+- Prefer narrow ports under `core.domain.ports` (and catalog ports) so tests can use fakes from `:core:testing`.
+
+## Module boundaries
+
+- `:feature:*` → `:core:*` only. **No feature→feature** Gradle deps or package imports (Konsist).
+- Features never talk to PostHog directly — use `:core:analytics`.
+- `:core:playback` may depend on `:core:catalog`; catalog must not depend on playback.
+- Catalog must not depend on `:core:designsystem`.
+- Do not add MockK (or Hilt/Koin) to production or test Gradle deps (Konsist).
+
+## Identity / storage (do not break upgrades)
+
+Before renaming prefs files, Room DBs, media IDs, deep links, WorkManager FQCNs, or `applicationId`, read the **Identity and storage** table in `ARCHITECTURE.md`.
+
+Hard product rules agents forget:
+
+- One UI-scoped `PlaybackRepository` — routes/workers must not construct a second one.
+- Smart Queue refill is owned by `BoxLorePlaybackService` only.
+- Object graph order: DB → `PodcastRepository` → `QueueRepository` → `PlaybackRepository` → `QueueManager` → `SmartDownloadManager`.
+
+## Guards
+
+Architecture-as-code lives in `:core:testing` (Konsist + filesystem guards). Fix violations; do not weaken allowlists without an explicit reason and README note.

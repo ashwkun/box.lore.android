@@ -1,0 +1,19 @@
+---
+description: Slim P1 / large-refactor hard-stop — propose, wait for OK, then code
+alwaysApply: true
+---
+
+# P1 / large refactor hard-stop
+
+For large refactors, multi-file architecture moves, or batched P1 Critical issue cleanup:
+
+## Phase 1 — proposal only
+
+1. List the issues / scope in plain English.
+2. Describe the proposed fix and helper splits.
+3. Call out risk and blast radius (affected files).
+4. **Hard stop.** Do not create branches or edit product code until the user explicitly approves (e.g. “OK”).
+
+## After approval
+
+Follow the normal agent loop: isolated branch if needed, update dependents, compile, module README + unit tests, `installDebug` for UI, commit/push/PR **only when asked**. PR labels and merge queue: [`.cursor/rules/pr-impact-labels.mdc`](pr-impact-labels.mdc).
