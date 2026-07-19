@@ -199,12 +199,15 @@ fun DebugScreen(
                                     .padding(start = 16.dp, end = 16.dp, top = 16.dp),
                         ) {
                             AdaptiveLearnerDebugSection(
-                                snapshot = learnerSnapshot,
-                                events = learningEvents,
-                                logEnabled = logEnabled,
+                                state =
+                                    AdaptiveLearnerDebugState(
+                                        snapshot = learnerSnapshot,
+                                        events = learningEvents,
+                                        logEnabled = logEnabled,
+                                        shadowDiagnostics = shadowDiagnostics,
+                                        loading = learnerLoading,
+                                    ),
                                 onSetLogEnabled = viewModel::setLogEnabled,
-                                shadowDiagnostics = shadowDiagnostics,
-                                loading = learnerLoading,
                                 onRefresh = viewModel::refreshLearnerSnapshot,
                                 bottomContentPadding = scrollBottomPadding,
                             )

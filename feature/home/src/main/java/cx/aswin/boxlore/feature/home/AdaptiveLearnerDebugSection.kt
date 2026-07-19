@@ -79,20 +79,24 @@ private enum class LearnerPane(
     Model("Model"),
 }
 
+internal data class AdaptiveLearnerDebugState(
+    val snapshot: LearnerInspectorSnapshot?,
+    val events: List<LearningEvent>,
+    val logEnabled: Boolean,
+    val shadowDiagnostics: List<RankingShadowSnapshot>,
+    val loading: Boolean,
+)
+
 /**
  * Debug inspector for the on-device ranking engine. Three concrete, non-animated views:
  * a live signal feed (what hit the engine and how it moved it), the durable taste profile,
- * and the model internals. The signal feed is gated by [logEnabled].
+ * and the model internals. The signal feed is gated by [AdaptiveLearnerDebugState.logEnabled].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AdaptiveLearnerDebugSection(
-    snapshot: LearnerInspectorSnapshot?,
-    events: List<LearningEvent>,
-    logEnabled: Boolean,
+    state: AdaptiveLearnerDebugState,
     onSetLogEnabled: (Boolean) -> Unit,
-    shadowDiagnostics: List<RankingShadowSnapshot>,
-    loading: Boolean,
     onRefresh: () -> Unit,
     bottomContentPadding: Dp = 0.dp,
 ) {
@@ -103,8 +107,16 @@ internal fun AdaptiveLearnerDebugSection(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        LearnerHeader(snapshot = snapshot, loading = loading, onRefresh = onRefresh)
-        LogToggleCard(enabled = logEnabled, eventCount = events.size, onToggle = onSetLogEnabled)
+        LearnerHeader(
+            snapshot = state.snapshot,
+            loading = state.loading,
+            onRefresh = onRefresh,
+        )
+        LogToggleCard(
+            enabled = state.logEnabled,
+            eventCount = state.events.size,
+            onToggle = onSetLogEnabled,
+        )
 
         PrimaryScrollableTabRow(
             selectedTabIndex = paneIndex,
@@ -140,19 +152,19 @@ internal fun AdaptiveLearnerDebugSection(
             when (pane) {
                 LearnerPane.Signals ->
                     SignalsPane(
-                        events = events,
-                        logEnabled = logEnabled,
+                        events = state.events,
+                        logEnabled = state.logEnabled,
                         bottomContentPadding = bottomContentPadding,
                     )
                 LearnerPane.Taste ->
                     TastePane(
-                        snapshot = snapshot,
+                        snapshot = state.snapshot,
                         bottomContentPadding = bottomContentPadding,
                     )
                 LearnerPane.Model ->
                     ModelPane(
-                        snapshot = snapshot,
-                        shadow = shadowDiagnostics,
+                        snapshot = state.snapshot,
+                        shadow = state.shadowDiagnostics,
                         bottomContentPadding = bottomContentPadding,
                     )
             }

@@ -119,107 +119,129 @@ fun HistoryInsightCarousel(
 
 @Composable
 private fun buildInsightCards(insights: ListeningInsightSummary): List<InsightCard> {
-    val peakLabel =
-        when (insights.peakBucket) {
-            ListeningTimeBucket.MORNING -> stringResource(R.string.history_bucket_morning)
-            ListeningTimeBucket.AFTERNOON -> stringResource(R.string.history_bucket_afternoon)
-            ListeningTimeBucket.EVENING -> stringResource(R.string.history_bucket_evening)
-            ListeningTimeBucket.NIGHT -> stringResource(R.string.history_bucket_night)
-            null -> stringResource(R.string.history_waiting_for_plays)
-        }
-    val peakConsumedMs =
-        when (insights.peakBucket) {
-            ListeningTimeBucket.MORNING -> insights.morningMs
-            ListeningTimeBucket.AFTERNOON -> insights.afternoonMs
-            ListeningTimeBucket.EVENING -> insights.eveningMs
-            ListeningTimeBucket.NIGHT -> insights.nightMs
-            null -> 0L
-        }
-    val peakShare =
-        if (insights.peakBucket != null && insights.totalConsumedMs > 0L) {
-            ((peakConsumedMs * 100L) / insights.totalConsumedMs).toInt().coerceIn(0, 100)
-        } else {
-            null
-        }
-
+    val peakLabel = peakBucketLabel(insights)
+    val peakConsumedMs = peakBucketConsumedMs(insights)
+    val peakShare = peakBucketShare(insights, peakConsumedMs)
     return buildList {
-        val topShow = insights.topShow
-        if (topShow != null) {
-            add(
-                InsightCard.TopShow(
-                    name = topShow.podcastName,
-                    detail =
-                        if (topShow.consumedMs > 0) {
-                            stringResource(
-                                R.string.history_top_show_listened,
-                                formatDuration(topShow.consumedMs),
-                            )
-                        } else {
-                            stringResource(
-                                R.string.history_top_show_play_count,
-                                topShow.sessionCount,
-                            )
-                        },
-                    imageUrl = topShow.podcastImageUrl,
+        addTopShowCard(insights)
+        addMetricCards(insights, peakLabel, peakConsumedMs, peakShare)
+    }
+}
+
+@Composable
+private fun peakBucketLabel(insights: ListeningInsightSummary): String =
+    when (insights.peakBucket) {
+        ListeningTimeBucket.MORNING -> stringResource(R.string.history_bucket_morning)
+        ListeningTimeBucket.AFTERNOON -> stringResource(R.string.history_bucket_afternoon)
+        ListeningTimeBucket.EVENING -> stringResource(R.string.history_bucket_evening)
+        ListeningTimeBucket.NIGHT -> stringResource(R.string.history_bucket_night)
+        null -> stringResource(R.string.history_waiting_for_plays)
+    }
+
+private fun peakBucketConsumedMs(insights: ListeningInsightSummary): Long =
+    when (insights.peakBucket) {
+        ListeningTimeBucket.MORNING -> insights.morningMs
+        ListeningTimeBucket.AFTERNOON -> insights.afternoonMs
+        ListeningTimeBucket.EVENING -> insights.eveningMs
+        ListeningTimeBucket.NIGHT -> insights.nightMs
+        null -> 0L
+    }
+
+private fun peakBucketShare(
+    insights: ListeningInsightSummary,
+    peakConsumedMs: Long,
+): Int? =
+    if (insights.peakBucket != null && insights.totalConsumedMs > 0L) {
+        ((peakConsumedMs * 100L) / insights.totalConsumedMs).toInt().coerceIn(0, 100)
+    } else {
+        null
+    }
+
+@Composable
+private fun MutableList<InsightCard>.addTopShowCard(insights: ListeningInsightSummary) {
+    val topShow = insights.topShow ?: return
+    add(
+        InsightCard.TopShow(
+            name = topShow.podcastName,
+            detail =
+                if (topShow.consumedMs > 0) {
+                    stringResource(
+                        R.string.history_top_show_listened,
+                        formatDuration(topShow.consumedMs),
+                    )
+                } else {
+                    stringResource(
+                        R.string.history_top_show_play_count,
+                        topShow.sessionCount,
+                    )
+                },
+            imageUrl = topShow.podcastImageUrl,
+        ),
+    )
+}
+
+@Composable
+private fun MutableList<InsightCard>.addMetricCards(
+    insights: ListeningInsightSummary,
+    peakLabel: String,
+    peakConsumedMs: Long,
+    peakShare: Int?,
+) {
+    add(
+        InsightCard.Metric(
+            label = stringResource(R.string.history_card_active_days),
+            value = insights.activeDaysInPeriod.toString(),
+            detail = stringResource(R.string.history_active_days_detail),
+        ),
+    )
+    add(
+        InsightCard.Metric(
+            label = stringResource(R.string.history_card_completion),
+            value = insights.completedCount.toString(),
+            detail =
+                stringResource(
+                    R.string.history_completion_in_progress,
+                    insights.inProgressCount,
                 ),
-            )
-        }
+        ),
+    )
+    add(
+        InsightCard.Metric(
+            label = stringResource(R.string.history_card_window),
+            value = peakLabel,
+            detail =
+                when {
+                    peakShare != null && peakConsumedMs > 0L ->
+                        stringResource(
+                            R.string.history_window_share,
+                            formatDuration(peakConsumedMs),
+                            peakShare,
+                        )
+                    else -> null
+                },
+        ),
+    )
+    if (insights.streakDays > 0) {
         add(
             InsightCard.Metric(
-                label = stringResource(R.string.history_card_active_days),
-                value = insights.activeDaysInPeriod.toString(),
-                detail = stringResource(R.string.history_active_days_detail),
+                label = stringResource(R.string.history_stat_streak),
+                value = insights.streakDays.toString(),
+                detail = null,
             ),
         )
+    }
+    if (insights.hasEnoughData) {
         add(
             InsightCard.Metric(
-                label = stringResource(R.string.history_card_completion),
-                value = insights.completedCount.toString(),
+                label = stringResource(R.string.history_card_sessions),
+                value = formatDuration(insights.averageSessionMs),
                 detail =
                     stringResource(
-                        R.string.history_completion_in_progress,
-                        insights.inProgressCount,
+                        R.string.history_sessions_longest,
+                        formatDuration(insights.longestSessionMs),
                     ),
             ),
         )
-        add(
-            InsightCard.Metric(
-                label = stringResource(R.string.history_card_window),
-                value = peakLabel,
-                detail =
-                    when {
-                        peakShare != null && peakConsumedMs > 0L ->
-                            stringResource(
-                                R.string.history_window_share,
-                                formatDuration(peakConsumedMs),
-                                peakShare,
-                            )
-                        else -> null
-                    },
-            ),
-        )
-        if (insights.streakDays > 0) {
-            add(
-                InsightCard.Metric(
-                    label = stringResource(R.string.history_stat_streak),
-                    value = insights.streakDays.toString(),
-                    detail = null,
-                ),
-            )
-        }
-        if (insights.hasEnoughData) {
-            add(
-                InsightCard.Metric(
-                    label = stringResource(R.string.history_card_sessions),
-                    value = formatDuration(insights.averageSessionMs),
-                    detail =
-                        stringResource(
-                            R.string.history_sessions_longest,
-                            formatDuration(insights.longestSessionMs),
-                        ),
-                ),
-            )
-        }
     }
 }
 
@@ -542,6 +564,12 @@ fun HistoryTimeOfDayGraph(
     }
 }
 
+private data class TimeOfDayBarColors(
+    val peak: Color,
+    val bar: Color,
+    val track: Color,
+)
+
 @Composable
 private fun TimeOfDayBars(
     buckets: List<Pair<ListeningTimeBucket, Long>>,
@@ -549,9 +577,12 @@ private fun TimeOfDayBars(
     maxMs: Long,
     modifier: Modifier = Modifier,
 ) {
-    val peakColor = MaterialTheme.colorScheme.primary
-    val barColor = MaterialTheme.colorScheme.secondary
-    val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val colors =
+        TimeOfDayBarColors(
+            peak = MaterialTheme.colorScheme.primary,
+            bar = MaterialTheme.colorScheme.secondary,
+            track = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -564,9 +595,7 @@ private fun TimeOfDayBars(
                 ms = ms,
                 maxMs = maxMs,
                 peakBucket = peakBucket,
-                peakColor = peakColor,
-                barColor = barColor,
-                trackColor = trackColor,
+                colors = colors,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -588,13 +617,11 @@ private fun TimeOfDayBarColumn(
     ms: Long,
     maxMs: Long,
     peakBucket: ListeningTimeBucket?,
-    peakColor: Color,
-    barColor: Color,
-    trackColor: Color,
+    colors: TimeOfDayBarColors,
     modifier: Modifier = Modifier,
 ) {
     val fraction = (ms.toFloat() / maxMs.toFloat()).coerceIn(0f, 1f)
-    val fill = if (bucket == peakBucket) peakColor else barColor
+    val fill = if (bucket == peakBucket) colors.peak else colors.bar
     val label = timeBucketLabel(bucket)
 
     Column(
@@ -615,7 +642,7 @@ private fun TimeOfDayBarColumn(
                     .fillMaxWidth()
                     .height(96.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(trackColor),
+                    .background(colors.track),
             contentAlignment = Alignment.BottomCenter,
         ) {
             Box(

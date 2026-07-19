@@ -99,7 +99,6 @@ fun HistoryPeriodSelector(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ListeningTimeCard(
     insights: ListeningInsightSummary,
@@ -154,26 +153,40 @@ fun ListeningTimeCard(
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.End,
                     )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        if (!precise) {
-                            TimeMetaChip(text = stringResource(R.string.history_time_estimated_short))
-                        }
-                        if (insights.streakDays > 0) {
-                            TimeMetaChip(
-                                text = stringResource(R.string.history_time_streak, insights.streakDays),
-                            )
-                        }
-                        if (deltaLabel != null) {
-                            TimeMetaChip(
-                                text = "$deltaLabel ${stringResource(R.string.history_time_vs_previous_short)}",
-                            )
-                        }
-                    }
+                    ListeningTimeMetaChips(
+                        precise = precise,
+                        streakDays = insights.streakDays,
+                        deltaLabel = deltaLabel,
+                    )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ListeningTimeMetaChips(
+    precise: Boolean,
+    streakDays: Int,
+    deltaLabel: String?,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (!precise) {
+            TimeMetaChip(text = stringResource(R.string.history_time_estimated_short))
+        }
+        if (streakDays > 0) {
+            TimeMetaChip(
+                text = stringResource(R.string.history_time_streak, streakDays),
+            )
+        }
+        if (deltaLabel != null) {
+            TimeMetaChip(
+                text = "$deltaLabel ${stringResource(R.string.history_time_vs_previous_short)}",
+            )
         }
     }
 }
