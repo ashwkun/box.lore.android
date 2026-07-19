@@ -486,9 +486,6 @@
         <error line="142" column="25" source="standard:multiline-expression-wrapping" />
         <error line="143" column="28" source="standard:chain-method-continuation" />
         <error line="143" column="39" source="standard:chain-method-continuation" />
-        <error line="149" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="152" column="42" source="standard:trailing-comma-on-call-site" />
-        <error line="153" column="14" source="standard:trailing-comma-on-call-site" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/core/designsystem/components/PrivacyConsentDialog.kt">
         <error line="3" column="1" source="standard:import-ordering" />

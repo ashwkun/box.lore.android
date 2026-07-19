@@ -39,12 +39,12 @@ Package alignment ships in Phase 2 PRs 8–10 with upgrade failsafes (`LegacyWor
 | `:core:domain` | Thin ports + `RssSubscriptionResult` (no Room / repos) |
 | `:core:database` | Main Room (`BoxLoreDatabase`, entities, DAOs, migrations) |
 | `:core:prefs` | `UserPreferencesRepository` + `BoxcastPrefs` (`boxcast_prefs` façade) |
-| `:core:analytics` | Analytics event capture façade (`AnalyticsHelper`, `Analytics` interface, `RecordingAnalytics`); PostHog SDK init stays in `:app` |
-| `:core:catalog` | **Catalog/orchestration only** — `PodcastRepository`, `SubscriptionRepository`, smart queue helpers, content sections, backup/restore, `SharedAppDependencies` bridge; **Phase 2 target** `cx.aswin.boxlore.core.catalog` (transitional `core.data.*` until PR10); re-exports `:core:rss`, `:core:analytics`, `:core:ranking` via `api` |
+| `:core:analytics` | Analytics event capture façade (`AnalyticsHelper`, `Analytics` interface, `RecordingAnalytics`, `ErrorReporter`); PostHog SDK init stays in `:app`; features must not import PostHog |
+| `:core:catalog` | **Catalog/orchestration only** — `PodcastRepository`, `SubscriptionRepository`, content sections, backup/restore, `SharedAppDependencies` bridge; **Phase 2 target** `cx.aswin.boxlore.core.catalog` (transitional `core.data.*` until PR10); re-exports `:core:rss` via `api`; ranking is `implementation` (consumers declare `:core:ranking`); does **not** re-export analytics |
 | `:core:rss` | RSS feed fetch/parse, `RssPodcastRepository`, `RssIdGenerator` (`rss:` prefix + negative episode IDs), `RssSourceMatcher`, `DownloadCacheRelinker` port; packages stay `cx.aswin.boxlore.core.data` for FQCN stability |
 | `:core:ranking` | Adaptive candidate scoring (`AdaptiveCandidateScorer`), LinUCB model, Bayesian facets, diversity re-ranking, feedback loop, own `AdaptiveRankingDatabase`; implements `RankingResetPort` |
 | `:core:downloads` | `DownloadRepository`, `SmartDownloadManager`, WorkManager workers (FQCN-stable under `cx.aswin.boxlore.core.data`) |
-| `:core:playback` | `PlaybackRepository`, queue, Media3 services |
+| `:core:playback` | `PlaybackRepository`, queue, Media3 services, smart-queue helpers (`SmartQueueEngine`, `QueueMath`, `MixtapeEngine`, …) |
 
 ### Dependency direction
 
@@ -87,13 +87,17 @@ flowchart TB
   playback --> downloads
   downloads --> catalog
   catalog --> rss
-  catalog --> analytics
   catalog --> prefs
   catalog --> domain
   catalog --> database
   catalog --> ranking
   catalog --> network
   catalog --> model
+  features --> analytics
+  features --> ranking
+  playback --> ranking
+  playback --> analytics
+  design --> analytics
   rss --> database
   rss --> domain
   rss --> model
@@ -118,6 +122,8 @@ Rules:
 - No feature → feature Gradle dependencies.
 - `:core:playback` → `:core:catalog` (not the reverse).
 - `:core:catalog` must **not** depend on `:core:designsystem` (share UI lives in designsystem; seek notification icons live in catalog res).
+- Features that need analytics or ranking declare `:core:analytics` / `:core:ranking` directly (catalog does not re-export analytics; ranking is not an `api` edge).
+- Zero feature-module `PostHog.capture` / `import com.posthog` — guarded by `scripts/ci/check-feature-no-posthog.sh`.
 - Domain enums used by both catalog and UI (e.g. `AutoTranscriptState`) belong in `:core:model`.
 - `:core:domain` holds ports only (`model` + `network` for `HistoryItem`); `:core:catalog` implements them and re-exports via `api`.
 - `:core:network` is the extracted HTTP/API module; `RssFeedClient` lives in `:core:rss` (Phase 2 target package `cx.aswin.boxlore.core.rss`; transitional `core.data` until PR8; re-exported via `:core:catalog → api(rss)`).
@@ -162,9 +168,9 @@ Extracted and live: `:core:playback`, `:core:domain`, `:core:database`, `:core:n
 | :--- | :--- |
 | JVM unit (`src/test`) | Pure logic, repos with fakes, ViewModel state |
 | Compose UI (`androidTest`) | Controls, nav wiring, `testTag`s |
-| Maestro E2E | Real-device flows (`smoke_launch` strict on `home_settings_button`) |
+| Maestro E2E | Real-device flows (`smoke_launch` + `smoke_home_visible` strict on `home_settings_button`) |
 | Screenshots (optional) | Visual regression baselines — **P26 incomplete** (no goldens / no Roborazzi) |
-| Architecture script | `scripts/ci/check-feature-no-boxlore-database.sh` (Home/Info VMs) |
+| Architecture script | `scripts/ci/check-feature-no-boxlore-database.sh` (Home/Info VMs); `scripts/ci/check-feature-no-posthog.sh` |
 | Architecture-as-code | Konsist / filesystem guards in `:core:testing` (`ArchitectureGuardTest`) |
 
 No MockK / Hilt unless the plan is amended. Shared fixtures belong in `:core:testing`.

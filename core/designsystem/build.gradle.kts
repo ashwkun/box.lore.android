@@ -39,6 +39,7 @@ android {
 
 dependencies {
     implementation(projects.core.model)
+    implementation(projects.core.analytics)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -52,7 +53,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.smooth.corner.rect)
     api(libs.coil.compose) // OptimizedImage composable uses Coil
-    implementation(libs.posthog.android)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit.jupiter)

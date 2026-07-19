@@ -5,7 +5,7 @@
 Owns all analytics event capture for Boxlore. Wraps the PostHog Android SDK behind a thin
 façade so call-sites never touch the SDK directly. Provides `AnalyticsHelper` (the production
 singleton) and `RecordingAnalytics` (a test-double that records events in-memory with no PostHog
-dependency).
+dependency). Also owns `ErrorReporter` (non-fatal error sink; `:app` may install Crashlytics).
 
 **Does not own:** PostHog SDK initialisation (stays in `:app`), UI, repositories, or any
 persistence beyond the `boxcast_analytics_prefs` SharedPreferences key used for first-launch
@@ -18,6 +18,7 @@ detection.
 | `Analytics` | Interface – key event-capture methods; new call-sites should depend on this |
 | `AnalyticsHelper` | Production `object` implementing `Analytics` via PostHog |
 | `RecordingAnalytics` | Test-double `class` implementing `Analytics`; records events in-memory |
+| `ErrorReporter` | Non-fatal error façade (Logcat default; Crashlytics installed from `:app`) |
 | `PendingEntryPoint` | Thread-safe singleton bridging playback entry-point across the MediaController IPC boundary |
 | `PlayerSessionAggregator` | Aggregates per-episode player interactions, flushed at session end |
 
@@ -26,12 +27,14 @@ Package kept at `cx.aswin.boxlore.core.data.analytics` (no import changes in con
 ## Internal structure
 
 ```text
-src/main/java/cx/aswin/boxlore/core/catalog/analytics/
+src/main/java/cx/aswin/boxlore/core/data/analytics/
   Analytics.kt              # façade interface
   AnalyticsHelper.kt        # PostHog-backed singleton (implements Analytics)
   RecordingAnalytics.kt     # in-memory test double (implements Analytics)
+  ErrorReporter.kt          # non-fatal error sink
   PendingEntryPoint.kt      # IPC bridge for playback entry-point context
   SessionAggregator.kt      # PlayerSessionAggregator – batches player-screen events
+  *AnalyticsTracks.kt       # PostHog capture helpers grouped by domain
 ```
 
 ## Dependencies
@@ -43,8 +46,9 @@ src/main/java/cx/aswin/boxlore/core/catalog/analytics/
 **Forbidden reverse edges:** analytics must not depend on `:core:catalog`, `:core:database`,
 `:core:network`, `:core:playback`, `:core:downloads`, or any `feature:*` module.
 
-`:core:catalog` re-exports `:core:analytics` via `api(projects.core.analytics)` so existing
-consumers get the types transitively without any import changes.
+`:core:catalog` does **not** re-export analytics. Features / designsystem / playback that
+emit events must declare `implementation(projects.core.analytics)` directly. CI guard:
+`scripts/ci/check-feature-no-posthog.sh`.
 
 ## Threading / lifecycle
 
@@ -78,10 +82,12 @@ Do **not** rename these; changing them resets first-launch state for existing us
 
 Covered by `unit-tests.yml` (`testDebugUnitTest`). Kover variant `merged` is
 registered and included in root `:koverVerifyMerged` (with data/domain/home/rss/downloads).
+Architecture script `scripts/ci/check-feature-no-posthog.sh` fails if feature modules
+import PostHog or call `PostHog.capture`.
 
 ## See also
 
 - Root [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
 - [`docs/TESTING.md`](../../docs/TESTING.md)
 - [`docs/PLAN_MODULAR_ANDROID_HARDENING.md`](../../docs/PLAN_MODULAR_ANDROID_HARDENING.md)
-- `:core:catalog` README – explains the `api` re-export and what moved
+- [`docs/ANALYTICS_EVENT_GLOSSARY.md`](../../docs/ANALYTICS_EVENT_GLOSSARY.md)

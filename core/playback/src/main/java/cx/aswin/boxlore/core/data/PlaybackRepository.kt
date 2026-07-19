@@ -118,7 +118,13 @@ class PlaybackRepository(
                     .toString()
             prefs.edit().putString(key, uuid).apply()
         }
-        android.util.Log.d("BoxCastDeviceUuid", "Your physical Device UUID is: $uuid")
+        // Never log the raw device UUID (PII / install fingerprint).
+        if (android.util.Log.isLoggable("BoxLoreDeviceUuid", android.util.Log.DEBUG)) {
+            android.util.Log.d(
+                "BoxLoreDeviceUuid",
+                "device uuid ready (len=${uuid.length})",
+            )
+        }
         return uuid
     }
 

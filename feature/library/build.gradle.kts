@@ -49,6 +49,8 @@ dependencies {
     implementation(projects.core.downloads)
     implementation(projects.core.playback)
     implementation(projects.core.designsystem)
+    implementation(projects.core.analytics)
+    implementation(projects.core.ranking)
     
     // Feature Dependencies (for Navigation if needed, though mostly callbacks)
     // implementation(projects.feature.info) // Not strictly needed if we use callbacks

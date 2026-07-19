@@ -318,7 +318,20 @@ internal object OnboardingAnalyticsTracks {
         )
     }
 
-    internal object OnboardingAnalyticsTracks {
+    /**
+     * Person-property refresh when import onboarding already emitted `onboarding_completed`
+     * elsewhere (e.g. MainActivity OPML path) but AI suggestions finish still needs `$set`.
+     */
+    fun setOnboardingImportCompletedUserProperties(initialPodcastsSubscribed: Int) {
+        PostHog.capture(
+            event = "\$set",
+            userProperties =
+                mapOf(
+                    "onboarding_status" to "completed",
+                    "onboarding_method" to "import",
+                    "user_intent" to "migrating_power_user",
+                    "initial_podcasts_subscribed" to initialPodcastsSubscribed,
+                ),
+        )
     }
-
 }

@@ -19,6 +19,10 @@
         <error line="95" column="5" source="standard:function-naming" />
         <error line="304" column="141" source="standard:max-line-length" />
     </file>
+    <file name="src/main/java/cx/aswin/boxlore/feature/info/EpisodeInfoViewModel.kt">
+        <error line="297" column="69" source="standard:chain-method-continuation" />
+        <error line="655" column="61" source="standard:chain-method-continuation" />
+    </file>
     <file name="src/main/java/cx/aswin/boxlore/feature/info/PodcastInfoScreen.kt">
         <error line="105" column="5" source="standard:function-naming" />
         <error line="395" column="21" source="standard:function-naming" />

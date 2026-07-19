@@ -44,6 +44,9 @@ jobs:
       - name: Architecture boundary (Home/Info no BoxLoreDatabase)
         run: bash scripts/ci/check-feature-no-boxlore-database.sh
 
+      - name: Architecture boundary (feature modules no PostHog)
+        run: bash scripts/ci/check-feature-no-posthog.sh
+
       - name: Run detekt
         run: ./gradlew detekt
 

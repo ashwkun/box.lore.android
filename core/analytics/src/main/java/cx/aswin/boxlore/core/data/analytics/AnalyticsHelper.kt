@@ -319,6 +319,22 @@ object AnalyticsHelper : Analytics {
     vibeId: String,
     positionIndex: Int
 ) = DiscoveryAnalyticsTracks.trackCuratedCardTapped(podcastId, podcastName, vibeId, positionIndex)
+
+    fun trackEpisodeInfoScreenViewed(properties: Map<String, Any>) =
+        DiscoveryAnalyticsTracks.trackEpisodeInfoScreenViewed(properties)
+
+    fun trackEpisodeInfoScreenSession(properties: Map<String, Any>) =
+        DiscoveryAnalyticsTracks.trackEpisodeInfoScreenSession(properties)
+
+    fun trackProxyFallbackTriggered(
+        imageHost: String,
+        proxyWidth: Int,
+        sampleMultiplier: Int = 10,
+    ) = DiscoveryAnalyticsTracks.trackProxyFallbackTriggered(imageHost, proxyWidth, sampleMultiplier)
+
+    fun setOnboardingImportCompletedUserProperties(initialPodcastsSubscribed: Int) =
+        OnboardingAnalyticsTracks.setOnboardingImportCompletedUserProperties(initialPodcastsSubscribed)
+
     fun trackPlaybackStarted(
     podcastId: String?,
     podcastName: String?,
@@ -529,7 +545,10 @@ object AnalyticsHelper : Analytics {
         }
     }
 
-    override fun capture(event: String, properties: Map<String, Any>) {
+    override fun capture(
+        event: String,
+        properties: Map<String, Any>,
+    ) {
         PostHog.capture(event = event, properties = properties)
     }
 }

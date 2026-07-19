@@ -77,7 +77,7 @@ android {
             )
         }
     }
-    
+
     lint {
         checkReleaseBuilds = true
         abortOnError = true
@@ -119,6 +119,9 @@ dependencies {
     implementation(projects.core.playback)
     implementation(projects.core.model)
     implementation(projects.core.network)
+    implementation(projects.core.analytics)
+    implementation(projects.core.ranking)
+    implementation(projects.core.rss)
     implementation(projects.feature.home)
     implementation(project(":feature:player"))
     implementation(project(":feature:info"))
@@ -139,22 +142,22 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.google.material)
-    
+
     // Expressive additions
     implementation(libs.androidx.material3.adaptive)
     implementation(libs.androidx.palette.ktx)
-    
+
     // Navigation
     implementation(libs.androidx.navigation.compose)
-    
+
     // Image Loading
     implementation(libs.coil.compose)
-    
+
     // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.serialization)
     implementation(libs.kotlinx.serialization.json)
-    
+
     // Firebase
     implementation(platform(libs.firebase.bom))
 
@@ -165,8 +168,7 @@ dependencies {
     // Debug provider is guarded by BuildConfig.DEBUG at runtime; only debug
     // tokens registered in Firebase console can ever attest through it
     implementation(libs.firebase.appcheck.debug)
-    
-    
+
     // WorkManager
     implementation(libs.androidx.work.runtime)
 

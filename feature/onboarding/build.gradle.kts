@@ -37,6 +37,7 @@ dependencies {
     implementation(projects.core.catalog)
     implementation(projects.core.designsystem)
     implementation(projects.core.network)
+    implementation(projects.core.analytics)
     implementation(libs.retrofit)
     
     implementation(libs.androidx.core.ktx)
@@ -53,7 +54,6 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.posthog.android)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.vintage.engine)

@@ -44,12 +44,15 @@ android {
 }
 
 dependencies {
-    // `:core:catalog` provides PodcastRepository, SubscriptionRepository, RankingFeedbackRepository,
+    // `:core:catalog` provides PodcastRepository, SubscriptionRepository,
     // UserPreferencesRepository, BoxLoreDatabase (via :core:database api), domain ports, etc.
     api(projects.core.catalog)
     implementation(projects.core.database)
     implementation(projects.core.domain)
     implementation(projects.core.model)
+    // RankingFeedbackRepository / AdaptiveCandidateScorer — declare directly (catalog no longer api-exports ranking).
+    implementation(projects.core.ranking)
+    implementation(projects.core.analytics)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)

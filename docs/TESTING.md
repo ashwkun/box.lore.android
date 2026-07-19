@@ -127,7 +127,7 @@ maestro test maestro/
 | `android-instrumented-tests.yml` | `:feature:home:connectedDebugAndroidTest` on an API 34 emulator | Same merge-gate as unit tests |
 | `maestro-nightly.yml` | Validate `maestro/*.yaml`; optional Maestro Cloud when secrets present | Nightly cron (UTC) / manual |
 
-Architecture boundary: `scripts/ci/check-feature-no-boxlore-database.sh` fails if Home/Info ViewModels or assemblers re-introduce `BoxLoreDatabase`. Konsist/filesystem guards in `:core:testing` additionally enforce feature isolation, `getInstance` allowlist, `:core:catalog` ↛ designsystem, and module README presence.
+Architecture boundary: `scripts/ci/check-feature-no-boxlore-database.sh` fails if Home/Info ViewModels or assemblers re-introduce `BoxLoreDatabase`. `scripts/ci/check-feature-no-posthog.sh` fails if feature modules import PostHog or call `PostHog.capture` (use `:core:analytics`). Konsist/filesystem guards in `:core:testing` additionally enforce feature isolation, `getInstance` allowlist, `:core:catalog` ↛ designsystem, and module README presence.
 
 **Merge CI (label gate, not a GitHub ruleset):** Unit + Instrumented run when the PR has the **`merge-ci`** label. Honor that process before merging.
 

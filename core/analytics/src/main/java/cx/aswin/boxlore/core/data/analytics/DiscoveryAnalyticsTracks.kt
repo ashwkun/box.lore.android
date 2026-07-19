@@ -250,7 +250,28 @@ internal object DiscoveryAnalyticsTracks {
         if (podcastName != null) props["podcast_name"] = podcastName
         PostHog.capture(event = "curated_card_tapped", properties = props)
     }
-    internal object DiscoveryAnalyticsTracks {
+
+    fun trackEpisodeInfoScreenViewed(properties: Map<String, Any>) {
+        PostHog.capture(event = "episode_info_screen_viewed", properties = properties)
     }
 
+    fun trackEpisodeInfoScreenSession(properties: Map<String, Any>) {
+        PostHog.capture(event = "episode_info_screen_session", properties = properties)
+    }
+
+    fun trackProxyFallbackTriggered(
+        imageHost: String,
+        proxyWidth: Int,
+        sampleMultiplier: Int = 10,
+    ) {
+        PostHog.capture(
+            event = "proxy_fallback_triggered",
+            properties =
+                mapOf(
+                    "image_host" to imageHost,
+                    "proxy_width" to proxyWidth,
+                    "sample_multiplier" to sampleMultiplier,
+                ),
+        )
+    }
 }

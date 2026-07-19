@@ -39,6 +39,8 @@ dependencies {
     implementation(projects.core.playback)
     implementation(projects.core.network)
     implementation(projects.core.designsystem)
+    implementation(projects.core.analytics)
+    implementation(projects.core.rss)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -56,7 +58,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.smooth.corner.rect)
-    implementation(libs.posthog.android)
 
     testImplementation(projects.core.testing)
     testImplementation(libs.junit)

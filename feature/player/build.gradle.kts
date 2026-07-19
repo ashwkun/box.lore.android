@@ -37,6 +37,7 @@ dependencies {
     implementation(projects.core.playback)
     implementation(projects.core.network)
     implementation(projects.core.designsystem)
+    implementation(projects.core.analytics)
     
     // Media & Palette
     implementation(libs.androidx.media3.exoplayer)

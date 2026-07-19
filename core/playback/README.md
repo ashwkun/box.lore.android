@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns playback session control, queue orchestration, and Media3 services (player + offline download foreground service + Android Auto collage provider). Deliberately does **not** own Room schemas, prefs DataStore, ranking, RSS, or smart-download workers (those live in `:core:database` / `:core:prefs` / `:core:ranking` / `:core:rss` / `:core:downloads`).
+Owns playback session control, queue orchestration, Media3 services (player + offline download foreground service + Android Auto collage provider), and **smart-queue ownership** (`SmartQueueEngine`, `SmartQueueSources`, `QueueMath`, `QueueSkipMemory`, `MixtapeEngine`). Deliberately does **not** own Room schemas, prefs DataStore, ranking Room, RSS, or smart-download workers (those live in `:core:database` / `:core:prefs` / `:core:ranking` / `:core:rss` / `:core:downloads`).
 
 ## Public API
 
@@ -10,6 +10,7 @@ Stable types/entry points other modules may depend on:
 
 - `PlaybackRepository` — one UI/session instance; ctor-injected `RankingFeedbackRepository` (never call ranking `getInstance` here)
 - `QueueRepository` / `QueueManager` — queue persistence + explicit play/add orchestration
+- `QueueMath` / `QueueSkipMemory` / `SmartQueueEngine` / `SmartQueueSources` / `MixtapeEngine` — smart-queue helpers (packages remain `cx.aswin.boxlore.core.data` until PR8–10)
 - `playback.PlaybackMediaIdPolicy` / `PlaybackArtworkResolver` — media-id encoding and artwork URL resolution
 - `playback.PlaybackSkipPolicy` — intro/outro trim and seek policy
 - `playback.HistoryRecommendationLogic` — pure eligibility filter for recommendation history
@@ -29,16 +30,15 @@ Packages remain under `cx.aswin.boxlore.core.data.*` for AndroidManifest / WorkM
 ## Internal structure
 
 ```text
-src/main/java/cx/aswin/boxlore/core/catalog/
+src/main/java/cx/aswin/boxlore/core/data/
   PlaybackRepository.kt
-  QueueManager.kt
-  QueueRepository.kt
-  playback/     # PlaybackSkipPolicy, HistoryRecommendationLogic
-  service/      # BoxLorePlaybackService, MediaDownloadService, AutoCollage*
+  QueueManager.kt / QueueRepository.kt
+  QueueMath.kt / QueueSkipMemory.kt
+  SmartQueueEngine.kt / SmartQueueSources.kt / MixtapeEngine.kt
+  playback/     # PlaybackSkipPolicy, HistoryRecommendationLogic, refill policy, …
+  service/      # BoxLorePlaybackService, MediaDownloadService, AutoCollage*, SmartQueueRefillCoordinator
   service/auto/ # Android Auto browse helpers
 ```
-
-Smart Queue engine / skip memory / queue math stay in `:core:catalog` (service depends on them; scorer comes from the shared holder).
 
 Android Auto browse session callbacks live in `service/auto/`; `BoxLorePlaybackService` implements `AutoBrowseLibraryHost` and delegates `MediaLibrarySession.Callback` behavior to `AutoBrowseLibraryCallback`.
 
@@ -47,6 +47,7 @@ Android Auto browse session callbacks live in `service/auto/`; `BoxLorePlaybackS
 Gradle edges (project + notable libs):
 
 - → `:core:catalog` (api), `:core:database`, `:core:network`, `:core:model`
+- → `:core:ranking` (implementation), `:core:analytics` (implementation), `:core:downloads` (implementation)
 - Media3 exoplayer / session / ui
 - Coil (session artwork), coroutines (+ guava await)
 
@@ -65,10 +66,11 @@ Forbidden reverse edges: `:core:catalog` ↛ `:core:playback`; `:core:downloads`
 | `BoxLorePlaybackService` / `MediaDownloadService` Manifest names | System bindings |
 | mediaId prefixes (`episode:`, `queue:`, `learn:`) | Session / Auto contracts |
 | SharedPrefs `boxcast_player` | Player session flags |
+| Device UUID prefs key `device_uuid` | Stable install id — **do not log the raw value** |
 
 ## Testing notes
 
-- JVM unit tests under `src/test` (`PlaybackSkipPolicyTest`, `PlaybackMediaIdPolicyTest`, `PlaybackArtworkResolverTest`, `HistoryRecommendationLogicTest`, `AutoVoiceSearchLogicTest`, `SmartQueueRefillPolicyTest`, `MixtapeResumePolicyTest`, `NightWindowLogicTest`, `ListeningHistoryUpsertLogicTest`)
+- JVM unit tests under `src/test` (`PlaybackSkipPolicyTest`, `PlaybackMediaIdPolicyTest`, `PlaybackArtworkResolverTest`, `HistoryRecommendationLogicTest`, `AutoVoiceSearchLogicTest`, `SmartQueueRefillPolicyTest`, `MixtapeResumePolicyTest`, `NightWindowLogicTest`, `ListeningHistoryUpsertLogicTest`, `QueueMathTest`, `QueueSkipMemoryTest`, `SmartQueueEngineTest`)
 - Prefer fakes from `:core:testing` for broader playback graph tests in later phases
 - Service depends on holder install for process-level tests
 

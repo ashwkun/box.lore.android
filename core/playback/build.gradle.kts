@@ -36,6 +36,8 @@ android {
     }
 
     testOptions {
+        // SmartQueueEngine / QueueSkipMemory touch android.util.Log on the JVM path.
+        unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = false
         unitTests.all {
             it.useJUnitPlatform()
@@ -53,6 +55,9 @@ dependencies {
     api(projects.core.database)
     api(projects.core.catalog)
     implementation(projects.core.downloads)
+    // SmartQueueEngine / MixtapeEngine score via ranking (no longer re-exported by catalog).
+    implementation(projects.core.ranking)
+    implementation(projects.core.analytics)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)

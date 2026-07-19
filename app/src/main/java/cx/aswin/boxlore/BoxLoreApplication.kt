@@ -90,6 +90,19 @@ class BoxLoreApplication : Application(), Configuration.Provider {
         }
         PostHogAndroid.setup(this, config)
 
+        // Non-fatal error sink: Crashlytics when available, Logcat fallback inside ErrorReporter.
+        cx.aswin.boxlore.core.data.analytics.ErrorReporter.install { throwable, message ->
+            try {
+                val crashlytics = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+                if (message != null) {
+                    crashlytics.log(message)
+                }
+                crashlytics.recordException(throwable)
+            } catch (_: Exception) {
+                android.util.Log.e("ErrorReporter", message ?: throwable.message, throwable)
+            }
+        }
+
         // Tag internal/test users so they can be filtered in PostHog settings
         if (BuildConfig.DEBUG) {
             PostHog.register("is_internal", true)
@@ -129,7 +142,10 @@ class BoxLoreApplication : Application(), Configuration.Provider {
                 }
             })
         } catch (e: Exception) {
-            android.util.Log.e("BoxCastApp", "Failed to register connectivity observer", e)
+            cx.aswin.boxlore.core.data.analytics.ErrorReporter.report(
+                e,
+                "Failed to register connectivity observer",
+            )
         }
     }
 

@@ -4,15 +4,14 @@ appId: cx.aswin.boxlore
 - tapOn:
     text: ".*(Accept|Allow|Continue|Skip|Not now).*"
     optional: true
-# Lightweight visibility smoke after cold start.
+# Cold-start visibility smoke. Primary gate matches smoke_launch (strict).
 - extendedWaitUntil:
     visible:
       id: "home_settings_button"
     timeout: 20000
-    optional: true
 - assertVisible:
     id: "home_settings_button"
-    optional: true
+# Secondary nav affordances stay soft — first-run chrome may still settle.
 - assertVisible:
     text: ".*(Home|Library|Explore|Settings).*"
     optional: true

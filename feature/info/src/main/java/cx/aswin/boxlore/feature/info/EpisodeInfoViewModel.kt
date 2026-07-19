@@ -294,7 +294,7 @@ class EpisodeInfoViewModel(
                             }
                         }
                     }
-                com.posthog.PostHog.capture("episode_info_screen_viewed", properties = props)
+                cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackEpisodeInfoScreenViewed(props)
 
                 // 2. Fetch full details if we haven't already
                 if (finalEpisodeDescription.isEmpty()) {
@@ -652,7 +652,7 @@ class EpisodeInfoViewModel(
                     put("source_entry_point", sourceEntryPoint!!)
                 }
             }
-        com.posthog.PostHog.capture("episode_info_screen_session", properties = props)
+        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackEpisodeInfoScreenSession(props)
     }
 
     private fun detectCrossPromotion(

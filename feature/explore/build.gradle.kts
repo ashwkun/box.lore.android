@@ -51,6 +51,8 @@ dependencies {
     implementation(projects.core.playback)
     implementation(projects.core.model)
     implementation(projects.core.network)
+    implementation(projects.core.analytics)
+    implementation(projects.core.ranking)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -63,7 +65,6 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.posthog.android)
 
     testImplementation(projects.core.testing)
     testImplementation(libs.junit)

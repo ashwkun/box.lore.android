@@ -60,6 +60,9 @@ dependencies {
     implementation(projects.core.playback)
     implementation(projects.core.network)
     implementation(projects.core.designsystem)
+    implementation(projects.core.analytics)
+    implementation(projects.core.ranking)
+    implementation(projects.core.rss)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

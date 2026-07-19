@@ -22,10 +22,10 @@ src/main/res/ drawable/ font/
 
 ## Dependencies
 
-- → `:core:model`
+- → `:core:model`, `:core:analytics` (proxy-fallback tracking via façade)
 - Compose Material3, Coil (api), coroutines
 
-Forbidden: designsystem ↛ `:core:catalog`, `:core:network`, `:core:database`, or any `:feature:*`. Architecture guards enforce `:core:catalog` ↛ designsystem.
+Forbidden: designsystem ↛ `:core:catalog`, `:core:network`, `:core:database`, or any `:feature:*`. Architecture guards enforce `:core:catalog` ↛ designsystem. Do not import PostHog — use `AnalyticsHelper`.
 
 ## Threading / lifecycle
 

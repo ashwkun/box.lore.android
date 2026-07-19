@@ -46,7 +46,7 @@ maestro test maestro/smoke_home_visible.yaml
 | File | Intent |
 | :--- | :--- |
 | `smoke_launch.yaml` | Cold launch; **strict** assert on `home_settings_button` |
-| `smoke_home_visible.yaml` | Soft assert home/nav affordances |
+| `smoke_home_visible.yaml` | Cold-start visibility; **strict** on `home_settings_button`, soft nav text |
 | `smoke_settings_rss.yaml` | Settings → Library → Add RSS (optional steps) |
 
 Flows prefer Compose `testTag`s (`home_settings_button`, `settings_add_rss_*`) and fall back to visible text where noted. Flaky first-run taps use `optional: true` so onboarding/consent does not hard-fail the suite on every machine.

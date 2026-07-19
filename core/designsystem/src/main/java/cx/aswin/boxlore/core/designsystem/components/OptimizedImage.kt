@@ -144,13 +144,10 @@ private fun trackProxyFallback(url: String, proxyWidth: Int) {
         } catch (e: Exception) {
             "unknown"
         }
-        com.posthog.PostHog.capture(
-            "proxy_fallback_triggered",
-            properties = mapOf(
-                "image_host" to imageHost,
-                "proxy_width" to proxyWidth,
-                "sample_multiplier" to 10
-            )
+        cx.aswin.boxlore.core.data.analytics.AnalyticsHelper.trackProxyFallbackTriggered(
+            imageHost = imageHost,
+            proxyWidth = proxyWidth,
+            sampleMultiplier = 10,
         )
     }
 }

@@ -587,15 +587,8 @@ internal fun OnboardingViewModel.finishAiOnboarding(onDone: () -> Unit) {
             } else if (state.reachedSuggestionsViaOpmlFlow) {
                 // For OPML, onboarding_completed with method "import" is already tracked in MainActivity.kt
                 // But we refresh/set the user properties to ensure intent and subscriptions are up to date.
-                com.posthog.PostHog.capture(
-                    event = "\$set",
-                    userProperties =
-                        mapOf(
-                            "onboarding_status" to "completed",
-                            "onboarding_method" to "import",
-                            "user_intent" to "migrating_power_user",
-                            "initial_podcasts_subscribed" to selectedIds.size,
-                        ),
+                AnalyticsHelper.setOnboardingImportCompletedUserProperties(
+                    initialPodcastsSubscribed = selectedIds.size,
                 )
             } else {
                 // Manual/Genre flow

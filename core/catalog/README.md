@@ -2,17 +2,18 @@
 
 ## Purpose
 
-**Catalog and orchestration layer.** Owns the Podcast Index catalog (`PodcastRepository`), subscriptions, smart queue logic, content sections, cross-promo, engagement, backup/restore, and the shared-deps composition bridge for workers and Media3 services. It is **not** a junk drawer — every type here is a catalog, subscription, or orchestration concern.
+**Catalog and orchestration layer.** Owns the Podcast Index catalog (`PodcastRepository`), subscriptions, content sections, cross-promo, engagement, backup/restore, and the shared-deps composition bridge for workers and Media3 services. It is **not** a junk drawer — every type here is a catalog, subscription, or orchestration concern.
 
 Gradle id is `:core:catalog`. **Phase 2 target package root:** `cx.aswin.boxlore.core.catalog` (PR10). Until then, sources may still live under transitional `cx.aswin.boxlore.core.data.*` with upgrade failsafes.
 
-Extracted subsystems now live in dedicated modules (re-exported via `api` so existing import paths continue to compile):
+Extracted subsystems now live in dedicated modules:
 
 | Subsystem | Module |
 | :--- | :--- |
-| RSS feed fetch / parse / IDs / `RssPodcastRepository` | `:core:rss` |
-| Adaptive ranking / LinUCB / feedback loop | `:core:ranking` |
-| Analytics façade (`AnalyticsHelper`, `Analytics`) | `:core:analytics` |
+| RSS feed fetch / parse / IDs / `RssPodcastRepository` | `:core:rss` (re-exported via `api`) |
+| Adaptive ranking / LinUCB / feedback loop | `:core:ranking` (`implementation` — declare directly in consumers) |
+| Analytics façade (`AnalyticsHelper`, `Analytics`) | `:core:analytics` (not re-exported; declare directly) |
+| Smart queue / queue math / mixtape | `:core:playback` |
 | Download worker stack | `:core:downloads` |
 | Playback / queue / Media3 services | `:core:playback` |
 | DataStore + SharedPrefs | `:core:prefs` |
@@ -21,13 +22,12 @@ Extracted subsystems now live in dedicated modules (re-exported via `api` so exi
 ## Public API
 
 - **Catalog:** `PodcastRepository` (Podcast Index HTTP + RSS delegate via `RssPodcastRepository`), `SubscriptionRepository`, `ChapterRepository`, `TranscriptRepository`
-- **Smart queue helpers:** `QueueMath`, `QueueSkipMemory`, `SmartQueueEngine` / `SmartQueueSources`, `MixtapeEngine`
 - **Content sections:** `content/ContentOrchestrator`, `content/GroupedContentSectionProvider`, `content/ContentContextEngine`
 - **Backup/restore:** `backup/LibraryBackupManager` — JSON + OPML export/import, ranking backup, RSS re-import. Wire type is `BoxLoreBackup` (Gson field names / `version` unchanged for restore compatibility).
 - **Shared-deps bridge:**
-  - `SharedAppDependencies` — interface of Application-scoped instances consumed by workers/services via `SharedAppDependenciesHolder`
+  - `SharedAppDependencies` — interface of Application-scoped instances consumed by workers/services via `SharedAppDependenciesHolder` (includes ranking types; consumers that touch those members must depend on `:core:ranking`)
   - `SharedAppDependenciesHolder` — `@Volatile` install + `require()` (throws if unset)
-- **Re-exported (api) subsystems:** types from `:core:rss`, `:core:analytics`, `:core:ranking`, `:core:domain`, `:core:database`, `:core:prefs`
+- **Re-exported (api) subsystems:** types from `:core:rss`, `:core:domain`, `:core:database`, `:core:prefs`
 - **Data-only ports:** `ports.ListeningHistoryBackupPort`, `ports.SmartDownloadSyncPort`
 - **Domain port impls:** `RoomLocalCatalog` (`LocalCatalogPort`), `RoomEpisodeOfflineLookup` (`EpisodeOfflineLookupPort`)
 
@@ -41,7 +41,6 @@ src/main/java/cx/aswin/boxlore/core/data/
   SubscriptionRepository.kt
   ChapterRepository.kt / TranscriptRepository.kt
   SharedAppDependencies.kt
-  SmartQueueEngine.kt / SmartQueueSources.kt / QueueMath.kt / QueueSkipMemory.kt / MixtapeEngine.kt
   EngagementPromptCoordinator.kt / InstallReferrerManager.kt
   content/                       # Personalised home sections
   crosspromo/                    # Cross-promotion
@@ -52,12 +51,12 @@ src/main/java/cx/aswin/boxlore/core/data/
 
 ## Dependencies
 
-- → `:core:rss` (`api`), `:core:analytics` (`api`), `:core:ranking` (`api`)
+- → `:core:rss` (`api`), `:core:ranking` (`implementation`)
 - → `:core:domain` (`api`), `:core:prefs` (`api`), `:core:database` (`api`)
 - → `:core:model`, `:core:network` (internal)
 - → Firebase (database + messaging), Retrofit, OkHttp, Gson, DataStore
 
-Forbidden: `:core:catalog` **must not** depend on `:core:playback`, `:core:designsystem`, or `:core:downloads`.
+Forbidden: `:core:catalog` **must not** depend on `:core:playback`, `:core:designsystem`, `:core:downloads`, or `:core:analytics`.
 
 ## Threading / lifecycle
 
@@ -77,11 +76,11 @@ Forbidden: `:core:catalog` **must not** depend on `:core:playback`, `:core:desig
 JVM unit tests under `src/test`:
 
 - **B2 catalog (MockWebServer):** `PodcastRepositoryCatalogTest` — fixtures under `src/test/resources/fixtures/`
-- `QueueMathTest`, `QueueSkipMemoryTest`, `SmartQueueEngineTest`
 - `content/ContentOrchestratorTest`, `ContentSignalEnrichmentTest`, `GroupedContentSectionsTest`, `RecentSectionIntentStoreTest`
 - `crosspromo/CrossPromotionDetectorTest`, `TranscriptRepositoryTest`
 - `SharedAppDependenciesHolderTest`
 
+Smart-queue JVM tests (`QueueMathTest`, `QueueSkipMemoryTest`, `SmartQueueEngineTest`) live in `:core:playback`.
 RSS ID/matcher tests live in `:core:rss`. Production RSS uses create+install from `AppContainer`; catalog JVM tests use `RssPodcastRepository.createForTests`.
 
 ```bash

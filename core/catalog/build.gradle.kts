@@ -101,12 +101,9 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.messaging)
 
-    // Analytics (PostHog lives in :core:analytics; data re-exports it so existing imports keep working)
-    api(projects.core.analytics)
-
-    // Ranking (AdaptiveCandidateScorer, RankingFeedbackRepository, AdaptiveRankingRepository, etc.)
-    // api-exported so features/downloads/playback that depend on data see ranking types transitively.
-    api(projects.core.ranking)
+    // Ranking is an implementation detail of catalog orchestration (feedback on subscribe, content scoring).
+    // Features / playback / downloads that need ranking types must declare :core:ranking directly.
+    implementation(projects.core.ranking)
 
     // Install Referrer
     implementation("com.android.installreferrer:installreferrer:2.2")

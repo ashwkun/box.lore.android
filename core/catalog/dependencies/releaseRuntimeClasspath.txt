@@ -26,11 +26,9 @@ androidx.documentfile:documentfile:1.0.0
 androidx.fragment:fragment:1.1.0
 androidx.interpolator:interpolator:1.0.0
 androidx.legacy:legacy-support-core-utils:1.0.0
-androidx.lifecycle:lifecycle-common-java8:2.6.2
 androidx.lifecycle:lifecycle-common:2.6.2
 androidx.lifecycle:lifecycle-livedata-core:2.6.2
 androidx.lifecycle:lifecycle-livedata:2.6.2
-androidx.lifecycle:lifecycle-process:2.6.2
 androidx.lifecycle:lifecycle-runtime:2.6.2
 androidx.lifecycle:lifecycle-viewmodel:2.6.2
 androidx.loader:loader:1.0.0
@@ -85,14 +83,10 @@ com.google.guava:guava:32.0.0-jre
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
 com.google.j2objc:j2objc-annotations:2.8
 com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0
-com.posthog:posthog-android:3.45.0
-com.posthog:posthog:6.15.0
 com.prof18.rssparser:rssparser-android:6.1.7
 com.prof18.rssparser:rssparser:6.1.7
-com.squareup.curtains:curtains:1.2.5
 com.squareup.okhttp3:logging-interceptor:4.12.0
 com.squareup.okhttp3:okhttp-android:5.4.0
-com.squareup.okhttp3:okhttp-bom:4.12.0
 com.squareup.okhttp3:okhttp-coroutines:5.4.0
 com.squareup.okhttp3:okhttp:5.4.0
 com.squareup.okio:okio-jvm:3.17.0
@@ -103,8 +97,8 @@ org.checkerframework:checker-qual:3.33.0
 org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.9.22
 org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.22
 org.jetbrains.kotlin:kotlin-stdlib-common:2.4.10
-org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.10
-org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10
+org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21
+org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21
 org.jetbrains.kotlin:kotlin-stdlib:2.4.10
 org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0
 org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0
