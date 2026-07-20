@@ -399,34 +399,39 @@ class OnboardingViewModel(
     }
 
     override fun onCleared() {
-        if (onboardingStartedFired && !boxcastPrefs.isOnboardingCompleted()) {
-            val state = _uiState.value
-            val lastStep =
-                when (state.currentStep) {
-                    OnboardingStep.WELCOME -> "welcome"
-                    OnboardingStep.GENRES -> "genres"
-                    OnboardingStep.SUB_GENRES -> "sub_genres"
-                    OnboardingStep.ACTIVITY_PICKER -> "activities"
-                    OnboardingStep.LENGTH_PICKER -> "lengths"
-                    OnboardingStep.SEARCH -> "search"
-                    OnboardingStep.AI_ONBOARDING -> "ai_chat"
-                    OnboardingStep.AI_SUGGESTIONS -> "ai_suggestions"
-                }
-            val flowType =
-                when {
-                    state.reachedSuggestionsViaAiFlow || state.currentStep == OnboardingStep.AI_ONBOARDING -> "ai_chat"
-                    state.reachedSuggestionsViaSearchFlow || state.currentStep == OnboardingStep.SEARCH -> "search"
-                    state.reachedSuggestionsViaOpmlFlow -> "import"
-                    state.currentStep == OnboardingStep.WELCOME -> "welcome"
-                    else -> "manual_genre"
-                }
-            AnalyticsHelper.trackOnboardingAbandoned(
-                lastStep = lastStep,
-                flowType = flowType,
-                timeSpentSeconds = getTotalOnboardingTime().toInt(),
-                subscribedCount = state.subscribedPodcastIds.size,
-            )
-        }
+        trackOnboardingAbandonedIfNeeded()
         super.onCleared()
     }
+
+    private fun trackOnboardingAbandonedIfNeeded() {
+        if (!onboardingStartedFired || boxcastPrefs.isOnboardingCompleted()) return
+        val state = _uiState.value
+        AnalyticsHelper.trackOnboardingAbandoned(
+            lastStep = lastStepName(state.currentStep),
+            flowType = abandonFlowType(state),
+            timeSpentSeconds = getTotalOnboardingTime().toInt(),
+            subscribedCount = state.subscribedPodcastIds.size,
+        )
+    }
+
+    private fun lastStepName(step: OnboardingStep): String =
+        when (step) {
+            OnboardingStep.WELCOME -> "welcome"
+            OnboardingStep.GENRES -> "genres"
+            OnboardingStep.SUB_GENRES -> "sub_genres"
+            OnboardingStep.ACTIVITY_PICKER -> "activities"
+            OnboardingStep.LENGTH_PICKER -> "lengths"
+            OnboardingStep.SEARCH -> "search"
+            OnboardingStep.AI_ONBOARDING -> "ai_chat"
+            OnboardingStep.AI_SUGGESTIONS -> "ai_suggestions"
+        }
+
+    private fun abandonFlowType(state: OnboardingUiState): String =
+        when {
+            state.reachedSuggestionsViaAiFlow || state.currentStep == OnboardingStep.AI_ONBOARDING -> "ai_chat"
+            state.reachedSuggestionsViaSearchFlow || state.currentStep == OnboardingStep.SEARCH -> "search"
+            state.reachedSuggestionsViaOpmlFlow -> "import"
+            state.currentStep == OnboardingStep.WELCOME -> "welcome"
+            else -> "manual_genre"
+        }
 }

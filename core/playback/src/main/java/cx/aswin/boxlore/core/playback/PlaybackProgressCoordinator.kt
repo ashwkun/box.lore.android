@@ -62,13 +62,7 @@ internal class PlaybackProgressCoordinator(
             val durationMs = withContext(mainDispatcher) { player.duration }
             val episodeId = currentItem?.mediaId?.stripEpisodePrefix() ?: return
 
-            if (durationMs > 0 && positionMs > durationMs && lastProgressAnomalyEpisodeId != episodeId) {
-                lastProgressAnomalyEpisodeId = episodeId
-                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackProgressSyncAnomaly(
-                    anomalyType = "position_exceeds_duration",
-                    episodeId = episodeId,
-                )
-            }
+            maybeReportProgressSyncAnomaly(episodeId, positionMs, durationMs)
 
             val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
             if (existing != null && positionMs > 0) {
@@ -110,6 +104,20 @@ internal class PlaybackProgressCoordinator(
         } catch (e: Exception) {
             Log.e("AutoProgress", "Error saving progress once", e)
         }
+    }
+
+    private fun maybeReportProgressSyncAnomaly(
+        episodeId: String,
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (durationMs <= 0 || positionMs <= durationMs) return
+        if (lastProgressAnomalyEpisodeId == episodeId) return
+        lastProgressAnomalyEpisodeId = episodeId
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackProgressSyncAnomaly(
+            anomalyType = "position_exceeds_duration",
+            episodeId = episodeId,
+        )
     }
 
     private fun checkIsPlaybackCompleted(

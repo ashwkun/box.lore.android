@@ -427,15 +427,12 @@ class SmartDownloadManager(
             userPrefs.setSmartDownloadsLastSyncTime(System.currentTimeMillis())
             Log.d("SmartDownloadManager", "Smart downloads sync completed successfully.")
             writeLogToFile(context, "Sync completed successfully.")
-            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSmartDownloadSync(
+            emitSmartDownloadSyncTelemetry(
                 requestedCount = combinedEpisodes.size,
                 completedCount = countDownloaded,
                 cleanedCount = cleanedCount,
-                trigger = when {
-                    isManual -> "manual"
-                    isForeground -> "foreground"
-                    else -> "background"
-                },
+                isManual = isManual,
+                isForeground = isForeground,
             )
             return true
         } catch (e: Exception) {
@@ -444,6 +441,31 @@ class SmartDownloadManager(
             return false
         }
     }
+
+    private fun emitSmartDownloadSyncTelemetry(
+        requestedCount: Int,
+        completedCount: Int,
+        cleanedCount: Int,
+        isManual: Boolean,
+        isForeground: Boolean,
+    ) {
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSmartDownloadSync(
+            requestedCount = requestedCount,
+            completedCount = completedCount,
+            cleanedCount = cleanedCount,
+            trigger = smartDownloadSyncTrigger(isManual, isForeground),
+        )
+    }
+
+    private fun smartDownloadSyncTrigger(
+        isManual: Boolean,
+        isForeground: Boolean,
+    ): String =
+        when {
+            isManual -> "manual"
+            isForeground -> "foreground"
+            else -> "background"
+        }
 
     companion object {
         fun schedulePeriodicSync(context: Context, wifiOnly: Boolean, chargingOnly: Boolean) {

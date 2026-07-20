@@ -92,18 +92,16 @@ fun OpmlImportEffects(
                     if (importedList.isEmpty()) {
                         AnalyticsHelper.trackOnboardingImportFailed(
                             "opml",
-                            "Could not resolve or subscribe to any podcasts from this OPML file.",
+                            OPML_NO_PODCASTS_RESOLVED,
                         )
                         AnalyticsHelper.trackBackupRestoreResult(
                             action = "import",
                             success = false,
                             format = "opml",
-                            errorMessage = "Could not resolve or subscribe to any podcasts from this OPML file.",
+                            errorMessage = OPML_NO_PODCASTS_RESOLVED,
                         )
                         onStateChange(
-                            OpmlImportState.Error(
-                                "Could not resolve or subscribe to any podcasts from this OPML file.",
-                            ),
+                            OpmlImportState.Error(OPML_NO_PODCASTS_RESOLVED),
                         )
                     } else {
                         AnalyticsHelper.trackBackupRestoreResult(
@@ -176,6 +174,9 @@ fun OpmlImportEffects(
         }
     }
 }
+
+private const val OPML_NO_PODCASTS_RESOLVED =
+    "Could not resolve or subscribe to any podcasts from this OPML file."
 
 /** Import a JSON library backup on a background dispatcher. */
 suspend fun performJsonLibraryImport(
