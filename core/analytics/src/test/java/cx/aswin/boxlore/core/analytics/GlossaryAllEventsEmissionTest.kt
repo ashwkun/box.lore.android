@@ -407,6 +407,7 @@ class InstallChannelAttributionTest {
         assertFalse(recorder.any { it.first == "install_attributed" })
         assertTrue(recorder.any { it.first == AnalyticsGlossary.PERSON_SET_EVENT })
         val props = recorder.first { it.first == AnalyticsGlossary.PERSON_SET_EVENT }.second
+
         @Suppress("UNCHECKED_CAST")
         val once = props["\$set_once"] as Map<String, Any>
         assertTrue(once["install_channel"] == "share_referrer")

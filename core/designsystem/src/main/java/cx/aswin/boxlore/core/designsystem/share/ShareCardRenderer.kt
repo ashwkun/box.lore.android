@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList", "TooManyFunctions", "kotlin:S107")
+
 package cx.aswin.boxlore.core.designsystem.share
 
 import android.content.Context
