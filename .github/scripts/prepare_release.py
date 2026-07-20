@@ -484,6 +484,8 @@ def reconcile_changelog(
         if not changed:
             fail(f"PR #{number} produced no changelog entry")
         processed.append(number)
+        # Soft pacing so a long release range does not trip Groq TPM limits.
+        time.sleep(1.5)
 
     update_changelog.sync_changelog_unreleased(api_key)
     update_changelog.sync_readme_upcoming(api_key)

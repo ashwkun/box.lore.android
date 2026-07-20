@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from collections import defaultdict
@@ -280,6 +281,8 @@ Generate changelog bullets for the [Unreleased] section."""
         user_prompt,
         "Groq API error",
     )
+    if not parsed:
+        return {}
 
     normalized: dict[str, list[str]] = {}
     for category in CATEGORY_ORDER:
@@ -436,6 +439,13 @@ def _strip_pr_links(text: str) -> str:
     return re.sub(r"\s*\(\[#\d+\]\([^)]+\)\)\s*$", "", text).strip()
 
 
+def _groq_retry_wait_seconds(detail: str, attempt: int) -> float:
+    match = re.search(r"try again in ([0-9]+(?:\.[0-9]+)?)s", detail, flags=re.I)
+    if match:
+        return max(1.0, float(match.group(1)) + 0.5)
+    return min(60.0, float(2 ** attempt))
+
+
 def _groq_chat_json(api_key: str, system_prompt: str, user_prompt: str, error_label: str) -> dict:
     payload = {
         "model": GROQ_MODEL,
@@ -447,30 +457,56 @@ def _groq_chat_json(api_key: str, system_prompt: str, user_prompt: str, error_la
         ],
     }
 
-    request = urllib.request.Request(
-        GROQ_API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": GROQ_USER_AGENT,
-        },
-        method="POST",
-    )
+    max_attempts = 8
+    last_detail = ""
+    for attempt in range(1, max_attempts + 1):
+        request = urllib.request.Request(
+            GROQ_API_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": GROQ_USER_AGENT,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            last_detail = exc.read().decode("utf-8", errors="replace")
+            if exc.code == 429 and attempt < max_attempts:
+                wait = _groq_retry_wait_seconds(last_detail, attempt)
+                print(
+                    f"{error_label}: rate limited (attempt {attempt}/{max_attempts}); "
+                    f"retrying in {wait:.1f}s"
+                )
+                time.sleep(wait)
+                continue
+            print(f"{error_label} ({exc.code}): {last_detail}", file=sys.stderr)
+            return {}
+        except urllib.error.URLError as exc:
+            last_detail = str(exc)
+            if attempt < max_attempts:
+                wait = min(30.0, float(2 ** attempt))
+                print(
+                    f"{error_label}: network error (attempt {attempt}/{max_attempts}); "
+                    f"retrying in {wait:.1f}s ({last_detail})"
+                )
+                time.sleep(wait)
+                continue
+            print(f"{error_label}: {last_detail}", file=sys.stderr)
+            return {}
 
-    try:
-        with urllib.request.urlopen(request, timeout=90) as response:
-            body = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        print(f"{error_label} ({exc.code}): {detail}", file=sys.stderr)
-        sys.exit(1)
+        content = body["choices"][0]["message"]["content"]
+        parsed = json.loads(content)
+        if not isinstance(parsed, dict):
+            print(f"{error_label}: Groq response was not a JSON object", file=sys.stderr)
+            return {}
+        return parsed
 
-    content = body["choices"][0]["message"]["content"]
-    parsed = json.loads(content)
-    if not isinstance(parsed, dict):
-        raise ValueError(f"{error_label}: Groq response was not a JSON object")
-    return parsed
+    print(f"{error_label}: giving up after retries. {last_detail}", file=sys.stderr)
+    return {}
 
 
 def _format_changelog_bullet(
