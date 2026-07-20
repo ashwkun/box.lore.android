@@ -101,6 +101,7 @@ internal object ShareCardRenderer {
         return output
     }
 
+    @Suppress("CyclomaticComplexMethod")
     private fun drawShareCardShapes(
         canvas: android.graphics.Canvas,
         width: Float,

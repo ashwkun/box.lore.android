@@ -130,106 +130,42 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                 cx.aswin.boxlore.feature.home.settings.LibraryBackupWriters(
                     onExportJson = { uri ->
                         scope.launch(Dispatchers.IO) {
-                            try {
-                                val backupJson =
-                                    cx.aswin.boxlore.core.catalog.backup
-                                        .LibraryBackupManager(
-                                            subscriptionRepository,
-                                            playbackRepository,
-                                            podcastRepository,
-                                            userPrefs,
-                                            application,
-                                        ).exportLibraryAsJson()
-                                (
-                                    application.contentResolver.openOutputStream(uri)
-                                        ?: error("Unable to open export destination")
-                                ).use { it.write(backupJson.toByteArray()) }
-                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
-                                    action = "export",
-                                    success = true,
-                                    format = "json",
-                                )
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast
-                                        .makeText(
-                                            application,
-                                            "Library Exported Successfully",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                }
-                            } catch (e: Exception) {
-                                if (e is CancellationException) throw e
-                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
-                                    action = "export",
-                                    success = false,
-                                    format = "json",
-                                    errorMessage =
-                                        cx.aswin.boxlore.ui.libraryimport.LibraryBackupAnalyticsErrors
-                                            .fromThrowable(
-                                                e,
-                                                cx.aswin.boxlore.ui.libraryimport.LibraryBackupAnalyticsErrors.EXPORT_FAILED,
-                                            ),
-                                )
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast
-                                        .makeText(
-                                            application,
-                                            "Failed to export: ${e.message}",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                }
+                            runLibraryExport(
+                                application = application,
+                                uri = uri,
+                                format = "json",
+                                successToast = "Library Exported Successfully",
+                                failureToastPrefix = "Failed to export",
+                            ) {
+                                cx.aswin.boxlore.core.catalog.backup
+                                    .LibraryBackupManager(
+                                        subscriptionRepository,
+                                        playbackRepository,
+                                        podcastRepository,
+                                        userPrefs,
+                                        application,
+                                    ).exportLibraryAsJson()
+                                    .toByteArray()
                             }
                         }
                     },
                     onExportOpml = { uri ->
                         scope.launch(Dispatchers.IO) {
-                            try {
-                                val opmlXml =
-                                    cx.aswin.boxlore.core.catalog.backup
-                                        .LibraryBackupManager(
-                                            subscriptionRepository,
-                                            playbackRepository,
-                                            podcastRepository,
-                                            context = application,
-                                        ).exportLibraryAsOpml()
-                                (
-                                    application.contentResolver.openOutputStream(uri)
-                                        ?: error("Unable to open export destination")
-                                ).use { it.write(opmlXml.toByteArray()) }
-                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
-                                    action = "export",
-                                    success = true,
-                                    format = "opml",
-                                )
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast
-                                        .makeText(
-                                            application,
-                                            "Subscriptions Exported as OPML",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                }
-                            } catch (e: Exception) {
-                                if (e is CancellationException) throw e
-                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
-                                    action = "export",
-                                    success = false,
-                                    format = "opml",
-                                    errorMessage =
-                                        cx.aswin.boxlore.ui.libraryimport.LibraryBackupAnalyticsErrors
-                                            .fromThrowable(
-                                                e,
-                                                cx.aswin.boxlore.ui.libraryimport.LibraryBackupAnalyticsErrors.EXPORT_FAILED,
-                                            ),
-                                )
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast
-                                        .makeText(
-                                            application,
-                                            "Failed to export OPML: ${e.message}",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                }
+                            runLibraryExport(
+                                application = application,
+                                uri = uri,
+                                format = "opml",
+                                successToast = "Subscriptions Exported as OPML",
+                                failureToastPrefix = "Failed to export OPML",
+                            ) {
+                                cx.aswin.boxlore.core.catalog.backup
+                                    .LibraryBackupManager(
+                                        subscriptionRepository,
+                                        playbackRepository,
+                                        podcastRepository,
+                                        context = application,
+                                    ).exportLibraryAsOpml()
+                                    .toByteArray()
                             }
                         }
                     },
@@ -245,6 +181,54 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                     onNavigateToAutoDownloads = { navController.navigate("library/auto_downloads/settings") },
                 ),
         )
+    }
+}
+
+private suspend fun runLibraryExport(
+    application: android.app.Application,
+    uri: android.net.Uri,
+    format: String,
+    successToast: String,
+    failureToastPrefix: String,
+    exportBytes: suspend () -> ByteArray,
+) {
+    try {
+        val bytes = exportBytes()
+        (
+            application.contentResolver.openOutputStream(uri)
+                ?: error("Unable to open export destination")
+        ).use { it.write(bytes) }
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
+            action = "export",
+            success = true,
+            format = format,
+        )
+        kotlinx.coroutines.withContext(Dispatchers.Main) {
+            android.widget.Toast
+                .makeText(application, successToast, android.widget.Toast.LENGTH_SHORT)
+                .show()
+        }
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
+            action = "export",
+            success = false,
+            format = format,
+            errorMessage =
+                cx.aswin.boxlore.ui.libraryimport.LibraryBackupAnalyticsErrors
+                    .fromThrowable(
+                        e,
+                        cx.aswin.boxlore.ui.libraryimport.LibraryBackupAnalyticsErrors.EXPORT_FAILED,
+                    ),
+        )
+        kotlinx.coroutines.withContext(Dispatchers.Main) {
+            android.widget.Toast
+                .makeText(
+                    application,
+                    "$failureToastPrefix: ${e.message}",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+        }
     }
 }
 
