@@ -95,9 +95,7 @@ class MainActivity : ComponentActivity() {
         isFirstResumeAfterLaunch = false
         PostHog.register(
             "local_time_of_day",
-            java.util.Calendar
-                .getInstance()
-                .get(java.util.Calendar.HOUR_OF_DAY),
+            java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
         )
         NpsSurveyTriggers.check(
             surveyPrefs = surveyPrefs,

@@ -589,8 +589,7 @@ class SmartDownloadManager(
 
         fun cancelPeriodicSync(context: Context) {
             try {
-                androidx.work.WorkManager
-                    .getInstance(context)
+                androidx.work.WorkManager.getInstance(context)
                     .cancelUniqueWork("SmartDownloadSync")
                 Log.d("SmartDownloadManager", "Cancelled periodic SmartDownloadWorker task.")
                 writeLogToFile(context, "WorkManager periodic task cancelled.")
