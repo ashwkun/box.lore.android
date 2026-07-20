@@ -8,7 +8,8 @@ Owns shared Compose visual primitives: theme, typography, shapes, motion, loader
 
 - `BoxLoreTheme` and theme helpers such as expressive shapes, motion, typography, and dynamic color utilities.
 - Shared components including `OptimizedImage`, loaders, player-control primitives used by UI modules, bottom navigation chrome constants, and sleep-timer chrome.
-- `share.ShareManager` for composite share cards and the system share sheet.
+- `share.ShareManager` for composite share cards and the system share sheet; emits glossary `share_content` via `:core:analytics`.
+- `share.ShareCardRenderer` builds the share-card bitmaps used by `ShareManager` (stories / message formats).
 
 ## Internal structure
 
