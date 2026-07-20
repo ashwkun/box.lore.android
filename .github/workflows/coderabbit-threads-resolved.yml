@@ -13,6 +13,10 @@
 # Scope: only threads whose first comment author login contains "coderabbit"
 # (bot or app). Human review threads are still covered by the ruleset flag
 # `required_review_thread_resolution: true`.
+#
+# Note: GitHub Actions does not support `pull_request_review_thread` as a workflow
+# event. After resolving threads without a new push, re-run this workflow
+# (Actions → CodeRabbit Threads Resolved, or workflow_dispatch with pr_number).
 
 name: CodeRabbit Threads Resolved
 
@@ -21,16 +25,14 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, dismissed]
-  pull_request_review_thread:
-    types: [resolved, unresolved]
   check_run:
     types: [completed]
   merge_group:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: "PR number to evaluate (optional; omit for merge_group / current SHA)"
-        required: false
+        description: "PR number to evaluate (required when dispatching manually)"
+        required: true
         type: string
 
 concurrency:
@@ -58,11 +60,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number || '' }}
-          PR_NUMBER_EVENT: ${{ github.event.pull_request.number || github.event.pull_request_review.pull_request.number || github.event.pull_request_review_thread.pull_request.number || '' }}
+          PR_NUMBER_EVENT: ${{ github.event.pull_request.number || '' }}
+          PR_NUMBER_REVIEW: ${{ github.event.pull_request_review.pull_request.number || '' }}
           HEAD_SHA_PR: ${{ github.event.pull_request.head.sha || '' }}
           HEAD_SHA_MG: ${{ github.event.merge_group.head_sha || '' }}
           HEAD_SHA_REVIEW: ${{ github.event.pull_request_review.pull_request.head.sha || '' }}
-          HEAD_SHA_THREAD: ${{ github.event.pull_request_review_thread.pull_request.head.sha || '' }}
           HEAD_SHA_CHECK: ${{ github.event.check_run.head_sha || '' }}
           REPO: ${{ github.repository }}
         run: |
@@ -78,11 +80,7 @@ jobs:
               ;;
             pull_request_review)
               HEAD_SHA="$HEAD_SHA_REVIEW"
-              PR_NUMBER="${PR_NUMBER_EVENT}"
-              ;;
-            pull_request_review_thread)
-              HEAD_SHA="$HEAD_SHA_THREAD"
-              PR_NUMBER="${PR_NUMBER_EVENT}"
+              PR_NUMBER="${PR_NUMBER_REVIEW}"
               ;;
             merge_group)
               HEAD_SHA="$HEAD_SHA_MG"
@@ -91,11 +89,11 @@ jobs:
               HEAD_SHA="$HEAD_SHA_CHECK"
               ;;
             workflow_dispatch)
-              if [[ -n "${PR_NUMBER}" ]]; then
-                HEAD_SHA="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq .head.sha)"
-              else
-                HEAD_SHA="${GITHUB_SHA}"
+              if [[ -z "${PR_NUMBER}" ]]; then
+                echo "::error::workflow_dispatch requires pr_number"
+                exit 1
               fi
+              HEAD_SHA="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq .head.sha)"
               ;;
             *)
               HEAD_SHA="${GITHUB_SHA}"
@@ -206,6 +204,7 @@ jobs:
               echo "$OPEN_JSON" | jq -r '.[] | "- **@\(.author)**: \(.preview)\n  \(.url)"'
               echo
               echo "Agents: fix or consciously dismiss each finding, then mark the thread **Resolved**."
+              echo "Then re-run this workflow (or push) so the check turns green."
               echo "Do not merge while this check is red."
             } > /tmp/cr-threads-summary.md
 
@@ -246,7 +245,6 @@ jobs:
             *) CONCLUSION=failure ;;
           esac
 
-          # Compact JSON body for the Checks API.
           jq -n \
             --arg name "coderabbit-threads-resolved" \
             --arg head_sha "$HEAD_SHA" \

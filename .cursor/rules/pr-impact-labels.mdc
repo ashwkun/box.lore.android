@@ -47,7 +47,7 @@ Agent / maintainer flow:
 
 1. Open and iterate the PR (Sonar + CodeRabbit + unit suite run on each push).
 2. Wait for **`testDebugUnitTest`**, **`SonarCloud Code Analysis`**, **`CodeRabbit`**, and **`coderabbit-threads-resolved`** green.
-3. Address CodeRabbit findings and mark each CodeRabbit thread **Resolved** (required for merge; Cursor agents must not merge while this check is red).
+3. Address CodeRabbit findings and mark each CodeRabbit thread **Resolved** (required for merge; Cursor agents must not merge while this check is red). After resolving without a new push, re-run **CodeRabbit Threads Resolved** (`workflow_dispatch` with `pr_number`) so the check flips green.
 4. Merge via **Merge when ready** (merge queue, squash) — the queue re-runs **`testDebugUnitTest`** and re-checks threads.
 5. Optional: Actions → Run workflow (`Unit Tests`) for a manual full gate.
 
