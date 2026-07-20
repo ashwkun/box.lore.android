@@ -32,7 +32,10 @@ internal object AnalyticsEmit {
         }
     }
 
-    fun event(name: String, properties: Map<String, Any> = emptyMap()) {
+    fun event(
+        name: String,
+        properties: Map<String, Any> = emptyMap(),
+    ) {
         if (!AnalyticsGlossary.isAllowedEvent(name)) {
             Log.w(TAG, "Dropped non-glossary event: $name")
             return

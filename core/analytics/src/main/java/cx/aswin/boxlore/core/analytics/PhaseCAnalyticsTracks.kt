@@ -6,7 +6,6 @@ import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
  * Phase C glossary events (Auto + polish) — PR9.
  */
 internal object PhaseCAnalyticsTracks {
-
     fun trackAndroidAutoConnected(sessionId: String? = null) {
         AnalyticsEmit.event(
             "android_auto_connected",
@@ -16,7 +15,10 @@ internal object PhaseCAnalyticsTracks {
         )
     }
 
-    fun trackAndroidAutoDisconnected(sessionId: String? = null, durationSeconds: Int? = null) {
+    fun trackAndroidAutoDisconnected(
+        sessionId: String? = null,
+        durationSeconds: Int? = null,
+    ) {
         AnalyticsEmit.event(
             "android_auto_disconnected",
             buildMap {
@@ -26,7 +28,10 @@ internal object PhaseCAnalyticsTracks {
         )
     }
 
-    fun trackAndroidAutoBrowse(node: String, action: String? = null) {
+    fun trackAndroidAutoBrowse(
+        node: String,
+        action: String? = null,
+    ) {
         AnalyticsEmit.event(
             "android_auto_browse",
             buildMap {
@@ -38,7 +43,8 @@ internal object PhaseCAnalyticsTracks {
 
     fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
         val statusSummary =
-            statuses.joinToString(separator = ",") { "${it.objective}:${it.learningStage}" }
+            statuses
+                .joinToString(separator = ",") { "${it.objective}:${it.learningStage}" }
                 .ifBlank { "empty" }
         AnalyticsEmit.event(
             "adaptive_ranking_status",
@@ -58,7 +64,10 @@ internal object PhaseCAnalyticsTracks {
         )
     }
 
-    fun trackCatalogMiss(lookupType: String, key: String? = null) {
+    fun trackCatalogMiss(
+        lookupType: String,
+        key: String? = null,
+    ) {
         AnalyticsEmit.event(
             "catalog_miss",
             buildMap {
@@ -68,7 +77,10 @@ internal object PhaseCAnalyticsTracks {
         )
     }
 
-    fun trackRssRefreshFailed(podcastId: String? = null, errorType: String? = null) {
+    fun trackRssRefreshFailed(
+        podcastId: String? = null,
+        errorType: String? = null,
+    ) {
         AnalyticsEmit.event(
             "rss_refresh_failed",
             buildMap {
@@ -78,7 +90,10 @@ internal object PhaseCAnalyticsTracks {
         )
     }
 
-    fun trackProgressSyncAnomaly(anomalyType: String, episodeId: String? = null) {
+    fun trackProgressSyncAnomaly(
+        anomalyType: String,
+        episodeId: String? = null,
+    ) {
         AnalyticsEmit.event(
             "progress_sync_anomaly",
             buildMap {
@@ -88,7 +103,10 @@ internal object PhaseCAnalyticsTracks {
         )
     }
 
-    fun trackLateNightSafeguardDecision(decision: String, durationMinutes: Int? = null) {
+    fun trackLateNightSafeguardDecision(
+        decision: String,
+        durationMinutes: Int? = null,
+    ) {
         AnalyticsEmit.event(
             "late_night_safeguard_decision",
             buildMap {

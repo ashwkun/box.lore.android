@@ -77,7 +77,10 @@ internal object DiscoveryAnalyticsTracks {
         AnalyticsEmit.personSet(mapOf("notifications_enabled" to isGranted))
     }
 
-    fun trackHomeHeroCarouselSwiped(maxCardIndexViewed: Int, totalCardsAvailable: Int) {
+    fun trackHomeHeroCarouselSwiped(
+        maxCardIndexViewed: Int,
+        totalCardsAvailable: Int,
+    ) {
         AnalyticsEmit.event(
             "home_surface_tapped",
             mapOf(
@@ -88,7 +91,10 @@ internal object DiscoveryAnalyticsTracks {
         )
     }
 
-    fun trackCuratedBlockImpression(blockTitle: String, vibeIds: List<String>) {
+    fun trackCuratedBlockImpression(
+        blockTitle: String,
+        vibeIds: List<String>,
+    ) {
         AnalyticsEmit.event(
             "home_surface_impression",
             mapOf(
@@ -105,11 +111,12 @@ internal object DiscoveryAnalyticsTracks {
         episodeIds: List<String>,
         timeBlockTitle: String?,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "surface_component" to "recommendations",
-            "items_count" to recommendationsCount,
-            "episode_ids" to episodeIds,
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "surface_component" to "recommendations",
+                "items_count" to recommendationsCount,
+                "episode_ids" to episodeIds,
+            )
         timeBlockTitle?.let { props["rail_intent"] = it }
         AnalyticsEmit.event("home_surface_impression", props)
     }
@@ -122,13 +129,14 @@ internal object DiscoveryAnalyticsTracks {
         positionIndex: Int,
         timeBlockTitle: String?,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "surface_component" to "recommendations",
-            "content_id" to episodeId,
-            "episode_id" to episodeId,
-            "podcast_id" to podcastId,
-            "position_index" to positionIndex,
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "surface_component" to "recommendations",
+                "content_id" to episodeId,
+                "episode_id" to episodeId,
+                "podcast_id" to podcastId,
+                "position_index" to positionIndex,
+            )
         episodeTitle?.let { props["episode_title"] = it }
         podcastName?.let { props["podcast_name"] = it }
         timeBlockTitle?.let { props["rail_intent"] = it }
@@ -157,12 +165,13 @@ internal object DiscoveryAnalyticsTracks {
         podcastName: String?,
         positionIndex: Int,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "podcast_id" to podcastId,
-            "episode_id" to episodeId,
-            "position_index" to positionIndex,
-            "rail" to "for_you",
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "podcast_id" to podcastId,
+                "episode_id" to episodeId,
+                "position_index" to positionIndex,
+                "rail" to "for_you",
+            )
         episodeTitle?.let { props["episode_title"] = it }
         podcastName?.let { props["podcast_name"] = it }
         AnalyticsEmit.event("explore_recommendation_tapped", props)
@@ -191,12 +200,13 @@ internal object DiscoveryAnalyticsTracks {
         isSubscribed: Boolean,
         entryPoint: String,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "podcast_id" to podcastId,
-            "is_subscribed" to isSubscribed,
-            "source" to entryPoint,
-            "surface" to entryPoint,
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "podcast_id" to podcastId,
+                "is_subscribed" to isSubscribed,
+                "source" to entryPoint,
+                "surface" to entryPoint,
+            )
         podcastName?.let { props["podcast_name"] = it }
         AnalyticsEmit.event("podcast_subscription_toggled", props)
     }
@@ -236,13 +246,14 @@ internal object DiscoveryAnalyticsTracks {
         vibeId: String,
         positionIndex: Int,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "surface_component" to "curated_card",
-            "content_id" to podcastId,
-            "podcast_id" to podcastId,
-            "rail_intent" to vibeId,
-            "position_index" to positionIndex,
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "surface_component" to "curated_card",
+                "content_id" to podcastId,
+                "podcast_id" to podcastId,
+                "rail_intent" to vibeId,
+                "position_index" to positionIndex,
+            )
         if (podcastName != null) props["podcast_name"] = podcastName
         AnalyticsEmit.event("home_surface_tapped", props)
     }

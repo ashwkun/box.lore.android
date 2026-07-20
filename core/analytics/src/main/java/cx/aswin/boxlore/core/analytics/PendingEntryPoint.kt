@@ -3,13 +3,13 @@ package cx.aswin.boxlore.core.analytics
 /**
  * Static holder for entry-point context that needs to cross the
  * MediaController → MediaSession IPC boundary.
- * 
+ *
  * Bundle extras set via MediaMetadata.Builder().setExtras() are not
  * reliably preserved across Binder serialization. This singleton
  * provides a same-process shortcut: PlaybackRepository writes the
  * context before calling controller.play(), and
  * BoxLorePlaybackService consumes it in startPlaybackSession().
- * 
+ *
  * Thread-safe via @Synchronized.
  */
 object PendingEntryPoint {

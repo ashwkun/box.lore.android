@@ -11,16 +11,23 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackLibraryHubSession(timeSpentSeconds: Float, navigatedTo: String?) {
-        val props = mutableMapOf<String, Any>(
-            "destination" to "hub",
-            "time_spent_seconds" to timeSpentSeconds,
-        )
+    fun trackLibraryHubSession(
+        timeSpentSeconds: Float,
+        navigatedTo: String?,
+    ) {
+        val props =
+            mutableMapOf<String, Any>(
+                "destination" to "hub",
+                "time_spent_seconds" to timeSpentSeconds,
+            )
         navigatedTo?.let { props["navigated_to"] = it }
         AnalyticsEmit.event("library_destination_viewed", props)
     }
 
-    fun trackLibrarySubscriptionsViewed(sourceEntryPoint: String, initialTab: String) {
+    fun trackLibrarySubscriptionsViewed(
+        sourceEntryPoint: String,
+        initialTab: String,
+    ) {
         AnalyticsEmit.event(
             "library_destination_viewed",
             mapOf(
@@ -39,14 +46,15 @@ internal object LibraryAnalyticsTracks {
         podcastsClickedCount: Int,
         episodesClickedCount: Int,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "destination" to "subscriptions",
-            "time_spent_seconds" to timeSpentSeconds,
-            "tab_switches_count" to tabSwitchesCount,
-            "did_search" to didSearch,
-            "podcasts_clicked_count" to podcastsClickedCount,
-            "episodes_clicked_count" to episodesClickedCount,
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "destination" to "subscriptions",
+                "time_spent_seconds" to timeSpentSeconds,
+                "tab_switches_count" to tabSwitchesCount,
+                "did_search" to didSearch,
+                "podcasts_clicked_count" to podcastsClickedCount,
+                "episodes_clicked_count" to episodesClickedCount,
+            )
         finalSearchQuery?.let { props["final_search_query"] = it }
         AnalyticsEmit.event("library_destination_viewed", props)
     }
@@ -58,7 +66,11 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackLibraryLikedSession(timeSpentSeconds: Float, episodesClickedCount: Int, episodesUnlikedCount: Int) {
+    fun trackLibraryLikedSession(
+        timeSpentSeconds: Float,
+        episodesClickedCount: Int,
+        episodesUnlikedCount: Int,
+    ) {
         AnalyticsEmit.event(
             "library_destination_viewed",
             mapOf(
@@ -77,7 +89,11 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackLibraryDownloadsSession(timeSpentSeconds: Float, episodesClickedCount: Int, episodesDeletedCount: Int) {
+    fun trackLibraryDownloadsSession(
+        timeSpentSeconds: Float,
+        episodesClickedCount: Int,
+        episodesDeletedCount: Int,
+    ) {
         AnalyticsEmit.event(
             "library_destination_viewed",
             mapOf(
@@ -96,7 +112,11 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackLibraryHistorySession(timeSpentSeconds: Float, episodesClickedCount: Int, itemsDeletedCount: Int) {
+    fun trackLibraryHistorySession(
+        timeSpentSeconds: Float,
+        episodesClickedCount: Int,
+        itemsDeletedCount: Int,
+    ) {
         AnalyticsEmit.event(
             "library_destination_viewed",
             mapOf(
@@ -115,7 +135,10 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackTopControlbarInteraction(action: String, screen: String) {
+    fun trackTopControlbarInteraction(
+        action: String,
+        screen: String,
+    ) {
         AnalyticsEmit.event(
             "player_chrome_interaction",
             mapOf(
@@ -136,11 +159,15 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackSettingsInteraction(action: String, value: String? = null) {
-        val props = mutableMapOf<String, Any>(
-            "action" to action,
-            "setting_key" to action,
-        )
+    fun trackSettingsInteraction(
+        action: String,
+        value: String? = null,
+    ) {
+        val props =
+            mutableMapOf<String, Any>(
+                "action" to action,
+                "setting_key" to action,
+            )
         if (value != null) props["value"] = value
         AnalyticsEmit.event("settings_interaction", props)
     }
@@ -152,10 +179,11 @@ internal object LibraryAnalyticsTracks {
         podcastName: String? = null,
         episodeTitle: String? = null,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "surface" to "player_mini",
-            "action" to action,
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "surface" to "player_mini",
+                "action" to action,
+            )
         if (podcastId != null) props["podcast_id"] = podcastId
         if (episodeId != null) props["episode_id"] = episodeId
         if (podcastName != null) props["podcast_name"] = podcastName
@@ -170,10 +198,11 @@ internal object LibraryAnalyticsTracks {
         podcastName: String? = null,
         episodeTitle: String? = null,
     ) {
-        val props = mutableMapOf<String, Any>(
-            "surface" to "player_full",
-            "action" to "session_end",
-        )
+        val props =
+            mutableMapOf<String, Any>(
+                "surface" to "player_full",
+                "action" to "session_end",
+            )
         if (podcastId != null) props["podcast_id"] = podcastId
         if (episodeId != null) props["episode_id"] = episodeId
         if (podcastName != null) props["podcast_name"] = podcastName
@@ -222,7 +251,10 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackHomePodcastFiltered(podcastId: String, title: String) {
+    fun trackHomePodcastFiltered(
+        podcastId: String,
+        title: String,
+    ) {
         AnalyticsEmit.event(
             "home_surface_tapped",
             mapOf(
@@ -245,7 +277,10 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackLibrarySubscriptionsSortChanged(sortMethod: String, tab: String) {
+    fun trackLibrarySubscriptionsSortChanged(
+        sortMethod: String,
+        tab: String,
+    ) {
         AnalyticsEmit.event(
             "library_destination_viewed",
             mapOf(
@@ -257,7 +292,10 @@ internal object LibraryAnalyticsTracks {
         )
     }
 
-    fun trackLibrarySubscriptionsGenreFiltered(genreName: String, tab: String) {
+    fun trackLibrarySubscriptionsGenreFiltered(
+        genreName: String,
+        tab: String,
+    ) {
         AnalyticsEmit.event(
             "library_destination_viewed",
             mapOf(
