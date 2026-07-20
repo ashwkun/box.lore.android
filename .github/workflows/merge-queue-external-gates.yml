@@ -115,28 +115,41 @@ jobs:
 
             // Live gate: unresolved CodeRabbit threads must be resolved before merge.
             // Publishes the named required check `coderabbit-threads-resolved`.
-            const threads = await github.graphql(`
-              query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  pullRequest(number: $number) {
-                    reviewThreads(first: 100) {
-                      nodes {
-                        isResolved
-                        isOutdated
-                        comments(first: 1) {
-                          nodes { author { login } url body }
+            // Paginate — GitHub caps reviewThreads at 100 per page.
+            const threadNodes = [];
+            let cursor = null;
+            let hasNextPage = true;
+            while (hasNextPage) {
+              const threadsPage = await github.graphql(`
+                query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      reviewThreads(first: 100, after: $cursor) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                          isResolved
+                          isOutdated
+                          comments(first: 1) {
+                            nodes { author { login } url body }
+                          }
                         }
                       }
                     }
                   }
                 }
-              }
-            `, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              number: prNumber,
-            });
-            const openCodeRabbit = (threads.repository.pullRequest.reviewThreads.nodes || [])
+              `, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                number: prNumber,
+                cursor,
+              });
+              const conn = threadsPage.repository.pullRequest.reviewThreads;
+              threadNodes.push(...(conn.nodes || []));
+              hasNextPage = Boolean(conn.pageInfo?.hasNextPage);
+              cursor = conn.pageInfo?.endCursor || null;
+              if (!cursor) hasNextPage = false;
+            }
+            const openCodeRabbit = threadNodes
               .filter((t) => !t.isResolved && !t.isOutdated)
               .filter((t) => {
                 const login = (t.comments?.nodes?.[0]?.author?.login || '').toLowerCase();

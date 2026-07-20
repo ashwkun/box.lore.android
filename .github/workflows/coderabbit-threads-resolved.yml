@@ -40,17 +40,16 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
-  pull-requests: read
-  checks: write
+  contents: read       # metadata / no checkout required
+  pull-requests: read  # resolve PR number / head SHA; read review threads
+  checks: write        # publish the coderabbit-threads-resolved check run
 
 jobs:
   coderabbit-threads-resolved:
     name: coderabbit-threads-resolved
     if: >
       github.event_name != 'check_run' ||
-      contains(github.event.check_run.name, 'CodeRabbit') ||
-      contains(github.event.check_run.name, 'CodeRabbit AI')
+      contains(github.event.check_run.name, 'CodeRabbit')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -60,11 +59,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number || '' }}
+          # pull_request and pull_request_review both expose PR under github.event.pull_request
           PR_NUMBER_EVENT: ${{ github.event.pull_request.number || '' }}
-          PR_NUMBER_REVIEW: ${{ github.event.pull_request_review.pull_request.number || '' }}
           HEAD_SHA_PR: ${{ github.event.pull_request.head.sha || '' }}
           HEAD_SHA_MG: ${{ github.event.merge_group.head_sha || '' }}
-          HEAD_SHA_REVIEW: ${{ github.event.pull_request_review.pull_request.head.sha || '' }}
           HEAD_SHA_CHECK: ${{ github.event.check_run.head_sha || '' }}
           REPO: ${{ github.repository }}
         run: |
@@ -74,13 +72,9 @@ jobs:
           PR_NUMBER="${PR_NUMBER_INPUT:-}"
 
           case "$EVENT_NAME" in
-            pull_request)
+            pull_request|pull_request_review)
               HEAD_SHA="$HEAD_SHA_PR"
               PR_NUMBER="${PR_NUMBER_EVENT}"
-              ;;
-            pull_request_review)
-              HEAD_SHA="$HEAD_SHA_REVIEW"
-              PR_NUMBER="${PR_NUMBER_REVIEW}"
               ;;
             merge_group)
               HEAD_SHA="$HEAD_SHA_MG"
@@ -138,11 +132,15 @@ jobs:
 
           echo "Evaluating CodeRabbit threads on PR #${PR_NUMBER} @ ${HEAD_SHA}"
 
-          # GraphQL: unresolved + non-outdated threads whose first comment is from CodeRabbit.
-          QUERY='query($owner:String!, $repo:String!, $number:Int!) {
+          OWNER="${REPO%/*}"
+          NAME="${REPO#*/}"
+
+          # Paginate reviewThreads — GitHub caps first/last at 100 per page.
+          QUERY='query($owner:String!, $repo:String!, $number:Int!, $cursor:String) {
             repository(owner:$owner, name:$repo) {
               pullRequest(number:$number) {
-                reviewThreads(first:100) {
+                reviewThreads(first:100, after:$cursor) {
+                  pageInfo { hasNextPage endCursor }
                   nodes {
                     isResolved
                     isOutdated
@@ -159,18 +157,36 @@ jobs:
             }
           }'
 
-          OWNER="${REPO%/*}"
-          NAME="${REPO#*/}"
+          ALL_NODES='[]'
+          CURSOR=""
+          while true; do
+            ARGS=(
+              -f query="$QUERY"
+              -F owner="$OWNER"
+              -F repo="$NAME"
+              -F number="$PR_NUMBER"
+            )
+            if [[ -n "$CURSOR" ]]; then
+              ARGS+=(-f cursor="$CURSOR")
+            else
+              # Explicit GraphQL null for the first page
+              ARGS+=(-F cursor=null)
+            fi
+            RESPONSE="$(gh api graphql "${ARGS[@]}")"
 
-          RESPONSE="$(gh api graphql \
-            -f query="$QUERY" \
-            -F owner="$OWNER" \
-            -F repo="$NAME" \
-            -F number="$PR_NUMBER")"
+            PAGE_NODES="$(echo "$RESPONSE" | jq -c '.data.repository.pullRequest.reviewThreads.nodes // []')"
+            ALL_NODES="$(jq -c --argjson a "$ALL_NODES" --argjson b "$PAGE_NODES" '$a + $b')"
+
+            HAS_NEXT="$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')"
+            CURSOR="$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // empty')"
+            if [[ "$HAS_NEXT" != "true" || -z "$CURSOR" ]]; then
+              break
+            fi
+          done
 
           OPEN_JSON="$(
-            echo "$RESPONSE" | jq -c '
-              [.data.repository.pullRequest.reviewThreads.nodes[]?
+            echo "$ALL_NODES" | jq -c '
+              [.[]?
                | select(.isResolved == false and .isOutdated == false)
                | select(
                    ((.comments.nodes[0].author.login // "") | ascii_downcase)

@@ -21,6 +21,8 @@ Master uses a **merge queue**. Required checks before merge:
 3. **`CodeRabbit`** — review job finished (does **not** mean findings are cleared)
 4. **`coderabbit-threads-resolved`** — **mandatory:** every non-outdated CodeRabbit review thread is marked Resolved
 
+Flow:
+
 1. Open the PR and iterate as usual (Sonar + CodeRabbit + unit suite run on each push).
 2. Address CodeRabbit findings and mark every CodeRabbit thread **Resolved**; wait for SonarCloud, unit tests, and **`coderabbit-threads-resolved`**.
 3. Use **Merge when ready** — the PR enters the merge queue (squash), which re-runs **`testDebugUnitTest`** and re-checks threads.
