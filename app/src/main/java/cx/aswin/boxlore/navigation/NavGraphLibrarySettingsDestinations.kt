@@ -1,27 +1,15 @@
 package cx.aswin.boxlore.navigation
 
-import android.Manifest
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.navigation.navDeepLink
-import cx.aswin.boxlore.feature.briefing.BriefingRoute
-import cx.aswin.boxlore.feature.home.HomeRoute
+import cx.aswin.boxlore.feature.home.settings.DownloadsNavigation
 import cx.aswin.boxlore.ui.libraryimport.OpmlImportState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-
-import cx.aswin.boxlore.feature.home.settings.DownloadsNavigation
 
 internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGraphWiring) {
     val navController = w.navController
@@ -41,13 +29,14 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
     // -----------------------------------------------------------------------
     composable(
         route = "settings?page={page}",
-        arguments = listOf(
-            navArgument("page") {
-                type = NavType.StringType
-                nullable = true
-                defaultValue = null
-            },
-        ),
+        arguments =
+            listOf(
+                navArgument("page") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
     ) { backStackEntry ->
         val settingsPage = backStackEntry.arguments?.getString("page")
 
@@ -62,117 +51,164 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
         }
 
         cx.aswin.boxlore.feature.home.settings.SettingsScreen(
-            repositories = cx.aswin.boxlore.feature.home.settings.SettingsRepositories(
-                rssPodcastRepository = container.rssPodcastRepository,
-                rankingFeedbackRepository = container.rankingFeedbackRepository,
-            ),
-            config = cx.aswin.boxlore.feature.home.settings.SettingsScreenConfig(
-                onBack = { navController.popBackStack() },
-                onResetAnalytics = {
-                    try {
-                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.resetIdentity()
-                    } catch (e: Exception) {
-                        android.util.Log.e("Settings", "Failed to reset analytics", e)
-                    }
-                },
-                appInstanceId = appInstanceId,
-                initialPage = settingsPage,
-            ),
-            regionSettings = cx.aswin.boxlore.feature.home.settings.RegionSettings(
-                currentRegion = settingsState.currentRegion,
-                onSetRegion = { region -> scope.launch { userPrefs.setRegion(region) } },
-            ),
-            appearanceSettings = cx.aswin.boxlore.feature.home.settings.AppearanceSettings(
-                state = cx.aswin.boxlore.feature.home.settings.pages.AppearanceUiState(
-                    currentThemeConfig = settingsState.themeConfig,
-                    isDynamicColorEnabled = settingsState.useDynamicColor,
-                    currentThemeBrand = settingsState.themeBrand,
-                    currentSurfaceStyle = settingsState.surfaceStyle,
+            repositories =
+                cx.aswin.boxlore.feature.home.settings.SettingsRepositories(
+                    rssPodcastRepository = container.rssPodcastRepository,
+                    rankingFeedbackRepository = container.rankingFeedbackRepository,
                 ),
-                actions = cx.aswin.boxlore.feature.home.settings.pages.AppearanceActions(
-                    onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
-                    onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
-                    onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
-                    onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
-                ),
-            ),
-            playbackSettings = cx.aswin.boxlore.feature.home.settings.PlaybackSettings(
-                state = cx.aswin.boxlore.feature.home.settings.pages.PlaybackUiState(
-                    skipBehavior = settingsState.skipBehavior,
-                    skipBeginningMs = settingsState.skipBeginningMs,
-                    skipEndingMs = settingsState.skipEndingMs,
-                    seekBackwardMs = settingsState.seekBackwardMs,
-                    seekForwardMs = settingsState.seekForwardMs,
-                    hideCompletedInHome = settingsState.hideCompletedInHome,
-                    hideCompletedInSubs = settingsState.hideCompletedInSubs,
-                    hideCompletedInShowDetails = settingsState.hideCompletedInShowDetails,
-                ),
-                actions = cx.aswin.boxlore.feature.home.settings.pages.PlaybackActions(
-                    onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
-                    onSetSkipBeginningMs = { value ->
-                        trackAndPersistPlaybackDuration("skip_beginning_changed", value, userPrefs::setSkipBeginningMs)
-                    },
-                    onSetSkipEndingMs = { value ->
-                        trackAndPersistPlaybackDuration("skip_ending_changed", value, userPrefs::setSkipEndingMs)
-                    },
-                    onSetSeekBackwardMs = { value ->
-                        trackAndPersistPlaybackDuration("seek_backward_changed", value, userPrefs::setSeekBackwardMs)
-                    },
-                    onSetSeekForwardMs = { value ->
-                        trackAndPersistPlaybackDuration("seek_forward_changed", value, userPrefs::setSeekForwardMs)
-                    },
-                    onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
-                    onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
-                    onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
-                ),
-            ),
-            libraryBackupWriters = cx.aswin.boxlore.feature.home.settings.LibraryBackupWriters(
-                onExportJson = { uri ->
-                    scope.launch(Dispatchers.IO) {
+            config =
+                cx.aswin.boxlore.feature.home.settings.SettingsScreenConfig(
+                    onBack = { navController.popBackStack() },
+                    onResetAnalytics = {
                         try {
-                            val backupJson = cx.aswin.boxlore.core.catalog.backup.LibraryBackupManager(
-                                subscriptionRepository, playbackRepository, podcastRepository, userPrefs, application,
-                            ).exportLibraryAsJson()
-                            (application.contentResolver.openOutputStream(uri)
-                                ?: error("Unable to open export destination")).use { it.write(backupJson.toByteArray()) }
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(application, "Library Exported Successfully", android.widget.Toast.LENGTH_SHORT).show()
-                            }
+                            cx.aswin.boxlore.core.analytics.AnalyticsHelper
+                                .resetIdentity()
                         } catch (e: Exception) {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(application, "Failed to export: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            android.util.Log.e("Settings", "Failed to reset analytics", e)
+                        }
+                    },
+                    appInstanceId = appInstanceId,
+                    initialPage = settingsPage,
+                ),
+            regionSettings =
+                cx.aswin.boxlore.feature.home.settings.RegionSettings(
+                    currentRegion = settingsState.currentRegion,
+                    onSetRegion = { region -> scope.launch { userPrefs.setRegion(region) } },
+                ),
+            appearanceSettings =
+                cx.aswin.boxlore.feature.home.settings.AppearanceSettings(
+                    state =
+                        cx.aswin.boxlore.feature.home.settings.pages.AppearanceUiState(
+                            currentThemeConfig = settingsState.themeConfig,
+                            isDynamicColorEnabled = settingsState.useDynamicColor,
+                            currentThemeBrand = settingsState.themeBrand,
+                            currentSurfaceStyle = settingsState.surfaceStyle,
+                        ),
+                    actions =
+                        cx.aswin.boxlore.feature.home.settings.pages.AppearanceActions(
+                            onSetThemeConfig = { config -> scope.launch { userPrefs.setThemeConfig(config) } },
+                            onToggleDynamicColor = { enabled -> scope.launch { userPrefs.setUseDynamicColor(enabled) } },
+                            onSetThemeBrand = { brand -> scope.launch { userPrefs.setThemeBrand(brand) } },
+                            onSetSurfaceStyle = { style -> scope.launch { userPrefs.setSurfaceStyle(style) } },
+                        ),
+                ),
+            playbackSettings =
+                cx.aswin.boxlore.feature.home.settings.PlaybackSettings(
+                    state =
+                        cx.aswin.boxlore.feature.home.settings.pages.PlaybackUiState(
+                            skipBehavior = settingsState.skipBehavior,
+                            skipBeginningMs = settingsState.skipBeginningMs,
+                            skipEndingMs = settingsState.skipEndingMs,
+                            seekBackwardMs = settingsState.seekBackwardMs,
+                            seekForwardMs = settingsState.seekForwardMs,
+                            hideCompletedInHome = settingsState.hideCompletedInHome,
+                            hideCompletedInSubs = settingsState.hideCompletedInSubs,
+                            hideCompletedInShowDetails = settingsState.hideCompletedInShowDetails,
+                        ),
+                    actions =
+                        cx.aswin.boxlore.feature.home.settings.pages.PlaybackActions(
+                            onSetSkipBehavior = { behavior -> scope.launch { userPrefs.setSkipBehavior(behavior) } },
+                            onSetSkipBeginningMs = { value ->
+                                trackAndPersistPlaybackDuration("skip_beginning_changed", value, userPrefs::setSkipBeginningMs)
+                            },
+                            onSetSkipEndingMs = { value ->
+                                trackAndPersistPlaybackDuration("skip_ending_changed", value, userPrefs::setSkipEndingMs)
+                            },
+                            onSetSeekBackwardMs = { value ->
+                                trackAndPersistPlaybackDuration("seek_backward_changed", value, userPrefs::setSeekBackwardMs)
+                            },
+                            onSetSeekForwardMs = { value ->
+                                trackAndPersistPlaybackDuration("seek_forward_changed", value, userPrefs::setSeekForwardMs)
+                            },
+                            onSetHideCompletedInHome = { hide -> scope.launch { userPrefs.setHideCompletedInHome(hide) } },
+                            onSetHideCompletedInSubs = { hide -> scope.launch { userPrefs.setHideCompletedInSubs(hide) } },
+                            onSetHideCompletedInShowDetails = { hide -> scope.launch { userPrefs.setHideCompletedInShowDetails(hide) } },
+                        ),
+                ),
+            libraryBackupWriters =
+                cx.aswin.boxlore.feature.home.settings.LibraryBackupWriters(
+                    onExportJson = { uri ->
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val backupJson =
+                                    cx.aswin.boxlore.core.catalog.backup
+                                        .LibraryBackupManager(
+                                            subscriptionRepository,
+                                            playbackRepository,
+                                            podcastRepository,
+                                            userPrefs,
+                                            application,
+                                        ).exportLibraryAsJson()
+                                (
+                                    application.contentResolver.openOutputStream(uri)
+                                        ?: error("Unable to open export destination")
+                                ).use { it.write(backupJson.toByteArray()) }
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast
+                                        .makeText(
+                                            application,
+                                            "Library Exported Successfully",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                }
+                            } catch (e: Exception) {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast
+                                        .makeText(
+                                            application,
+                                            "Failed to export: ${e.message}",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                }
                             }
                         }
-                    }
-                },
-                onExportOpml = { uri ->
-                    scope.launch(Dispatchers.IO) {
-                        try {
-                            val opmlXml = cx.aswin.boxlore.core.catalog.backup.LibraryBackupManager(
-                                subscriptionRepository, playbackRepository, podcastRepository, context = application,
-                            ).exportLibraryAsOpml()
-                            (application.contentResolver.openOutputStream(uri)
-                                ?: error("Unable to open export destination")).use { it.write(opmlXml.toByteArray()) }
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(application, "Subscriptions Exported as OPML", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        } catch (e: Exception) {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(application, "Failed to export OPML: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onExportOpml = { uri ->
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val opmlXml =
+                                    cx.aswin.boxlore.core.catalog.backup
+                                        .LibraryBackupManager(
+                                            subscriptionRepository,
+                                            playbackRepository,
+                                            podcastRepository,
+                                            context = application,
+                                        ).exportLibraryAsOpml()
+                                (
+                                    application.contentResolver.openOutputStream(uri)
+                                        ?: error("Unable to open export destination")
+                                ).use { it.write(opmlXml.toByteArray()) }
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast
+                                        .makeText(
+                                            application,
+                                            "Subscriptions Exported as OPML",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                }
+                            } catch (e: Exception) {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast
+                                        .makeText(
+                                            application,
+                                            "Failed to export OPML: ${e.message}",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                }
                             }
                         }
-                    }
-                },
-                onImportJson = { uri -> opmlCallbacks.performJsonImport(uri) },
-                onImportOpml = { uri ->
-                    opmlCallbacks.onImportStateChange(OpmlImportState.Parsing(uri))
-                    opmlCallbacks.onTriggerKeyChange(System.currentTimeMillis())
-                },
-            ),
-            downloadsNavigation = cx.aswin.boxlore.feature.home.settings.DownloadsNavigation(
-                onNavigateToSmartDownloads = { navController.navigate(NavRoutes.LIBRARY_DOWNLOADS_SETTINGS) },
-                onNavigateToAutoDownloads = { navController.navigate("library/auto_downloads/settings") },
-            ),
+                    },
+                    onImportJson = { uri -> opmlCallbacks.performJsonImport(uri) },
+                    onImportOpml = { uri ->
+                        opmlCallbacks.onImportStateChange(OpmlImportState.Parsing(uri))
+                        opmlCallbacks.onTriggerKeyChange(System.currentTimeMillis())
+                    },
+                ),
+            downloadsNavigation =
+                cx.aswin.boxlore.feature.home.settings.DownloadsNavigation(
+                    onNavigateToSmartDownloads = { navController.navigate(NavRoutes.LIBRARY_DOWNLOADS_SETTINGS) },
+                    onNavigateToAutoDownloads = { navController.navigate("library/auto_downloads/settings") },
+                ),
         )
     }
 }
@@ -217,19 +253,21 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
     // Library
     // -----------------------------------------------------------------------
     composable("library") {
-        val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.LibraryViewModel(
-                        subscriptionRepository,
-                        playbackRepository,
-                        downloadRepository,
-                        userPrefs,
-                        container.adaptiveCandidateScorer,
-                    ) as T
-            },
-        )
+        val viewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
+                factory =
+                    object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                            cx.aswin.boxlore.feature.library.LibraryViewModel(
+                                subscriptionRepository,
+                                playbackRepository,
+                                downloadRepository,
+                                userPrefs,
+                                container.adaptiveCandidateScorer,
+                            ) as T
+                    },
+            )
         cx.aswin.boxlore.feature.library.LibraryScreen(
             viewModel = viewModel,
             onNavigateToLiked = { navController.navigate("library/liked") },
@@ -240,16 +278,18 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
     }
 
     composable("library/history") {
-        val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.HistoryViewModel>(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.HistoryViewModel(
-                        playbackRepository,
-                        userPrefs,
-                    ) as T
-            },
-        )
+        val viewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.HistoryViewModel>(
+                factory =
+                    object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                            cx.aswin.boxlore.feature.library.HistoryViewModel(
+                                playbackRepository,
+                                userPrefs,
+                            ) as T
+                    },
+            )
         cx.aswin.boxlore.feature.library.HistoryScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
@@ -275,19 +315,21 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
     }
 
     composable("library/liked") {
-        val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.LibraryViewModel(
-                        subscriptionRepository,
-                        playbackRepository,
-                        downloadRepository,
-                        userPrefs,
-                        container.adaptiveCandidateScorer,
-                    ) as T
-            },
-        )
+        val viewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
+                factory =
+                    object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                            cx.aswin.boxlore.feature.library.LibraryViewModel(
+                                subscriptionRepository,
+                                playbackRepository,
+                                downloadRepository,
+                                userPrefs,
+                                container.adaptiveCandidateScorer,
+                            ) as T
+                    },
+            )
         cx.aswin.boxlore.feature.library.LikedEpisodesScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
@@ -313,27 +355,30 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
 
     composable(
         "library/subscriptions?tab={tab}",
-        arguments = listOf(
-            navArgument("tab") {
-                type = NavType.IntType
-                defaultValue = 0
-            },
-        ),
+        arguments =
+            listOf(
+                navArgument("tab") {
+                    type = NavType.IntType
+                    defaultValue = 0
+                },
+            ),
     ) { backStackEntry ->
         val initialTab = backStackEntry.arguments?.getInt("tab") ?: 0
-        val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.LibraryViewModel(
-                        subscriptionRepository,
-                        playbackRepository,
-                        downloadRepository,
-                        userPrefs,
-                        container.adaptiveCandidateScorer,
-                    ) as T
-            },
-        )
+        val viewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
+                factory =
+                    object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                            cx.aswin.boxlore.feature.library.LibraryViewModel(
+                                subscriptionRepository,
+                                playbackRepository,
+                                downloadRepository,
+                                userPrefs,
+                                container.adaptiveCandidateScorer,
+                            ) as T
+                    },
+            )
         cx.aswin.boxlore.feature.library.SubscriptionsScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
@@ -368,19 +413,21 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
     }
 
     composable(NavRoutes.LIBRARY_DOWNLOADS) {
-        val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.LibraryViewModel(
-                        subscriptionRepository,
-                        playbackRepository,
-                        downloadRepository,
-                        userPrefs,
-                        container.adaptiveCandidateScorer,
-                    ) as T
-            },
-        )
+        val viewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
+                factory =
+                    object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                            cx.aswin.boxlore.feature.library.LibraryViewModel(
+                                subscriptionRepository,
+                                playbackRepository,
+                                downloadRepository,
+                                userPrefs,
+                                container.adaptiveCandidateScorer,
+                            ) as T
+                    },
+            )
         cx.aswin.boxlore.feature.library.DownloadedEpisodesScreen(
             viewModel = viewModel,
             userPrefs = userPrefs,
@@ -429,27 +476,36 @@ internal fun androidx.navigation.NavGraphBuilder.addLibraryDestinations(w: NavGr
 
     composable(
         route = "library/downloads/show?podcastId={podcastId}&podcastTitle={podcastTitle}",
-        arguments = listOf(
-            navArgument("podcastId") { type = NavType.StringType; defaultValue = "" },
-            navArgument("podcastTitle") { type = NavType.StringType; defaultValue = "" },
-        ),
+        arguments =
+            listOf(
+                navArgument("podcastId") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("podcastTitle") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
     ) { backStackEntry ->
         val podcastId = backStackEntry.arguments?.getString("podcastId") ?: ""
         val podcastTitle = backStackEntry.arguments?.getString("podcastTitle") ?: ""
 
-        val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    cx.aswin.boxlore.feature.library.LibraryViewModel(
-                        subscriptionRepository,
-                        playbackRepository,
-                        downloadRepository,
-                        userPrefs,
-                        container.adaptiveCandidateScorer,
-                    ) as T
-            },
-        )
+        val viewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel<cx.aswin.boxlore.feature.library.LibraryViewModel>(
+                factory =
+                    object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                            cx.aswin.boxlore.feature.library.LibraryViewModel(
+                                subscriptionRepository,
+                                playbackRepository,
+                                downloadRepository,
+                                userPrefs,
+                                container.adaptiveCandidateScorer,
+                            ) as T
+                    },
+            )
         cx.aswin.boxlore.feature.library.DownloadedShowEpisodesScreen(
             viewModel = viewModel,
             podcastId = podcastId,
