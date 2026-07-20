@@ -29,6 +29,13 @@ class InstallReferrerManager(private val context: Context) {
     private val _referralFlow = MutableSharedFlow<ReferralIntent>(replay = 1)
     val referralFlow: SharedFlow<ReferralIntent> = _referralFlow.asSharedFlow()
 
+    /**
+     * Optional attribution hook (wired from `:app` → analytics). Catalog must not depend on
+     * `:core:analytics`. Invoked once per first install-referrer resolution with a channel
+     * label (`organic`, `share`, `utm`, or `unknown`).
+     */
+    var onInstallReferrerResolved: ((installChannel: String, referrerRaw: String?) -> Unit)? = null
+
     private val prefs = PrefsFileMigrator.open(
         context,
         newName = PREFS_NAME,
@@ -55,12 +62,16 @@ class InstallReferrerManager(private val context: Context) {
 
                             if (!referrerUrl.isNullOrEmpty()) {
                                 handleReferrer(referrerUrl)
+                                notifyAttribution(referrerUrl)
+                            } else {
+                                notifyAttribution(null)
                             }
-                            
+
                             // Mark as processed so we don't handle it on subsequent launches
                             prefs.edit().putBoolean(KEY_REFERRER_PROCESSED, true).apply()
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to get referrer details", e)
+                            notifyAttribution(null)
                         } finally {
                             try {
                                 referrerClient.endConnection()
@@ -71,6 +82,8 @@ class InstallReferrerManager(private val context: Context) {
                     }
                     InstallReferrerClient.InstallReferrerResponse.FEATURE_NOT_SUPPORTED -> {
                         Log.w(TAG, "Install Referrer API not supported on this device.")
+                        notifyAttribution(null)
+                        prefs.edit().putBoolean(KEY_REFERRER_PROCESSED, true).apply()
                     }
                     InstallReferrerClient.InstallReferrerResponse.SERVICE_UNAVAILABLE -> {
                         Log.w(TAG, "Install Referrer service is currently unavailable.")
@@ -82,6 +95,26 @@ class InstallReferrerManager(private val context: Context) {
                 Log.d(TAG, "Install Referrer service disconnected.")
             }
         })
+    }
+
+    private fun notifyAttribution(referrerUrl: String?) {
+        val channel = deriveInstallChannel(referrerUrl)
+        onInstallReferrerResolved?.invoke(channel, referrerUrl)
+    }
+
+    companion object {
+        fun deriveInstallChannel(referrerUrl: String?): String {
+            if (referrerUrl.isNullOrBlank()) return "unknown"
+            val decoded = android.net.Uri.decode(referrerUrl).lowercase()
+            return when {
+                decoded.contains("utm_source=") -> "utm"
+                decoded.contains("type_podcast") || decoded.contains("type=podcast") ||
+                    decoded.contains("type_episode") || decoded.contains("type=episode") ||
+                    decoded.startsWith("podcast_") || decoded.startsWith("episode_") -> "share"
+                decoded.contains("organic") || decoded == "utm_source=google-play" -> "organic"
+                else -> "unknown"
+            }
+        }
     }
 
     /**

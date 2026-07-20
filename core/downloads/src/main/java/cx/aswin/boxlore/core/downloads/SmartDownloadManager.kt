@@ -226,8 +226,9 @@ class SmartDownloadManager(
         return isAlreadyDownloaded || isDownloading
     }
 
-    private suspend fun recycleOldDownloads(candidateEpisodeIds: Set<String>, existingDownloads: List<DownloadedEpisodeEntity>): Long {
+    private suspend fun recycleOldDownloads(candidateEpisodeIds: Set<String>, existingDownloads: List<DownloadedEpisodeEntity>): Pair<Long, Int> {
         var currentDownloadedBytes = 0L
+        var cleanedCount = 0
         for (download in existingDownloads) {
             if (download.isSmartDownloaded) {
                 val estSize = SmartDownloadCandidateLogic.estimateDownloadSize(download)
@@ -238,10 +239,11 @@ class SmartDownloadManager(
                     writeLogToFile(context, "Recycling/deleting old smart-downloaded episode: '${download.episodeTitle}' (ID: ${download.episodeId})")
                     downloadRepository.removeDownload(download.episodeId)
                     currentDownloadedBytes -= estSize
+                    cleanedCount++
                 }
             }
         }
-        return currentDownloadedBytes
+        return currentDownloadedBytes to cleanedCount
     }
 
     private suspend fun triggerDownloads(
@@ -410,7 +412,7 @@ class SmartDownloadManager(
             writeLogToFile(context, "Combined download candidates list size: ${combinedEpisodes.size}. Target episode IDs: $candidateEpisodeIds")
 
             val existingDownloads = database.downloadedEpisodeDao().getAllDownloadsSync()
-            val currentDownloadedBytes = recycleOldDownloads(candidateEpisodeIds, existingDownloads)
+            val (currentDownloadedBytes, cleanedCount) = recycleOldDownloads(candidateEpisodeIds, existingDownloads)
 
             val countDownloaded = existingDownloads.count { 
                 (it.status == DownloadedEpisodeEntity.STATUS_COMPLETED || it.status == DownloadedEpisodeEntity.STATUS_DOWNLOADING) && 
@@ -425,6 +427,16 @@ class SmartDownloadManager(
             userPrefs.setSmartDownloadsLastSyncTime(System.currentTimeMillis())
             Log.d("SmartDownloadManager", "Smart downloads sync completed successfully.")
             writeLogToFile(context, "Sync completed successfully.")
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSmartDownloadSync(
+                requestedCount = combinedEpisodes.size,
+                completedCount = countDownloaded,
+                cleanedCount = cleanedCount,
+                trigger = when {
+                    isManual -> "manual"
+                    isForeground -> "foreground"
+                    else -> "background"
+                },
+            )
             return true
         } catch (e: Exception) {
             Log.e("SmartDownloadManager", "Error running smart downloads sync", e)

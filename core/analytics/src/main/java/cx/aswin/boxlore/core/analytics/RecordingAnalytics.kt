@@ -48,7 +48,7 @@ class RecordingAnalytics : Analytics {
     }
 
     override fun trackFirstLaunchIfNecessary(context: Context) {
-        capture("app_open", mapOf("is_first_open" to true))
+        // Mirror production: person props only — never emit app_open (SDK-backed).
     }
 
     override fun flush() {

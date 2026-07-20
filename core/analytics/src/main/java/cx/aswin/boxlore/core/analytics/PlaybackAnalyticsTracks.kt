@@ -254,13 +254,14 @@ internal object PlaybackAnalyticsTracks {
     fun trackExploreSearchPerformed(
         query: String,
         resultsCount: Int,
+        searchMode: String = "show_keyword",
     ) {
         val trimmed = query.trim()
         AnalyticsEmit.event(
             "search_performed",
             buildMap {
                 put("surface", "explore")
-                put("search_mode", "show_keyword")
+                put("search_mode", searchMode)
                 put("search_query", trimmed)
                 put("results_count", resultsCount)
                 put("query_length", trimmed.length)

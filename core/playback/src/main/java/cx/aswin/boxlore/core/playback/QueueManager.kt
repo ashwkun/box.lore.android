@@ -79,6 +79,13 @@ class QueueManager(
                 val domainEpisode = episode.toDomain(podcast).copy(contextType = contextType)
                 playbackRepository.addToQueue(domainEpisode, podcast, entryPoint)
                 android.util.Log.d(TAG, "addToQueue: Complete. Current queue size: ${playbackRepository.playerState.value.queue.size}")
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackQueueModified(
+                    action = "add",
+                    episodeId = domainEpisode.id,
+                    podcastId = podcast.id,
+                    queueSize = playbackRepository.playerState.value.queue.size,
+                    source = entryPoint.name.lowercase(),
+                )
             } else {
                 android.util.Log.e(TAG, "addToQueue: Podcast is null, ignoring!")
             }

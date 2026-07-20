@@ -446,6 +446,10 @@ class PodcastInfoViewModel(
                 } else {
                     if (currentPodcast == null) {
                         trackScreenViewed(effectivePodcastId, null)
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackCatalogMiss(
+                            "podcast",
+                            effectivePodcastId,
+                        )
                         _uiState.value = PodcastInfoUiState.Error
                     }
                 }
@@ -455,6 +459,10 @@ class PodcastInfoViewModel(
                 Log.e(TAG, "Failed to load podcast $effectivePodcastId", e)
                 if (currentPodcast == null) {
                     trackScreenViewed(effectivePodcastId, null)
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackCatalogMiss(
+                        "podcast",
+                        effectivePodcastId,
+                    )
                     _uiState.value = PodcastInfoUiState.Error
                 } else {
                     // We already showed a Success state (with isLoadingMore = true) further up;
@@ -617,6 +625,10 @@ class PodcastInfoViewModel(
                 throw e
             } catch (e: Exception) {
                 e.printStackTrace()
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackRssRefreshFailed(
+                    currentPodcastId,
+                    e::class.simpleName,
+                )
                 val latestState = _uiState.value as? PodcastInfoUiState.Success ?: return@launch
                 _uiState.value = latestState.copy(isLoadingMore = false, isRssRefreshing = false)
             }
@@ -787,6 +799,11 @@ class PodcastInfoViewModel(
                         autoDownloadEnabled = updatedAutoDownload,
                     )
                 _uiState.value = currentState.copy(podcast = updatedPodcast)
+
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackShowNotificationToggled(
+                    currentState.podcast.id,
+                    newEnabled,
+                )
 
                 android.util.Log.d("PodcastInfoViewModel", "Notifications toggled for ${currentState.podcast.title}: $newEnabled")
             }

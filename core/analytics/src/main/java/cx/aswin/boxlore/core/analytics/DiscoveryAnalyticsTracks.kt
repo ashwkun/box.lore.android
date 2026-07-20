@@ -151,6 +151,7 @@ internal object DiscoveryAnalyticsTracks {
             "explore_recommendation_tapped",
             mapOf(
                 "rail" to "for_you",
+                "interaction" to "impression",
                 "position_index" to -1,
                 "recommendations_count" to recommendationsCount,
                 "episode_ids" to episodeIds,
@@ -171,6 +172,7 @@ internal object DiscoveryAnalyticsTracks {
                 "episode_id" to episodeId,
                 "position_index" to positionIndex,
                 "rail" to "for_you",
+                "interaction" to "tap",
             )
         episodeTitle?.let { props["episode_title"] = it }
         podcastName?.let { props["podcast_name"] = it }

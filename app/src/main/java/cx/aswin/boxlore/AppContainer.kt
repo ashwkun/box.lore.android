@@ -198,6 +198,13 @@ class AppContainer(
     }
 
     val installReferrerManager: InstallReferrerManager by lazy {
-        InstallReferrerManager(appContext)
+        InstallReferrerManager(appContext).also { manager ->
+            manager.onInstallReferrerResolved = { channel, raw ->
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackInstallChannelAttributed(
+                    installChannel = channel,
+                    referrerRaw = raw,
+                )
+            }
+        }
     }
 }

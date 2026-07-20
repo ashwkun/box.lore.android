@@ -106,6 +106,13 @@ fun BoxLoreAppRoot(
     LaunchedEffect(currentWarmIntent) {
         val intent = currentWarmIntent ?: return@LaunchedEffect
         if (intent.data != null) {
+            val uri = intent.data
+            AnalyticsHelper.trackDeepLinkOpened(
+                linkScheme = uri?.scheme ?: "unknown",
+                isFirstOpen = false,
+                linkHost = uri?.host,
+                coldStart = false,
+            )
             navController.handleDeepLink(intent)
             warmStartIntent.value = null
             return@LaunchedEffect
@@ -119,6 +126,13 @@ fun BoxLoreAppRoot(
                 ).apply {
                     data = android.net.Uri.parse(allowed)
                 }
+                val uri = deepLinkIntent.data
+                AnalyticsHelper.trackDeepLinkOpened(
+                    linkScheme = uri?.scheme ?: "unknown",
+                    isFirstOpen = false,
+                    linkHost = uri?.host,
+                    coldStart = false,
+                )
                 navController.handleDeepLink(deepLinkIntent)
             } else {
                 runCatching { navController.navigate(allowed) }
@@ -344,7 +358,17 @@ fun BoxLoreAppRoot(
         podcastRepository = podcastRepository,
     )
 
-    LaunchedEffect(Unit) { playbackRepository.restoreLastSession() }
+    LaunchedEffect(Unit) {
+        if (playbackRepository.restoreLastSession()) {
+            val state = playbackRepository.playerState.value
+            AnalyticsHelper.trackSessionRestorePrompt(
+                action = "restored",
+                episodeId = state.currentEpisode?.id,
+                podcastId = state.currentPodcast?.id,
+                positionSeconds = state.position / 1000f,
+            )
+        }
+    }
 
     LaunchedEffect(isPlaying, hasLoggedFirstPlay) {
         if (isPlaying && !hasLoggedFirstPlay) {

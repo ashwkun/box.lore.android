@@ -298,6 +298,21 @@ internal object OnboardingAnalyticsTracks {
         )
     }
 
+    fun trackOnboardingStepViewed(
+        stepName: String,
+        flowType: String,
+        stepIndex: Int? = null,
+    ) {
+        AnalyticsEmit.event(
+            "onboarding_step_viewed",
+            buildMap {
+                put("step_name", stepName)
+                put("flow_type", flowType)
+                stepIndex?.let { put("step_index", it) }
+            },
+        )
+    }
+
     fun trackOnboardingManualStepCompleted(
         stepName: String,
         selectionsCount: Int,
@@ -313,12 +328,18 @@ internal object OnboardingAnalyticsTracks {
                 "time_spent_seconds" to timeSpentSeconds,
             ),
         )
-        AnalyticsEmit.event(
-            "onboarding_step_viewed",
-            mapOf(
-                "step_name" to stepName,
-                "flow_type" to "manual_genre",
-            ),
+        val stepIndex =
+            when (stepName) {
+                "genres" -> 1
+                "sub_genres" -> 2
+                "activities" -> 3
+                "lengths" -> 4
+                else -> null
+            }
+        trackOnboardingStepViewed(
+            stepName = stepName,
+            flowType = "manual_genre",
+            stepIndex = stepIndex,
         )
     }
 

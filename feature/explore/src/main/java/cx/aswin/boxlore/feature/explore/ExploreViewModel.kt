@@ -528,8 +528,14 @@ class ExploreViewModel(
                 val region = userPrefs.regionStream.first()
                 val results = podcastRepository.searchEpisodesSemantic(query, region)
                 if (semanticSearchJob == myJob) {
-                    _semanticSearchResults.value = rankEpisodesOrOriginal(results)
+                    val ranked = rankEpisodesOrOriginal(results)
+                    _semanticSearchResults.value = ranked
                     _hasPerformedSemanticSearch.value = true
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreSearchPerformed(
+                        query,
+                        ranked.size,
+                        searchMode = "episode_semantic",
+                    )
                 }
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error

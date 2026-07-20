@@ -95,6 +95,8 @@ Reports: `build/reports/kover/`.
 | Guard | What it enforces |
 | :--- | :--- |
 | `ArchitectureGuardTest` | No feature→feature Gradle deps or imports; catalog↛designsystem; catalog↛playback; catalog must not `api` analytics/ranking; module READMEs; `getInstance` allowlist; package=module (+ `core.data` stubs); no Hilt/Koin/Dagger/MockK; new `*ViewModel`/`*Repository` need matching `*Test.kt` |
+| `GlossaryCoverageGuardTest` | `event_glossary.csv` ↔ `AnalyticsGlossary` allowlist; every event has `glossary_emission_coverage.csv` mode (`emission` / `sdk_backed` / `person_props_only`); no dual open/install volume |
+| `GlossaryAllEventsEmissionTest` (`:core:analytics`) | Every `emission:` inventory row captures via façade; lifecycle helpers never emit `app_open` / `app_background` / `install_attributed` |
 | `scripts/ci/check-feature-no-posthog.sh` | Features never import/capture via PostHog |
 | `scripts/ci/check-feature-no-boxlore-database.sh` | Home/Info VMs/assemblers do not take `BoxLoreDatabase` |
 | `dependencyGuard` | Locked dependency lists for `:app`, `:core:catalog`, `:core:playback` |

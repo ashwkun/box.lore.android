@@ -43,12 +43,22 @@ class DownloadRepository(
             ) {
                 // Sync status with DB
                 val state = download.state
+                val episodeId = download.request.id
+                val dataParts = String(download.request.data, Charsets.UTF_8).split("|")
+                val podcastIdFromRequest = dataParts.getOrNull(0)?.takeIf { it.isNotBlank() }
                 if (state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED) {
                     val fileSizeMb = if (download.contentLength > 0) download.contentLength / (1024f * 1024f) else 0f
-                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDownloadCompleted(fileSizeMb)
-                    
+
                     CoroutineScope(Dispatchers.IO).launch {
-                        val existing = database.downloadedEpisodeDao().getDownload(download.request.id)
+                        val existing = database.downloadedEpisodeDao().getDownload(episodeId)
+                        val podcastId = existing?.podcastId ?: podcastIdFromRequest ?: "unknown"
+                        val source = if (existing?.isSmartDownloaded == true) "smart" else "manual"
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDownloadCompleted(
+                            episodeId,
+                            podcastId,
+                            source,
+                            fileSizeMb,
+                        )
                         if (existing != null) {
                             val updated = existing.copy(
                                 sizeBytes = download.contentLength,
@@ -60,15 +70,23 @@ class DownloadRepository(
                     }
                 } else if (state == androidx.media3.exoplayer.offline.Download.STATE_FAILED) {
                     val errorReason = finalException?.message ?: "Unknown Error"
-                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDownloadFailed(errorReason)
-                    
+
                      CoroutineScope(Dispatchers.IO).launch {
+                        val existing = database.downloadedEpisodeDao().getDownload(episodeId)
+                        val podcastId = existing?.podcastId ?: podcastIdFromRequest
+                        val source = if (existing?.isSmartDownloaded == true) "smart" else "manual"
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDownloadFailed(
+                            errorReason,
+                            episodeId,
+                            podcastId,
+                            source,
+                        )
                         // Optional: Allow user to retry or just delete
-                         database.downloadedEpisodeDao().delete(download.request.id)
+                         database.downloadedEpisodeDao().delete(episodeId)
                      }
                 } else if (state == androidx.media3.exoplayer.offline.Download.STATE_REMOVING) {
                      CoroutineScope(Dispatchers.IO).launch {
-                         database.downloadedEpisodeDao().delete(download.request.id)
+                         database.downloadedEpisodeDao().delete(episodeId)
                      }
                 }
             }
@@ -114,6 +132,12 @@ class DownloadRepository(
     }
 
     fun addDownload(episode: Episode, podcast: Podcast, isSmartDownloaded: Boolean = false) {
+        val source = if (isSmartDownloaded) "smart" else "manual"
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackDownloadRequested(
+            episode.id,
+            podcast.id,
+            source,
+        )
         val downloadRequest = DownloadRequest.Builder(episode.id, android.net.Uri.parse(episode.audioUrl))
             .setCustomCacheKey(episode.id)
             .setData(

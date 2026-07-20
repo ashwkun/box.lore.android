@@ -120,6 +120,7 @@ class QueueRepository(
     suspend fun clearQueue() {
         android.util.Log.d(TAG, "clearQueue: Clearing all queue items")
         queueDao.clearQueue()
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackQueueModified(action = "clear", queueSize = 0)
     }
 
     /**

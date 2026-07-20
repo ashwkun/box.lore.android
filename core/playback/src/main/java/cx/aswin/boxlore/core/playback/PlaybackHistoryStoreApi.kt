@@ -99,6 +99,11 @@ internal suspend fun PlaybackHistoryStore.toggleLike(
             ),
         action = if (newStatus) RankingAction.LIKE else RankingAction.UNLIKE,
     )
+    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackEpisodeLikedToggled(
+        episodeId = episode.id,
+        podcastId = podcastId,
+        isLiked = newStatus,
+    )
 }
 
 internal suspend fun PlaybackHistoryStore.toggleCompletion(
@@ -145,6 +150,11 @@ internal suspend fun PlaybackHistoryStore.toggleCompletion(
             )
         dao.upsert(entity)
     }
+    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackEpisodeMarkPlayed(
+        episodeId = episode.id,
+        podcastId = podcastId,
+        isPlayed = newStatus,
+    )
 }
 
 internal suspend fun PlaybackHistoryStore.markEpisodeAsCompleted(

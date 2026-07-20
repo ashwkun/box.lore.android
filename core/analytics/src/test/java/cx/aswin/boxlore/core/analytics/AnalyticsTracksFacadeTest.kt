@@ -89,6 +89,7 @@ class AnalyticsTracksFacadeTest {
         assertTrue("onboarding_import_failed" in names())
         assertTrue("onboarding_manual_step_completed" in names())
         assertTrue("onboarding_step_viewed" in names())
+        assertEquals(1, firstProps("onboarding_step_viewed")["step_index"])
         // trimmed query length reflected
         assertEquals(1, firstProps("onboarding_search_performed")["query_length"])
     }
@@ -239,6 +240,8 @@ class AnalyticsTracksFacadeTest {
         AnalyticsHelper.trackExploreScreenViewed("for_you")
         AnalyticsHelper.trackExploreScreenViewed()
         AnalyticsHelper.trackExploreSearchPerformed("  q  ", 5)
+        AnalyticsHelper.trackExploreSearchPerformed("semantic", 3, searchMode = "episode_semantic")
+        AnalyticsHelper.trackOnboardingStepViewed("genres", "manual_genre", stepIndex = 1)
         AnalyticsHelper.trackExploreScreenSession(
             30f,
             1,
@@ -264,6 +267,8 @@ class AnalyticsTracksFacadeTest {
 
         assertTrue("explore_screen_viewed" in names())
         assertTrue("search_performed" in names())
+        assertEquals("episode_semantic", recorder.last { it.first == "search_performed" }.second["search_mode"])
+        assertTrue(recorder.any { it.first == "onboarding_step_viewed" && it.second["step_index"] == 1 })
     }
 
     // ── Library ────────────────────────────────────────────────────

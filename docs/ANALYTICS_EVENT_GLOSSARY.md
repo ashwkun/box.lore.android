@@ -2,7 +2,20 @@
 
 Canonical client analytics contract. Emit only listed `event_name` values.
 Companion CSV: [`docs/analytics/event_glossary.csv`](analytics/event_glossary.csv).
+Coverage inventory: [`docs/analytics/glossary_emission_coverage.csv`](analytics/glossary_emission_coverage.csv).
 Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
+
+## SDK-backed vs custom (no double-count)
+
+| Glossary name | Production source of truth | App action |
+| :--- | :--- | :--- |
+| `app_open` | SDK **Application Opened** | Do **not** `capture("app_open")`. Keep `captureApplicationLifecycleEvents = true`. |
+| `app_background` | SDK **Application Backgrounded** | Do **not** emit custom background. |
+| Install volume (DNI/WNI/MNI / Weekly Pulse) | SDK **Application Installed** | Keep Weekly Pulse on Application Installed / Application Opened. |
+| `install_attributed` | Person `$set_once` `install_channel` | Attribution only — **never** a second install-count event. |
+| `deep_link_opened` | Custom glossary emit | SDK `captureDeepLinks = false`. |
+
+Launch enrichment (subscription bucket, onboarding status) goes on **person properties**, not a second open event.
 
 ## Enums
 
@@ -32,9 +45,9 @@ Architecture: [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 | event_name | meaning | required_properties | optional_properties | pii_risk |
 | :--- | :--- | :--- | :--- | :--- |
-| `app_open` | Process/UI foreground open counted for DAU | is_first_open:bool; subscription_count_bucket:enum; onboarding_status:string | days_since_install:int; cold_start:bool; install_channel:enum | none |
-| `app_background` | App moved to background | — | session_duration_seconds:int; had_playback:bool; subscription_count_bucket:enum | none |
-| `install_attributed` | Install/referrer channel resolved | install_channel:enum | referrer_raw:string; utm_source:string; share_token:string | none |
+| `app_open` | DAU volume via SDK **Application Opened** (glossary alias; not custom-emitted) | — (SDK) | person props for enrichment | none |
+| `app_background` | Session end via SDK **Application Backgrounded** (not custom-emitted) | — (SDK) | — | none |
+| `install_attributed` | Channel attribution only (`$set_once` install_channel); volume is **Application Installed** | install_channel on person | referrer_raw; utm_source; share_token | none |
 | `deep_link_opened` | Inbound deep/share link handled | link_scheme:string; is_first_open:bool; cold_start:bool | link_host:string; content_type:enum; podcast_id:string; episode_id:string | none |
 | `onboarding_started` | User entered onboarding | entry_point:string | is_reentry:bool | none |
 | `onboarding_flow_selected` | User chose AI/genre/search/import | flow_type:string; entry_point:string | — | none |

@@ -24,6 +24,7 @@ internal class PlaybackProgressCoordinator(
     private val dispatchHeartbeatTelemetry: (ExoPlayer) -> Unit,
 ) {
     var activePlaybackStartTimeMs: Long = 0L
+    private var lastProgressAnomalyEpisodeId: String? = null
 
     /**
      * Periodically saves playback position and dispatches heartbeat telemetry (runs on Dispatchers.Main).
@@ -60,6 +61,14 @@ internal class PlaybackProgressCoordinator(
             val positionMs = withContext(mainDispatcher) { player.currentPosition }
             val durationMs = withContext(mainDispatcher) { player.duration }
             val episodeId = currentItem?.mediaId?.stripEpisodePrefix() ?: return
+
+            if (durationMs > 0 && positionMs > durationMs && lastProgressAnomalyEpisodeId != episodeId) {
+                lastProgressAnomalyEpisodeId = episodeId
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackProgressSyncAnomaly(
+                    anomalyType = "position_exceeds_duration",
+                    episodeId = episodeId,
+                )
+            }
 
             val existing = database.listeningHistoryDao().getHistoryItem(episodeId)
             if (existing != null && positionMs > 0) {

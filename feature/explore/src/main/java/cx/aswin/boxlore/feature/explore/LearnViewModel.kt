@@ -213,6 +213,7 @@ class LearnViewModel(
             val updatedStack = currentState.questionsStack.filterNot { it.episodeId == episodeId }
             if (updatedStack.isEmpty() && isEndOfContent) {
                 _uiState.value = LearnUiState.CaughtUp()
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLearnCaughtUp(0)
                 return
             }
 
@@ -298,6 +299,7 @@ class LearnViewModel(
                         currentPage = result.lastPage
                         isEndOfContent = true
                         _uiState.value = LearnUiState.CaughtUp()
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLearnCaughtUp(0)
                     }
                     is InitialCuriosityDeckResult.Failed -> {
                         _uiState.value = LearnUiState.Error("Failed to load curiosity curation")
@@ -328,6 +330,7 @@ class LearnViewModel(
                         currentPage = result.lastPage
                         isEndOfContent = true
                         _uiState.value = LearnUiState.CaughtUp()
+                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackLearnCaughtUp(0)
                     }
                     is InitialCuriosityDeckResult.Failed -> {
                         _uiState.value = when (current) {

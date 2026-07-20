@@ -461,6 +461,10 @@ class HomeViewModel(
                 throw e
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to refresh selected RSS podcast $podcastId", e)
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackRssRefreshFailed(
+                    podcastId,
+                    e::class.simpleName,
+                )
             }
         }
     }

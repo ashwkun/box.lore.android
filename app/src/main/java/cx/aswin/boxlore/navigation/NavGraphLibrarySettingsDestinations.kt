@@ -143,6 +143,11 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                                     application.contentResolver.openOutputStream(uri)
                                         ?: error("Unable to open export destination")
                                 ).use { it.write(backupJson.toByteArray()) }
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
+                                    action = "export",
+                                    success = true,
+                                    format = "json",
+                                )
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                     android.widget.Toast
                                         .makeText(
@@ -152,6 +157,12 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                                         ).show()
                                 }
                             } catch (e: Exception) {
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
+                                    action = "export",
+                                    success = false,
+                                    format = "json",
+                                    errorMessage = e.message,
+                                )
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                     android.widget.Toast
                                         .makeText(
@@ -178,6 +189,11 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                                     application.contentResolver.openOutputStream(uri)
                                         ?: error("Unable to open export destination")
                                 ).use { it.write(opmlXml.toByteArray()) }
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
+                                    action = "export",
+                                    success = true,
+                                    format = "opml",
+                                )
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                     android.widget.Toast
                                         .makeText(
@@ -187,6 +203,12 @@ internal fun androidx.navigation.NavGraphBuilder.addSettingsDestination(w: NavGr
                                         ).show()
                                 }
                             } catch (e: Exception) {
+                                cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackBackupRestoreResult(
+                                    action = "export",
+                                    success = false,
+                                    format = "opml",
+                                    errorMessage = e.message,
+                                )
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                     android.widget.Toast
                                         .makeText(

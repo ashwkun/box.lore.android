@@ -512,6 +512,12 @@ internal class PlaybackQueueCoordinator(
             val newQueue = currentQueue.filter { it.id != episodeId }
             playerStateFlow.value = playerStateFlow.value.copy(queue = newQueue)
             syncQueueToDb()
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackQueueModified(
+                action = "remove",
+                episodeId = episodeId,
+                podcastId = removedInfo?.episode?.podcastId,
+                queueSize = newQueue.size,
+            )
         }
         return removedInfo
     }

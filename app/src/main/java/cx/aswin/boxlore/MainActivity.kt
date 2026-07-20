@@ -79,7 +79,13 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getBooleanExtra("from_push", false)) {
             intent.removeExtra("from_push")
-            AnalyticsHelper.trackNotificationTapped()
+            AnalyticsHelper.trackNotificationTapped(
+                notificationType = intent.getStringExtra("notification_type") ?: "unknown",
+                podcastId = intent.getStringExtra("podcast_id"),
+                episodeId = intent.getStringExtra("episode_id"),
+                targetRoute = intent.getStringExtra("target_route")
+                    ?: intent.data?.toString(),
+            )
         }
     }
 

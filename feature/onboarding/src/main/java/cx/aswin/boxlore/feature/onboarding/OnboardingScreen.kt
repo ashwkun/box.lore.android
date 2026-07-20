@@ -161,6 +161,24 @@ fun OnboardingScreen(
         },
         label = "onboarding_step",
     ) { step ->
+        LaunchedEffect(step) {
+            val (stepName, stepIndex, flowType) =
+                when (step) {
+                    OnboardingStep.WELCOME -> Triple("welcome", 0, "welcome")
+                    OnboardingStep.GENRES -> Triple("genres", 1, "manual_genre")
+                    OnboardingStep.SUB_GENRES -> Triple("sub_genres", 2, "manual_genre")
+                    OnboardingStep.ACTIVITY_PICKER -> Triple("activities", 3, "manual_genre")
+                    OnboardingStep.LENGTH_PICKER -> Triple("lengths", 4, "manual_genre")
+                    OnboardingStep.SEARCH -> Triple("search", 5, "search")
+                    OnboardingStep.AI_ONBOARDING -> Triple("ai_chat", 1, "ai_chat")
+                    OnboardingStep.AI_SUGGESTIONS -> Triple("ai_suggestions", 6, "ai_chat")
+                }
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackOnboardingStepViewed(
+                stepName = stepName,
+                flowType = flowType,
+                stepIndex = stepIndex,
+            )
+        }
         when (step) {
             OnboardingStep.WELCOME -> {
                 LaunchedEffect(Unit) {

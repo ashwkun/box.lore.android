@@ -94,12 +94,24 @@ fun OpmlImportEffects(
                             "opml",
                             "Could not resolve or subscribe to any podcasts from this OPML file.",
                         )
+                        AnalyticsHelper.trackBackupRestoreResult(
+                            action = "import",
+                            success = false,
+                            format = "opml",
+                            errorMessage = "Could not resolve or subscribe to any podcasts from this OPML file.",
+                        )
                         onStateChange(
                             OpmlImportState.Error(
                                 "Could not resolve or subscribe to any podcasts from this OPML file.",
                             ),
                         )
                     } else {
+                        AnalyticsHelper.trackBackupRestoreResult(
+                            action = "import",
+                            success = true,
+                            itemCount = importedList.size,
+                            format = "opml",
+                        )
                         onStateChange(
                             OpmlImportState.AskCompleted(
                                 importedPodcasts = importedList.toList(),
@@ -110,6 +122,12 @@ fun OpmlImportEffects(
                 } catch (e: Exception) {
                     Log.e("OPML_IMPORT", "Error during parsing/importing", e)
                     AnalyticsHelper.trackOnboardingImportFailed("opml", e.message)
+                    AnalyticsHelper.trackBackupRestoreResult(
+                        action = "import",
+                        success = false,
+                        format = "opml",
+                        errorMessage = e.message,
+                    )
                     onStateChange(OpmlImportState.Error("OPML Import failed: ${e.message}"))
                 }
             }
@@ -191,6 +209,12 @@ suspend fun performJsonLibraryImport(
                     userPrefs,
                     context,
                 ).importLibraryFromJson(jsonStr)
+            AnalyticsHelper.trackBackupRestoreResult(
+                action = "import",
+                success = true,
+                itemCount = count,
+                format = "json",
+            )
             withContext(Dispatchers.Main) {
                 onStateChange(
                     OpmlImportState.Success(
@@ -203,6 +227,12 @@ suspend fun performJsonLibraryImport(
             }
         } catch (e: Exception) {
             AnalyticsHelper.trackOnboardingImportFailed("json", e.message)
+            AnalyticsHelper.trackBackupRestoreResult(
+                action = "import",
+                success = false,
+                format = "json",
+                errorMessage = e.message,
+            )
             withContext(Dispatchers.Main) {
                 onStateChange(OpmlImportState.Error("JSON Import failed: ${e.message}"))
             }

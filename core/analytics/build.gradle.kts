@@ -32,6 +32,9 @@ android {
         unitTests.isIncludeAndroidResources = false
         unitTests.all {
             it.useJUnitPlatform()
+            // Glossary emission suite + SDK mapping tests read docs/ and app sources.
+            it.workingDir = rootProject.projectDir
+            it.systemProperty("boxlore.projectRoot", rootProject.projectDir.absolutePath)
         }
     }
 }

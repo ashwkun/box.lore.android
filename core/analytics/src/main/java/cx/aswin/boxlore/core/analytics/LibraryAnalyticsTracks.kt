@@ -211,33 +211,218 @@ internal object LibraryAnalyticsTracks {
         AnalyticsEmit.event("player_chrome_interaction", props)
     }
 
-    fun trackNotificationTapped() {
+    fun trackNotificationTapped(
+        notificationType: String = "unknown",
+        podcastId: String? = null,
+        episodeId: String? = null,
+        targetRoute: String? = null,
+    ) {
         AnalyticsEmit.event(
             "notification_tapped",
-            mapOf("notification_type" to "unknown"),
+            buildMap {
+                put("notification_type", notificationType)
+                podcastId?.let { put("podcast_id", it) }
+                episodeId?.let { put("episode_id", it) }
+                targetRoute?.let { put("target_route", it) }
+            },
         )
     }
 
-    fun trackDownloadCompleted(fileSizeMb: Float) {
+    fun trackNotificationReceived(
+        notificationType: String,
+        podcastId: String? = null,
+        episodeId: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "notification_received",
+            buildMap {
+                put("notification_type", notificationType)
+                podcastId?.let { put("podcast_id", it) }
+                episodeId?.let { put("episode_id", it) }
+            },
+        )
+    }
+
+    fun trackDownloadRequested(
+        episodeId: String,
+        podcastId: String,
+        source: String,
+        wifiOnly: Boolean? = null,
+    ) {
+        AnalyticsEmit.event(
+            "download_requested",
+            buildMap {
+                put("episode_id", episodeId)
+                put("podcast_id", podcastId)
+                put("source", source)
+                wifiOnly?.let { put("wifi_only", it) }
+            },
+        )
+    }
+
+    fun trackDownloadCompleted(
+        episodeId: String,
+        podcastId: String,
+        source: String? = null,
+        fileSizeMb: Float? = null,
+    ) {
         AnalyticsEmit.event(
             "download_completed",
+            buildMap {
+                put("episode_id", episodeId)
+                put("podcast_id", podcastId)
+                source?.let { put("source", it) }
+                fileSizeMb?.let {
+                    put("file_size_mb", it)
+                    put("bytes", (it * 1024f * 1024f).toLong())
+                }
+            },
+        )
+    }
+
+    fun trackDownloadFailed(
+        errorReason: String,
+        episodeId: String? = null,
+        podcastId: String? = null,
+        source: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "download_failed",
+            buildMap {
+                put("error_type", errorReason)
+                put("error_message", errorReason)
+                put("error_reason", errorReason)
+                episodeId?.let { put("episode_id", it) }
+                podcastId?.let { put("podcast_id", it) }
+                source?.let { put("source", it) }
+            },
+        )
+    }
+
+    fun trackSmartDownloadSync(
+        requestedCount: Int? = null,
+        completedCount: Int? = null,
+        failedCount: Int? = null,
+        cleanedCount: Int? = null,
+        trigger: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "smart_download_sync",
+            buildMap {
+                requestedCount?.let { put("requested_count", it) }
+                completedCount?.let { put("completed_count", it) }
+                failedCount?.let { put("failed_count", it) }
+                cleanedCount?.let { put("cleaned_count", it) }
+                trigger?.let { put("trigger", it) }
+            },
+        )
+    }
+
+    fun trackShowNotificationToggled(
+        podcastId: String,
+        enabled: Boolean,
+    ) {
+        AnalyticsEmit.event(
+            "show_notification_toggled",
             mapOf(
-                "episode_id" to "unknown",
-                "podcast_id" to "unknown",
-                "bytes" to (fileSizeMb * 1024f * 1024f).toLong(),
-                "file_size_mb" to fileSizeMb,
+                "podcast_id" to podcastId,
+                "enabled" to enabled,
             ),
         )
     }
 
-    fun trackDownloadFailed(errorReason: String) {
+    fun trackShareContent(
+        contentType: String,
+        podcastId: String? = null,
+        episodeId: String? = null,
+        channel: String? = null,
+        surface: String? = null,
+    ) {
         AnalyticsEmit.event(
-            "download_failed",
-            mapOf(
-                "error_type" to errorReason,
-                "error_message" to errorReason,
-                "error_reason" to errorReason,
-            ),
+            "share_content",
+            buildMap {
+                put("content_type", contentType)
+                podcastId?.let { put("podcast_id", it) }
+                episodeId?.let { put("episode_id", it) }
+                channel?.let { put("channel", it) }
+                surface?.let { put("surface", it) }
+            },
+        )
+    }
+
+    fun trackBackupRestoreResult(
+        action: String,
+        success: Boolean,
+        itemCount: Int? = null,
+        format: String? = null,
+        errorMessage: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "backup_restore_result",
+            buildMap {
+                put("action", action)
+                put("success", success)
+                itemCount?.let { put("item_count", it) }
+                format?.let { put("format", it) }
+                errorMessage?.let { put("error_message", it) }
+            },
+        )
+    }
+
+    fun trackEpisodeLikedToggled(
+        episodeId: String,
+        podcastId: String,
+        isLiked: Boolean,
+        surface: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "episode_liked_toggled",
+            buildMap {
+                put("episode_id", episodeId)
+                put("podcast_id", podcastId)
+                put("is_liked", isLiked)
+                surface?.let { put("surface", it) }
+            },
+        )
+    }
+
+    fun trackEpisodeMarkPlayed(
+        episodeId: String,
+        podcastId: String,
+        isPlayed: Boolean,
+        surface: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "episode_mark_played",
+            buildMap {
+                put("episode_id", episodeId)
+                put("podcast_id", podcastId)
+                put("is_played", isPlayed)
+                surface?.let { put("surface", it) }
+            },
+        )
+    }
+
+    fun trackSearchResultTapped(
+        surface: String,
+        resultType: String,
+        podcastId: String? = null,
+        episodeId: String? = null,
+        positionIndex: Int? = null,
+        searchQuery: String? = null,
+        searchMode: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "search_result_tapped",
+            buildMap {
+                put("surface", surface)
+                put("result_type", resultType)
+                podcastId?.let { put("podcast_id", it) }
+                episodeId?.let { put("episode_id", it) }
+                positionIndex?.let { put("position_index", it) }
+                searchQuery?.let { put("search_query", it) }
+                searchMode?.let { put("search_mode", it) }
+            },
         )
     }
 

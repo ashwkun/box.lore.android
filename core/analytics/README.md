@@ -13,6 +13,7 @@ Owns analytics event capture and non-fatal error reporting for Boxlore. The modu
 - `PendingEntryPoint` bridges playback entry-point context across MediaController boundaries.
 - `PlayerSessionAggregator` batches per-episode player interaction events.
 - Event names and property expectations are documented in [`docs/ANALYTICS_EVENT_GLOSSARY.md`](../../docs/ANALYTICS_EVENT_GLOSSARY.md).
+- Glossary façades include growth/session (`trackOnboardingAbandoned`, `trackSessionRestorePrompt`), library ops (`trackDownloadRequested`, `trackShareContent`, `trackBackupRestoreResult`, `trackQueueModified`), discovery (`trackExploreSearchPerformed` with `search_mode`, `trackSearchResultTapped`), and onboarding (`trackOnboardingStepViewed` with optional `step_index`).
 
 ## Internal structure
 
@@ -46,14 +47,25 @@ src/main/java/cx/aswin/boxlore/core/analytics/
 - Preference key `is_first_launch` must remain stable.
 - Event identity must remain aligned with [`docs/ANALYTICS_EVENT_GLOSSARY.md`](../../docs/ANALYTICS_EVENT_GLOSSARY.md).
 
+## Lifecycle / volume (no double-count)
+
+- Opens / backgrounds / install **counts** come from PostHog SDK autocapture (`Application Opened`, `Application Backgrounded`, `Application Installed`) with `captureApplicationLifecycleEvents = true`.
+- Do **not** emit glossary `app_open`, `app_background`, or volume `install_attributed`.
+- Install channel: `$set_once` person `install_channel` only (`trackInstallChannelAttributed`).
+- Deep links: custom `deep_link_opened` (`captureDeepLinks = false`).
+- Weekly Pulse KPIs stay on **Application Opened** / **Application Installed**.
+- Coverage inventory: [`docs/analytics/glossary_emission_coverage.csv`](../../docs/analytics/glossary_emission_coverage.csv) (`emission` | `sdk_backed` | `person_props_only`).
+
 ## Testing notes
 
 - Unit tests live under `src/test/java/cx/aswin/boxlore/core/analytics`.
 - Use `RecordingAnalytics` when testing classes that accept `Analytics`.
-- Existing coverage includes recording behavior and glossary/raw-text entry-point guards.
+- `GlossaryAllEventsEmissionTest` covers every `emission:` inventory row; `LifecycleSdkMappingTest` / `InstallChannelAttributionTest` assert no dual open/install emits.
+- Architecture guards in `:core:testing` enforce CSV ↔ allowlist ↔ inventory parity.
 
 ```bash
 ./gradlew :core:analytics:testDebugUnitTest
+./gradlew :core:testing:testDebugUnitTest --tests '*GlossaryCoverageGuardTest'
 ```
 
 ## CI relevance

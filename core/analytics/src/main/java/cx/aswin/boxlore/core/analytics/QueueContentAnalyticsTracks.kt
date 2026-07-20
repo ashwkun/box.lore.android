@@ -90,6 +90,7 @@ internal object QueueContentAnalyticsTracks {
             "explore_recommendation_tapped",
             mapOf(
                 "rail" to "category",
+                "interaction" to "filter",
                 "category_name" to categoryName,
             ),
         )
@@ -340,10 +341,35 @@ internal object QueueContentAnalyticsTracks {
         AnalyticsEmit.event("daily_briefing_action", props)
     }
 
-    fun trackNavTabClicked(tabName: String) {
+    fun trackQueueModified(
+        action: String,
+        episodeId: String? = null,
+        podcastId: String? = null,
+        queueSize: Int? = null,
+        source: String? = null,
+    ) {
+        AnalyticsEmit.event(
+            "queue_modified",
+            buildMap {
+                put("action", action)
+                episodeId?.let { put("episode_id", it) }
+                podcastId?.let { put("podcast_id", it) }
+                queueSize?.let { put("queue_size", it) }
+                source?.let { put("source", it) }
+            },
+        )
+    }
+
+    fun trackNavTabClicked(
+        tabName: String,
+        previousTab: String? = null,
+    ) {
         AnalyticsEmit.event(
             "nav_tab_clicked",
-            mapOf("tab" to tabName),
+            buildMap {
+                put("tab", tabName)
+                previousTab?.let { put("previous_tab", it) }
+            },
         )
     }
 

@@ -22,6 +22,14 @@ object ShareManager {
         podcast: Podcast,
         target: ShareTarget = ShareTarget.MESSAGE
     ) {
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackShareContent(
+            contentType = "podcast",
+            podcastId = podcast.id,
+            channel = when (target) {
+                ShareTarget.MESSAGE -> "message"
+                ShareTarget.INSTAGRAM_STORY -> "instagram_story"
+            },
+        )
         val shareUrl = ShareLinkBuilder.podcast(podcast.id)
         val creator = podcast.artist.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         val shareText = "I think you'll like this podcast:\n\n" +
@@ -48,6 +56,15 @@ object ShareManager {
         endMs: Long? = null,
         target: ShareTarget = ShareTarget.MESSAGE
     ) {
+        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackShareContent(
+            contentType = "episode",
+            podcastId = episode.podcastId,
+            episodeId = episode.id,
+            channel = when (target) {
+                ShareTarget.MESSAGE -> "message"
+                ShareTarget.INSTAGRAM_STORY -> "instagram_story"
+            },
+        )
         val shareUrl = ShareLinkBuilder.episode(
             id = episode.id,
             timestampMs = timestampMs,

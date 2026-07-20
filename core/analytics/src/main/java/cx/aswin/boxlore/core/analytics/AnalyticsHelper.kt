@@ -58,7 +58,72 @@ object AnalyticsHelper : Analytics {
             )
             prefs.edit().putBoolean(KEY_FIRST_LAUNCH, false).apply()
         }
+        // Open/background volume is SDK-backed (Application Opened / Backgrounded).
+        // Do not emit glossary app_open / app_background here.
     }
+
+    /** Person `$set_once` install_channel only — never emit install_attributed volume event. */
+    fun trackInstallChannelAttributed(
+        installChannel: String,
+        referrerRaw: String? = null,
+        utmSource: String? = null,
+        shareToken: String? = null,
+    ) = GrowthSessionAnalyticsTracks.trackInstallChannelAttributed(
+        installChannel,
+        referrerRaw,
+        utmSource,
+        shareToken,
+    )
+
+    fun trackDeepLinkOpened(
+        linkScheme: String,
+        isFirstOpen: Boolean,
+        linkHost: String? = null,
+        contentType: String? = null,
+        podcastId: String? = null,
+        episodeId: String? = null,
+        coldStart: Boolean? = null,
+    ) = GrowthSessionAnalyticsTracks.trackDeepLinkOpened(
+        linkScheme,
+        isFirstOpen,
+        linkHost,
+        contentType,
+        podcastId,
+        episodeId,
+        coldStart,
+    )
+
+    fun trackOnboardingAbandoned(
+        lastStep: String,
+        flowType: String,
+        timeSpentSeconds: Int? = null,
+        subscribedCount: Int? = null,
+    ) = GrowthSessionAnalyticsTracks.trackOnboardingAbandoned(
+        lastStep,
+        flowType,
+        timeSpentSeconds,
+        subscribedCount,
+    )
+
+    fun trackSessionRestorePrompt(
+        action: String,
+        episodeId: String? = null,
+        podcastId: String? = null,
+        positionSeconds: Float? = null,
+    ) = GrowthSessionAnalyticsTracks.trackSessionRestorePrompt(
+        action,
+        episodeId,
+        podcastId,
+        positionSeconds,
+    )
+
+    fun trackLaunchPersonEnrichment(
+        onboardingStatus: String? = null,
+        subscriptionCountBucket: String? = null,
+    ) = GrowthSessionAnalyticsTracks.trackLaunchPersonEnrichment(
+        onboardingStatus,
+        subscriptionCountBucket,
+    )
 
     /**
      * App Check health/adoption. Captured once per launch on builds that ship
@@ -340,6 +405,12 @@ object AnalyticsHelper : Analytics {
         importType: String,
         errorMessage: String?,
     ) = OnboardingAnalyticsTracks.trackOnboardingImportFailed(importType, errorMessage)
+
+    fun trackOnboardingStepViewed(
+        stepName: String,
+        flowType: String,
+        stepIndex: Int? = null,
+    ) = OnboardingAnalyticsTracks.trackOnboardingStepViewed(stepName, flowType, stepIndex)
 
     fun trackOnboardingManualStepCompleted(
         stepName: String,
@@ -634,7 +705,8 @@ object AnalyticsHelper : Analytics {
     fun trackExploreSearchPerformed(
         query: String,
         resultsCount: Int,
-    ) = PlaybackAnalyticsTracks.trackExploreSearchPerformed(query, resultsCount)
+        searchMode: String = "show_keyword",
+    ) = PlaybackAnalyticsTracks.trackExploreSearchPerformed(query, resultsCount, searchMode)
 
     fun trackExploreScreenSession(
         timeSpentSeconds: Float,
@@ -740,11 +812,123 @@ object AnalyticsHelper : Analytics {
         episodeTitle: String? = null,
     ) = LibraryAnalyticsTracks.trackFullPlayerScreenSession(podcastId, episodeId, metrics, podcastName, episodeTitle)
 
-    fun trackNotificationTapped() = LibraryAnalyticsTracks.trackNotificationTapped()
+    fun trackDownloadCompleted(
+        episodeId: String,
+        podcastId: String,
+        source: String? = null,
+        fileSizeMb: Float? = null,
+    ) = LibraryAnalyticsTracks.trackDownloadCompleted(episodeId, podcastId, source, fileSizeMb)
 
-    fun trackDownloadCompleted(fileSizeMb: Float) = LibraryAnalyticsTracks.trackDownloadCompleted(fileSizeMb)
+    /** @deprecated Prefer [trackDownloadCompleted] with episode/podcast ids. */
+    fun trackDownloadCompleted(fileSizeMb: Float) =
+        LibraryAnalyticsTracks.trackDownloadCompleted("unknown", "unknown", source = null, fileSizeMb = fileSizeMb)
 
-    fun trackDownloadFailed(errorReason: String) = LibraryAnalyticsTracks.trackDownloadFailed(errorReason)
+    fun trackDownloadFailed(
+        errorReason: String,
+        episodeId: String? = null,
+        podcastId: String? = null,
+        source: String? = null,
+    ) = LibraryAnalyticsTracks.trackDownloadFailed(errorReason, episodeId, podcastId, source)
+
+    fun trackDownloadRequested(
+        episodeId: String,
+        podcastId: String,
+        source: String,
+        wifiOnly: Boolean? = null,
+    ) = LibraryAnalyticsTracks.trackDownloadRequested(episodeId, podcastId, source, wifiOnly)
+
+    fun trackSmartDownloadSync(
+        requestedCount: Int? = null,
+        completedCount: Int? = null,
+        failedCount: Int? = null,
+        cleanedCount: Int? = null,
+        trigger: String? = null,
+    ) = LibraryAnalyticsTracks.trackSmartDownloadSync(
+        requestedCount,
+        completedCount,
+        failedCount,
+        cleanedCount,
+        trigger,
+    )
+
+    fun trackShowNotificationToggled(
+        podcastId: String,
+        enabled: Boolean,
+    ) = LibraryAnalyticsTracks.trackShowNotificationToggled(podcastId, enabled)
+
+    fun trackShareContent(
+        contentType: String,
+        podcastId: String? = null,
+        episodeId: String? = null,
+        channel: String? = null,
+        surface: String? = null,
+    ) = LibraryAnalyticsTracks.trackShareContent(contentType, podcastId, episodeId, channel, surface)
+
+    fun trackBackupRestoreResult(
+        action: String,
+        success: Boolean,
+        itemCount: Int? = null,
+        format: String? = null,
+        errorMessage: String? = null,
+    ) = LibraryAnalyticsTracks.trackBackupRestoreResult(action, success, itemCount, format, errorMessage)
+
+    fun trackEpisodeLikedToggled(
+        episodeId: String,
+        podcastId: String,
+        isLiked: Boolean,
+        surface: String? = null,
+    ) = LibraryAnalyticsTracks.trackEpisodeLikedToggled(episodeId, podcastId, isLiked, surface)
+
+    fun trackEpisodeMarkPlayed(
+        episodeId: String,
+        podcastId: String,
+        isPlayed: Boolean,
+        surface: String? = null,
+    ) = LibraryAnalyticsTracks.trackEpisodeMarkPlayed(episodeId, podcastId, isPlayed, surface)
+
+    fun trackSearchResultTapped(
+        surface: String,
+        resultType: String,
+        podcastId: String? = null,
+        episodeId: String? = null,
+        positionIndex: Int? = null,
+        searchQuery: String? = null,
+        searchMode: String? = null,
+    ) = LibraryAnalyticsTracks.trackSearchResultTapped(
+        surface,
+        resultType,
+        podcastId,
+        episodeId,
+        positionIndex,
+        searchQuery,
+        searchMode,
+    )
+
+    fun trackNotificationReceived(
+        notificationType: String,
+        podcastId: String? = null,
+        episodeId: String? = null,
+    ) = LibraryAnalyticsTracks.trackNotificationReceived(notificationType, podcastId, episodeId)
+
+    fun trackNotificationTapped(
+        notificationType: String = "unknown",
+        podcastId: String? = null,
+        episodeId: String? = null,
+        targetRoute: String? = null,
+    ) = LibraryAnalyticsTracks.trackNotificationTapped(notificationType, podcastId, episodeId, targetRoute)
+
+    fun trackQueueModified(
+        action: String,
+        episodeId: String? = null,
+        podcastId: String? = null,
+        queueSize: Int? = null,
+        source: String? = null,
+    ) = QueueContentAnalyticsTracks.trackQueueModified(action, episodeId, podcastId, queueSize, source)
+
+    fun trackNavTabClicked(
+        tabName: String,
+        previousTab: String? = null,
+    ) = QueueContentAnalyticsTracks.trackNavTabClicked(tabName, previousTab)
 
     fun trackPlayMixClicked(count: Int) = LibraryAnalyticsTracks.trackPlayMixClicked(count)
 
@@ -892,8 +1076,6 @@ object AnalyticsHelper : Analytics {
         date: String,
         source: String? = null,
     ) = QueueContentAnalyticsTracks.trackDailyBriefingScreenViewed(region, date, source)
-
-    fun trackNavTabClicked(tabName: String) = QueueContentAnalyticsTracks.trackNavTabClicked(tabName)
 
     fun trackLearnScreenViewed() = QueueContentAnalyticsTracks.trackLearnScreenViewed()
 

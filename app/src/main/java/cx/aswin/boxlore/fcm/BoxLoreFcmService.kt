@@ -57,7 +57,12 @@ class BoxLoreFcmService : FirebaseMessagingService() {
 
         val data = message.data
         if (data.isNotEmpty()) {
-            val type = data["type"]
+            val type = data["type"] ?: "push"
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackNotificationReceived(
+                notificationType = type,
+                podcastId = data["podcast_id"] ?: data["podcastId"],
+                episodeId = data["episode_id"] ?: data["episodeId"],
+            )
             if (type == "new_episode") {
                 handleNewEpisodeMessage(data)
                 return
@@ -135,6 +140,10 @@ class BoxLoreFcmService : FirebaseMessagingService() {
             setPackage(packageName)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("from_push", true)
+            putExtra("notification_type", "new_episode")
+            putExtra("podcast_id", podcastId)
+            putExtra("episode_id", episodeId)
+            putExtra("target_route", route)
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -362,18 +371,30 @@ class BoxLoreFcmService : FirebaseMessagingService() {
         }
     }
 
-    private fun createPushIntent(route: String?): Intent {
+    private fun createPushIntent(
+        route: String?,
+        notificationType: String = "push",
+        podcastId: String? = null,
+        episodeId: String? = null,
+    ): Intent {
         val isUriRoute = route != null && PushTargetRouteAllowlist.isAppOrWebUri(route)
         return if (isUriRoute) {
             Intent(Intent.ACTION_VIEW, Uri.parse(route)).apply {
                 setClass(this@BoxLoreFcmService, MainActivity::class.java)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("from_push", true)
+                putExtra("notification_type", notificationType)
+                podcastId?.let { putExtra("podcast_id", it) }
+                episodeId?.let { putExtra("episode_id", it) }
+                putExtra("target_route", route)
             }
         } else {
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("from_push", true)
+                putExtra("notification_type", notificationType)
+                podcastId?.let { putExtra("podcast_id", it) }
+                episodeId?.let { putExtra("episode_id", it) }
                 if (route != null && PushTargetRouteAllowlist.isAllowed(route)) {
                     putExtra("target_route", route)
                 }

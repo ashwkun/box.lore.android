@@ -449,12 +449,14 @@ fun ExploreContent(
                                     isFallback = isRecommendationsFallback,
                                     labelText = "FEATURED RESULT",
                                     onClick = {
-                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
-                                            episodeId = heroEp.id,
-                                            episodeTitle = heroEp.title,
+                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSearchResultTapped(
+                                            surface = "explore",
+                                            resultType = "episode",
                                             podcastId = parentPodcast.id,
-                                            podcastName = parentPodcast.title,
-                                            positionIndex = 0
+                                            episodeId = heroEp.id,
+                                            positionIndex = 0,
+                                            searchQuery = state.searchQuery,
+                                            searchMode = "episode_semantic",
                                         )
                                         onEpisodeClick(heroEp, parentPodcast)
                                     }
@@ -473,12 +475,14 @@ fun ExploreContent(
                                 ExploreEpisodeBentoCard(
                                     episode = episode,
                                     onClick = {
-                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackExploreRecommendationCardTapped(
-                                            episodeId = episode.id,
-                                            episodeTitle = episode.title,
+                                        cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackSearchResultTapped(
+                                            surface = "explore",
+                                            resultType = "episode",
                                             podcastId = parentPodcast.id,
-                                            podcastName = parentPodcast.title,
-                                            positionIndex = index + 1
+                                            episodeId = episode.id,
+                                            positionIndex = index + 1,
+                                            searchQuery = state.searchQuery,
+                                            searchMode = "episode_semantic",
                                         )
                                         onEpisodeClick(episode, parentPodcast)
                                     }
