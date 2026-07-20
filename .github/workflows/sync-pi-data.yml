@@ -135,10 +135,20 @@ jobs:
         if: always()
         run: node scripts/sync/07-record-stats.js
 
+      # GitHub App installation tokens expire after ~1 hour. Sync often runs longer,
+      # so mint a fresh token immediately before the push (not at job start).
+      - name: Refresh boxlore pusher token for push
+        id: app-token-push
+        if: always()
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOXLORE_PUSHER_APP_ID }}
+          private-key: ${{ secrets.BOXLORE_PUSHER_PRIVATE_KEY }}
+
       - name: Commit pipeline state
         if: always()
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-push.outputs.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -201,9 +211,16 @@ jobs:
         if: always()
         run: node scripts/sync/07-record-stats.js
 
+      - name: Refresh boxlore pusher token for push
+        id: app-token-push
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOXLORE_PUSHER_APP_ID }}
+          private-key: ${{ secrets.BOXLORE_PUSHER_PRIVATE_KEY }}
+
       - name: Commit pipeline state
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-push.outputs.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

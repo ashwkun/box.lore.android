@@ -444,6 +444,19 @@ def pull_requests_between(
     )
 
 
+def pull_request_label_names(pull_request: dict[str, object]) -> list[str]:
+    labels = pull_request.get("labels") or []
+    names: list[str] = []
+    if not isinstance(labels, list):
+        return names
+    for item in labels:
+        if isinstance(item, str):
+            names.append(item)
+        elif isinstance(item, dict) and item.get("name"):
+            names.append(str(item["name"]))
+    return names
+
+
 def reconcile_changelog(
     repository: str,
     token: str,
@@ -466,6 +479,7 @@ def reconcile_changelog(
             number,
             str(pull_request.get("title") or "").strip(),
             str(pull_request.get("body") or ""),
+            labels=pull_request_label_names(pull_request),
         )
         if not changed:
             fail(f"PR #{number} produced no changelog entry")

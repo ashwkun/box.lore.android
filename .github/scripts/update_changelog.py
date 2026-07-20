@@ -257,14 +257,14 @@ Audience: developers and technical contributors reading CHANGELOG.md (NOT end-us
 Rules:
 - Use precise technical wording: class/module names, tiers, repositories, and behavior when relevant.
 - Merge related changes into one bullet per feature area (e.g. all SmartQueueEngine work → one Added bullet).
-- Omit test-only, CI-only, or pure telemetry unless the PR is solely about analytics.
+- For CI-only, dependency-bump, or docs-only PRs, still return exactly one short Changed (or docs) bullet — never an empty object.
 - Prefer summarizing analytics as "PostHog announcement viewed/dismissed/action events" — do not list every event property.
 - When the PR body includes "What changes in the user's life" / Listener impact, still write technical CHANGELOG bullets, but do not invent UI toolkit branding (e.g. "Material 3") as the main story.
 - Use "Fixed ..." for bugs, "Added ..." for features, "Changed ..." for behavior/refactors, "Removed ..." for deletions.
 - Do not invent changes unsupported by the PR title/body.
 - Omit empty categories.
 - No version headers, dates, PR numbers, or markdown in bullets.
-- Aim for 2–6 bullets total per PR."""
+- Aim for 1–6 bullets total per PR (at least one)."""
 
     user_prompt = f"""PR #{pr_number}
 Title: {pr_title}
@@ -290,6 +290,35 @@ Generate changelog bullets for the [Unreleased] section."""
         if bullets:
             normalized[category] = bullets
     return normalized
+
+
+def _fallback_entries_from_title(pr_title: str) -> dict[str, list[str]]:
+    """Deterministic changelog bullets when Groq returns nothing (e.g. CI/deps PRs)."""
+    title = (pr_title or "").strip() or "Maintenance update"
+    conventional = re.match(
+        r"^(?P<type>feat|fix|chore|ci|docs|refactor|test|perf|build|style)"
+        r"(?:\([^)]*\))?!?:\s*(?P<summary>.+)$",
+        title,
+        flags=re.IGNORECASE,
+    )
+    if conventional:
+        kind = conventional.group("type").lower()
+        summary = conventional.group("summary").strip()
+    else:
+        kind = "chore"
+        summary = title
+
+    if kind == "feat":
+        category = "Added"
+    elif kind == "fix":
+        category = "Fixed"
+    elif kind == "docs":
+        category = "Changed"
+        if not summary.lower().startswith("docs"):
+            summary = f"Documentation: {summary}"
+    else:
+        category = "Changed"
+    return {category: [summary]}
 
 
 def _extract_pr_number(bullet: str) -> int | None:
@@ -1040,8 +1069,14 @@ def append_changelog(
     changelog_original = CHANGELOG_PATH.read_text(encoding="utf-8")
     entries = _groq_entries(api_key, pr_number, pr_title, pr_body)
     if not entries:
-        print("Groq returned no changelog entries.")
-        return False
+        print(
+            f"Groq returned no changelog entries for PR #{pr_number}; "
+            "synthesizing a Changed/Added/Fixed bullet from the PR title."
+        )
+        entries = _fallback_entries_from_title(pr_title)
+        if not entries:
+            print("Could not synthesize a changelog entry from the PR title.")
+            return False
 
     changelog_updated, changelog_changed = _update_changelog(
         changelog_original,
