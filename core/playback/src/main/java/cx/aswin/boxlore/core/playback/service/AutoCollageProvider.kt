@@ -139,15 +139,12 @@ open class AutoCollageProvider : ContentProvider() {
                 ?.takeIf(AutoArtworkDownloader::isPublicHttpsUrl)
                 ?: return null
         val lock = artworkLocks.getOrPut(key) { Any() }
-        return try {
-            synchronized(lock) {
-                cachedRemoteArtwork(context, key)?.let { return@synchronized it }
-                // One retry covers flaky CDNs / brief Auto host pipe races.
-                fetchRemoteArtwork(sourceUrl, cacheDir, target)
-                    ?: fetchRemoteArtwork(sourceUrl, cacheDir, target)
-            }
-        } finally {
-            artworkLocks.remove(key)
+        return synchronized(lock) {
+            cachedRemoteArtwork(context, key)?.let { return@synchronized it }
+            // One retry covers flaky CDNs / brief Auto host pipe races.
+            // Keep the lock stripe resident so concurrent openers share the same monitor.
+            fetchRemoteArtwork(sourceUrl, cacheDir, target)
+                ?: fetchRemoteArtwork(sourceUrl, cacheDir, target)
         }
     }
 

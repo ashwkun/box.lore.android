@@ -17,7 +17,8 @@ internal object AutoArtworkDownloader {
 
     fun parseHttpsUrl(raw: String): URL? {
         val normalized = raw.replaceFirst("http://", "https://")
-        return runCatching { URI(normalized).toURL() }.getOrNull()
+        val url = runCatching { URI(normalized).toURL() }.getOrNull() ?: return null
+        return url.takeIf { it.protocol == "https" }
     }
 
     fun downloadHttpsBytes(startUrl: URL): ByteArray? {

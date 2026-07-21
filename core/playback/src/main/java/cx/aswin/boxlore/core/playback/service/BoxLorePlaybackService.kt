@@ -878,6 +878,7 @@ open class BoxLorePlaybackService :
                             )
                         database.listeningHistoryDao().upsert(updated)
                         android.util.Log.d("BoxLorePlaybackService", "Marked current episode completed: $episodeId")
+                        requestAutoCollageRefresh(force = true)
 
                         telemetrySession.trackManualCompletion(
                             episodeId = episodeId,

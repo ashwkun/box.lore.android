@@ -10,6 +10,8 @@ import cx.aswin.boxlore.core.database.ListeningHistoryEntity
 import cx.aswin.boxlore.core.database.PodcastEntity
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.core.playback.AutoCollageFolderLogic
+import cx.aswin.boxlore.core.playback.AutoCollagePrewarmPolicy
 import cx.aswin.boxlore.core.playback.MixtapeEngine
 import cx.aswin.boxlore.core.playback.QueueRepository
 import cx.aswin.boxlore.core.playback.SmartQueueSources
@@ -39,12 +41,12 @@ internal class AutoCollagePrewarmer(
 
     suspend fun prewarm(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (!force && now - lastPrewarmAtMs.get() < MIN_REFRESH_INTERVAL_MS) {
+        if (!AutoCollagePrewarmPolicy.shouldRun(force, lastPrewarmAtMs.get(), now)) {
             return
         }
         mutex.withLock {
             val lockedNow = System.currentTimeMillis()
-            if (!force && lockedNow - lastPrewarmAtMs.get() < MIN_REFRESH_INTERVAL_MS) {
+            if (!AutoCollagePrewarmPolicy.shouldRun(force, lastPrewarmAtMs.get(), lockedNow)) {
                 return
             }
             runPrewarm()
@@ -56,11 +58,12 @@ internal class AutoCollagePrewarmer(
         try {
             val snapshot = loadSnapshot()
             val mixtape = resolveMixtape(snapshot)
+            val folders = snapshot.buildFolderInputs(mixtape)
             val uris =
                 AutoCollageGenerator.generateAllCollages(
                     context = context,
-                    folderImages = snapshot.folderImages(mixtape),
-                    folderContentKeys = snapshot.folderContentKeys(mixtape),
+                    folderImages = folders.mapValues { AutoCollageFolderLogic.imagesOf(it.value) },
+                    folderContentKeys = folders.mapValues { AutoCollageFolderLogic.keysOf(it.value) },
                 )
             onCollagesReady(uris)
             notifyBrowseTree(snapshot.subscriptions.size, snapshot.resumeItems.size)
@@ -144,67 +147,70 @@ internal class AutoCollagePrewarmer(
         val downloads: List<DownloadedEpisodeEntity>,
         val queue: List<Episode>,
     ) {
-        private val historyImages =
-            history.mapNotNull { it.episodeImageUrl ?: it.podcastImageUrl }
-        private val resumeImages =
-            resumeItems.mapNotNull { it.episodeImageUrl ?: it.podcastImageUrl }
-        private val subscriptionImages = subscriptions.mapNotNull { it.imageUrl }
-        private val downloadImages =
-            downloads.mapNotNull { it.episodeImageUrl ?: it.podcastImageUrl }
-        private val queueImages = queue.mapNotNull { it.imageUrl ?: it.podcastImageUrl }
-        private val newEpisodeImages =
-            subscriptions.mapNotNull { it.latestEpisode?.imageUrl ?: it.imageUrl }
-        private val newEpisodeKeys =
-            subscriptions.mapNotNull { podcast ->
-                podcast.latestEpisode?.id ?: podcast.podcastId.takeIf {
-                    podcast.latestEpisode != null || !podcast.imageUrl.isNullOrBlank()
+        fun buildFolderInputs(mixtape: MixtapeEngine.Result): Map<String, List<AutoCollageFolderLogic.ArtPair>> {
+            val historyPairs =
+                history.mapNotNull {
+                    AutoCollageFolderLogic.pairOrNull(
+                        it.episodeId,
+                        it.episodeImageUrl ?: it.podcastImageUrl,
+                    )
                 }
-            }
-
-        fun folderImages(mixtape: MixtapeEngine.Result): Map<String, List<String>> {
-            val mixtapeImages =
+            val resumePairs =
+                resumeItems.mapNotNull {
+                    AutoCollageFolderLogic.pairOrNull(
+                        it.episodeId,
+                        it.episodeImageUrl ?: it.podcastImageUrl,
+                    )
+                }
+            val subscriptionPairs =
+                subscriptions.mapNotNull {
+                    AutoCollageFolderLogic.pairOrNull(it.podcastId, it.imageUrl)
+                }
+            val downloadPairs =
+                downloads.mapNotNull {
+                    AutoCollageFolderLogic.pairOrNull(
+                        it.episodeId,
+                        it.episodeImageUrl ?: it.podcastImageUrl,
+                    )
+                }
+            val queuePairs =
+                queue.mapNotNull {
+                    AutoCollageFolderLogic.pairOrNull(it.id, it.imageUrl ?: it.podcastImageUrl)
+                }
+            val newEpisodePairs =
+                subscriptions.mapNotNull { podcast ->
+                    val episode = podcast.latestEpisode
+                    AutoCollageFolderLogic.pairOrNull(
+                        episode?.id ?: podcast.podcastId,
+                        episode?.imageUrl ?: podcast.imageUrl,
+                    )
+                }
+            val mixtapePairs =
                 mixtape.podcasts.mapNotNull { podcast ->
-                    podcast.latestEpisode?.let { episode ->
-                        episode.imageUrl ?: episode.podcastImageUrl ?: podcast.imageUrl
-                    }
+                    val episode = podcast.latestEpisode ?: return@mapNotNull null
+                    AutoCollageFolderLogic.pairOrNull(
+                        episode.id,
+                        episode.imageUrl ?: episode.podcastImageUrl ?: podcast.imageUrl,
+                    )
                 }
+            val drivePairs =
+                AutoCollageFolderLogic.takeAligned(queuePairs + subscriptionPairs)
             return mapOf(
-                AutoBrowseContract.HOME_ID to (historyImages + newEpisodeImages).take(4),
-                AutoBrowseContract.LIBRARY_ID to subscriptionImages.take(4),
-                AutoBrowseContract.DOWNLOADS_ID to downloadImages.take(4),
-                AutoBrowseContract.DISCOVER_ID to subscriptionImages.asReversed().take(4),
-                AutoBrowseContract.HOME_CONTINUE_ID to resumeImages.take(4),
-                AutoBrowseContract.HOME_QUEUE_ID to queueImages.take(4),
-                AutoBrowseContract.HOME_NEW_EPISODES_ID to newEpisodeImages.take(4),
-                AutoBrowseContract.HOME_DRIVE_MIX_ID to mixtapeImages.take(4),
-                AutoBrowseContract.DISCOVER_DRIVE_PICKS_ID to
-                    (queueImages + subscriptionImages).take(4),
+                AutoBrowseContract.HOME_ID to
+                    AutoCollageFolderLogic.takeAligned(historyPairs + newEpisodePairs),
+                AutoBrowseContract.LIBRARY_ID to AutoCollageFolderLogic.takeAligned(subscriptionPairs),
+                AutoBrowseContract.DOWNLOADS_ID to AutoCollageFolderLogic.takeAligned(downloadPairs),
+                AutoBrowseContract.DISCOVER_ID to
+                    AutoCollageFolderLogic.takeAligned(subscriptionPairs.asReversed()),
+                AutoBrowseContract.HOME_CONTINUE_ID to AutoCollageFolderLogic.takeAligned(resumePairs),
+                AutoBrowseContract.HOME_QUEUE_ID to AutoCollageFolderLogic.takeAligned(queuePairs),
+                AutoBrowseContract.HOME_NEW_EPISODES_ID to
+                    AutoCollageFolderLogic.takeAligned(newEpisodePairs),
+                AutoBrowseContract.HOME_DRIVE_MIX_ID to AutoCollageFolderLogic.takeAligned(mixtapePairs),
+                AutoBrowseContract.DISCOVER_DRIVE_PICKS_ID to drivePairs,
                 AutoBrowseContract.DISCOVER_TIME_PICKS_ID to emptyList(),
                 AutoBrowseContract.DISCOVER_GENRES_ID to emptyList(),
             )
         }
-
-        fun folderContentKeys(mixtape: MixtapeEngine.Result): Map<String, List<String>> =
-            mapOf(
-                AutoBrowseContract.HOME_ID to history.take(4).map { it.episodeId },
-                AutoBrowseContract.LIBRARY_ID to subscriptions.take(4).map { it.podcastId },
-                AutoBrowseContract.DOWNLOADS_ID to downloads.map { it.episodeId },
-                AutoBrowseContract.DISCOVER_ID to
-                    subscriptions.asReversed().take(4).map { it.podcastId },
-                AutoBrowseContract.HOME_CONTINUE_ID to resumeItems.map { it.episodeId },
-                AutoBrowseContract.HOME_QUEUE_ID to queue.map { it.id },
-                AutoBrowseContract.HOME_NEW_EPISODES_ID to newEpisodeKeys.take(4),
-                AutoBrowseContract.HOME_DRIVE_MIX_ID to mixtape.episodes.map { it.id },
-                AutoBrowseContract.DISCOVER_DRIVE_PICKS_ID to
-                    (queue.map { it.id } + subscriptions.map { it.podcastId }).take(4),
-                AutoBrowseContract.DISCOVER_TIME_PICKS_ID to
-                    listOf(AutoBrowseContract.DISCOVER_TIME_PICKS_ID),
-                AutoBrowseContract.DISCOVER_GENRES_ID to
-                    listOf(AutoBrowseContract.DISCOVER_GENRES_ID),
-            )
-    }
-
-    companion object {
-        private const val MIN_REFRESH_INTERVAL_MS = 30_000L
     }
 }

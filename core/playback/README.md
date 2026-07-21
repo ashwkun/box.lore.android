@@ -16,11 +16,12 @@ Owns playback session control, queue orchestration, smart queue logic, Media3 pl
 - `PlaybackControlSync` keeps UI playback speed / seek sizes aligned with Media3 when a session is cleared or a new queue starts, and sanitizes user-requested speeds before apply/persist.
 - `HistoryRecommendationLogic`, `AutoVoiceSearchLogic`, `SmartQueueRefillPolicy`, `MixtapeResumePolicy`, `NightWindowLogic`, and `ListeningHistoryUpsertLogic` are JVM-testable playback helpers.
 - `AutoArtworkFetchLogic` and `AutoCollageFreshnessLogic` encode Android Auto artwork fetch / collage cache policy for hermetic tests.
+- `AutoCollagePrewarmPolicy` and `AutoCollageFolderLogic` encode prewarm throttle and aligned image/key folder inputs for hermetic tests.
 - `PlaybackIntroOutroController` manages intro-skip and outro-trim playback lifecycle.
 - `service.BoxLorePlaybackService`, `service.MediaDownloadService`, and `service.AutoCollageProvider` are manifest-facing services.
 - `service.SmartQueueRefillCoordinator`, `service.CoilBitmapLoader`, and `service.auto.*` support service internals and Android Auto.
 - Android Auto browse artwork:
-  - `AutoArtworkRepository` + `AutoArtworkSourceStore` register remote/local sources into an in-memory map and durable `android_auto_artwork_sources` prefs (`commit`, not async `apply`) before returning `content://…/art|local|collage/…` URIs.
+  - `AutoArtworkRepository` + `AutoArtworkSourceStore` register remote/local sources into an in-memory map immediately and `commit` prefs on a background thread before/while returning `content://…/art|local|collage/…` URIs.
   - `AutoCollageProvider` lazily fetches remote covers with validated HTTPS redirects, lenient image content-types, magic-byte checks, and one retry; folder collage URIs include a `v=` cache-buster so Auto hosts reload when resume/history content changes.
   - `AutoCollagePrewarmer` / `AutoCollageGenerator` / `AutoCollageLayouts` rebuild section collages from content keys (resume episode IDs, queue IDs, subscriptions, …), use a shorter TTL for partial/fallback tiles, and refresh on mark-complete / queue changes via `AutoBrowseLibraryHost.requestAutoCollageRefresh`.
   - `AutoArtworkDownloader` is the shared HTTPS fetch path (validated redirects + public-host checks) used by both collage generation and the ContentProvider.

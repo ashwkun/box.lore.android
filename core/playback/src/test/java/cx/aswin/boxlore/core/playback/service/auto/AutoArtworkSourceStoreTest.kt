@@ -35,6 +35,7 @@ class AutoArtworkSourceStoreTest {
             AutoArtworkSourceStore.get(context, "abc"),
         )
         // Simulate a fresh reader that only has prefs (e.g. after process restart).
+        AutoArtworkSourceStore.flushPersistsForTests()
         AutoArtworkSourceStore.clearMemoryForTests()
         assertEquals(
             "https://cdn.example/cover.jpg",
@@ -52,7 +53,12 @@ class AutoArtworkSourceStoreTest {
         val uri = AutoArtworkRepository.remoteUri(context, "https://cdn.example/art.png")!!
         val key = uri.pathSegments.last()
 
-        // Even with memory cleared, commit() must have landed the source for the provider.
+        // Memory answers immediately; prefs catch up via background commit.
+        assertEquals(
+            "https://cdn.example/art.png",
+            AutoArtworkSourceStore.get(context, key),
+        )
+        AutoArtworkSourceStore.flushPersistsForTests()
         AutoArtworkSourceStore.clearMemoryForTests()
         assertEquals(
             "https://cdn.example/art.png",
