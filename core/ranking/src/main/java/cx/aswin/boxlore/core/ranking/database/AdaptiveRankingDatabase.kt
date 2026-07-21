@@ -10,8 +10,10 @@ import androidx.room.RoomDatabase
         AdaptiveModelEntity::class,
         PreferenceFacetEntity::class,
         RankingExposureEntity::class,
+        HardShowExclusionEntity::class,
+        RankingOutcomeEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AdaptiveRankingDatabase : RoomDatabase() {
@@ -29,7 +31,10 @@ abstract class AdaptiveRankingDatabase : RoomDatabase() {
                     context.applicationContext,
                     AdaptiveRankingDatabase::class.java,
                     DATABASE_NAME,
-                ).build()
+                )
+                    // Personalization state is disposable across this rebuild; wipe on schema bump.
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
                     .also { instance = it }
             }
         }

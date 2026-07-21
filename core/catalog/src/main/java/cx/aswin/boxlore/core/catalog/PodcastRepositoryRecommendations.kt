@@ -9,13 +9,15 @@ internal fun PodcastRepository.fetchRecommendationV2(
     interests: List<String>,
     country: String?,
     subscribedPodcastIds: List<String>,
+    languages: List<String> = recommendationLanguagesForCountry(country),
 ): List<Episode>? {
     val seeds = buildRecommendationSeeds(history, subscribedPodcastIds)
     val boundedInterests = interests.map(String::trim).filter(String::isNotEmpty).distinct().take(12)
     if (seeds.isEmpty() && boundedInterests.isEmpty()) return null
     val request = cx.aswin.boxlore.core.network.model.RecommendationsV2Request(
         country = country?.lowercase()?.takeIf { it.length in 2..3 } ?: "us",
-        languages = listOf("en"),
+        languages = languages.map(String::trim).filter(String::isNotEmpty).distinct().take(8)
+            .ifEmpty { recommendationLanguagesForCountry(country) },
         seeds = seeds,
         interests = boundedInterests,
         subscribedPodcastIds = subscribedPodcastIds.mapNotNull(String::toLongOrNull)
@@ -97,6 +99,19 @@ internal fun buildRecommendationSeeds(
         .take(maximumSeeds - episodeSeeds.size)
         .toList()
     return episodeSeeds.take(maximumSeeds) + podcastSeeds
+}
+
+/**
+ * Maps region codes to language tags for recommendation retrieval.
+ * English remains included as a fallback so sparse non-EN inventory still works.
+ */
+fun recommendationLanguagesForCountry(country: String?): List<String> {
+    return when (country?.lowercase()) {
+        "fr" -> listOf("fr", "en")
+        "in" -> listOf("en", "hi")
+        "gb", "uk", "us", "au", "ca", "ie", "nz" -> listOf("en")
+        else -> listOf("en")
+    }
 }
 
 internal fun PodcastRepository.fetchLegacyRecommendations(

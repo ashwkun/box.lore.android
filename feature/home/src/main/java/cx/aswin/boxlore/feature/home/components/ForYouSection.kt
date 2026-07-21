@@ -1,6 +1,8 @@
 package cx.aswin.boxlore.feature.home.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
@@ -13,6 +15,10 @@ import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +36,8 @@ import cx.aswin.boxlore.core.designsystem.theme.m3Shimmer
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.StableEpisodeList
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationMode
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationModeLogic
 
 /**
  * Emits the "For You" section directly into a [LazyStaggeredGridScope] instead of composing
@@ -43,19 +51,23 @@ fun LazyStaggeredGridScope.forYouItems(
     discoveryContextTitle: String,
     showTasteHeader: Boolean = true,
     isFallback: Boolean = true,
+    personalizationMode: HomePersonalizationMode = if (isFallback) {
+        HomePersonalizationMode.REGIONAL
+    } else {
+        HomePersonalizationMode.PERSONALIZED
+    },
+    onRecommendationFeedback: ((Episode, RecommendationFeedbackAction) -> Unit)? = null,
 ) {
     val items = recommendations.list.take(9)
+    val title = HomePersonalizationModeLogic.tasteSectionTitle(personalizationMode)
+    val subtitle = HomePersonalizationModeLogic.tasteSectionSubtitle(personalizationMode)
+    val regionalLabel = personalizationMode != HomePersonalizationMode.PERSONALIZED
 
     if (showTasteHeader) {
         item(span = StaggeredGridItemSpan.FullLine, key = "for_you_header", contentType = "for_you_header") {
             HomeChildSectionHeader(
-                title = if (isFallback) "Popular in your Region" else "Based on Your Taste",
-                subtitle =
-                    if (isFallback) {
-                        "Popular picks from listeners near you"
-                    } else {
-                        "Picked from your listening patterns"
-                    },
+                title = title,
+                subtitle = subtitle,
                 icon = Icons.Rounded.AutoAwesome,
             )
         }
@@ -96,7 +108,7 @@ fun LazyStaggeredGridScope.forYouItems(
         ForYouHeroCard(
             episode = ep,
             parentPodcast = parentPodcast,
-            isFallback = isFallback,
+            isFallback = regionalLabel,
             onClick = {
                 AnalyticsHelper.trackHomeRecommendationCardTapped(
                     episodeId = ep.id,
@@ -107,6 +119,9 @@ fun LazyStaggeredGridScope.forYouItems(
                     timeBlockTitle = discoveryContextTitle,
                 )
                 onEpisodeClick(ep, parentPodcast)
+            },
+            onFeedback = onRecommendationFeedback?.let { cb ->
+                { action -> cb(ep, action) }
             },
         )
     }
@@ -142,26 +157,41 @@ fun LazyStaggeredGridScope.forYouItems(
                 )
                 onEpisodeClick(ep, parentPodcast)
             },
+            onFeedback = onRecommendationFeedback?.let { cb ->
+                { action -> cb(ep, action) }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ForYouHeroCard(
     episode: Episode,
     parentPodcast: Podcast,
     isFallback: Boolean = true,
     onClick: () -> Unit,
+    onFeedback: ((RecommendationFeedbackAction) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Box(
         modifier =
             modifier
                 .fillMaxWidth()
                 .height(200.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .expressiveClickable(shape = RoundedCornerShape(20.dp), onClick = onClick),
+                .then(
+                    if (onFeedback != null) {
+                        Modifier.combinedClickable(
+                            onClick = onClick,
+                            onLongClick = { menuExpanded = true },
+                        )
+                    } else {
+                        Modifier.expressiveClickable(shape = RoundedCornerShape(20.dp), onClick = onClick)
+                    },
+                ),
     ) {
         // Full-bleed artwork background
         OptimizedImage(
@@ -299,6 +329,16 @@ private fun ForYouHeroCard(
                     )
                 }
             }
+        }
+
+        if (onFeedback != null) {
+            RecommendationFeedbackMenu(
+                expanded = menuExpanded,
+                onDismiss = { menuExpanded = false },
+                onMoreLikeThis = { onFeedback(RecommendationFeedbackAction.MORE_LIKE_THIS) },
+                onNotForMe = { onFeedback(RecommendationFeedbackAction.NOT_FOR_ME) },
+                onHideShow = { onFeedback(RecommendationFeedbackAction.HIDE_SHOW) },
+            )
         }
     }
 }

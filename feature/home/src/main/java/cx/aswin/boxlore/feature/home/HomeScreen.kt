@@ -126,6 +126,9 @@ data class HomeFeedCallbacks(
     val onDismissBriefing: () -> Unit,
     val onDismissBriefingForever: () -> Unit,
     val onFeedbackClick: () -> Unit,
+    val onRecommendationFeedback: (
+        (Episode, cx.aswin.boxlore.feature.home.components.RecommendationFeedbackAction) -> Unit
+    )? = null,
 )
 
 @androidx.compose.runtime.Stable
@@ -285,6 +288,9 @@ fun HomeRoute(
                         onDismissBriefing = viewModel::dismissBriefingForToday,
                         onDismissBriefingForever = viewModel::dismissBriefingForever,
                         onFeedbackClick = viewModel::triggerFeedback,
+                        onRecommendationFeedback = { episode, action ->
+                            viewModel.onRecommendationFeedback(episode, action)
+                        },
                     ),
                 onNavigateToSettings = onNavigateToSettings,
                 onForceReviewPrompt = viewModel::forceReviewPrompt,
@@ -302,7 +308,13 @@ fun HomeRoute(
                 },
                 onSubmitFeedback = onSubmitFeedback,
                 onNavigateToDebug = onNavigateToDebug,
-                onOverrideRecommendationPodcast = viewModel::setOverriddenRecPodcast,
+                onOverrideRecommendationPodcast = { podcastId ->
+                    if (podcastId != null) {
+                        viewModel.onManualAnchorSelected(podcastId)
+                    } else {
+                        viewModel.setOverriddenRecPodcast(null)
+                    }
+                },
                 onNavigateToLatestEpisodes = onNavigateToLatestEpisodes,
             )
         }
@@ -386,6 +398,7 @@ private fun HomeScreenFeedContent(
                 becauseYouLikePodcasts = StablePodcastList(uiState.becauseYouLikePodcasts),
                 isRecommendationsLoading = uiState.isRecommendationsLoading,
                 isRecommendationsFallback = uiState.isRecommendationsFallback,
+                personalizationMode = uiState.personalizationMode,
                 onChangePodcastClick = onChangePodcastClick,
             ),
         loadingState =

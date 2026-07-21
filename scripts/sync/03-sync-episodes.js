@@ -106,6 +106,26 @@ async function main() {
     log.info(`- never checked:    ${log.fmt(neverChecked)}`);
     log.info(`- stale news (8h):  ${log.fmt(staleNews)}`);
     log.info(`- stale other (24h):${log.fmt(staleRegular)}`);
+    if (deferred >= cfg.BACKLOG_WARN_THRESHOLD) {
+        log.warn(`Episode sync backlog high: ${log.fmt(deferred)} deferred (threshold ${log.fmt(cfg.BACKLOG_WARN_THRESHOLD)})`);
+        console.log(`::warning title=Episode sync backlog::${deferred} shows deferred beyond this run's cap`);
+    }
+    const oldestCheckAge = allDue.reduce((maxAge, id) => {
+        const checkedAt = st.shows[id]?.c || 0;
+        if (!checkedAt) return Math.max(maxAge, cfg.MAX_CHECK_AGE_WARN_MS + 1);
+        return Math.max(maxAge, now - checkedAt);
+    }, 0);
+    if (oldestCheckAge > cfg.MAX_CHECK_AGE_WARN_MS) {
+        const hours = Math.round(oldestCheckAge / 3600000);
+        log.warn(`Oldest due show check age ${hours}h exceeds ${Math.round(cfg.MAX_CHECK_AGE_WARN_MS / 3600000)}h`);
+        console.log(`::warning title=Episode sync freshness::Oldest due show is ${hours}h overdue`);
+    }
+    const chartsAge = now - (st.chartsRefreshedAt || 0);
+    if (st.chartsRefreshedAt && chartsAge > cfg.CHART_REFRESH_STALE_WARN_MS) {
+        const hours = Math.round(chartsAge / 3600000);
+        log.warn(`Charts last refreshed ${hours}h ago`);
+        console.log(`::warning title=Chart refresh stale::Charts last refreshed ${hours}h ago`);
+    }
     log.endGroup();
 
     // --- Process ---

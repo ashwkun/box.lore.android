@@ -28,6 +28,8 @@ import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Response
 import cx.aswin.boxlore.core.network.model.RecommendationsV2Request
 import cx.aswin.boxlore.core.network.model.RecommendationsV2Response
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Request
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Response
 import cx.aswin.boxlore.core.network.model.CuratedCuriosityResponseDto
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -156,6 +158,13 @@ interface BoxLoreApi {
         @Header("X-Device-UUID") deviceUuid: String,
         @Body request: RecommendationsV2Request,
     ): retrofit2.Call<RecommendationsV2Response>
+
+    @POST("home/candidates/v1")
+    suspend fun getHomeCandidatesV1(
+        @Header("X-App-Key") publicKey: String,
+        @Header("X-Device-UUID") deviceUuid: String,
+        @Body request: HomeCandidatesV1Request,
+    ): HomeCandidatesV1Response
 
     @GET("content/catalog/v3")
     fun getContentCatalog(

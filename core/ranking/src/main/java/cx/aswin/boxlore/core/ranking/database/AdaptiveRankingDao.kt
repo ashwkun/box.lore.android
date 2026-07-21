@@ -74,13 +74,31 @@ interface AdaptiveRankingDao {
     @Query(
         """
         UPDATE ranking_exposures
-        SET resolvedAt = :resolvedAt, reward = :reward, listenSeconds = :listenSeconds
+        SET resolvedAt = :resolvedAt,
+            reward = :reward,
+            listenSeconds = :listenSeconds,
+            accumulatedReward = :reward
         WHERE exposureId = :exposureId AND resolvedAt IS NULL
         """,
     )
     suspend fun resolveExposure(
         exposureId: String,
         resolvedAt: Long,
+        reward: Double,
+        listenSeconds: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE ranking_exposures
+        SET reward = :reward,
+            accumulatedReward = :reward,
+            listenSeconds = :listenSeconds
+        WHERE exposureId = :exposureId AND resolvedAt IS NOT NULL
+        """,
+    )
+    suspend fun updateResolvedReward(
+        exposureId: String,
         reward: Double,
         listenSeconds: Long,
     ): Int
@@ -100,6 +118,30 @@ interface AdaptiveRankingDao {
     )
     suspend fun pruneExposuresToCount(keepCount: Int): Int
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertExclusion(exclusion: HardShowExclusionEntity)
+
+    @Query("SELECT * FROM hard_show_exclusions")
+    suspend fun getAllExclusions(): List<HardShowExclusionEntity>
+
+    @Query("SELECT podcastId FROM hard_show_exclusions")
+    suspend fun getExcludedPodcastIds(): List<String>
+
+    @Query("SELECT * FROM hard_show_exclusions WHERE podcastId = :podcastId LIMIT 1")
+    suspend fun getExclusion(podcastId: String): HardShowExclusionEntity?
+
+    @Query("DELETE FROM hard_show_exclusions WHERE podcastId = :podcastId")
+    suspend fun deleteExclusion(podcastId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOutcome(outcome: RankingOutcomeEntity)
+
+    @Query("SELECT * FROM ranking_outcomes WHERE exposureId = :exposureId ORDER BY recordedAt ASC")
+    suspend fun getOutcomesForExposure(exposureId: String): List<RankingOutcomeEntity>
+
+    @Query("SELECT * FROM ranking_outcomes ORDER BY recordedAt DESC LIMIT :limit")
+    suspend fun getRecentOutcomes(limit: Int): List<RankingOutcomeEntity>
+
     @Query("DELETE FROM adaptive_models")
     suspend fun clearModels()
 
@@ -109,11 +151,19 @@ interface AdaptiveRankingDao {
     @Query("DELETE FROM ranking_exposures")
     suspend fun clearExposures()
 
+    @Query("DELETE FROM hard_show_exclusions")
+    suspend fun clearExclusions()
+
+    @Query("DELETE FROM ranking_outcomes")
+    suspend fun clearOutcomes()
+
     @Transaction
     suspend fun clearAll() {
         clearModels()
         clearFacets()
         clearExposures()
+        clearExclusions()
+        clearOutcomes()
     }
 
     @Transaction

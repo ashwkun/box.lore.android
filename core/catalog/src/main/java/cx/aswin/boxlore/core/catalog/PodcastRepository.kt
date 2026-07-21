@@ -23,6 +23,10 @@ import cx.aswin.boxlore.core.network.model.CuratedCuriosityResponseDto
 import cx.aswin.boxlore.core.network.model.ContentSectionRecentSeedDto
 import cx.aswin.boxlore.core.network.model.ContentSectionSeedFallbackDto
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Request
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Response
+import cx.aswin.boxlore.core.catalog.home.HomeCandidatesRequestBuilder
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator
 import cx.aswin.boxlore.core.catalog.BuildConfig
 import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
 import cx.aswin.boxlore.core.rss.RssPodcastRepository
@@ -573,6 +577,41 @@ class PodcastRepository(
         }
     }
 
+    /**
+     * Versioned Home candidate pools. Cached ≥4h keyed by module scope + seeds + revision.
+     * Returns null body when the endpoint is unavailable so callers can fall back to legacy
+     * `/recommendations` and `/recommendations/because-you-like`.
+     */
+    suspend fun getHomeCandidatesV1(
+        request: HomeCandidatesV1Request,
+    ): Pair<HomeCandidatesV1Response?, Boolean> = withContext(Dispatchers.IO) {
+        val cacheKey = HomePersonalizationCoordinator.cacheKey(request)
+        val now = System.currentTimeMillis()
+        val cached = homeCandidatesCache[cacheKey]
+        if (cached != null && now - cached.second < HomeCandidatesRequestBuilder.CACHE_TTL_MILLIS) {
+            return@withContext cached.first to true
+        }
+        try {
+            val response =
+                api.getHomeCandidatesV1(
+                    publicKey,
+                    getOrCreateDeviceUuid(),
+                    request,
+                )
+            if (HomeCandidatesRequestBuilder.isValid(response)) {
+                homeCandidatesCache[cacheKey] = response to now
+                response to false
+            } else {
+                null to false
+            }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.w("PodcastRepository", "home/candidates/v1 unavailable", error)
+            null to false
+        }
+    }
+
     suspend fun getPersonalizedRecommendations(
         history: List<cx.aswin.boxlore.core.network.model.HistoryItem>,
         interests: List<String> = emptyList(),
@@ -934,5 +973,7 @@ class PodcastRepository(
         private val episodesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<EpisodePage, Long>>()
         private val recommendationsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<Episode>, Long>>()
         private val becauseYouLikeCache = java.util.concurrent.ConcurrentHashMap<String, Pair<BecauseYouLikeData, Long>>()
+        private val homeCandidatesCache =
+            java.util.concurrent.ConcurrentHashMap<String, Pair<HomeCandidatesV1Response, Long>>()
     }
 }

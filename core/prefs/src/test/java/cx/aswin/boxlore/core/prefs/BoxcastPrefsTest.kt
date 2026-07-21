@@ -52,6 +52,19 @@ class BoxcastPrefsTest {
     }
 
     @Test
+    fun clearPersonalizationCachesRemovesRecsAndByl() {
+        prefs.saveRecommendationsCache("""[{"id":1}]""", isFallback = false)
+        prefs.saveBylCache(episodesJson = "[]", podcastsJson = "[]", podcastId = "42")
+        prefs.setOnboardingCompleted(true)
+        prefs.clearPersonalizationCaches()
+        assertNull(prefs.getCachedRecommendationsJson())
+        assertTrue(prefs.isRecommendationsFallback())
+        assertNull(prefs.getCachedBylPodcastId())
+        assertNull(prefs.getCachedBylRecommendationsJson())
+        assertTrue(prefs.isOnboardingCompleted())
+    }
+
+    @Test
     fun bylCacheRoundTrip() {
         assertNull(prefs.getCachedBylPodcastId())
         prefs.saveBylCache(episodesJson = "[]", podcastsJson = "[]", podcastId = "42")

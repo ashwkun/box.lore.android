@@ -1,4 +1,16 @@
-# boxlore Recommendation & Personalization System
+## Home personalization rebuild (v2 pipeline)
+
+Home Taste / Because You Like / greeting mission now share one candidate + slate path:
+
+1. Android builds a bounded seed/exclusion request via `HomeCandidatesRequestBuilder`.
+2. The API serves `POST /home/candidates/v1` (legacy `/recommendations` and `/recommendations/because-you-like` remain for older builds).
+3. `HomePersonalizationCoordinator` caches module pools ≥4h and supports Because-You-Like-only refresh on anchor change.
+4. `:feature:home` derives durable `HomePersonalizationMode` (`REGIONAL` → `PERSONALIZING` → `PERSONALIZED`) from meaningful-listen counts + learner SHOW facets, allocates rails with `HomeSlateAllocationLogic`, and attributes outcomes through exact exposure tokens in `:core:ranking`.
+5. Explicit long-press feedback (`More like this` / `Not for me` / `Hide this show`) and manual BYL anchor selection update the same learner.
+
+Never relabel regional charts as “Based on Your Taste.” Pipeline upgrades may wipe personalization Room state once while preserving listening history, subscriptions, queue, and downloads.
+
+---
 
 > How boxlore decides what to show you, and how it learns from what you do.
 

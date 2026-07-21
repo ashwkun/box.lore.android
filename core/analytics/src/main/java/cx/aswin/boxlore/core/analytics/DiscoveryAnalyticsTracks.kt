@@ -143,6 +143,49 @@ internal object DiscoveryAnalyticsTracks {
         AnalyticsEmit.event("home_surface_tapped", props)
     }
 
+    /**
+     * Explicit long-press / menu feedback on a Home recommendation card.
+     * Uses [home_surface_tapped] with surface_component=recommendation_feedback.
+     */
+    fun trackHomeRecommendationFeedback(
+        episodeId: String,
+        podcastId: String,
+        action: String,
+        personalizationMode: String?,
+        exposureId: String? = null,
+    ) {
+        val props =
+            mutableMapOf<String, Any>(
+                "surface_component" to "recommendation_feedback",
+                "content_id" to episodeId,
+                "episode_id" to episodeId,
+                "podcast_id" to podcastId,
+                "feedback_action" to action,
+            )
+        personalizationMode?.let { props["personalization_mode"] = it }
+        exposureId?.let { props["exposure_id"] = it }
+        AnalyticsEmit.event("home_surface_tapped", props)
+    }
+
+    fun trackHomePersonalizationMode(
+        mode: String,
+        meaningfulPlayCount: Int,
+        isFallback: Boolean,
+        candidateRequestOk: Boolean,
+    ) {
+        AnalyticsEmit.event(
+            "home_surface_impression",
+            mapOf(
+                "surface_component" to "personalization_mode",
+                "personalization_mode" to mode,
+                "meaningful_play_count" to meaningfulPlayCount,
+                "is_fallback" to isFallback,
+                "candidate_request_ok" to candidateRequestOk,
+                "items_count" to 0,
+            ),
+        )
+    }
+
     fun trackExploreRecommendationsImpression(
         recommendationsCount: Int,
         episodeIds: List<String>,

@@ -38,11 +38,17 @@ src/main/java/cx/aswin/boxlore/core/catalog/
   InstallReferrerManager.kt
   backup/
   content/
+  home/                 # HomeCandidatesRequestBuilder + HomePersonalizationCoordinator
   crosspromo/
   ports/
   privacy/
 ```
 
+Public Home APIs:
+
+- `recommendationLanguagesForCountry` maps region → language tags for retrieval (not English-only).
+- `PodcastRepository.getHomeCandidatesV1` calls `POST /home/candidates/v1` with a ≥4h module cache; null body means fall back to legacy recommendation routes.
+- `home.HomePersonalizationCoordinator` builds requests and maps module pools for Home slate allocation.
 Main Kotlin files should remain below 1000 lines; extracted helpers keep repository mapping, network lookups, content cache, recommendations, and stream handling reviewable.
 
 ## Dependencies

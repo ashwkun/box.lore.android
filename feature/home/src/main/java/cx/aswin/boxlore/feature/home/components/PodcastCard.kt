@@ -1,6 +1,8 @@
 package cx.aswin.boxlore.feature.home.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -96,6 +98,7 @@ fun PodcastCard(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FeedMediaCard(
     imageUrl: String,
@@ -103,6 +106,7 @@ fun FeedMediaCard(
     subtitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     imageBadge: @Composable (BoxScope.() -> Unit)? = null,
     imageOverlay: @Composable (BoxScope.() -> Unit)? = null,
 ) {
@@ -110,7 +114,15 @@ fun FeedMediaCard(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier.expressiveClickable(onClick = onClick),
+        modifier =
+            if (onLongClick != null) {
+                modifier.combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
+            } else {
+                modifier.expressiveClickable(onClick = onClick)
+            },
     ) {
         Column {
             Box(

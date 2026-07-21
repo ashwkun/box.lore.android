@@ -79,6 +79,21 @@ class BoxcastPrefs(context: Context) {
             .apply()
     }
 
+    /**
+     * Clears Home recommendation and Because You Like caches only.
+     * Used by the personalization pipeline migration; does not touch listening
+     * history, subscriptions, queue, downloads, or onboarding prefs.
+     */
+    fun clearPersonalizationCaches() {
+        prefs.edit()
+            .remove(KEY_CACHED_RECOMMENDATIONS)
+            .remove(KEY_IS_RECOMMENDATIONS_FALLBACK)
+            .remove(KEY_CACHED_BYL_RECOMMENDATIONS)
+            .remove(KEY_CACHED_BYL_PODCASTS)
+            .remove(KEY_CACHED_BYL_PODCAST_ID)
+            .apply()
+    }
+
     // ── Learn curiosity history ─────────────────────────────────────────────
 
     fun getLearnCuriosityHistoryJson(): String? =

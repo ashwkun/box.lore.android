@@ -1,6 +1,6 @@
 package cx.aswin.boxlore.feature.home
 
-import androidx.lifecycle.viewModelScope
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator
 import cx.aswin.boxlore.core.playback.MixtapeEngine
 import cx.aswin.boxlore.core.playback.getHistoryForRecommendations
 import cx.aswin.boxlore.core.playback.resumeSessions
@@ -13,10 +13,14 @@ import cx.aswin.boxlore.core.ranking.RankingObjective
 import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.database.toScorable
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.feature.home.logic.HomeAnchorSelectionLogic
+import cx.aswin.boxlore.feature.home.logic.HomeMeaningfulPlayLogic
 import cx.aswin.boxlore.feature.home.logic.HomeMixtapeCache
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationModeLogic
 import cx.aswin.boxlore.feature.home.logic.HomeUiAssemblyLogic
 import cx.aswin.boxlore.feature.home.logic.discoverPodcastsExcluding
 import cx.aswin.boxlore.feature.home.logic.toRecommendationPodcast
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,21 +38,122 @@ import kotlinx.serialization.json.Json
 internal fun HomeViewModel.fetchPersonalizedRecommendations(region: String) {
     viewModelScope.launch {
         _isRecommendationsLoaded.value = false
+        _personalizedRequestFailed.value = false
         try {
             val interests = boxcastPrefs.getUserGenres().toList()
             val history = playbackRepository.getHistoryForRecommendations(15)
-
+            val meaningfulCount = HomeMeaningfulPlayLogic.countMeaningfulPlays(history)
             val subscribedIds = subscriptionRepository.subscribedPodcastIds.first().toList()
             val subscribedGenres =
                 subscriptionRepository.subscribedPodcasts
                     .first()
                     .mapNotNull { it.genre }
                     .distinct()
+            val hiddenShows = adaptiveRankingRepository.hardExcludedPodcastIds()
+            val showBeliefs = adaptiveRankingRepository.showFacetBeliefs()
+            val hasEligiblePositiveShow =
+                showBeliefs.any { (podcastId, belief) ->
+                    podcastId !in hiddenShows &&
+                        belief.affinity >= HomeAnchorSelectionLogic.MIN_AFFINITY &&
+                        belief.confidence >= HomeAnchorSelectionLogic.MIN_CONFIDENCE &&
+                        belief.evidence >= HomeAnchorSelectionLogic.MIN_EVIDENCE
+                }
+            val attemptPersonalized =
+                meaningfulCount >= HomePersonalizationModeLogic.MEANINGFUL_PLAYS_TO_ATTEMPT &&
+                    (
+                        meaningfulCount < HomePersonalizationModeLogic.MEANINGFUL_PLAYS_TO_REQUIRE_ANCHOR ||
+                            hasEligiblePositiveShow
+                        )
+            _personalizationMode.value =
+                HomePersonalizationModeLogic.derive(
+                    meaningfulPlayCount = meaningfulCount,
+                    hasEligiblePositiveShow = hasEligiblePositiveShow,
+                    personalizedCandidatesLoaded = false,
+                    personalizedRequestFailed = false,
+                )
 
-            android.util.Log.d(
-                "HomeViewModel",
-                "Fetching recommendations with history size: ${history.size}, interests: $interests, region: $region, subscribedCount: ${subscribedIds.size}",
-            )
+            if (attemptPersonalized) {
+                val missionId = _uiState.value.activeDiscoveryMissionId
+                val manualAnchor = userPrefs.overriddenRecPodcastIdStream.first()
+                val autoAnchor =
+                    HomeAnchorSelectionLogic.selectAutomatic(
+                        candidates =
+                            showBeliefs.map { (podcastId, belief) ->
+                                HomeAnchorSelectionLogic.ShowCandidate(
+                                    podcastId = podcastId,
+                                    affinity = belief.affinity,
+                                    confidence = belief.confidence,
+                                    evidence = belief.evidence,
+                                    isHidden = podcastId in hiddenShows,
+                                )
+                            },
+                        currentAnchorId = _seemsToLikePodcast.value?.id,
+                        manualOverrideId = manualAnchor,
+                    )?.podcastId
+                val slate =
+                    homePersonalizationCoordinator.loadSlate(
+                        HomePersonalizationCoordinator.SlateRequest(
+                            modules = listOf("taste", "because_you_like", "mission", "regional"),
+                            country = region,
+                            languages =
+                                cx.aswin.boxlore.core.catalog.recommendationLanguagesForCountry(region),
+                            history = history,
+                            anchorPodcastId = autoAnchor,
+                            missionId = missionId,
+                            excludedPodcastIds = (subscribedIds + hiddenShows).distinct(),
+                            excludedEpisodeIds = history.mapNotNull { it.episodeId },
+                            noveltyPreference = null,
+                            daypart = clockContextFlow.value.daypart.name.lowercase(),
+                            revision = "home-v1",
+                        ),
+                    )
+                if (slate.taste.isNotEmpty() || slate.regional.isNotEmpty()) {
+                    val tasteItems = slate.taste.ifEmpty { slate.regional }
+                    val distinctRecs =
+                        tasteItems
+                            .distinctBy { it.id }
+                            .distinctBy { it.title.lowercase().trim() }
+                    _recommendations.value = distinctRecs
+                    _isRecommendationsFallback.value = slate.isFallback
+                    _personalizedCandidatesLoaded.value = !slate.isFallback && slate.taste.isNotEmpty()
+                    _personalizedRequestFailed.value = false
+                    if (slate.becauseYouLikeEpisodes.isNotEmpty() || slate.becauseYouLikePodcasts.isNotEmpty()) {
+                        _becauseYouLikeRecommendations.value = slate.becauseYouLikeEpisodes
+                        _becauseYouLikePodcasts.value = slate.becauseYouLikePodcasts
+                        if (autoAnchor != null) {
+                            localCatalog.getLocalPodcast(autoAnchor)?.let {
+                                _seemsToLikePodcast.value = it
+                            }
+                        }
+                    }
+                    try {
+                        val json = Json { ignoreUnknownKeys = true }
+                        boxcastPrefs.saveRecommendationsCache(
+                            json.encodeToString(distinctRecs),
+                            slate.isFallback,
+                        )
+                    } catch (ce: Exception) {
+                        android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
+                    }
+                    _personalizationMode.value =
+                        HomePersonalizationModeLogic.derive(
+                            meaningfulPlayCount = meaningfulCount,
+                            hasEligiblePositiveShow = hasEligiblePositiveShow,
+                            personalizedCandidatesLoaded = _personalizedCandidatesLoaded.value,
+                            personalizedRequestFailed = false,
+                        )
+                    cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackHomePersonalizationMode(
+                        mode = _personalizationMode.value.name,
+                        meaningfulPlayCount = meaningfulCount,
+                        isFallback = slate.isFallback,
+                        candidateRequestOk = true,
+                    )
+                    return@launch
+                }
+                _personalizedRequestFailed.value = true
+            }
+
+            // Regional / legacy path (cold start or candidate failure).
             val recs =
                 podcastRepository.getPersonalizedRecommendations(
                     history = history,
@@ -57,21 +162,32 @@ internal fun HomeViewModel.fetchPersonalizedRecommendations(region: String) {
                     subscribedPodcastIds = subscribedIds,
                     subscribedGenres = subscribedGenres,
                 )
-            android.util.Log.d("HomeViewModel", "Fetched recommendations size: ${recs.size}")
             val distinctRecs =
                 recs
                     .distinctBy { it.id }
                     .distinctBy { it.title.lowercase().trim() }
             _recommendations.value = distinctRecs
+            _isRecommendationsFallback.value = true
+            _personalizedCandidatesLoaded.value = false
             try {
                 val json = Json { ignoreUnknownKeys = true }
-                val serialized = json.encodeToString(distinctRecs)
-                boxcastPrefs.setCachedRecommendationsJson(serialized)
+                boxcastPrefs.saveRecommendationsCache(
+                    json.encodeToString(distinctRecs),
+                    isFallback = true,
+                )
             } catch (ce: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
             }
+            _personalizationMode.value =
+                HomePersonalizationModeLogic.derive(
+                    meaningfulPlayCount = meaningfulCount,
+                    hasEligiblePositiveShow = hasEligiblePositiveShow,
+                    personalizedCandidatesLoaded = false,
+                    personalizedRequestFailed = _personalizedRequestFailed.value,
+                )
         } catch (e: Exception) {
             android.util.Log.e("HomeViewModel", "Failed to fetch personalized recommendations", e)
+            _personalizedRequestFailed.value = true
         } finally {
             _isRecommendationsLoaded.value = true
         }
@@ -452,6 +568,12 @@ internal fun HomeViewModel.loadData() {
                                     discoveryGreetingFor(
                                         daypart = daypart,
                                         date = clockContextFlow.value.date,
+                                        mission =
+                                            _uiState.value.discoveryGreeting.mission
+                                                ?: _uiState.value.activeDiscoveryMissionId?.let { id ->
+                                                    cx.aswin.boxlore.feature.home.logic.HomeDiscoveryMission.entries
+                                                        .firstOrNull { it.id == id }
+                                                },
                                     ),
                                 discoverPodcasts = assembled.discoverPodcasts,
                                 recommendations = assembled.recommendations,
@@ -472,6 +594,8 @@ internal fun HomeViewModel.loadData() {
                                 becauseYouLikePodcasts = wrapper.becauseYouLikePodcasts,
                                 isBecauseYouLikeLoading = wrapper.isBecauseYouLikeLoading,
                                 isRecommendationsFallback = wrapper.isRecommendationsFallback,
+                                personalizationMode = _personalizationMode.value,
+                                activeDiscoveryMissionId = _uiState.value.activeDiscoveryMissionId,
                                 adaptiveSections = wrapper.adaptiveSections,
                                 isAdaptiveSectionsLoading = _isAdaptiveSectionsLoading.value,
                             )

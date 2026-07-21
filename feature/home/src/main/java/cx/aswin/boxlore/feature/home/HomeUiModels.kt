@@ -50,6 +50,9 @@ data class HomeUiState(
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
     val isBecauseYouLikeLoading: Boolean = false,
     val isRecommendationsFallback: Boolean = true,
+    val personalizationMode: cx.aswin.boxlore.feature.home.logic.HomePersonalizationMode =
+        cx.aswin.boxlore.feature.home.logic.HomePersonalizationMode.REGIONAL,
+    val activeDiscoveryMissionId: String? = null,
     val adaptiveSections: List<ContentSection> = emptyList(),
     val isAdaptiveSectionsLoading: Boolean = false,
 )

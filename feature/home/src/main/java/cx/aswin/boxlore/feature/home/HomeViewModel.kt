@@ -21,8 +21,11 @@ import cx.aswin.boxlore.core.catalog.content.ContentSectionsDaypartResolver
 import cx.aswin.boxlore.core.catalog.content.RecentSectionIntentStore
 import cx.aswin.boxlore.core.catalog.content.ServerGroupedSectionProvider
 import cx.aswin.boxlore.core.catalog.content.ServerIntentCandidateProvider
+import cx.aswin.boxlore.core.catalog.content.ContentDaypart
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
 import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
+import cx.aswin.boxlore.core.ranking.CandidateSource
+import cx.aswin.boxlore.core.ranking.FeedbackTarget
 import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
 import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
 import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
@@ -31,7 +34,10 @@ import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.logic.FilterSelectionAction
 import cx.aswin.boxlore.feature.home.logic.HomeBecauseYouLikeLogic
+import cx.aswin.boxlore.feature.home.logic.HomeDiscoveryMissionLogic
 import cx.aswin.boxlore.feature.home.logic.HomeFilterSelectionLogic
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationMode
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationModeLogic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -115,8 +121,15 @@ class HomeViewModel(
     internal val _becauseYouLikePodcasts = MutableStateFlow<List<Podcast>>(emptyList())
     internal val _isBecauseYouLikeLoading = MutableStateFlow(false)
     internal val _isRecommendationsFallback = MutableStateFlow(true)
+    internal val _personalizationMode =
+        MutableStateFlow(HomePersonalizationMode.REGIONAL)
+    internal val _personalizedCandidatesLoaded = MutableStateFlow(false)
+    internal val _personalizedRequestFailed = MutableStateFlow(false)
     internal val _adaptiveSections = MutableStateFlow<List<ContentSection>>(emptyList())
     internal val _isAdaptiveSectionsLoading = MutableStateFlow(true)
+
+    internal val homePersonalizationCoordinator =
+        cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator(podcastRepository)
 
     @Volatile
     internal var preferCachedAdaptiveSections: Boolean = false
@@ -526,11 +539,85 @@ class HomeViewModel(
                 .map { clock -> clock.daypart to clock.date }
                 .distinctUntilChanged()
                 .collect { (daypart, date) ->
+                    val mission =
+                        HomeDiscoveryMissionLogic.select(
+                            context =
+                                HomeDiscoveryMissionLogic.MissionContext(
+                                    daypart = daypart.name.lowercase(),
+                                    preferShort = daypart == ContentDaypart.MORNING,
+                                ),
+                            nowSlotKey =
+                                HomeDiscoveryMissionLogic.slotKey(
+                                    daypart.name.lowercase(),
+                                    date.toString(),
+                                ),
+                            stickyMissionId = _uiState.value.activeDiscoveryMissionId,
+                            stickySlotKey = _uiState.value.discoveryGreeting.mission?.let {
+                                HomeDiscoveryMissionLogic.slotKey(
+                                    _uiState.value.discoveryGreeting.daypart.name.lowercase(),
+                                    date.toString(),
+                                )
+                            },
+                        )
                     _uiState.update { state ->
-                        state.copy(discoveryGreeting = discoveryGreetingFor(daypart, date))
+                        state.copy(
+                            discoveryGreeting = discoveryGreetingFor(daypart, date, mission),
+                            activeDiscoveryMissionId = mission.id,
+                        )
                     }
                 }
         }
+    }
+
+    fun onRecommendationFeedback(
+        episode: Episode,
+        action: cx.aswin.boxlore.feature.home.components.RecommendationFeedbackAction,
+        exposureId: String? = null,
+    ) {
+        viewModelScope.launch {
+            val target =
+                FeedbackTarget(
+                    episodeId = episode.id,
+                    podcastId = episode.podcastId.orEmpty(),
+                    genre = episode.podcastGenre,
+                    source = CandidateSource.SERVER_RECOMMENDATION,
+                    exposureId = exposureId,
+                )
+            when (action) {
+                cx.aswin.boxlore.feature.home.components.RecommendationFeedbackAction.MORE_LIKE_THIS ->
+                    rankingFeedback.moreLikeThis(target)
+                cx.aswin.boxlore.feature.home.components.RecommendationFeedbackAction.NOT_FOR_ME ->
+                    rankingFeedback.notForMe(target)
+                cx.aswin.boxlore.feature.home.components.RecommendationFeedbackAction.HIDE_SHOW ->
+                    rankingFeedback.hideShow(
+                        podcastId = episode.podcastId.orEmpty(),
+                        exposureId = exposureId,
+                        episodeId = episode.id,
+                        genre = episode.podcastGenre,
+                        source = CandidateSource.SERVER_RECOMMENDATION,
+                    )
+            }
+            cx.aswin.boxlore.core.analytics.AnalyticsHelper.trackHomeRecommendationFeedback(
+                episodeId = episode.id,
+                podcastId = episode.podcastId.orEmpty(),
+                action = action.name.lowercase(),
+                personalizationMode = _personalizationMode.value.name,
+                exposureId = exposureId,
+            )
+            reallocateHomeSlateAfterFeedback()
+        }
+    }
+
+    fun onManualAnchorSelected(podcastId: String) {
+        viewModelScope.launch {
+            rankingFeedback.recordManualAnchor(podcastId)
+            setOverriddenRecPodcast(podcastId)
+        }
+    }
+
+    private fun reallocateHomeSlateAfterFeedback() {
+        boxcastPrefs.clearPersonalizationCaches()
+        fetchPersonalizedRecommendations(activeRegion)
     }
 
 

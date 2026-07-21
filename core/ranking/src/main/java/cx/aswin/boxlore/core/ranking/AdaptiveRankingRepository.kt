@@ -2,10 +2,13 @@ package cx.aswin.boxlore.core.ranking
 
 import android.content.Context
 import androidx.room.withTransaction
+import android.content.SharedPreferences
 import cx.aswin.boxlore.core.ranking.database.AdaptiveModelEntity
 import cx.aswin.boxlore.core.ranking.database.AdaptiveRankingDatabase
+import cx.aswin.boxlore.core.ranking.database.HardShowExclusionEntity
 import cx.aswin.boxlore.core.ranking.database.PreferenceFacetEntity
 import cx.aswin.boxlore.core.ranking.database.RankingExposureEntity
+import cx.aswin.boxlore.core.ranking.database.RankingOutcomeEntity
 import cx.aswin.boxlore.core.model.PodcastGenres
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
 import java.util.UUID
@@ -27,6 +30,11 @@ data class RankingExposure(
     val entryPoint: String? = null,
     val online: Boolean,
     val shownAt: Long = System.currentTimeMillis(),
+    val sessionId: String? = null,
+    val rankPosition: Int? = null,
+    val intentId: String? = null,
+    val retrievalReason: String? = null,
+    val revision: String? = null,
 )
 
 data class RankingDebugSnapshot(
@@ -150,6 +158,12 @@ class AdaptiveRankingRepository private constructor(
                 listenSeconds = 0,
                 entryPoint = exposure.entryPoint,
                 online = exposure.online,
+                sessionId = exposure.sessionId,
+                rankPosition = exposure.rankPosition,
+                intentId = exposure.intentId,
+                retrievalReason = exposure.retrievalReason,
+                revision = exposure.revision,
+                accumulatedReward = null,
             ),
         )
         val insertCount = exposureInsertCount.incrementAndGet()
@@ -257,6 +271,146 @@ class AdaptiveRankingRepository private constructor(
             return false
         }
         return resolveExposure(exposure.exposureId, reward, listenSeconds, resolvedAt)
+    }
+
+    /**
+     * Applies a reward delta to an already-resolved exposure using its stored feature vector.
+     * Used when later outcomes (like/complete) arrive after the first settle.
+     */
+    suspend fun applyRewardDelta(
+        exposureId: String,
+        newReward: Double,
+        listenSeconds: Long = 0,
+        resolvedAt: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val exposure = dao.getExposure(exposureId) ?: return false
+        if (exposure.resolvedAt == null) return false
+        val previousReward = exposure.accumulatedReward ?: exposure.reward ?: 0.0
+        val boundedNew = newReward.coerceIn(-1.0, 1.0)
+        val delta = (boundedNew - previousReward).coerceIn(-1.0, 1.0)
+        if (kotlin.math.abs(delta) < 1e-9) {
+            dao.updateResolvedReward(exposureId, boundedNew, listenSeconds.coerceAtLeast(0))
+            return true
+        }
+        val objective = runCatching { RankingObjective.valueOf(exposure.objective) }.getOrNull()
+            ?: return false
+        if (exposure.featureSchemaVersion != RankingFeatureSchema.VERSION) return false
+        val features = runCatching {
+            RankingFeatures(
+                schemaVersion = exposure.featureSchemaVersion,
+                values = RankingSerialization.decode(
+                    exposure.featureVector,
+                    RankingFeatureSchema.dimension,
+                ),
+            )
+        }.getOrNull() ?: return false
+        return objectiveLock(objective).withLock {
+            database.withTransaction {
+                val changed = dao.updateResolvedReward(
+                    exposureId = exposureId,
+                    reward = boundedNew,
+                    listenSeconds = listenSeconds.coerceAtLeast(0),
+                )
+                if (changed == 0) return@withTransaction false
+                val previous = loadState(objective)
+                val updated = model.update(features, delta, previous)
+                dao.upsertModel(updated.toEntity(objective, resolvedAt))
+                true
+            }
+        }
+    }
+
+    suspend fun appendOutcome(outcome: RankingOutcomeEntity) {
+        dao.insertOutcome(outcome)
+    }
+
+    suspend fun excludeShow(
+        podcastId: String,
+        reason: String,
+        sourceExposureId: String? = null,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        val normalized = podcastId.trim()
+        if (normalized.isEmpty()) return
+        dao.upsertExclusion(
+            HardShowExclusionEntity(
+                podcastId = normalized,
+                reason = reason.take(64),
+                createdAt = now,
+                sourceExposureId = sourceExposureId,
+            ),
+        )
+    }
+
+    suspend fun isHardExcluded(podcastId: String): Boolean {
+        val normalized = podcastId.trim()
+        if (normalized.isEmpty()) return false
+        return dao.getExclusion(normalized) != null
+    }
+
+    suspend fun hardExcludedPodcastIds(): Set<String> =
+        dao.getExcludedPodcastIds().toSet()
+
+    /**
+     * One-shot destructive personalization wipe when pipeline version advances.
+     * Returns true when a wipe ran.
+     */
+    suspend fun ensurePipelineMigrated(prefs: SharedPreferences): Boolean {
+        val stored = prefs.getInt(PIPELINE_VERSION_KEY, 0)
+        if (stored >= PERSONALIZATION_PIPELINE_VERSION) return false
+        dao.clearAll()
+        RankingShadowDiagnostics.clear()
+        LearningEventLog.clear()
+        prefs.edit().putInt(PIPELINE_VERSION_KEY, PERSONALIZATION_PIPELINE_VERSION).apply()
+        return true
+    }
+
+    suspend fun facetBelief(
+        type: PreferenceFacetType,
+        key: String,
+        now: Long = System.currentTimeMillis(),
+    ): FacetBelief {
+        val normalizedKey = key.normalizedFacetKey()
+        if (normalizedKey.isEmpty()) {
+            return FacetBelief(affinity = 0.0, confidence = 0.0, evidence = 0.0)
+        }
+        return dao.getFacet(type.name, normalizedKey)
+            ?.toFacet()
+            ?.belief(now)
+            ?: FacetBelief(affinity = 0.0, confidence = 0.0, evidence = 0.0)
+    }
+
+    suspend fun facetBeliefs(
+        keys: Set<PreferenceFacetKey>,
+        now: Long = System.currentTimeMillis(),
+    ): Map<PreferenceFacetKey, FacetBelief> {
+        if (keys.isEmpty()) return emptyMap()
+        val stored = dao.getAllFacets().associateBy { entity ->
+            entity.facetType to entity.facetKey
+        }
+        return keys.associateWith { request ->
+            stored[request.type.name to request.key.normalizedFacetKey()]
+                ?.toFacet()
+                ?.belief(now)
+                ?: FacetBelief(affinity = 0.0, confidence = 0.0, evidence = 0.0)
+        }
+    }
+
+    /**
+     * All decayed SHOW facet beliefs for Home anchor selection.
+     * Bounded to keep Home cold-start selection cheap.
+     */
+    suspend fun showFacetBeliefs(
+        now: Long = System.currentTimeMillis(),
+        limit: Int = 64,
+    ): List<Pair<String, FacetBelief>> {
+        return dao.getFacetsByType(PreferenceFacetType.SHOW.name)
+            .mapNotNull { entity ->
+                val key = entity.facetKey.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                key to entity.toFacet().belief(now)
+            }
+            .sortedByDescending { (_, belief) -> belief.affinity * belief.confidence }
+            .take(limit)
     }
 
     suspend fun facetAffinity(
@@ -599,6 +753,9 @@ class AdaptiveRankingRepository private constructor(
         private const val EXPOSURE_PRUNE_INTERVAL = 25L
         private const val EXPOSURE_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1_000L
         private const val MIN_EXPORTED_GENRE_AFFINITY = 0.01
+        const val PERSONALIZATION_PIPELINE_VERSION = 2
+        const val PIPELINE_VERSION_KEY = "personalization_pipeline_version"
+        const val RUNTIME_PREFS_NAME = "adaptive_ranking_runtime"
 
         @Volatile
         private var instance: AdaptiveRankingRepository? = null

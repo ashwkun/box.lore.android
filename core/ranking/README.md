@@ -7,11 +7,12 @@ Owns adaptive recommendation and candidate scoring: Bayesian facet preferences, 
 ## Public API
 
 - `AdaptiveCandidateScorer` scores podcasts and episodes for home, explore, queue, and downloads.
-- `AdaptiveRankingRepository` owns ranking state, exposure recording, facet affinities, backup, and restore.
-- `RankingFeedbackRepository` records user actions and implements `RankingResetPort`.
+- `AdaptiveRankingRepository` owns ranking state, exposure recording, facet affinities, hard-hide exclusions, the outcome ledger, backup/restore, and the destructive `ensurePipelineMigrated` gate on `PERSONALIZATION_PIPELINE_VERSION`.
+- `RankingFeedbackRepository` records user actions and explicit boosts/penalties (`hideShow`, `moreLikeThis`, `notForMe`, `recordManualAnchor`), applies exact-token exposure attribution with delta reward when a settled exposure receives a later signal, and implements `RankingResetPort`.
 - `RankingRuntimeControls` exposes runtime toggles for ranking surfaces.
 - `RankingObjective`, `RankingSurface`, and `CandidateSource` define scoring context.
-- `RankingAction`, `RankingOutcome`, and `RankingReward` define feedback and reward semantics.
+- `RankingAction`, `RankingOutcome`, and `RankingReward` define feedback and reward semantics (including `MORE_LIKE_THIS`, `NOT_FOR_ME`, `HIDE_SHOW`, `MANUAL_ANCHOR`).
+- `BayesianPreferenceFacet.belief(now)` and `FacetBelief(affinity, confidence, evidence)` expose evidence-weighted taste readings.
 - `DiversityPolicy` and `DiversityReranker` shape scored candidate lists.
 - `AdaptiveRankingBackup`, `LearningEventLog`, and `RankingShadowDiagnostics` support backup and diagnostics.
 
@@ -33,7 +34,7 @@ src/main/java/cx/aswin/boxlore/core/ranking/
   database/
     AdaptiveRankingDao.kt
     AdaptiveRankingDatabase.kt
-    AdaptiveRankingEntities.kt
+    AdaptiveRankingEntities.kt  # Model, facet, exposure, hard exclusion, and outcome ledger entities
 ```
 
 ## Dependencies
@@ -51,8 +52,8 @@ src/main/java/cx/aswin/boxlore/core/ranking/
 
 ## Persistence & identity
 
-- Room filename `adaptive_ranking_database` stores ranking models, facets, and exposures.
-- SharedPreferences file `adaptive_ranking_runtime` stores runtime control values.
+- Room filename `adaptive_ranking_database` stores ranking models, facets, exposures, hard-hide exclusions, and the outcome ledger. Schema version 2 uses `fallbackToDestructiveMigration(dropAllTables = true)` — personalization state is disposable across the Home rebuild.
+- SharedPreferences file `adaptive_ranking_runtime` stores runtime control values and the `personalization_pipeline_version` key gating one-shot pipeline wipes.
 - Package root is `cx.aswin.boxlore.core.ranking`.
 - App backup rules exclude the adaptive database from automatic platform backup; explicit encrypted backup support is handled through ranking backup models.
 

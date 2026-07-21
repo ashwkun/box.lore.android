@@ -237,4 +237,154 @@ class RankingFeedbackRepositoryTest {
 
             assertFalse(orphan.reset())
         }
+
+    @Test
+    fun recordActionWithExposureIdSettlesExactImpressionInsteadOfLatest() =
+        runTest {
+            val olderId = adaptive.recordExposure(exposureFor("ep-token", podcastId = "pod-t").copy(shownAt = 1L))
+            val newerId = adaptive.recordExposure(exposureFor("ep-token", podcastId = "pod-t").copy(shownAt = 100L))
+
+            feedback.recordAction(
+                target =
+                    FeedbackTarget(
+                        episodeId = "ep-token",
+                        podcastId = "pod-t",
+                        exposureId = olderId,
+                    ),
+                action = RankingAction.LIKE,
+            )
+
+            val older = database.adaptiveRankingDao().getExposure(olderId)!!
+            val newer = database.adaptiveRankingDao().getExposure(newerId)!!
+            assertEquals("exact token wins over latest", older.resolvedAt != null, true)
+            assertEquals("newer stays pending", newer.resolvedAt, null)
+        }
+
+    @Test
+    fun recordActionWithExposureIdAppliesDeltaWhenAlreadyResolved() =
+        runTest {
+            val exposureId = adaptive.recordExposure(exposureFor("ep-delta", podcastId = "pod-d"))
+
+            // First terminal signal settles the impression.
+            feedback.recordPlayback(
+                target =
+                    FeedbackTarget(
+                        episodeId = "ep-delta",
+                        podcastId = "pod-d",
+                        exposureId = exposureId,
+                    ),
+                listenSeconds = 120,
+                durationSeconds = 600,
+                completed = false,
+                earlySkip = false,
+            )
+            val afterSettle = database.adaptiveRankingDao().getExposure(exposureId)!!
+            assertTrue(afterSettle.resolvedAt != null)
+            val settledReward = afterSettle.reward!!
+
+            // Second signal (LIKE) arrives after settle → delta path bumps reward upward.
+            feedback.recordAction(
+                target =
+                    FeedbackTarget(
+                        episodeId = "ep-delta",
+                        podcastId = "pod-d",
+                        exposureId = exposureId,
+                    ),
+                action = RankingAction.LIKE,
+                listenSeconds = 120,
+                durationSeconds = 600,
+            )
+
+            val afterDelta = database.adaptiveRankingDao().getExposure(exposureId)!!
+            assertTrue("reward should climb after LIKE arrives late", afterDelta.reward!! > settledReward)
+            assertEquals(afterDelta.reward, afterDelta.accumulatedReward)
+        }
+
+    @Test
+    fun hideShowExcludesPodcastAndPenalisesFacet() =
+        runTest {
+            val exposureId = adaptive.recordExposure(exposureFor("ep-hide", podcastId = "pod-h"))
+
+            feedback.hideShow(
+                podcastId = "pod-h",
+                exposureId = exposureId,
+                genre = "Science",
+                source = CandidateSource.SERVER_RECOMMENDATION,
+            )
+
+            assertTrue("pod-h" in feedback.hardExcludedPodcastIds())
+            assertTrue(adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-h") < 0.0)
+        }
+
+    @Test
+    fun moreLikeThisBoostsFacet() =
+        runTest {
+            feedback.moreLikeThis(
+                FeedbackTarget(
+                    episodeId = "",
+                    podcastId = "pod-love",
+                    genre = "Science",
+                    source = CandidateSource.SERVER_RECOMMENDATION,
+                ),
+            )
+
+            assertTrue(adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-love") > 0.0)
+            assertTrue(adaptive.genreAffinities().containsKey("Science"))
+        }
+
+    @Test
+    fun notForMePenalisesFacet() =
+        runTest {
+            feedback.notForMe(
+                FeedbackTarget(
+                    episodeId = "",
+                    podcastId = "pod-meh",
+                    source = CandidateSource.SERVER_RECOMMENDATION,
+                ),
+            )
+
+            assertTrue(adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-meh") < 0.0)
+        }
+
+    @Test
+    fun recordManualAnchorBoostsShowOnceWithinWindow() =
+        runTest {
+            feedback.recordManualAnchor(podcastId = "pod-anchor", genre = "Science")
+            val first = adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-anchor")
+
+            // A second call inside the dedup window should not stack further boost.
+            feedback.recordManualAnchor(podcastId = "pod-anchor", genre = "Science")
+            val second = adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-anchor")
+
+            assertTrue(first > 0.0)
+            assertEquals(first, second, 1e-9)
+        }
+
+    @Test
+    fun resetClearsHardExclusions() =
+        runTest {
+            feedback.hideShow(podcastId = "pod-blocked")
+            assertTrue("pod-blocked" in feedback.hardExcludedPodcastIds())
+
+            feedback.reset()
+
+            assertTrue(feedback.hardExcludedPodcastIds().isEmpty())
+        }
+
+    @Test
+    fun recordActionWithExposureIdAppendsOutcomeToLedger() =
+        runTest {
+            val exposureId = adaptive.recordExposure(exposureFor("ep-ledger", podcastId = "pod-l"))
+
+            feedback.recordAction(
+                target = FeedbackTarget(episodeId = "ep-ledger", podcastId = "pod-l", exposureId = exposureId),
+                action = RankingAction.COMPLETE,
+                listenSeconds = 600,
+                durationSeconds = 600,
+            )
+
+            val outcomes = database.adaptiveRankingDao().getOutcomesForExposure(exposureId)
+            assertEquals(1, outcomes.size)
+            assertEquals(RankingAction.COMPLETE.name, outcomes.single().action)
+        }
 }

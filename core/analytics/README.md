@@ -10,7 +10,8 @@ Owns analytics event capture and non-fatal error reporting for Boxlore. The modu
 - `AnalyticsHelper` is the PostHog-backed production singleton.
 - `RecordingAnalytics` is an in-memory test double.
 - `ErrorReporter` is the non-fatal error facade; `:app` may install Crashlytics-backed reporting.
-- `PendingEntryPoint` bridges playback entry-point context across MediaController boundaries.
+- `PendingEntryPoint` bridges playback entry-point context across MediaController boundaries (includes `KEY_EXPOSURE_ID` for exact recommendation attribution).
+- Discovery tracks include Home recommendation feedback (`trackHomeRecommendationFeedback`) and personalization-mode health (`trackHomePersonalizationMode`) on existing `home_surface_*` events.
 - `PlayerSessionAggregator` batches per-episode player interaction events.
 - Event names and property expectations are documented in [`docs/ANALYTICS_EVENT_GLOSSARY.md`](../../docs/ANALYTICS_EVENT_GLOSSARY.md).
 - Glossary façades include growth/session (`trackOnboardingAbandoned`, `trackSessionRestorePrompt`), library ops (`trackDownloadRequested`, `trackShareContent`, `trackBackupRestoreResult`, `trackQueueModified`), discovery (`trackExploreSearchPerformed` with `search_mode`, `trackSearchResultTapped`), and onboarding (`trackOnboardingStepViewed` with optional `step_index`).

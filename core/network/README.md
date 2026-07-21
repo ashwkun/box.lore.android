@@ -8,7 +8,8 @@ Owns the Retrofit API boundary, OkHttp/Retrofit construction, request and respon
 
 - `BoxLoreApi` defines the Retrofit service surface.
 - `NetworkModule` creates OkHttp, Retrofit, and related network clients.
-- DTOs under `cx.aswin.boxlore.core.network.model`, including content-section, recommendation, history, sync, and request payload models.
+- DTOs under `cx.aswin.boxlore.core.network.model`, including content-section, recommendation, Home candidates (`HomeCandidatesV1Request` / `HomeCandidatesV1Response`), history, sync, and request payload models.
+- `BoxLoreApi.getHomeCandidatesV1` for `POST /home/candidates/v1` (additive; legacy recommendation routes remain).
 - App Check, app version, public-key, and device-header hooks used by application wiring.
 
 ## Internal structure

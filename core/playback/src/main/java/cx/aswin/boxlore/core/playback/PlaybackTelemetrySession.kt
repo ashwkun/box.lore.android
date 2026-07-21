@@ -66,6 +66,8 @@ internal class PlaybackTelemetrySession(
         private set
     var contextSourceId: String? = null
         private set
+    var exposureId: String? = null
+        private set
 
     private var bufferingStartTimeMs: Long = 0L
     private var totalBufferedTimeMs: Long = 0L
@@ -135,17 +137,22 @@ internal class PlaybackTelemetrySession(
         val pendingEntryPoint = PendingEntryPoint.consume()
         if (pendingEntryPoint != null) {
             entryPoint = pendingEntryPoint["entry_point"] as? String
-            val contextMap = pendingEntryPoint.filterKeys { it != "entry_point" }
+            exposureId = pendingEntryPoint[PendingEntryPoint.KEY_EXPOSURE_ID] as? String
+            val contextMap =
+                pendingEntryPoint.filterKeys {
+                    it != "entry_point" && it != PendingEntryPoint.KEY_EXPOSURE_ID
+                }
             entryPointContext = contextMap.ifEmpty { null }
         } else {
             extras?.keySet()?.forEach { key ->
                 @Suppress("DEPRECATION")
                 val value = extras.get(key)
-                if (value != null && key != "entry_point") {
+                if (value != null && key != "entry_point" && key != PendingEntryPoint.KEY_EXPOSURE_ID) {
                     bundleMap[key] = value
                 }
             }
             entryPoint = extras?.getString("entry_point")
+            exposureId = extras?.getString(PendingEntryPoint.KEY_EXPOSURE_ID)
             entryPointContext = if (bundleMap.isNotEmpty()) bundleMap else null
         }
 
@@ -314,6 +321,7 @@ internal class PlaybackTelemetrySession(
         val sessionTotalDurationMs = totalDurationMs
         val sessionEntryPoint = entryPoint
         val sessionEntryPointContext = entryPointContext
+        val currentExposureId = exposureId
 
         var isCompleted = forceCompleted
         if (!isCompleted) {
@@ -435,6 +443,7 @@ internal class PlaybackTelemetrySession(
                         podcastId = currentPodcastId.orEmpty(),
                         genre = currentPodcastGenre,
                         source = adaptiveSource,
+                        exposureId = currentExposureId,
                     ),
                 listenSeconds = consumedAudioSeconds.toLong().coerceAtLeast(0L),
                 durationSeconds = (sessionTotalDurationMs / 1_000L).coerceAtLeast(0L),
@@ -492,6 +501,7 @@ internal class PlaybackTelemetrySession(
         isRepeating = false
         entryPoint = null
         entryPointContext = null
+        exposureId = null
     }
 
     fun updateConsumedAudio(player: Player) {

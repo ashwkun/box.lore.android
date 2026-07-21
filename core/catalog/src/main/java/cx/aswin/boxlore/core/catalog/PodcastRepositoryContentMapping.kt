@@ -37,7 +37,7 @@ data class PersonalizedContentSectionInputs(
     val recentSectionIds: List<String> = emptyList(),
     val excludedPodcastIds: List<String> = emptyList(),
     val excludedEpisodeIds: List<String> = emptyList(),
-    val languages: List<String> = listOf("en"),
+    val languages: List<String> = emptyList(),
 )
 
 internal val semanticMarkupPattern = Regex("<[^>]+>")

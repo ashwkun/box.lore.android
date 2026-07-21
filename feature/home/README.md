@@ -10,7 +10,8 @@ Owns Home feed presentation, Settings screens, RSS-add UI, and local debug surfa
 - `settings.SettingsScreen`, `SettingsViewModel`, and `SettingsViewModelAssembler` for Settings.
 - `DebugScreen` and `DebugViewModel` for local learner and runtime diagnostics.
 - Extracted Home UI pieces such as `LibrarySectionRows`, `LibrarySection`, and section/card components.
-- Pure logic helpers under `logic/` for Home assembly, discovery, hero ordering, selection, playback-state mapping, serial episodes, and affinity behavior.
+- Pure logic helpers under `logic/` for Home assembly, discovery, hero ordering, selection, playback-state mapping, serial episodes, affinity behavior, personalization mode, discovery missions, BYL anchor selection, and slate allocation.
+- Long-press recommendation feedback (`RecommendationFeedbackMenu`) and durable `HomePersonalizationMode` for Taste / Because You Like labeling.
 
 ## Internal structure
 

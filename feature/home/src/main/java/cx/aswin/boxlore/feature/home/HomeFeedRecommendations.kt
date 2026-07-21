@@ -50,6 +50,8 @@ internal fun LazyStaggeredGridScope.curatedForYouItems(
             discoveryContextTitle = feedState.discoveryGreeting.title,
             showTasteHeader = derivedState.hasBecauseYouLike,
             isFallback = recommendationState.isRecommendationsFallback,
+            personalizationMode = recommendationState.personalizationMode,
+            onRecommendationFeedback = callbacks.onRecommendationFeedback,
         )
     }
 }
@@ -210,8 +212,7 @@ private fun DiscoveryGreetingHeader(
         }
     HomeTopLevelSectionHeader(
         title = greeting.title,
-        // Personalized rails are no longer daypart-specific; omit time-claiming subcopy.
-        subtitle = null,
+        subtitle = greeting.mission?.subtitle ?: greeting.subtitle.takeIf { it.isNotBlank() },
         icon = icon,
         seeAllIcon = Icons.Rounded.ChevronRight,
         seeAllContentDescription = "See all discoveries",

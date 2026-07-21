@@ -2,6 +2,8 @@ package cx.aswin.boxlore.core.network
 
 import cx.aswin.boxlore.core.network.model.BootstrapRequest
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
+import cx.aswin.boxlore.core.network.model.HomeCandidateSeedDto
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Request
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -219,6 +221,64 @@ class BoxLoreApiContractTest {
             assertEquals("POST", recorded.method)
             assertEquals("/content/sections/v1", recorded.path)
             assertEquals(DEVICE_UUID, recorded.getHeader("X-Device-UUID"))
+        }
+
+    @Test
+    fun `getHomeCandidatesV1 encodes request and decodes modules`() =
+        runTest {
+            enqueueFixture("fixtures/home_candidates_v1.json")
+
+            val body =
+                api.getHomeCandidatesV1(
+                    publicKey = APP_KEY,
+                    deviceUuid = DEVICE_UUID,
+                    request =
+                        HomeCandidatesV1Request(
+                            contractVersion = 1,
+                            requestedModules = listOf("taste", "because_you_like"),
+                            country = "us",
+                            languages = listOf("en"),
+                            seeds =
+                                listOf(
+                                    HomeCandidateSeedDto(
+                                        episodeId = "42",
+                                        podcastId = "7",
+                                        weight = 0.85,
+                                    ),
+                                ),
+                            anchorPodcastId = "7",
+                            tasteBudget = 12,
+                            becauseYouLikeBudget = 8,
+                            missionBudget = 6,
+                        ),
+                )
+
+            assertEquals("true", body.status)
+            assertEquals(1, body.contractVersion)
+            assertEquals("home-candidates-v1.0", body.algorithmVersion)
+            assertEquals(1, body.modules.taste.size)
+            assertEquals(1, body.modules.becauseYouLike.size)
+            assertEquals(0, body.modules.mission.size)
+
+            val taste = body.modules.taste.single()
+            assertEquals("1001", taste.episodeId)
+            assertEquals("500", taste.podcastId)
+            assertEquals("https://audio.example/taste.mp3", taste.audioUrl)
+            assertEquals(1800, taste.durationSeconds)
+            assertEquals("semantic_seed", taste.source)
+            assertEquals("matches_your_listening", taste.reason)
+
+            val recorded = server.takeRequest()
+            assertEquals("POST", recorded.method)
+            assertEquals("/home/candidates/v1", recorded.path)
+            assertEquals(DEVICE_UUID, recorded.getHeader("X-Device-UUID"))
+            val requestBody = recorded.body.readUtf8()
+            // Android emits camelCase per kotlinx.serialization defaults; these are
+            // the field names the proxy `parseHomeCandidatesRequest` expects.
+            assertTrue(requestBody.contains("\"requestedModules\""))
+            assertTrue(requestBody.contains("\"tasteBudget\":12"))
+            assertTrue(requestBody.contains("\"becauseYouLikeBudget\":8"))
+            assertTrue(requestBody.contains("\"anchorPodcastId\":\"7\""))
         }
 
     @Test

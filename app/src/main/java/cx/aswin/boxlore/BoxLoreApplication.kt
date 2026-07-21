@@ -17,6 +17,7 @@ import cx.aswin.boxlore.core.catalog.EngagementPromptCoordinator
 import cx.aswin.boxlore.core.catalog.SharedAppDependenciesHolder
 import cx.aswin.boxlore.core.prefs.UserPreferencesRepository
 import cx.aswin.boxlore.core.downloads.DownloadsDependenciesHolder
+import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
 import cx.aswin.boxlore.core.ranking.LearningEventLog
 import cx.aswin.boxlore.core.network.NetworkModule
 import cx.aswin.boxlore.surveys.BoxcastPostHogSurveysDelegate
@@ -62,6 +63,22 @@ class BoxLoreApplication : Application(), Configuration.Provider {
         // fallback if Room initialization fails — same startup behavior as before, without
         // a second RankingFeedbackRepository client diverging from the container.
         container.rankingFeedbackRepository
+
+        // One-shot destructive wipe of prior personalization models/caches when the
+        // Home personalization pipeline version advances.
+        applicationScope.launch {
+            val runtimePrefs =
+                getSharedPreferences(
+                    AdaptiveRankingRepository.RUNTIME_PREFS_NAME,
+                    Context.MODE_PRIVATE,
+                )
+            val wiped =
+                container.adaptiveRankingRepository.ensurePipelineMigrated(runtimePrefs)
+            if (wiped) {
+                cx.aswin.boxlore.core.prefs.BoxcastPrefs(this@BoxLoreApplication)
+                    .clearPersonalizationCaches()
+            }
+        }
 
         // Live learner signal log: on by default in debug; release stays off unless the
         // user explicitly opts in via the debug-screen toggle (persisted true).

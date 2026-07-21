@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.components.HeroCarousel
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationModeLogic
 
 @androidx.compose.runtime.Stable
 internal data class PodcastFeedContent(
@@ -48,6 +49,8 @@ internal data class PodcastFeedRecommendationState(
     val becauseYouLikePodcasts: StablePodcastList,
     val isRecommendationsLoading: Boolean = true,
     val isRecommendationsFallback: Boolean = true,
+    val personalizationMode: cx.aswin.boxlore.feature.home.logic.HomePersonalizationMode =
+        cx.aswin.boxlore.feature.home.logic.HomePersonalizationMode.REGIONAL,
     val onChangePodcastClick: () -> Unit = {},
 )
 
@@ -139,10 +142,14 @@ private fun rememberPodcastFeedDerivedState(
 private fun hasBecauseYouLike(
     feedState: PodcastFeedUiState,
     recommendationState: PodcastFeedRecommendationState,
-): Boolean =
-    feedState.seemsToLikePodcast != null &&
+): Boolean {
+    if (!HomePersonalizationModeLogic.showBecauseYouLike(recommendationState.personalizationMode)) {
+        return false
+    }
+    return feedState.seemsToLikePodcast != null &&
         (recommendationState.becauseYouLikeRecommendations.list.isNotEmpty() ||
             recommendationState.becauseYouLikePodcasts.list.isNotEmpty())
+}
 
 private fun LazyStaggeredGridScope.smartHeroItem(
     content: PodcastFeedContent,

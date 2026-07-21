@@ -17,6 +17,10 @@ enum class RankingAction {
     MOVE_UP,
     MOVE_DOWN,
     DISMISS,
+    MORE_LIKE_THIS,
+    NOT_FOR_ME,
+    HIDE_SHOW,
+    MANUAL_ANCHOR,
 }
 
 data class RankingOutcome(
@@ -41,6 +45,10 @@ object RankingReward {
         RankingAction.MOVE_UP to 0.25,
         RankingAction.MOVE_DOWN to -0.25,
         RankingAction.DISMISS to -0.75,
+        RankingAction.MORE_LIKE_THIS to 0.55,
+        RankingAction.NOT_FOR_ME to -0.7,
+        RankingAction.HIDE_SHOW to -0.85,
+        RankingAction.MANUAL_ANCHOR to 0.35,
     )
 
     fun calculate(outcome: RankingOutcome): Double {
@@ -48,6 +56,9 @@ object RankingReward {
         val listenReward = listeningValue(outcome.listenSeconds, outcome.durationSeconds)
         return (actionReward + listenReward).coerceIn(-1.0, 1.0)
     }
+
+    fun partialForAction(action: RankingAction): Double =
+        (actionWeights[action] ?: 0.0).coerceIn(-1.0, 1.0)
 
     private fun listeningValue(
         listenSeconds: Long,

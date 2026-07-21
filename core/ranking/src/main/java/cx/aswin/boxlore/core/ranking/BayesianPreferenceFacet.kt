@@ -1,5 +1,6 @@
 package cx.aswin.boxlore.core.ranking
 
+import kotlin.math.exp
 import kotlin.math.pow
 
 enum class PreferenceFacetType {
@@ -10,6 +11,12 @@ enum class PreferenceFacetType {
     TIME_CONTEXT,
     INTENT,
 }
+
+data class FacetBelief(
+    val affinity: Double,
+    val confidence: Double,
+    val evidence: Double,
+)
 
 data class BayesianPreferenceFacet(
     val positiveEvidence: Double = 0.0,
@@ -54,7 +61,25 @@ data class BayesianPreferenceFacet(
         return ((posterior - 0.5) * 2.0).coerceIn(-1.0, 1.0)
     }
 
+    fun belief(
+        now: Long,
+        priorStrength: Double = 2.0,
+        evidenceScale: Double = 3.0,
+    ): FacetBelief {
+        val current = decayed(now)
+        val evidence = (current.positiveEvidence + current.negativeEvidence).coerceAtLeast(0.0)
+        val confidence = (1.0 - exp(-evidence / evidenceScale.coerceAtLeast(0.001)))
+            .coerceIn(0.0, 1.0)
+        return FacetBelief(
+            affinity = affinity(now, priorStrength),
+            confidence = confidence,
+            evidence = evidence,
+        )
+    }
+
     companion object {
         const val DEFAULT_HALF_LIFE_MILLIS: Long = 90L * 24L * 60L * 60L * 1_000L
+        /** Shorter half-life for temporary intent / daypart facets. */
+        const val INTENT_HALF_LIFE_MILLIS: Long = 3L * 24L * 60L * 60L * 1_000L
     }
 }

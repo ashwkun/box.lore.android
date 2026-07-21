@@ -71,6 +71,13 @@ module.exports = {
     // Deterministic per-show jitter (+/-10%) on staleness thresholds so
     // check times spread instead of re-synchronizing into waves.
     STALENESS_JITTER: 0.10,
+    // Health thresholds: emit ::warning annotations when backlog/age exceed these.
+    BACKLOG_WARN_THRESHOLD: parseInt(process.env.BACKLOG_WARN_THRESHOLD || '1500', 10),
+    MAX_CHECK_AGE_WARN_MS: parseInt(process.env.MAX_CHECK_AGE_WARN_MS || String(48 * 60 * 60 * 1000), 10),
+    CHART_REFRESH_STALE_WARN_MS: parseInt(
+        process.env.CHART_REFRESH_STALE_WARN_MS || String(36 * 60 * 60 * 1000),
+        10,
+    ),
 
     // --- Import ---
     // If more than this many chart shows are missing from Turso, use the PI

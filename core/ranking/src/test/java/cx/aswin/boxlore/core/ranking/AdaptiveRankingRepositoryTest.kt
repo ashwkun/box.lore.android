@@ -7,6 +7,8 @@ import cx.aswin.boxlore.core.ranking.database.AdaptiveModelEntity
 import cx.aswin.boxlore.core.ranking.database.AdaptiveRankingDatabase
 import cx.aswin.boxlore.core.ranking.database.PreferenceFacetEntity
 import cx.aswin.boxlore.core.ranking.database.RankingExposureEntity
+import cx.aswin.boxlore.core.ranking.database.RankingOutcomeEntity
+import java.util.UUID
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -431,6 +433,134 @@ class AdaptiveRankingRepositoryTest {
             assertEquals(0.4, score.finalScore, 1e-9)
             assertEquals(0.0, score.learnedBlend, 0.0)
             assertEquals(0L, score.updateCount)
+        }
+
+    @Test
+    fun applyRewardDeltaMovesResolvedExposureRewardOnLaterSignal() =
+        runTest {
+            val id = repository.recordExposure(exposure())
+            assertTrue(repository.resolveExposure(id, reward = 0.3, listenSeconds = 30, resolvedAt = 1_000L))
+
+            val delta = repository.applyRewardDelta(id, newReward = 0.9, listenSeconds = 60, resolvedAt = 2_000L)
+
+            assertTrue(delta)
+            val stored = database.adaptiveRankingDao().getExposure(id)!!
+            assertEquals(0.9, stored.reward!!, 1e-9)
+            assertEquals(0.9, stored.accumulatedReward!!, 1e-9)
+            assertEquals(60L, stored.listenSeconds)
+            val model = database.adaptiveRankingDao().getModel(RankingObjective.DISCOVERY.name)!!
+            // First resolve incremented updateCount to 1; delta apply pushes it to 2.
+            assertEquals(2L, model.updateCount)
+        }
+
+    @Test
+    fun applyRewardDeltaFailsForUnresolvedExposure() =
+        runTest {
+            val id = repository.recordExposure(exposure())
+
+            assertFalse(repository.applyRewardDelta(id, newReward = 0.5))
+        }
+
+    @Test
+    fun applyRewardDeltaFailsForUnknownExposure() =
+        runTest {
+            assertFalse(repository.applyRewardDelta("missing", newReward = 0.5))
+        }
+
+    @Test
+    fun hardExclusionRoundTripsAndClearsOnReset() =
+        runTest {
+            repository.excludeShow("pod-blocked", reason = "hide_show", sourceExposureId = "exp-1", now = 1_000L)
+
+            assertTrue(repository.isHardExcluded("pod-blocked"))
+            assertEquals(setOf("pod-blocked"), repository.hardExcludedPodcastIds())
+
+            repository.reset()
+
+            assertFalse(repository.isHardExcluded("pod-blocked"))
+            assertTrue(repository.hardExcludedPodcastIds().isEmpty())
+        }
+
+    @Test
+    fun appendOutcomePersistsOutcomeLedger() =
+        runTest {
+            repository.appendOutcome(
+                RankingOutcomeEntity(
+                    outcomeId = UUID.randomUUID().toString(),
+                    exposureId = "exp-1",
+                    episodeId = "ep-1",
+                    podcastId = "pod-1",
+                    action = RankingAction.LIKE.name,
+                    partialReward = 0.65,
+                    listenSeconds = 0,
+                    durationSeconds = 0,
+                    recordedAt = 1_000L,
+                    appliedToModel = true,
+                ),
+            )
+
+            val outcomes = database.adaptiveRankingDao().getOutcomesForExposure("exp-1")
+            assertEquals(1, outcomes.size)
+            assertEquals(RankingAction.LIKE.name, outcomes.single().action)
+        }
+
+    @Test
+    fun facetBeliefConfidenceGrowsWithEvidence() =
+        runTest {
+            repository.updateFacet(PreferenceFacetType.SHOW, "pod-belief", reward = 1.0, now = 1_000L)
+            val single = repository.facetBelief(PreferenceFacetType.SHOW, "pod-belief", now = 1_000L)
+
+            repeat(6) { repository.updateFacet(PreferenceFacetType.SHOW, "pod-belief", reward = 1.0, now = 1_000L) }
+            val many = repository.facetBelief(PreferenceFacetType.SHOW, "pod-belief", now = 1_000L)
+
+            assertTrue("single=$single many=$many", many.confidence > single.confidence)
+            assertTrue(many.confidence in 0.0..1.0)
+            assertTrue(many.evidence > single.evidence)
+        }
+
+    @Test
+    fun facetBeliefsBulkLookupReturnsZeroForMissingKeys() =
+        runTest {
+            repository.updateFacet(PreferenceFacetType.SHOW, "pod-1", reward = 1.0, now = 1_000L)
+            val keys = setOf(
+                PreferenceFacetKey(PreferenceFacetType.SHOW, "pod-1"),
+                PreferenceFacetKey(PreferenceFacetType.SHOW, "pod-missing"),
+            )
+
+            val beliefs = repository.facetBeliefs(keys, now = 1_000L)
+
+            assertTrue(beliefs.getValue(PreferenceFacetKey(PreferenceFacetType.SHOW, "pod-1")).confidence > 0.0)
+            assertEquals(0.0, beliefs.getValue(PreferenceFacetKey(PreferenceFacetType.SHOW, "pod-missing")).confidence, 0.0)
+            assertEquals(0.0, beliefs.getValue(PreferenceFacetKey(PreferenceFacetType.SHOW, "pod-missing")).evidence, 0.0)
+        }
+
+    @Test
+    fun ensurePipelineMigratedWipesOnFirstRunAndIsIdempotent() =
+        runTest {
+            val id = repository.recordExposure(exposure())
+            repository.resolveExposure(id, reward = 0.4)
+            repository.excludeShow("pod-blocked", reason = "hide")
+            repository.updateFacet(PreferenceFacetType.SHOW, "pod-1", reward = 1.0)
+
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val prefs = context.getSharedPreferences("adaptive_ranking_pipeline_test", Context.MODE_PRIVATE)
+            prefs.edit().clear().apply()
+
+            val wiped = repository.ensurePipelineMigrated(prefs)
+
+            assertTrue(wiped)
+            val dao = database.adaptiveRankingDao()
+            assertTrue(dao.getAllExposures().isEmpty())
+            assertTrue(dao.getAllFacets().isEmpty())
+            assertTrue(dao.getAllModels().isEmpty())
+            assertTrue(dao.getAllExclusions().isEmpty())
+            assertEquals(
+                AdaptiveRankingRepository.PERSONALIZATION_PIPELINE_VERSION,
+                prefs.getInt(AdaptiveRankingRepository.PIPELINE_VERSION_KEY, 0),
+            )
+
+            // Second run is a no-op.
+            assertFalse(repository.ensurePipelineMigrated(prefs))
         }
 
     @Test

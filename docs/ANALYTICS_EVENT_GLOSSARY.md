@@ -80,8 +80,8 @@ Launch enrichment (subscription bucket, onboarding status) goes on **person prop
 | `identity_reset` | Analytics identity cleared/reset | — | reason:string | none |
 | `app_check_status` | App Check token attempt result | token_obtained:bool; provider:string | — | none |
 | `first_episode_played` | First-ever play milestone | — | episode_id:string; podcast_id:string; entry_point:enum; hours_since_install:float | none |
-| `home_surface_tapped` | First-class Home component tap | surface_component:string | rail_intent:string; content_id:string; position_index:int | none |
-| `home_surface_impression` | Home rail/block became visible | surface_component:string | items_count:int | none |
+| `home_surface_tapped` | First-class Home component tap | surface_component:string | rail_intent:string; content_id:string; position_index:int; feedback_action:string; personalization_mode:string; exposure_id:string | none |
+| `home_surface_impression` | Home rail/block became visible | surface_component:string | items_count:int; personalization_mode:string; meaningful_play_count:int; is_fallback:bool; candidate_request_ok:bool | none |
 | `search_performed` | User ran show or episode search | surface:string; search_mode:enum; search_query:string; results_count:int | result_quality:enum; query_length:int | logged_by_policy |
 | `search_result_tapped` | User tapped a search result | surface:string; result_type:enum | search_mode:enum; podcast_id:string; episode_id:string; position_index:int; search_query:string | logged_by_policy |
 | `learn_card_action` | User acted on a Learn card | action:string; episode_id:string; podcast_id:string | position_index:int | none |

@@ -491,6 +491,32 @@ object AnalyticsHelper : Analytics {
         timeBlockTitle,
     )
 
+    fun trackHomeRecommendationFeedback(
+        episodeId: String,
+        podcastId: String,
+        action: String,
+        personalizationMode: String?,
+        exposureId: String? = null,
+    ) = DiscoveryAnalyticsTracks.trackHomeRecommendationFeedback(
+        episodeId,
+        podcastId,
+        action,
+        personalizationMode,
+        exposureId,
+    )
+
+    fun trackHomePersonalizationMode(
+        mode: String,
+        meaningfulPlayCount: Int,
+        isFallback: Boolean,
+        candidateRequestOk: Boolean,
+    ) = DiscoveryAnalyticsTracks.trackHomePersonalizationMode(
+        mode,
+        meaningfulPlayCount,
+        isFallback,
+        candidateRequestOk,
+    )
+
     fun trackExploreRecommendationsImpression(
         recommendationsCount: Int,
         episodeIds: List<String>,

@@ -1,0 +1,49 @@
+{
+  "status": "true",
+  "contractVersion": 1,
+  "algorithmVersion": "home-candidates-v1.0",
+  "inventoryVersion": "sync-2026-07-21",
+  "requestId": "abc123def456",
+  "modules": {
+    "taste": [
+      {
+        "episodeId": "1001",
+        "podcastId": "500",
+        "title": "Taste Episode",
+        "podcastTitle": "Taste Show",
+        "imageUrl": "https://img.example/taste.jpg",
+        "podcastImageUrl": "https://img.example/taste-show.jpg",
+        "audioUrl": "https://audio.example/taste.mp3",
+        "durationSeconds": 1800,
+        "publishedDate": 1750000000,
+        "genre": "News",
+        "priorScore": 0.0,
+        "retrievalScore": 0.87,
+        "source": "semantic_seed",
+        "reason": "matches_your_listening",
+        "isNovel": false
+      }
+    ],
+    "becauseYouLike": [
+      {
+        "episodeId": "2001",
+        "podcastId": "600",
+        "title": "BYL Episode",
+        "podcastTitle": "BYL Neighbor Show",
+        "imageUrl": null,
+        "podcastImageUrl": "https://img.example/byl-show.jpg",
+        "audioUrl": "https://audio.example/byl.mp3",
+        "durationSeconds": 1200,
+        "publishedDate": 1750001000,
+        "genre": "Tech",
+        "priorScore": 0.0,
+        "retrievalScore": 0.72,
+        "source": "because_you_like",
+        "reason": "neighbor_of_anchor",
+        "isNovel": false
+      }
+    ],
+    "mission": [],
+    "regional": []
+  }
+}

@@ -10,9 +10,14 @@ package cx.aswin.boxlore.core.analytics
  * context before calling controller.play(), and
  * BoxLorePlaybackService consumes it in startPlaybackSession().
  *
+ * Also carries ranking attribution via [KEY_EXPOSURE_ID] so background
+ * playback can resolve the exact Home/Learn impression that produced a play.
+ *
  * Thread-safe via @Synchronized.
  */
 object PendingEntryPoint {
+    const val KEY_EXPOSURE_ID = "exposure_id"
+
     private var pending: Map<String, Any>? = null
 
     @Synchronized

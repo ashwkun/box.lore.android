@@ -1,14 +1,16 @@
 package cx.aswin.boxlore.feature.home
 
+import cx.aswin.boxlore.core.playback.getHistoryForRecommendations
 import cx.aswin.boxlore.core.playback.getRecentHistoryList
-
 import cx.aswin.boxlore.core.ranking.CandidateSource
 import cx.aswin.boxlore.core.ranking.EpisodeRankingInput
 import cx.aswin.boxlore.core.ranking.RankingObjective
 import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.feature.home.logic.HomeAnchorSelectionLogic
 import cx.aswin.boxlore.feature.home.logic.HomeBecauseYouLikeLogic
+import cx.aswin.boxlore.feature.home.logic.HomePersonalizationModeLogic
 import cx.aswin.boxlore.feature.home.logic.PodcastAffinityLogic
 import cx.aswin.boxlore.feature.home.logic.toRecommendationPodcast
 import androidx.lifecycle.viewModelScope
@@ -23,6 +25,13 @@ internal suspend fun HomeViewModel.resolveFavoritePodcast(
     subscriptions: List<Podcast>,
     historyList: List<HomeListeningHistoryItem>,
 ): Podcast? {
+    if (!HomePersonalizationModeLogic.showBecauseYouLike(_personalizationMode.value) &&
+        overriddenId == null
+    ) {
+        // Cold-start / regional: BYL stays hidden unless the user already forced an anchor.
+        return null
+    }
+
     val historySignals = historyList.map { HomeBecauseYouLikeLogic.toAffinitySignal(it) }
     if (overriddenId != null) {
         val sub = subscriptions.find { it.id == overriddenId }
@@ -38,35 +47,43 @@ internal suspend fun HomeViewModel.resolveFavoritePodcast(
         return null
     }
 
-    if (subscriptions.isEmpty() && historyList.isEmpty()) return null
+    val hidden = adaptiveRankingRepository.hardExcludedPodcastIds()
+    val showBeliefs = adaptiveRankingRepository.showFacetBeliefs()
+    val lastPlayedMap =
+        historySignals
+            .groupBy { it.podcastId }
+            .mapValues { (_, items) -> items.maxOfOrNull { it.lastPlayedAt } ?: 0L }
+    val selection =
+        HomeAnchorSelectionLogic.selectAutomatic(
+            candidates =
+                showBeliefs.map { (podcastId, belief) ->
+                    HomeAnchorSelectionLogic.ShowCandidate(
+                        podcastId = podcastId,
+                        affinity = belief.affinity,
+                        confidence = belief.confidence,
+                        evidence = belief.evidence,
+                        lastPlayedAt = lastPlayedMap[podcastId] ?: 0L,
+                        isHidden = podcastId in hidden,
+                    )
+                },
+            currentAnchorId = _seemsToLikePodcast.value?.id,
+            manualOverrideId = null,
+        ) ?: return null
 
-    val lastPlayedMap = mutableMapOf<String, Long>()
-    val podcastNameMap = mutableMapOf<String, String>()
-    val podcastImageMap = mutableMapOf<String, String>()
-
-    val scores =
-        PodcastAffinityLogic.calculatePodcastAffinityScores(
-            subscriptions = subscriptions,
-            historyList = historySignals,
-            lastPlayedMap = lastPlayedMap,
-            podcastNameMap = podcastNameMap,
-            podcastImageMap = podcastImageMap,
-        )
-
-    val topPodId =
-        PodcastAffinityLogic.topAffinityPodcastId(scores, lastPlayedMap)
-            ?: return null
-
-    val sub = subscriptions.find { it.id == topPodId }
-    if (sub != null) return sub
-
+    val topPodId = selection.podcastId
+    subscriptions.find { it.id == topPodId }?.let { return it }
     localCatalog.getLocalPodcast(topPodId)?.let { return it }
+
+    val hist = historySignals.find { it.podcastId == topPodId }
+    if (hist != null) {
+        return PodcastAffinityLogic.podcastFromHistorySignal(hist)
+    }
 
     return Podcast(
         id = topPodId,
-        title = podcastNameMap[topPodId] ?: "Podcast",
+        title = "Podcast",
         artist = "",
-        imageUrl = podcastImageMap[topPodId] ?: "",
+        imageUrl = "",
         fallbackImageUrl = "",
         description = "",
     )
@@ -80,11 +97,59 @@ internal fun HomeViewModel.fetchBecauseYouLikeRecommendations(
     viewModelScope.launch {
         _isBecauseYouLikeLoading.value = true
         try {
+            if (!HomePersonalizationModeLogic.showBecauseYouLike(_personalizationMode.value)) {
+                _becauseYouLikePodcasts.value = emptyList()
+                _becauseYouLikeRecommendations.value = emptyList()
+                return@launch
+            }
             val title = podcast.title
             val desc = podcast.description ?: ""
             val id = podcast.id
+            val history = playbackRepository.getHistoryForRecommendations(15)
+            val retainedTasteIds = _recommendations.value.mapNotNull { it.podcastId }
+            val slate =
+                homePersonalizationCoordinator.loadSlate(
+                    cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator.SlateRequest(
+                        modules = listOf("because_you_like"),
+                        country = region,
+                        languages =
+                            cx.aswin.boxlore.core.catalog.recommendationLanguagesForCountry(region),
+                        history = history,
+                        anchorPodcastId = id,
+                        missionId = _uiState.value.activeDiscoveryMissionId,
+                        excludedPodcastIds = retainedTasteIds + listOf(id),
+                        excludedEpisodeIds = _recommendations.value.map { it.id },
+                        noveltyPreference = null,
+                        daypart = clockContextFlow.value.daypart.name.lowercase(),
+                        revision = "home-v1-byl|$id",
+                        becauseYouLikeOnly = true,
+                    ),
+                )
+            if (slate.becauseYouLikeEpisodes.isNotEmpty() || slate.becauseYouLikePodcasts.isNotEmpty()) {
+                val ranked =
+                    rankBecauseYouLike(
+                        slate.becauseYouLikePodcasts,
+                        slate.becauseYouLikeEpisodes,
+                    )
+                _becauseYouLikePodcasts.value = ranked.first
+                _becauseYouLikeRecommendations.value = ranked.second
+                try {
+                    val json = Json { ignoreUnknownKeys = true }
+                    boxcastPrefs.saveBylCache(
+                        episodesJson = json.encodeToString(ranked.second),
+                        podcastsJson = json.encodeToString(ranked.first),
+                        podcastId = id,
+                    )
+                } catch (ce: Exception) {
+                    android.util.Log.e("HomeViewModel", "Failed to cache because-you-like", ce)
+                }
+                return@launch
+            }
 
-            android.util.Log.d("HomeViewModel", "Fetching because-you-like recommendations for: $title (ID: $id), region: $region")
+            android.util.Log.d(
+                "HomeViewModel",
+                "Fetching because-you-like recommendations for: $title (ID: $id), region: $region",
+            )
             val data =
                 podcastRepository.getBecauseYouLikeRecommendations(
                     podcastTitle = title,
@@ -106,11 +171,6 @@ internal fun HomeViewModel.fetchBecauseYouLikeRecommendations(
                     title = { it.title },
                 )
             val ranked = rankBecauseYouLike(distinctPodcasts, distinctEpisodes)
-
-            android.util.Log.d(
-                "HomeViewModel",
-                "Fetched because-you-like: podcasts count = ${distinctPodcasts.size}, episodes count = ${distinctEpisodes.size}",
-            )
 
             _becauseYouLikePodcasts.value = ranked.first
             _becauseYouLikeRecommendations.value = ranked.second
