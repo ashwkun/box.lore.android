@@ -9,28 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.0.11] - 2026-07-22
+
 ### Added
 - Expressive listening history insights: session rollups, calendar & stats UI, Room persistence layer, and playback telemetry integration. ([#932](https://github.com/boxcreate/boxlore/pull/932)) <!-- impact:user-impact-high -->
+- PlaybackControlSync in :core:playback to preserve playback speed and seek sizes across session clear and restore UI sync ([#933](https://github.com/boxcreate/boxlore/pull/933)) <!-- impact:user-impact-high -->
 - Home now displays up to three curated editorial rows per daypart using PodcastRepository.getCuratedVibes with playable filtering and cross‑row de‑duplication ([#942](https://github.com/boxcreate/boxlore/pull/942)) <!-- impact:user-impact-medium -->
 - In‑memory SignalLog for ranking engine mutations and model movement, with Debug UI panels (Signals, Taste, Model) replacing animated learner visualizations. ([#897](https://github.com/boxcreate/boxlore/pull/897))
 ### Changed
+- Refresh detekt baseline to clear signature‑drift findings ([#933](https://github.com/boxcreate/boxlore/pull/933)) (+ 1 related changes) <!-- impact:user-impact-high -->
 - Greeting line on Home now shows title only without subtitle; editorial rows are rendered flush with the feed ([#942](https://github.com/boxcreate/boxlore/pull/942)) <!-- impact:user-impact-medium -->
 - Enabled SignalLog capture by default in debug builds, disabled in release unless opted‑in; Learner engine now uses atomic exposure resolution with synchronized enable/disable of SignalLog. ([#897](https://github.com/boxcreate/boxlore/pull/897))
+- Updated actions/checkout to v7 in GitHub Actions workflows ([#886](https://github.com/boxcreate/boxlore/pull/886)) <!-- impact:no-user-impact -->
+- Updated actions/setup-java to v5.6.0 ([#888](https://github.com/boxcreate/boxlore/pull/888)) <!-- impact:no-user-impact -->
+- Changed actions/cache action version from 4 to 6 ([#889](https://github.com/boxcreate/boxlore/pull/889)) <!-- impact:no-user-impact -->
 - Updated @libsql/client to 0.17.4 in Gradle build scripts. ([#894](https://github.com/boxcreate/boxlore/pull/894)) <!-- impact:no-user-impact -->
 - Pinned transitive dependencies (Netty 4.1.136, BouncyCastle 1.84, jose4j 0.9.6, jdom2 2.0.6.1, commons‑compress 1.26.2, protobuf 3.25.5) and overridden protobufjs 7.6.5, uuid 11.1.1 to address Dependabot Maven alerts and npm audit findings. ([#896](https://github.com/boxcreate/boxlore/pull/896)) <!-- impact:no-user-impact -->
+- modular hardening, AGP 9 toolchain, merge-queue tests, Develocity ([#902](https://github.com/boxcreate/boxlore/pull/902)) <!-- impact:no-user-impact -->
 - Modular Android hardening (plans A0–A8 / B0–B10): introduced single AppContainer composition root, extracted core modules (:core:prefs, :core:downloads, :core:analytics, :core:ranking, :core:rss), slimmed MainActivity to shell over BoxLoreNavHost, replaced reflective DownloadServiceLauncher, upgraded to AGP 9 toolchain with Develocity wiring, added module README contracts. ([#903](https://github.com/boxcreate/boxlore/pull/903)) <!-- impact:no-user-impact -->
 - Removed .github/dependabot.yml and disabled Dependabot security updates via repository settings, halting automatic version‑update and security PRs. ([#905](https://github.com/boxcreate/boxlore/pull/905)) <!-- impact:no-user-impact -->
+- Changed CI workflow to run unit, detekt, ktlint, and Kover checks only on merge queue or manual dispatch ([#906](https://github.com/boxcreate/boxlore/pull/906)) <!-- impact:no-user-impact -->
+- Changed CI workflow to run unit and instrumented tests only when the `merge-ci` label is present, and updated merge queue script accordingly. ([#907](https://github.com/boxcreate/boxlore/pull/907)) <!-- impact:no-user-impact -->
+- CI documentation updated to clarify merge-ci labeling and PR template flow ([#908](https://github.com/boxcreate/boxlore/pull/908)) <!-- impact:no-user-impact -->
+- Added cloud-agent next-wave playbook documentation (docs/PLAN_CLOUD_AGENT_NEXT.md) with phase constraints and verification gates ([#909](https://github.com/boxcreate/boxlore/pull/909)) <!-- impact:no-user-impact -->
 - Reorganized feature and playback extraction under LOC caps: split home/playback, defined module boundaries so UI flows reside in :feature:* and shared engines in :core:*. ([#919](https://github.com/boxcreate/boxlore/pull/919)) <!-- impact:no-user-impact -->
 - Phase 2 package alignment: moved PostHog façade to :core:analytics, replaced analytics glossary, migrated satellite/prefs, aligned playback/database package with Auto Phase C, and catalog package with Phase 2 final signoff. ([#921](https://github.com/boxcreate/boxlore/pull/921)) <!-- impact:no-user-impact -->
 - Architecture‑as‑code and test harness added: Konsist boundary guards enforce graph constraints (no feature→feature, no Hilt/MockK, catalog boundaries), expanded hermetic JVM suites and :core:testing fakes, raised merged Kover floor, integrated Roborazzi verification in unit gate, added ARCHITECTURE.md and TESTING.md hubs with ranking cross‑links. ([#930](https://github.com/boxcreate/boxlore/pull/930)) <!-- impact:no-user-impact -->
+- Changed CI configuration to require CodeRabbit review threads resolved before merge by adding coderabbit-threads-resolved check and updating master merge queue ruleset ([#934](https://github.com/boxcreate/boxlore/pull/934)) <!-- impact:no-user-impact -->
 - Reduced CI required checks to testDebugUnitTest and CodeRabbit‑threads‑resolved; disabled automatic CodeRabbit request_changes_workflow; enforced policy that all CodeRabbit threads must be resolved before merge and blocks merges on CHANGES_REQUESTED, requiring manual merge; removed merge-queue-external-gates.yml (Sonar + CodeRabbit merge‑queue). ([#935](https://github.com/boxcreate/boxlore/pull/935)) <!-- impact:no-user-impact -->
 ### Fixed
+- Restore artwork tint colors after process death by using Coil ImageLoader.execute with disk+memory cache and PlaybackArtworkResolver ([#933](https://github.com/boxcreate/boxlore/pull/933)) (+ 1 related changes) <!-- impact:user-impact-high -->
 - Preserved MediaController playback state on app reopen; restoreLastSession() no longer forces isPlaying = false, keeping mini and full player synchronized. ([#904](https://github.com/boxcreate/boxlore/pull/904)) <!-- impact:user-impact-medium -->
 - Fixed Android Auto artwork pipeline by adding a durable AutoArtworkSourceStore, a shared AutoArtworkDownloader with HTTPS redirect validation and lenient image content‑type handling, refreshed collage signatures with shorter TTLs, and automatic collage refresh on queue changes, eliminating stale collages and blank episode covers. ([#939](https://github.com/boxcreate/boxlore/pull/939)) <!-- impact:user-impact-medium -->
 - LearningEventLog startup gating now defaults to off in release builds unless BoxcastPrefs.resolveLearnerLogEnabled indicates an explicit opt‑in. ([#936](https://github.com/boxcreate/boxlore/pull/936)) <!-- impact:no-user-impact -->
 ### Removed
 - Migrated Firebase Hosting config to aswin.cx; removed `.agents` Android‑ASO skill and associated documentation. ([#932](https://github.com/boxcreate/boxlore/pull/932)) <!-- impact:user-impact-high -->
 - Adaptive `/content/sections/v1` recipe rails and related UI wiring from Home surface ([#942](https://github.com/boxcreate/boxlore/pull/942)) <!-- impact:user-impact-medium -->
+
 ## [v0.0.10] - 2026-07-17
 
 ### Added
