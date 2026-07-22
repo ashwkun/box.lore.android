@@ -14,6 +14,7 @@ Owns analytics event capture and non-fatal error reporting for Boxlore. The modu
 - `PlayerSessionAggregator` batches per-episode player interaction events.
 - Event names and property expectations are documented in [`docs/ANALYTICS_EVENT_GLOSSARY.md`](../../docs/ANALYTICS_EVENT_GLOSSARY.md).
 - Glossary façades include growth/session (`trackOnboardingAbandoned`, `trackSessionRestorePrompt`), library ops (`trackDownloadRequested`, `trackShareContent`, `trackBackupRestoreResult`, `trackQueueModified`), discovery (`trackExploreSearchPerformed` with `search_mode`, `trackSearchResultTapped`), and onboarding (`trackOnboardingStepViewed` with optional `step_index`).
+- `trackHomeSlateQualitySnapshot` / `trackHomeLearningAttributionHealth` (`HomeQualityAnalyticsTracks`) emit the Phase D quality-observability aggregates — `home_slate_quality_snapshot` and `home_learning_attribution_health`. Both accept an already-bucketed `:core:model` value object (`HomeSlateQualityTelemetry`, `RankingExposureHealthTelemetry`); this module never computes the telemetry itself, only emits it — see [`docs/recommendation-system.md`](../../docs/recommendation-system.md#quality-observability-diagnostics-dashboards-only).
 
 ## Internal structure
 
@@ -22,6 +23,8 @@ src/main/java/cx/aswin/boxlore/core/analytics/
   Analytics.kt
   AnalyticsHelper.kt                                   # PostHog singleton + track façades
   AnalyticsEmit.kt
+  AnalyticsGlossary.kt                                 # PHASE_* event allowlist
+  HomeQualityAnalyticsTracks.kt                        # Phase D quality-observability aggregates
   *AnalyticsTracks.kt                                  # domain emit implementations
   ErrorReporter.kt
   PendingEntryPoint.kt

@@ -3,6 +3,9 @@ package cx.aswin.boxlore.feature.home
 import androidx.compose.runtime.Immutable
 import cx.aswin.boxlore.core.catalog.content.ContentDaypart
 import cx.aswin.boxlore.core.catalog.content.ContentSection
+import cx.aswin.boxlore.core.catalog.home.HomeDiscoveryMission
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationMode
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationModeLogic
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.EpisodeStatus
@@ -52,6 +55,13 @@ data class HomeUiState(
     val isRecommendationsFallback: Boolean = true,
     val adaptiveSections: List<ContentSection> = emptyList(),
     val isAdaptiveSectionsLoading: Boolean = false,
+    // --- Home personalization rebuild (Taste / BYL / greeting mission) ---
+    val personalizationMode: HomePersonalizationMode = HomePersonalizationMode.REGIONAL,
+    val tasteSectionTitle: String = HomePersonalizationModeLogic.tasteSectionTitle(HomePersonalizationMode.REGIONAL),
+    val tasteSectionSubtitle: String =
+        HomePersonalizationModeLogic.tasteSectionSubtitle(HomePersonalizationMode.REGIONAL),
+    val activeMission: HomeDiscoveryMission? = null,
+    val missionEpisodes: List<Episode> = emptyList(),
 )
 
 /**

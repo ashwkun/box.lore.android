@@ -10,6 +10,7 @@ Owns shared domain models, enums, and pure value helpers used across network, da
 - `PlaybackEntryPoint`, `ShareTarget`, and `ShareLinkBuilder`.
 - `AutoTranscriptState`.
 - `PodcastGenres` and `RankingAggregateTelemetry`.
+- `HomeSlateQualityTelemetry` and `RankingExposureHealthTelemetry` — bucketed, privacy-safe quality-observability aggregates shared between `:core:catalog` / `:core:ranking` (compute) and `:core:analytics` (emit); see [`docs/recommendation-system.md`](../../docs/recommendation-system.md#quality-observability-diagnostics-dashboards-only).
 - Cross-promotion model types.
 - `SleepTimerConstants`.
 
@@ -24,6 +25,8 @@ src/main/java/cx/aswin/boxlore/core/model/
   Podcast.kt
   PodcastGenres.kt
   RankingAggregateTelemetry.kt
+  HomeSlateQualityTelemetry.kt
+  RankingExposureHealthTelemetry.kt
   ShareLinkBuilder.kt
   SleepTimerConstants.kt
   Transcript.kt

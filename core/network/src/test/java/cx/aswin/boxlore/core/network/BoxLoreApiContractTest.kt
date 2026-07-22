@@ -2,6 +2,7 @@ package cx.aswin.boxlore.core.network
 
 import cx.aswin.boxlore.core.network.model.BootstrapRequest
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Request
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -219,6 +220,49 @@ class BoxLoreApiContractTest {
             assertEquals("POST", recorded.method)
             assertEquals("/content/sections/v1", recorded.path)
             assertEquals(DEVICE_UUID, recorded.getHeader("X-Device-UUID"))
+        }
+
+    @Test
+    fun `getHomeCandidatesV1 decodes module pools`() =
+        runTest {
+            enqueueFixture("fixtures/home_candidates_v1.json")
+
+            val body =
+                api.getHomeCandidatesV1(
+                    publicKey = APP_KEY,
+                    deviceUuid = DEVICE_UUID,
+                    request =
+                        HomeCandidatesV1Request(
+                            contractVersion = 1,
+                            country = "us",
+                            languages = listOf("en"),
+                        ),
+                )
+
+            assertEquals("true", body.status)
+            assertEquals("home-candidates-v1.0", body.algorithmVersion)
+            assertEquals(1, body.modules.taste.size)
+            assertEquals(
+                "1001",
+                body.modules.taste
+                    .single()
+                    .episodeId,
+            )
+            assertEquals(1, body.modules.becauseYouLike.size)
+            assertEquals(
+                "1002",
+                body.modules.becauseYouLike
+                    .single()
+                    .episodeId,
+            )
+            assertEquals(1, body.modules.mission.size)
+            assertEquals(1, body.modules.regional.size)
+
+            val recorded = server.takeRequest()
+            assertEquals("POST", recorded.method)
+            assertEquals("/home/candidates/v1", recorded.path)
+            assertEquals(DEVICE_UUID, recorded.getHeader("X-Device-UUID"))
+            assertEquals(APP_KEY, recorded.getHeader("X-App-Key"))
         }
 
     @Test

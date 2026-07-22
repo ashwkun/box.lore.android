@@ -337,33 +337,34 @@
     </file>
     <file name="src/main/java/cx/aswin/boxlore/core/catalog/PodcastRepositoryRecommendations.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="14" column="37" source="standard:chain-method-continuation" />
-        <error line="14" column="55" source="standard:chain-method-continuation" />
-        <error line="14" column="82" source="standard:chain-method-continuation" />
-        <error line="14" column="93" source="standard:chain-method-continuation" />
-        <error line="16" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="21" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="21" column="52" source="standard:chain-method-continuation" />
-        <error line="25" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="25" column="37" source="standard:chain-method-continuation" />
-        <error line="30" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="30" column="23" source="standard:chain-method-continuation" />
-        <error line="58" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="58" column="31" source="standard:chain-method-continuation" />
-        <error line="61" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="66" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="77" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="84" column="27" source="standard:chain-method-continuation" />
-        <error line="86" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="86" column="44" source="standard:chain-method-continuation" />
-        <error line="97" column="9" source="standard:chain-method-continuation" />
-        <error line="109" column="19" source="standard:multiline-expression-wrapping" />
-        <error line="116" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="116" column="23" source="standard:chain-method-continuation" />
-        <error line="122" column="17" source="standard:chain-method-continuation" />
-        <error line="122" column="24" source="standard:chain-method-continuation" />
-        <error line="122" column="31" source="standard:chain-method-continuation" />
-        <error line="122" column="41" source="standard:chain-method-continuation" />
+        <error line="4" column="1" source="standard:import-ordering" />
+        <error line="15" column="37" source="standard:chain-method-continuation" />
+        <error line="15" column="55" source="standard:chain-method-continuation" />
+        <error line="15" column="82" source="standard:chain-method-continuation" />
+        <error line="15" column="93" source="standard:chain-method-continuation" />
+        <error line="17" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="24" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="24" column="52" source="standard:chain-method-continuation" />
+        <error line="28" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="28" column="37" source="standard:chain-method-continuation" />
+        <error line="33" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="33" column="23" source="standard:chain-method-continuation" />
+        <error line="61" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="61" column="31" source="standard:chain-method-continuation" />
+        <error line="64" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="80" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="87" column="27" source="standard:chain-method-continuation" />
+        <error line="89" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="89" column="44" source="standard:chain-method-continuation" />
+        <error line="100" column="9" source="standard:chain-method-continuation" />
+        <error line="112" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="119" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="119" column="23" source="standard:chain-method-continuation" />
+        <error line="125" column="17" source="standard:chain-method-continuation" />
+        <error line="125" column="24" source="standard:chain-method-continuation" />
+        <error line="125" column="31" source="standard:chain-method-continuation" />
+        <error line="125" column="41" source="standard:chain-method-continuation" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/core/catalog/PodcastRepositoryStreams.kt">
         <error line="3" column="1" source="standard:import-ordering" />

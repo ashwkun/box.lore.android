@@ -98,7 +98,14 @@ object AnalyticsGlossary {
             "proxy_fallback_triggered",
         )
 
-    val PHASE_A_UNION_B_UNION_C: Set<String> = PHASE_A_UNION_B + PHASE_C
+    /** Phase D — Home candidates-v1 quality-observability (quality-observability job). */
+    val PHASE_D: Set<String> =
+        setOf(
+            "home_slate_quality_snapshot",
+            "home_learning_attribution_health",
+        )
+
+    val PHASE_A_UNION_B_UNION_C: Set<String> = PHASE_A_UNION_B + PHASE_C + PHASE_D
 
     fun isAllowedEvent(eventName: String): Boolean = eventName == PERSON_SET_EVENT || eventName in PHASE_A_UNION_B_UNION_C
 

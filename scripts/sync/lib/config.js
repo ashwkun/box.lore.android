@@ -6,6 +6,16 @@
  *            tier 'charts-only' = charts + podcast import + latest_ep sync, NO vectors.
  * Phase 2 country additions happen HERE only - no country knowledge lives in
  * the workflow YAML or individual stage scripts.
+ *
+ * Language handling: `podcasts.language` is captured verbatim from the PI feed at
+ * import (stage 2), defaulting to 'en' only when PI itself has no language tag -
+ * it is never overwritten with a device/UI locale. EMBED_MODEL below is
+ * multilingual, and both Qdrant collections index `language` as a filterable
+ * keyword payload (see lib/qdrant.js), so non-English shows already embed and
+ * filter correctly. What's still missing is a *language-aware* staleness/backlog
+ * breakdown (today's tiers are News vs. Regular only) and any deliberate
+ * long-tail-language chart expansion; both are deferred until per-language
+ * candidate coverage/failure rates are measured (see docs/recommendation-system.md).
  */
 const COUNTRIES = [
     { code: 'us', tier: 'full' },

@@ -8,6 +8,7 @@ import cx.aswin.boxlore.core.catalog.content.ContentCatalogSnapshot
 import cx.aswin.boxlore.core.catalog.content.ContentContext
 import cx.aswin.boxlore.core.catalog.content.ContentContextInput
 import cx.aswin.boxlore.core.catalog.content.ContentSection
+import cx.aswin.boxlore.core.catalog.home.recommendationLanguagesForCountry
 import cx.aswin.boxlore.core.ranking.CandidateFeatureBuilder
 import cx.aswin.boxlore.core.ranking.CandidateSignals
 import cx.aswin.boxlore.core.ranking.RankingExposure
@@ -42,13 +43,10 @@ internal suspend fun HomeViewModel.loadPersonalizedDiscoverySections(
                 subscribedGenres = subscriptions.mapNotNull(Podcast::genre).distinct(),
                 learnedGenreAffinities = learnedGenreAffinities,
                 recentSectionIds = recentSectionIntentStore.recentIds(),
-                languages =
-                    listOf(
-                        java.util.Locale
-                            .getDefault()
-                            .language,
-                        "en",
-                    ).distinct(),
+                // Follow the listener's prefs region (same mapping the Home candidates
+                // pipeline uses) instead of the device locale, which is wrong for
+                // travelling/multi-locale devices and ignores non-English chart countries.
+                languages = recommendationLanguagesForCountry(context.region),
             ),
         preferCache = preferCachedAdaptiveSections,
     )
@@ -239,4 +237,3 @@ fun HomeViewModel.trackAdaptiveSectionVisible(
         }
     }
 }
-

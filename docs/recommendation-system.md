@@ -224,13 +224,75 @@ Visible rails call `trackAdaptiveSectionVisible` → exposures for learning, plu
 
 ---
 
+## Home Taste / Because You Like / Mission — the `candidates/v1` pipeline
+
+The greeting-adjacent **Taste**, **Because You Like**, and daypart **Mission** rows are a
+second, newer Home pipeline living alongside the grouped `content/sections/v1` rails above.
+It exists to support a **mode machine** (regional → personalizing → personalized) with
+**exact per-impression learning attribution**, rather than session-scoped exposure batches.
+
+```mermaid
+flowchart TB
+    T["HomeViewModelSlate.loadHomeSlate"] --> C["HomePersonalizationCoordinator.loadSlate"]
+    C --> M{"HomePersonalizationMode<br/>from meaningful-play count + anchor"}
+    M -->|REGIONAL| Req1["modules = [regional]"]
+    M -->|PERSONALIZING / PERSONALIZED| Req2["modules = [taste, because_you_like, mission, regional]"]
+    Req1 --> API["POST home/candidates/v1"]
+    Req2 --> API
+    API --> Alloc["HomeSlateAllocationLogic<br/>global episode+show de-dup across modules"]
+    Alloc --> Quality["HomeSlateQualityLogic<br/>observational aggregate"]
+    Quality --> UI["Taste / Because You Like / Mission rows"]
+```
+
+**Mode machine (`HomePersonalizationMode` / `HomePersonalizationModeLogic`)** — durable,
+recomputed every load from persisted signals, not a one-shot UI flag:
+
+| Mode | When | Home shows |
+|------|------|-------------|
+| `REGIONAL` | 0–1 meaningful plays, or no eligible anchor show by the 3rd meaningful play | Honest regional charts; Because You Like hidden |
+| `PERSONALIZING` | ≥2 meaningful plays, personalized request in flight or transiently failed | Regional taste row kept visible (never blanked) while retrying |
+| `PERSONALIZED` | Eligible anchor **and** a successful personalized candidate load | Taste row retitles to "Based on Your Taste"; Because You Like appears |
+
+**Request/response shape** — `HomePersonalizationCoordinator.SlateRequest` /
+`SlateResult` (`core/catalog/.../home/HomePersonalizationCoordinator.kt`). The request carries
+country, `recommendationLanguagesForCountry(country)` languages (see language handling below),
+bounded history, an anchor podcast id, the resolved daypart mission id, and exclusion sets —
+never raw episode titles. The API responds with per-module candidate items, an opaque
+`algorithmVersion` pin, and a `requestId`.
+
+**Allocation & de-dup** — `HomeSlateAllocationLogic.allocate` ranks all returned candidates by
+score and greedily fills Taste / Because You Like / Mission with a **global** episode+show
+de-dup set, so the same show never appears twice across rows. In-process responses are cached
+(`PodcastRepositoryHomeCandidates`, keyed by request fingerprint) for
+`HomeCandidatesRequestBuilder.CACHE_TTL_MILLIS` (4h) to avoid refetching on every Home visit.
+
+**Exact-token learning attribution** — unlike the grouped-sections path's session batch
+exposures, each Taste / Because You Like / Mission item visible on Home records its own
+`RankingExposure` (via `RankingFeedbackRepository`) tagged `RankingSurface.HOME`. The resulting
+exposure id travels with playback through `PlaybackTelemetrySession` (`exposure_id` extra), so a
+later play/like/skip resolves back to the *exact* impression that produced it — not just "some
+outcome happened for this show recently." See **Quality-observability diagnostics** below for
+how attribution *plumbing* health (not model learning stage) is monitored.
+
+**Language handling** — `recommendationLanguagesForCountry(country)` (`core/catalog/.../home/RecommendationLanguages.kt`)
+maps a listener's region to a small ordered language list (e.g. `fr` → `["fr", "en"]`), replacing
+what used to be a hardcoded `languages = listOf("en")` on both this pipeline and the legacy
+`recommendations/v2` seed-based path. This was purely an Android-side request-shaping gap — chart
+ingestion itself is already multilingual (embedding model + candidate index both key on
+per-show language; ETL internals are out of scope for this doc per the note at the top). **Deliberate
+long-tail-language chart expansion is deferred** until per-language candidate coverage / failure
+rates are measured — see the sync pipeline's own language-handling note for the ingestion side of
+this.
+
+---
+
 ## Surfaces at a glance
 
 | Surface | Feels like | Engine (client) | API (paths only) |
 |---------|------------|-----------------|------------------|
 | Home — discovery rails | Themed rows under greeting | `ContentOrchestrator` + grouped sections | `POST content/sections/v1`, `GET content/catalog/v1` |
+| Home — Taste / Because You Like / Mission | Mode-aware personalized rows + daypart mission | `HomePersonalizationCoordinator` | `POST home/candidates/v1` |
 | Home — Mixtape | Your listening queue strip | `MixtapeEngine` | `POST recommendations/v2` (fallback) |
-| Home — Because you like | More like show X | Home UI | `POST recommendations/because-you-like` |
 | Home — Discover | Charts / trending masonry | `HomeViewModel` filters | `GET trending` / bootstrap |
 | Explore — For You | Broader discovery list | Explore + adaptive score | `POST recommendations/v2` |
 | Explore — search | Natural-language find | Explore + light re-rank | `GET search/semantic` |
@@ -453,9 +515,10 @@ The API is documented **by path and payload shape only**. How it retrieves or ra
 |------|------|
 | `POST /content/sections/v1` | **Home personalized discovery rails** (primary) |
 | `GET /content/catalog/v1` | Intent / catalog metadata for Home composition |
+| `POST /home/candidates/v1` | **Home Taste / Because You Like / Mission** — mode-aware candidate pool (see the pipeline section above) |
 | `POST /recommendations/v2` | Preferred seed-based candidate lists |
 | `POST /recommendations` | Legacy v1 fallback (fuller history payload) |
-| `POST /recommendations/because-you-like` | Home “Because you like” |
+| `POST /recommendations/because-you-like` | Legacy Because You Like fetch — retired from Home; superseded by `home/candidates/v1`'s `because_you_like` module |
 | `POST /episodes/similar` | Queue / episode-info neighbors |
 | `POST` / `GET /home/bootstrap` | Cold-start briefing + trending (+ optional recs) |
 | `GET /curated/vibe` | Curated vibe lists (secondary / legacy daypart uses) |
@@ -594,6 +657,32 @@ Telemetry buckets (`cold_start` / `learning` / `adaptive`) are derived similarly
 - Runtime flags can disable adaptive re-rank per surface.
 - Schema / algorithm version mismatches refuse bad cache or model rows.
 - Provider failures in orchestrator are isolated; Home grouped path fails closed (empty) rather than wrong rails.
+
+### Quality-observability diagnostics (dashboards only)
+
+Two aggregate analytics events give Home candidates-v1 an observability layer without adding any
+new hard kill switch — rollout gating still lives entirely in `RankingRuntimeControls` /
+`RankingRolloutPolicy` (adaptive re-ranking stays **HOME-only** by default). Both events are
+counts/rates/buckets only — never episode/podcast identifiers or titles — see
+[`docs/ANALYTICS_EVENT_GLOSSARY.md`](ANALYTICS_EVENT_GLOSSARY.md) for the full property list.
+
+| Event | Fired from | What it answers |
+|-------|-----------|------------------|
+| `home_slate_quality_snapshot` | `HomeViewModelSlate`, once per `loadSlate` | Candidate coverage (non-empty module count), duplicate rate, novelty share, fallback state, cache age, response latency for *this* slate load |
+| `home_learning_attribution_health` | `BoxLoreApplication`, once per app start | Exact-exposure-token **plumbing** health for `RankingSurface.HOME`: resolution rate, pending-exposure age, unmatched-outcome rate |
+
+`HomeSlateQualityLogic` (`:core:catalog`) and `RankingExposureHealthLogic` (`:core:ranking`) do the
+pure bucketing so both events stay hermetically unit-testable; `:core:analytics` never computes
+telemetry itself, only accepts the already-bucketed `HomeSlateQualityTelemetry` /
+`RankingExposureHealthTelemetry` value objects (`:core:model`) and emits them. Catalog does not
+depend on analytics — features call `AnalyticsHelper` directly, same as every other Home track.
+
+`home_learning_attribution_health` is a distinct signal from `adaptive_ranking_status`
+(`AdaptiveRankingRepository.aggregateTelemetry`): the latter reports model **learning stage**
+(cold start / learning / adaptive); the former reports whether outcomes are actually
+**reconnecting to their impression** at all — a plumbing regression here (e.g. a growing pending
+queue) would otherwise silently starve the bandit of resolved rewards while learning-stage
+telemetry still looks fine.
 
 ---
 

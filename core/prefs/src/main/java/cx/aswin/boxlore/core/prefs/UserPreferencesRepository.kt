@@ -1014,4 +1014,41 @@ class UserPreferencesRepository(
             preferences.remove(stringPreferencesKey("$LAST_SEEN_EPISODE_ID_PREFIX$podcastId"))
         }
     }
+
+    // --- HOME PERSONALIZATION REBUILD ---
+
+    /** Sticky greeting discovery mission for the current daypart slot (survives recomposition/background refresh). */
+    val stickyMissionIdStream: Flow<String?> =
+        dataStore.data
+            .catch { exception ->
+                if (exception is IOException) emit(emptyPreferences()) else throw exception
+            }.map { preferences -> preferences[Keys.STICKY_MISSION_ID] }
+            .distinctUntilChanged()
+
+    val stickyMissionSlotKeyStream: Flow<String?> =
+        dataStore.data
+            .catch { exception ->
+                if (exception is IOException) emit(emptyPreferences()) else throw exception
+            }.map { preferences -> preferences[Keys.STICKY_MISSION_SLOT_KEY] }
+            .distinctUntilChanged()
+
+    suspend fun setStickyMission(
+        missionId: String,
+        slotKey: String,
+    ) {
+        dataStore.edit { preferences ->
+            preferences[Keys.STICKY_MISSION_ID] = missionId
+            preferences[Keys.STICKY_MISSION_SLOT_KEY] = slotKey
+        }
+    }
+
+    /** One-shot gate for the destructive personalization reset introduced by the Home rebuild. */
+    suspend fun hasCompletedFirstLaunchPersonalizationReset(): Boolean =
+        dataStore.data.first()[Keys.FIRST_LAUNCH_PERSONALIZATION_RESET_DONE] ?: false
+
+    suspend fun markFirstLaunchPersonalizationResetDone() {
+        dataStore.edit { preferences ->
+            preferences[Keys.FIRST_LAUNCH_PERSONALIZATION_RESET_DONE] = true
+        }
+    }
 }

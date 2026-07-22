@@ -112,6 +112,7 @@ class BoxLoreApplication : Application(), Configuration.Provider {
             PostHog.register("app_environment", "production")
         }
         reportAdaptiveRankingStatus()
+        reportHomeLearningAttributionHealth()
 
         setupAppCheck()
 
@@ -164,6 +165,32 @@ class BoxLoreApplication : Application(), Configuration.Provider {
                 android.util.Log.w(
                     "BoxLoreApplication",
                     "Failed to report adaptive ranking status",
+                    error,
+                )
+            }
+        }
+    }
+
+    /**
+     * Observational-only exact-exposure-token attribution health for the HOME surface
+     * (quality-observability). Fired once per app start, mirroring
+     * [reportAdaptiveRankingStatus] — this is a low-volume diagnostic aggregate, not a
+     * per-session or per-slate signal, so a periodic/repeating scheduler would be overkill.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun reportHomeLearningAttributionHealth() {
+        applicationScope.launch {
+            try {
+                val diagnostics = container.adaptiveRankingRepository.exposureResolutionDiagnostics()
+                cx.aswin.boxlore.core.analytics.AnalyticsHelper
+                    .trackHomeLearningAttributionHealth(diagnostics)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // Attribution health is optional and must never destabilize app startup.
+                android.util.Log.w(
+                    "BoxLoreApplication",
+                    "Failed to report Home learning attribution health",
                     error,
                 )
             }

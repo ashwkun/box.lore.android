@@ -7,9 +7,15 @@
  * - Candidate list (id, latest_ep_id, categories, medium) is cached in the
  *   git state file and re-queried from Turso only after a charts refresh or
  *   when older than 20h - the other runs cost near-zero Turso reads.
- * - Staleness gating: News shows re-checked after 8h, others after 24h.
+ * - Staleness gating: News shows re-checked after 8h, others after 24h (same
+ *   tiers regardless of show language - PI's latest-episode endpoint is
+ *   language-agnostic; `podcasts.language` itself is only touched at import,
+ *   see lib/config.js for the pipeline's language-handling notes).
  * - Latest-episode-unchanged shows cost 0 Turso writes (state-only update).
  * - New episodes write latest_ep_* + qdrant_vectorized=0 (feeds stage 4).
+ * - Backlog/age health: logs how far behind the oldest-first fair queue is
+ *   (never a hard failure) so a growing backlog is visible before it becomes
+ *   a staleness regression.
  */
 
 const log = require('./lib/log');
@@ -97,7 +103,21 @@ async function main() {
     // next run, so backlogs self-distribute across the 5 daily runs.
     allDue.sort((a, b) => (st.shows[a]?.c || 0) - (st.shows[b]?.c || 0));
     const due = allDue.slice(0, cfg.MAX_CHECKS_PER_RUN);
-    const deferred = allDue.length - due.length;
+    const deferredShows = allDue.slice(cfg.MAX_CHECKS_PER_RUN);
+    const deferred = deferredShows.length;
+
+    // --- Backlog/age health: is the fair oldest-first queue keeping up? ---
+    // Oldest-first ordering guarantees eventual coverage, but a due volume that
+    // keeps exceeding MAX_CHECKS_PER_RUN would otherwise silently grow into a
+    // staleness regression before anyone notices. Surface both how old the
+    // longest-waiting *previously checked* deferred show is, and how many
+    // check-cap runs it would take to fully drain today's backlog.
+    const deferredWithHistory = deferredShows.filter((id) => st.shows[id]?.c);
+    const deferredNeverChecked = deferred - deferredWithHistory.length;
+    const oldestDeferredAgeHours = deferredWithHistory.length > 0
+        ? Math.round((now - Math.min(...deferredWithHistory.map((id) => st.shows[id].c))) / 3600000)
+        : 0;
+    const runsToClearBacklog = deferred > 0 ? Math.ceil(deferred / cfg.MAX_CHECKS_PER_RUN) : 0;
 
     log.group('Sync plan');
     log.info(`Chart shows:        ${log.fmt(st.candidateIds.length)}`);
@@ -106,7 +126,19 @@ async function main() {
     log.info(`- never checked:    ${log.fmt(neverChecked)}`);
     log.info(`- stale news (8h):  ${log.fmt(staleNews)}`);
     log.info(`- stale other (24h):${log.fmt(staleRegular)}`);
+    if (deferred > 0) {
+        log.info(`- backlog age:       oldest deferred show waiting ${log.fmt(oldestDeferredAgeHours)}h since its last check (${log.fmt(deferredNeverChecked)} deferred shows never checked yet)`);
+        log.info(`- backlog drain:     ~${log.fmt(runsToClearBacklog)} run(s) to fully clear at the current cap`);
+    }
     log.endGroup();
+
+    // Fair-scheduling hint: a backlog that would take many runs to drain means
+    // the per-run cap is structurally behind the chart-show count, not just
+    // absorbing a one-off spike. Warn (does not fail the run) so raising
+    // MAX_CHECKS_PER_RUN is a deliberate decision instead of a silent drift.
+    if (runsToClearBacklog > 5) {
+        log.warn(`[BACKLOG] Oldest-first fairness is ~${runsToClearBacklog} runs behind (${log.fmt(deferred)} deferred @ cap ${log.fmt(cfg.MAX_CHECKS_PER_RUN)}/run). Consider raising MAX_CHECKS_PER_RUN if this persists across runs.`);
+    }
 
     // --- Process ---
     let updated = 0, unchanged = 0, empty = 0, errors = 0;
@@ -183,18 +215,19 @@ async function main() {
 
     state.save(st);
     const stats = turso.getStats();
+    const backlogDetail = deferred > 0 ? ` · backlog ${log.fmt(oldestDeferredAgeHours)}h old (~${log.fmt(runsToClearBacklog)} run(s) to clear)` : '';
     log.costFooter('Stage 3 · Sync Episodes', {
         reads: stats.reads,
         writes: stats.writes,
         apiCalls: pi.getApiCallCount(),
-        detail: `${log.fmt(due.length)} checked (${log.fmt(deferred)} deferred) · ${updated} new · ${unchanged} unchanged · ${empty} empty · ${errors} errors`,
+        detail: `${log.fmt(due.length)} checked (${log.fmt(deferred)} deferred) · ${updated} new · ${unchanged} unchanged · ${empty} empty · ${errors} errors${backlogDetail}`,
     });
     log.summaryTable('Stage 3: Sync Episodes', [{
         stage: 'sync-episodes',
         reads: stats.reads,
         writes: stats.writes,
         apiCalls: pi.getApiCallCount(),
-        detail: `${due.length} checked (${deferred} deferred): ${updated} new, ${unchanged} unchanged, ${empty} empty, ${errors} errors`,
+        detail: `${due.length} checked (${deferred} deferred): ${updated} new, ${unchanged} unchanged, ${empty} empty, ${errors} errors${backlogDetail}`,
     }]);
 
     // Fail loudly when the API is systematically failing (not on scattered errors)

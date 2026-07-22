@@ -17,6 +17,10 @@ enum class RankingAction {
     MOVE_UP,
     MOVE_DOWN,
     DISMISS,
+    MORE_LIKE_THIS,
+    NOT_FOR_ME,
+    HIDE_SHOW,
+    ANCHOR_SELECTED,
 }
 
 data class RankingOutcome(
@@ -26,22 +30,27 @@ data class RankingOutcome(
 )
 
 object RankingReward {
-    private val actionWeights = mapOf(
-        RankingAction.OPEN_DETAILS to 0.08,
-        RankingAction.MEANINGFUL_PLAY to 0.22,
-        RankingAction.COMPLETE to 0.35,
-        RankingAction.LIKE to 0.65,
-        RankingAction.UNLIKE to -0.5,
-        RankingAction.SUBSCRIBE to 0.8,
-        RankingAction.UNSUBSCRIBE to -0.7,
-        RankingAction.EXPLICIT_QUEUE to 0.55,
-        RankingAction.MANUAL_DOWNLOAD to 0.55,
-        RankingAction.EARLY_SKIP to -0.7,
-        RankingAction.REMOVE_AUTOFILLED to -0.8,
-        RankingAction.MOVE_UP to 0.25,
-        RankingAction.MOVE_DOWN to -0.25,
-        RankingAction.DISMISS to -0.75,
-    )
+    private val actionWeights =
+        mapOf(
+            RankingAction.OPEN_DETAILS to 0.08,
+            RankingAction.MEANINGFUL_PLAY to 0.22,
+            RankingAction.COMPLETE to 0.35,
+            RankingAction.LIKE to 0.65,
+            RankingAction.UNLIKE to -0.5,
+            RankingAction.SUBSCRIBE to 0.8,
+            RankingAction.UNSUBSCRIBE to -0.7,
+            RankingAction.EXPLICIT_QUEUE to 0.55,
+            RankingAction.MANUAL_DOWNLOAD to 0.55,
+            RankingAction.EARLY_SKIP to -0.7,
+            RankingAction.REMOVE_AUTOFILLED to -0.8,
+            RankingAction.MOVE_UP to 0.25,
+            RankingAction.MOVE_DOWN to -0.25,
+            RankingAction.DISMISS to -0.75,
+            RankingAction.MORE_LIKE_THIS to 0.55,
+            RankingAction.NOT_FOR_ME to -0.65,
+            RankingAction.HIDE_SHOW to -0.9,
+            RankingAction.ANCHOR_SELECTED to 0.35,
+        )
 
     fun calculate(outcome: RankingOutcome): Double {
         val actionReward = outcome.actions.sumOf { actionWeights[it] ?: 0.0 }
@@ -55,12 +64,13 @@ object RankingReward {
     ): Double {
         if (listenSeconds <= 0) return 0.0
         val absoluteValue = (ln(1.0 + listenSeconds.coerceAtMost(3_600)) / ln(3_601.0)) * 0.2
-        val progressValue = if (durationSeconds > 0) {
-            (listenSeconds.toDouble() / durationSeconds)
-                .coerceIn(0.0, 1.0) * 0.2
-        } else {
-            0.0
-        }
+        val progressValue =
+            if (durationSeconds > 0) {
+                (listenSeconds.toDouble() / durationSeconds)
+                    .coerceIn(0.0, 1.0) * 0.2
+            } else {
+                0.0
+            }
         return absoluteValue + progressValue
     }
 }

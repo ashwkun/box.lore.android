@@ -7,10 +7,11 @@ data class AdaptiveModelState(
     val featureSchemaVersion: Int = RankingFeatureSchema.VERSION,
     val dimension: Int = RankingFeatureSchema.dimension,
     val covariance: DoubleArray = identityMatrix(RankingFeatureSchema.dimension, RIDGE),
-    val inverseCovariance: DoubleArray = identityMatrix(
-        RankingFeatureSchema.dimension,
-        1.0 / RIDGE,
-    ),
+    val inverseCovariance: DoubleArray =
+        identityMatrix(
+            RankingFeatureSchema.dimension,
+            1.0 / RIDGE,
+        ),
     val rewardVector: DoubleArray = DoubleArray(RankingFeatureSchema.dimension),
     val updateCount: Long = 0,
 ) {
@@ -49,16 +50,18 @@ class AdaptiveLinearModel(
         val theta = multiply(state.inverseCovariance, state.rewardVector, state.dimension)
         val rawLearned = dot(theta, features.values)
         val learned = tanh(rawLearned)
-        val uncertainty = if (objective.allowsExploration && state.updateCount >= explorationThreshold) {
-            val projected = multiply(state.inverseCovariance, features.values, state.dimension)
-            explorationAlpha * sqrt(dot(features.values, projected).coerceAtLeast(0.0))
-        } else {
-            0.0
-        }
+        val uncertainty =
+            if (objective.allowsExploration && state.updateCount >= explorationThreshold) {
+                val projected = multiply(state.inverseCovariance, features.values, state.dimension)
+                explorationAlpha * sqrt(dot(features.values, projected).coerceAtLeast(0.0))
+            } else {
+                0.0
+            }
         val blend = learnedBlend(state.updateCount)
         val boundedPrior = priorScore.coerceIn(-1.0, 1.0)
-        val final = ((1.0 - blend) * boundedPrior + blend * learned + uncertainty)
-            .coerceIn(-1.0, 1.0)
+        val final =
+            ((1.0 - blend) * boundedPrior + blend * learned + uncertainty)
+                .coerceIn(-1.0, 1.0)
         return RankingScore(
             finalScore = final,
             priorScore = boundedPrior,
@@ -66,17 +69,17 @@ class AdaptiveLinearModel(
             explorationBonus = uncertainty,
             learnedBlend = blend,
             updateCount = state.updateCount,
-            contributions = lazy(LazyThreadSafetyMode.NONE) {
-                FeatureSlot.entries.associateWith { slot ->
-                    theta[slot.ordinal] * features.values[slot.ordinal]
-                }
-            },
+            contributions =
+                lazy(LazyThreadSafetyMode.NONE) {
+                    FeatureSlot.entries.associateWith { slot ->
+                        theta[slot.ordinal] * features.values[slot.ordinal]
+                    }
+                },
         )
     }
 
     /** The prior→learned blend weight for a given number of resolved outcomes. */
-    fun learnedBlend(updateCount: Long): Double =
-        (updateCount.toDouble() / explorationThreshold).coerceIn(0.0, 1.0) * maximumLearnedBlend
+    fun learnedBlend(updateCount: Long): Double = (updateCount.toDouble() / explorationThreshold).coerceIn(0.0, 1.0) * maximumLearnedBlend
 
     fun update(
         features: RankingFeatures,
@@ -91,19 +94,21 @@ class AdaptiveLinearModel(
             for (column in 0 until dimension) {
                 val index = row * dimension + column
                 val retained = state.covariance[index] * forgettingFactor
-                val ridgeRefresh = if (row == column) {
-                    (1.0 - forgettingFactor) * AdaptiveModelState.RIDGE
-                } else {
-                    0.0
-                }
+                val ridgeRefresh =
+                    if (row == column) {
+                        (1.0 - forgettingFactor) * AdaptiveModelState.RIDGE
+                    } else {
+                        0.0
+                    }
                 covariance[index] = retained +
                     ridgeRefresh +
                     features.values[row] * features.values[column]
             }
         }
-        val rewardVector = DoubleArray(dimension) { index ->
-            state.rewardVector[index] * forgettingFactor + features.values[index] * boundedReward
-        }
+        val rewardVector =
+            DoubleArray(dimension) { index ->
+                state.rewardVector[index] * forgettingFactor + features.values[index] * boundedReward
+            }
         val inverse = invertPositiveDefinite(covariance, dimension)
         return AdaptiveModelState(
             featureSchemaVersion = state.featureSchemaVersion,
@@ -115,7 +120,10 @@ class AdaptiveLinearModel(
         )
     }
 
-    private fun requireCompatible(features: RankingFeatures, state: AdaptiveModelState) {
+    private fun requireCompatible(
+        features: RankingFeatures,
+        state: AdaptiveModelState,
+    ) {
         require(features.schemaVersion == state.featureSchemaVersion) {
             "Feature schema ${features.schemaVersion} does not match model ${state.featureSchemaVersion}"
         }
@@ -123,18 +131,27 @@ class AdaptiveLinearModel(
     }
 }
 
-internal fun identityMatrix(dimension: Int, diagonal: Double): DoubleArray {
-    return DoubleArray(dimension * dimension) { index ->
+internal fun identityMatrix(
+    dimension: Int,
+    diagonal: Double,
+): DoubleArray =
+    DoubleArray(dimension * dimension) { index ->
         if (index / dimension == index % dimension) diagonal else 0.0
     }
-}
 
-internal fun dot(left: DoubleArray, right: DoubleArray): Double {
+internal fun dot(
+    left: DoubleArray,
+    right: DoubleArray,
+): Double {
     require(left.size == right.size)
     return left.indices.sumOf { index -> left[index] * right[index] }
 }
 
-internal fun multiply(matrix: DoubleArray, vector: DoubleArray, dimension: Int): DoubleArray {
+internal fun multiply(
+    matrix: DoubleArray,
+    vector: DoubleArray,
+    dimension: Int,
+): DoubleArray {
     require(matrix.size == dimension * dimension)
     require(vector.size == dimension)
     return DoubleArray(dimension) { row ->
@@ -146,7 +163,10 @@ internal fun multiply(matrix: DoubleArray, vector: DoubleArray, dimension: Int):
     }
 }
 
-internal fun invertPositiveDefinite(matrix: DoubleArray, dimension: Int): DoubleArray {
+internal fun invertPositiveDefinite(
+    matrix: DoubleArray,
+    dimension: Int,
+): DoubleArray {
     require(matrix.size == dimension * dimension)
     val augmented = augmentedWithIdentity(matrix, dimension)
     for (pivotIndex in 0 until dimension) {
@@ -164,8 +184,8 @@ internal fun invertPositiveDefinite(matrix: DoubleArray, dimension: Int): Double
 private fun augmentedWithIdentity(
     matrix: DoubleArray,
     dimension: Int,
-): Array<DoubleArray> {
-    return Array(dimension) { row ->
+): Array<DoubleArray> =
+    Array(dimension) { row ->
         DoubleArray(dimension * 2) { column ->
             when {
                 column < dimension -> matrix[row * dimension + column]
@@ -174,15 +194,15 @@ private fun augmentedWithIdentity(
             }
         }
     }
-}
 
 private fun swapBestPivotIntoPlace(
     augmented: Array<DoubleArray>,
     pivotIndex: Int,
 ) {
-    val bestRow = (pivotIndex until augmented.size).maxBy { row ->
-        kotlin.math.abs(augmented[row][pivotIndex])
-    }
+    val bestRow =
+        (pivotIndex until augmented.size).maxBy { row ->
+            kotlin.math.abs(augmented[row][pivotIndex])
+        }
     if (bestRow == pivotIndex) return
     val temporary = augmented[pivotIndex]
     augmented[pivotIndex] = augmented[bestRow]

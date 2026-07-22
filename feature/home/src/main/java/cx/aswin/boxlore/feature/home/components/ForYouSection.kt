@@ -13,6 +13,10 @@ import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,21 +45,19 @@ fun LazyStaggeredGridScope.forYouItems(
     recommendations: StableEpisodeList,
     onEpisodeClick: (Episode, Podcast) -> Unit,
     discoveryContextTitle: String,
+    sectionTitle: String,
+    sectionSubtitle: String,
     showTasteHeader: Boolean = true,
     isFallback: Boolean = true,
+    onFeedback: ((episodeId: String, podcastId: String, genre: String?, RecommendationFeedbackAction) -> Unit)? = null,
 ) {
     val items = recommendations.list.take(9)
 
     if (showTasteHeader) {
         item(span = StaggeredGridItemSpan.FullLine, key = "for_you_header", contentType = "for_you_header") {
             HomeChildSectionHeader(
-                title = if (isFallback) "Popular in your Region" else "Based on Your Taste",
-                subtitle =
-                    if (isFallback) {
-                        "Popular picks from listeners near you"
-                    } else {
-                        "Picked from your listening patterns"
-                    },
+                title = sectionTitle,
+                subtitle = sectionSubtitle,
                 icon = Icons.Rounded.AutoAwesome,
             )
         }
@@ -108,6 +110,10 @@ fun LazyStaggeredGridScope.forYouItems(
                 )
                 onEpisodeClick(ep, parentPodcast)
             },
+            onFeedback =
+                onFeedback?.let { fb ->
+                    { action: RecommendationFeedbackAction -> fb(ep.id, parentPodcast.id, parentPodcast.genre, action) }
+                },
         )
     }
 
@@ -142,6 +148,7 @@ fun LazyStaggeredGridScope.forYouItems(
                 )
                 onEpisodeClick(ep, parentPodcast)
             },
+            onFeedback = onFeedback?.let { fb -> { action -> fb(ep.id, parentPodcast.id, parentPodcast.genre, action) } },
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -154,15 +161,34 @@ private fun ForYouHeroCard(
     isFallback: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onFeedback: ((RecommendationFeedbackAction) -> Unit)? = null,
 ) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .expressiveClickable(shape = RoundedCornerShape(20.dp), onClick = onClick),
-    ) {
+    var feedbackMenuExpanded by remember { mutableStateOf(false) }
+    val heroModifier =
+        modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .let { base ->
+                if (onFeedback != null) {
+                    base.expressiveClickable(
+                        shape = RoundedCornerShape(20.dp),
+                        onLongClick = { feedbackMenuExpanded = true },
+                        onLongClickLabel = "More options for ${episode.title}",
+                        onClick = onClick,
+                    )
+                } else {
+                    base.expressiveClickable(shape = RoundedCornerShape(20.dp), onClick = onClick)
+                }
+            }
+    Box(modifier = heroModifier) {
+        if (onFeedback != null) {
+            RecommendationFeedbackMenu(
+                expanded = feedbackMenuExpanded,
+                onDismiss = { feedbackMenuExpanded = false },
+                onAction = onFeedback,
+            )
+        }
         // Full-bleed artwork background
         OptimizedImage(
             url = episode.imageUrl?.takeIf { it.isNotBlank() } ?: episode.podcastImageUrl?.takeIf { it.isNotBlank() },

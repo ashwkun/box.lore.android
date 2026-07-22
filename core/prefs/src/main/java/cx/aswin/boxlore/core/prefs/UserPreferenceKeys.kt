@@ -37,4 +37,11 @@ internal object Keys {
     val AUTO_DOWNLOAD_WIFI_ONLY = androidx.datastore.preferences.core.booleanPreferencesKey("auto_download_wifi_only")
     val AUTO_DOWNLOAD_MAX_EPISODES = androidx.datastore.preferences.core.intPreferencesKey("auto_download_max_episodes")
     val AUTO_DOWNLOAD_DELETE_COMPLETED = androidx.datastore.preferences.core.booleanPreferencesKey("auto_download_delete_completed")
+
+    // HOME PERSONALIZATION REBUILD
+    val STICKY_MISSION_ID = stringPreferencesKey("home_sticky_mission_id")
+    val STICKY_MISSION_SLOT_KEY = stringPreferencesKey("home_sticky_mission_slot_key")
+    val FIRST_LAUNCH_PERSONALIZATION_RESET_DONE =
+        androidx.datastore.preferences.core
+            .booleanPreferencesKey("first_launch_personalization_reset_done")
 }

@@ -178,12 +178,11 @@ private class DiversitySelectionState<T>(
 
     fun canSelectMore(): Boolean = selected.size < policy.limit && remaining.isNotEmpty()
 
-    fun nextCandidate(): RankedCandidate<T>? {
-        return remaining
+    fun nextCandidate(): RankedCandidate<T>? =
+        remaining
             .asSequence()
             .filter(::isWithinShowCap)
             .maxByOrNull(::adjustedScore)
-    }
 
     fun select(candidate: RankedCandidate<T>) {
         selected += candidate
@@ -196,25 +195,25 @@ private class DiversitySelectionState<T>(
 
     fun reserveNovelCandidate() {
         if (!policy.reserveNovelSlot || selected.any { it.isNovel }) return
-        val novel = candidates
-            .asSequence()
-            .filter { it.isNovel }
-            .filter { novel -> selected.none { it.episodeId == novel.episodeId } }
-            .filter(::isWithinShowCapAfterEviction)
-            .maxByOrNull { it.score }
-            ?: return
+        val novel =
+            candidates
+                .asSequence()
+                .filter { it.isNovel }
+                .filter { novel -> selected.none { it.episodeId == novel.episodeId } }
+                .filter(::isWithinShowCapAfterEviction)
+                .maxByOrNull { it.score }
+                ?: return
         if (selected.size >= policy.limit) removeLastSelected()
         select(novel)
     }
 
-    private fun isWithinShowCap(candidate: RankedCandidate<T>): Boolean {
-        return (showCounts[candidate.podcastId] ?: 0) < policy.maxPerShow
-    }
+    private fun isWithinShowCap(candidate: RankedCandidate<T>): Boolean = (showCounts[candidate.podcastId] ?: 0) < policy.maxPerShow
 
     private fun isWithinShowCapAfterEviction(candidate: RankedCandidate<T>): Boolean {
         val evicted = selected.lastOrNull().takeIf { selected.size >= policy.limit }
-        val countAfterEviction = (showCounts[candidate.podcastId] ?: 0) -
-            if (evicted?.podcastId == candidate.podcastId) 1 else 0
+        val countAfterEviction =
+            (showCounts[candidate.podcastId] ?: 0) -
+                if (evicted?.podcastId == candidate.podcastId) 1 else 0
         return countAfterEviction < policy.maxPerShow
     }
 
@@ -228,9 +227,10 @@ private class DiversitySelectionState<T>(
     private fun adjustedScore(candidate: RankedCandidate<T>): Double {
         val genrePenalty =
             (genreCounts[candidate.normalizedGenre()] ?: 0) * policy.genreRepeatPenalty
-        val recentPenalty = policy.recentShowPenalty.takeIf {
-            candidate.podcastId in policy.recentPodcastIds
-        } ?: 0.0
+        val recentPenalty =
+            policy.recentShowPenalty.takeIf {
+                candidate.podcastId in policy.recentPodcastIds
+            } ?: 0.0
         return candidate.score - genrePenalty - recentPenalty
     }
 }
@@ -240,9 +240,7 @@ private fun MutableMap<String, Int>.decrement(key: String) {
     if (next <= 0) remove(key) else this[key] = next
 }
 
-private fun <T> RankedCandidate<T>.normalizedGenre(): String {
-    return genre?.trim()?.lowercase().orEmpty()
-}
+private fun <T> RankedCandidate<T>.normalizedGenre(): String = genre?.trim()?.lowercase().orEmpty()
 
 private fun Double.unit(): Double = min(1.0, max(0.0, this))
 

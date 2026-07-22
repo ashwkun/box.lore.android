@@ -4,7 +4,9 @@ package cx.aswin.boxlore.core.analytics
 
 import android.content.Context
 import com.posthog.PostHog
+import cx.aswin.boxlore.core.model.HomeSlateQualityTelemetry
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
+import cx.aswin.boxlore.core.model.RankingExposureHealthTelemetry
 import cx.aswin.boxlore.core.prefs.PrefsFileMigrator
 import java.time.Instant
 
@@ -1127,6 +1129,16 @@ object AnalyticsHelper : Analytics {
     /** Phase C — `adaptive_ranking_status` (PR9). */
     override fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>) {
         PhaseCAnalyticsTracks.trackAdaptiveRankingStatus(statuses)
+    }
+
+    /** Phase D — `home_slate_quality_snapshot` (quality-observability). */
+    override fun trackHomeSlateQualitySnapshot(telemetry: HomeSlateQualityTelemetry) {
+        HomeQualityAnalyticsTracks.trackHomeSlateQualitySnapshot(telemetry)
+    }
+
+    /** Phase D — `home_learning_attribution_health` (quality-observability). */
+    override fun trackHomeLearningAttributionHealth(telemetry: RankingExposureHealthTelemetry) {
+        HomeQualityAnalyticsTracks.trackHomeLearningAttributionHealth(telemetry)
     }
 
     override fun flush() {

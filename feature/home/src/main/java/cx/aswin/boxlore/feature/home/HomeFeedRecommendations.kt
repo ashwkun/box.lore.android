@@ -25,10 +25,14 @@ import androidx.compose.ui.unit.dp
 import cx.aswin.boxlore.core.catalog.content.ContentDaypart
 import cx.aswin.boxlore.core.model.PlaybackEntryPoint
 import cx.aswin.boxlore.feature.home.components.BecauseYouLikeSection
+import cx.aswin.boxlore.feature.home.components.CuratedEpisodeCard
 import cx.aswin.boxlore.feature.home.components.GridSkeletonItem
+import cx.aswin.boxlore.feature.home.components.HomeChildHeaderTone
+import cx.aswin.boxlore.feature.home.components.HomeChildSectionHeader
 import cx.aswin.boxlore.feature.home.components.HomeTopLevelSectionHeader
 import cx.aswin.boxlore.feature.home.components.PodcastCard
 import cx.aswin.boxlore.feature.home.components.forYouItems
+import cx.aswin.boxlore.feature.home.logic.toRecommendationPodcast
 
 internal fun LazyStaggeredGridScope.curatedForYouItems(
     content: PodcastFeedContent,
@@ -48,8 +52,13 @@ internal fun LazyStaggeredGridScope.curatedForYouItems(
                 callbacks.onEpisodeClick?.invoke(episode, podcast, "home_for_you")
             },
             discoveryContextTitle = feedState.discoveryGreeting.title,
+            sectionTitle = recommendationState.tasteSectionTitle,
+            sectionSubtitle = recommendationState.tasteSectionSubtitle,
             showTasteHeader = derivedState.hasBecauseYouLike,
             isFallback = recommendationState.isRecommendationsFallback,
+            onFeedback = { episodeId, podcastId, genre, action ->
+                callbacks.onRecommendationFeedback(episodeId, podcastId, genre, action)
+            },
         )
     }
 }
@@ -94,9 +103,52 @@ private fun LazyStaggeredGridScope.becauseYouLikeItem(
                     callbacks.onPodcastClick(clickedPodcast, "home_because_you_like", null, null)
                 },
                 onChangePodcastClick = recommendationState.onChangePodcastClick,
+                onFeedback = { episodeId, podcastId, genre, action ->
+                    callbacks.onRecommendationFeedback(episodeId, podcastId, genre, action)
+                },
                 modifier = Modifier.padding(bottom = 16.dp),
             )
         }
+    }
+}
+
+/**
+ * Greeting discovery mission rail: one rotating [HomeDiscoveryMission] per daypart slot (see
+ * [cx.aswin.boxlore.core.catalog.home.HomeDiscoveryMissionLogic]). Omitted entirely when the
+ * mission returned no candidates.
+ */
+internal fun LazyStaggeredGridScope.missionRailItems(
+    recommendationState: PodcastFeedRecommendationState,
+    callbacks: HomeFeedCallbacks,
+) {
+    val mission = recommendationState.activeMission ?: return
+    val episodes = recommendationState.missionEpisodes.list
+    if (episodes.isEmpty()) return
+
+    item(span = StaggeredGridItemSpan.FullLine, key = "mission_header", contentType = "section_header") {
+        HomeChildSectionHeader(
+            title = mission.title,
+            subtitle = mission.subtitle,
+            icon = Icons.Rounded.AutoAwesome,
+            tone = HomeChildHeaderTone.TERTIARY,
+            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+        )
+    }
+    itemsIndexed(
+        episodes,
+        key = { _, episode -> "mission_${episode.id}" },
+        contentType = { _, _ -> "mission_card" },
+    ) { _, episode ->
+        val podcast = episode.toRecommendationPodcast()
+        CuratedEpisodeCard(
+            podcast = podcast,
+            episode = episode,
+            onClick = { callbacks.onEpisodeClick?.invoke(episode, podcast, "home_mission") },
+            onFeedback = { action ->
+                callbacks.onRecommendationFeedback(episode.id, podcast.id, podcast.genre, action)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

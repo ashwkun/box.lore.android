@@ -2,6 +2,8 @@ package cx.aswin.boxlore.feature.home
 
 import cx.aswin.boxlore.core.catalog.content.ContentDaypart
 import cx.aswin.boxlore.core.catalog.content.ContentSection
+import cx.aswin.boxlore.core.catalog.home.HomeDiscoveryMission
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationMode
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
@@ -34,6 +36,9 @@ data class HomeDataWrapper(
     val isBecauseYouLikeLoading: Boolean = false,
     val isRecommendationsFallback: Boolean = true,
     val adaptiveSections: List<ContentSection> = emptyList(),
+    val personalizationMode: HomePersonalizationMode = HomePersonalizationMode.REGIONAL,
+    val activeMission: HomeDiscoveryMission? = null,
+    val missionEpisodes: List<Episode> = emptyList(),
 )
 
 internal data class HomeCoreSlice(
@@ -65,6 +70,13 @@ internal data class HomeBecauseYouLikeSlice(
     val becauseYouLikePodcasts: List<Podcast>,
     val isBecauseYouLikeLoading: Boolean,
     val isRecommendationsFallback: Boolean,
+)
+
+/** Mode-driven Taste titles + the rotating greeting discovery mission rail. */
+internal data class HomePersonalizationSlice(
+    val personalizationMode: HomePersonalizationMode,
+    val activeMission: HomeDiscoveryMission?,
+    val missionEpisodes: List<Episode>,
 )
 
 internal data class AdaptiveContentTrigger(

@@ -1,7 +1,9 @@
 package cx.aswin.boxlore.core.analytics
 
 import android.content.Context
+import cx.aswin.boxlore.core.model.HomeSlateQualityTelemetry
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
+import cx.aswin.boxlore.core.model.RankingExposureHealthTelemetry
 
 /**
  * Façade for analytics event capture. New call-sites should depend on this interface
@@ -25,6 +27,12 @@ interface Analytics {
     fun flush()
 
     fun trackAdaptiveRankingStatus(statuses: List<RankingAggregateTelemetry>)
+
+    /** Observational-only Home candidates-v1 slate quality aggregate (PR-quality-observability). */
+    fun trackHomeSlateQualitySnapshot(telemetry: HomeSlateQualityTelemetry)
+
+    /** Observational-only exact-exposure-token attribution health (PR-quality-observability). */
+    fun trackHomeLearningAttributionHealth(telemetry: RankingExposureHealthTelemetry)
 
     fun trackEngagementPromptShown(
         promptType: String,

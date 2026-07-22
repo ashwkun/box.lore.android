@@ -21,6 +21,10 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,13 +44,26 @@ fun PodcastCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showGenreChip: Boolean = false,
+    onFeedback: ((RecommendationFeedbackAction) -> Unit)? = null,
 ) {
+    var feedbackMenuExpanded by remember { mutableStateOf(false) }
     FeedMediaCard(
         imageUrl = podcast.imageUrl,
         title = podcast.title.replace("+", " "),
         subtitle = podcast.artist.replace("+", " "),
         onClick = onClick,
         modifier = modifier,
+        onLongClick = onFeedback?.let { { feedbackMenuExpanded = true } },
+        onLongClickLabel = "More options for ${podcast.title}",
+        feedbackMenu = {
+            if (onFeedback != null) {
+                RecommendationFeedbackMenu(
+                    expanded = feedbackMenuExpanded,
+                    onDismiss = { feedbackMenuExpanded = false },
+                    onAction = onFeedback,
+                )
+            }
+        },
         imageBadge = {
             if (showGenreChip && podcast.genre.isNotEmpty()) {
                 Surface(
@@ -105,61 +122,77 @@ fun FeedMediaCard(
     modifier: Modifier = Modifier,
     imageBadge: @Composable (BoxScope.() -> Unit)? = null,
     imageOverlay: @Composable (BoxScope.() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
+    feedbackMenu: @Composable () -> Unit = {},
 ) {
+    val cardModifier =
+        if (onLongClick != null) {
+            modifier.expressiveClickable(
+                onLongClick = onLongClick,
+                onLongClickLabel = onLongClickLabel,
+                onClick = onClick,
+            )
+        } else {
+            modifier.expressiveClickable(onClick = onClick)
+        }
     OutlinedCard(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier.expressiveClickable(onClick = onClick),
+        modifier = cardModifier,
     ) {
-        Column {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f),
-            ) {
-                OptimizedImage(
-                    url = imageUrl,
-                    proxyWidth = 400,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+        Box {
+            Column {
+                Box(
                     modifier =
                         Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)),
-                )
+                            .fillMaxWidth()
+                            .aspectRatio(1f),
+                ) {
+                    OptimizedImage(
+                        url = imageUrl,
+                        proxyWidth = 400,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .matchParentSize()
+                                .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)),
+                    )
 
-                if (imageBadge != null) {
-                    imageBadge()
+                    if (imageBadge != null) {
+                        imageBadge()
+                    }
+
+                    if (imageOverlay != null) {
+                        imageOverlay()
+                    }
                 }
 
-                if (imageOverlay != null) {
-                    imageOverlay()
+                Column(
+                    modifier =
+                        Modifier
+                            .padding(10.dp)
+                            .heightIn(min = 58.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-
-            Column(
-                modifier =
-                    Modifier
-                        .padding(10.dp)
-                        .heightIn(min = 58.dp),
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            feedbackMenu()
         }
     }
 }

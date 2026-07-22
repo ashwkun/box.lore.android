@@ -48,4 +48,37 @@ data class RankingExposureEntity(
     val listenSeconds: Long,
     val entryPoint: String?,
     val online: Boolean,
+    val requestId: String? = null,
+    val placement: String? = null,
+    val rankPosition: Int? = null,
+    val retrievalReason: String? = null,
+    val revision: String? = null,
+    val accumulatedReward: Double? = null,
+)
+
+@Entity(
+    tableName = "ranking_outcomes",
+    primaryKeys = ["outcomeId"],
+)
+data class RankingOutcomeEntity(
+    val outcomeId: String,
+    val exposureId: String?,
+    val episodeId: String,
+    val podcastId: String,
+    val action: String,
+    val reward: Double,
+    val listenSeconds: Long,
+    val createdAt: Long,
+    val finalizedAt: Long?,
+)
+
+@Entity(
+    tableName = "hard_show_exclusions",
+    primaryKeys = ["podcastId"],
+)
+data class HardShowExclusionEntity(
+    val podcastId: String,
+    val reason: String,
+    val createdAt: Long,
+    val sourceExposureId: String? = null,
 )

@@ -1,8 +1,8 @@
 package cx.aswin.boxlore.feature.home
 
 import androidx.lifecycle.viewModelScope
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationModeLogic
 import cx.aswin.boxlore.core.playback.MixtapeEngine
-import cx.aswin.boxlore.core.playback.getHistoryForRecommendations
 import cx.aswin.boxlore.core.playback.resumeSessions
 import cx.aswin.boxlore.core.playback.completedEpisodeIds
 import cx.aswin.boxlore.core.ranking.CandidateSource
@@ -18,7 +18,6 @@ import cx.aswin.boxlore.feature.home.logic.HomeUiAssemblyLogic
 import cx.aswin.boxlore.feature.home.logic.discoverPodcastsExcluding
 import cx.aswin.boxlore.feature.home.logic.toRecommendationPodcast
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -28,55 +27,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-
-internal fun HomeViewModel.fetchPersonalizedRecommendations(region: String) {
-    viewModelScope.launch {
-        _isRecommendationsLoaded.value = false
-        try {
-            val interests = boxcastPrefs.getUserGenres().toList()
-            val history = playbackRepository.getHistoryForRecommendations(15)
-
-            val subscribedIds = subscriptionRepository.subscribedPodcastIds.first().toList()
-            val subscribedGenres =
-                subscriptionRepository.subscribedPodcasts
-                    .first()
-                    .mapNotNull { it.genre }
-                    .distinct()
-
-            android.util.Log.d(
-                "HomeViewModel",
-                "Fetching recommendations with history size: ${history.size}, interests: $interests, region: $region, subscribedCount: ${subscribedIds.size}",
-            )
-            val recs =
-                podcastRepository.getPersonalizedRecommendations(
-                    history = history,
-                    interests = interests,
-                    country = region,
-                    subscribedPodcastIds = subscribedIds,
-                    subscribedGenres = subscribedGenres,
-                )
-            android.util.Log.d("HomeViewModel", "Fetched recommendations size: ${recs.size}")
-            val distinctRecs =
-                recs
-                    .distinctBy { it.id }
-                    .distinctBy { it.title.lowercase().trim() }
-            _recommendations.value = distinctRecs
-            try {
-                val json = Json { ignoreUnknownKeys = true }
-                val serialized = json.encodeToString(distinctRecs)
-                boxcastPrefs.setCachedRecommendationsJson(serialized)
-            } catch (ce: Exception) {
-                android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "Failed to fetch personalized recommendations", e)
-        } finally {
-            _isRecommendationsLoaded.value = true
-        }
-    }
-}
 
 // from private fun loadData
 @OptIn(FlowPreview::class)
@@ -108,75 +58,27 @@ internal fun HomeViewModel.loadData() {
                 val trendingState = MutableStateFlow<List<Podcast>>(emptyList())
 
                 // 1. Fast Bootstrap Call (Briefing & Trending)
-                val fastJob =
-                    launch {
-                        _isTrendingLoaded.value = false
-                        try {
-                            val bootstrapData =
-                                podcastRepository.getHomeBootstrapDataFast(
-                                    country = region,
-                                )
-
-                            _briefingState.value = bootstrapData.briefing
-                            _briefingChaptersState.value = bootstrapData.briefingChapters
-                            trendingState.value = bootstrapData.trending
-                        } catch (e: Exception) {
-                            android.util.Log.e("BoxCastTiming", "VM: Fast Bootstrap API load failed", e)
-                        } finally {
-                            _isTrendingLoaded.value = true
-                        }
-                    }
-
-                // 2. Background Personalized Recommendations Call
                 launch {
-                    fastJob.join()
-                    _isRecommendationsLoaded.value = false
+                    _isTrendingLoaded.value = false
                     try {
-                        android.util.Log.d("BoxCastTiming", "VM: Background personalized Home screen load for region=$region")
-
-                        val interests = boxcastPrefs.getUserGenres().toList()
-
-                        val historyDeferred = async { playbackRepository.getHistoryForRecommendations(15) }
-                        val subscribedIdsDeferred = async { subscriptionRepository.subscribedPodcastIds.first().toList() }
-                        val subscribedPodcastsDeferred = async { subscriptionRepository.subscribedPodcasts.first() }
-
-                        val history = historyDeferred.await()
-                        val subscribedIds = subscribedIdsDeferred.await()
-                        val subscribedPodcasts = subscribedPodcastsDeferred.await()
-                        val subscribedGenres = subscribedPodcasts.mapNotNull { it.genre }.distinct()
-
                         val bootstrapData =
-                            podcastRepository.getHomeBootstrapData(
+                            podcastRepository.getHomeBootstrapDataFast(
                                 country = region,
-                                vibeIds = emptyList(),
-                                history = history,
-                                interests = interests,
-                                subscribedPodcastIds = subscribedIds,
-                                subscribedGenres = subscribedGenres,
                             )
 
-                        val distinctRecs =
-                            bootstrapData.recommendations
-                                .distinctBy { it.id }
-                                .distinctBy { it.title.lowercase().trim() }
-                        _recommendations.value = distinctRecs
-                        _isRecommendationsFallback.value = bootstrapData.isRecommendationsFallback
-                        try {
-                            val json = Json { ignoreUnknownKeys = true }
-                            val serialized = json.encodeToString(distinctRecs)
-                            boxcastPrefs.saveRecommendationsCache(
-                                serialized,
-                                bootstrapData.isRecommendationsFallback,
-                            )
-                        } catch (ce: Exception) {
-                            android.util.Log.e("HomeViewModel", "Failed to cache recommendations", ce)
-                        }
+                        _briefingState.value = bootstrapData.briefing
+                        _briefingChaptersState.value = bootstrapData.briefingChapters
+                        trendingState.value = bootstrapData.trending
                     } catch (e: Exception) {
-                        android.util.Log.e("BoxCastTiming", "VM: Recommendations load failed", e)
+                        android.util.Log.e("BoxCastTiming", "VM: Fast Bootstrap API load failed", e)
                     } finally {
-                        _isRecommendationsLoaded.value = true
+                        _isTrendingLoaded.value = true
                     }
                 }
+
+                // Taste / Because You Like / greeting mission now load together through
+                // HomePersonalizationCoordinator — see HomeViewModelSlate.observeHomePersonalization,
+                // started once from HomeViewModel.init. The job above only owns briefing/trending.
 
                 val coreSlice =
                     combine(
@@ -235,8 +137,22 @@ internal fun HomeViewModel.loadData() {
                             isRecommendationsFallback,
                         )
                     }
+                val personalizationSlice =
+                    combine(
+                        _personalizationMode,
+                        _activeMission,
+                        _missionEpisodes,
+                    ) { mode, activeMission, missionEpisodes ->
+                        HomePersonalizationSlice(mode, activeMission, missionEpisodes)
+                    }
                 combine(
-                    combine(coreSlice, recsSlice, briefingSlice, becauseYouLikeSlice) { core, recs, briefing, becauseYouLike ->
+                    combine(
+                        coreSlice,
+                        recsSlice,
+                        briefingSlice,
+                        becauseYouLikeSlice,
+                        personalizationSlice,
+                    ) { core, recs, briefing, becauseYouLike, personalization ->
                         HomeDataWrapper(
                             trending = core.trending,
                             resume = core.resume,
@@ -257,6 +173,9 @@ internal fun HomeViewModel.loadData() {
                             becauseYouLikePodcasts = becauseYouLike.becauseYouLikePodcasts,
                             isBecauseYouLikeLoading = becauseYouLike.isBecauseYouLikeLoading,
                             isRecommendationsFallback = becauseYouLike.isRecommendationsFallback,
+                            personalizationMode = personalization.personalizationMode,
+                            activeMission = personalization.activeMission,
+                            missionEpisodes = personalization.missionEpisodes,
                         )
                     },
                     _adaptiveSections,
@@ -474,6 +393,12 @@ internal fun HomeViewModel.loadData() {
                                 isRecommendationsFallback = wrapper.isRecommendationsFallback,
                                 adaptiveSections = wrapper.adaptiveSections,
                                 isAdaptiveSectionsLoading = _isAdaptiveSectionsLoading.value,
+                                personalizationMode = wrapper.personalizationMode,
+                                tasteSectionTitle = HomePersonalizationModeLogic.tasteSectionTitle(wrapper.personalizationMode),
+                                tasteSectionSubtitle =
+                                    HomePersonalizationModeLogic.tasteSectionSubtitle(wrapper.personalizationMode),
+                                activeMission = wrapper.activeMission,
+                                missionEpisodes = wrapper.missionEpisodes,
                             )
                     }
                 }
@@ -550,4 +475,3 @@ internal fun HomeViewModel.loadData() {
         }
     }
 }
-

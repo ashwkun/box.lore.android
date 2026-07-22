@@ -427,6 +427,10 @@ internal class PlaybackTelemetrySession(
             isTransition &&
                 consumedAudioSeconds <= 30f &&
                 adaptiveSource != null
+        // Home Taste / Because You Like / mission cards thread an exact exposure token through
+        // the sourceContext Bundle → PendingEntryPoint → here, so feedback resolves against the
+        // exact impression rather than falling back to episode-latest matching.
+        val exposureId = sessionEntryPointContext?.get(EXPOSURE_ID_KEY) as? String
         scope.launch {
             rankingFeedbackRepository.recordPlayback(
                 target =
@@ -435,6 +439,7 @@ internal class PlaybackTelemetrySession(
                         podcastId = currentPodcastId.orEmpty(),
                         genre = currentPodcastGenre,
                         source = adaptiveSource,
+                        exposureId = exposureId,
                     ),
                 listenSeconds = consumedAudioSeconds.toLong().coerceAtLeast(0L),
                 durationSeconds = (sessionTotalDurationMs / 1_000L).coerceAtLeast(0L),
@@ -624,5 +629,10 @@ internal class PlaybackTelemetrySession(
             podcastName = podcastName,
             episodeTitle = episodeTitle,
         )
+    }
+
+    companion object {
+        /** Key carried in the entry-point sourceContext Bundle for exact exposure attribution. */
+        const val EXPOSURE_ID_KEY = "exposure_id"
     }
 }

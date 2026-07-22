@@ -1,11 +1,11 @@
 package cx.aswin.boxlore.core.ranking
 
 import cx.aswin.boxlore.core.prefs.BoxcastPrefs
-import java.util.Locale
-import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * In-memory, session-only audit trail of every signal that mutates the adaptive ranking model
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
  * singleton with a bounded ring buffer exposed as a [StateFlow] for live UI consumption.
  */
 object LearningEventLog {
-
     /**
      * SharedPreferences file / key gating capture.
      * Prefer [cx.aswin.boxlore.core.prefs.BoxcastPrefs] for reads/writes; these aliases
@@ -111,15 +110,16 @@ sealed interface LearningEvent {
         override val kind = LearningEventKind.IMPRESSION
         override val reward: Double? = null
         override val title: String = "Impression shown"
-        override val effect: String = buildString {
-            append(prettyToken(surface))
-            append(" · ")
-            append(prettyToken(source))
-            entryPoint?.let {
+        override val effect: String =
+            buildString {
+                append(prettyToken(surface))
                 append(" · ")
-                append(prettyEntryPoint(it))
+                append(prettyToken(source))
+                entryPoint?.let {
+                    append(" · ")
+                    append(prettyEntryPoint(it))
+                }
             }
-        }
     }
 
     /** A user action was received and turned into a reward. */
@@ -135,18 +135,19 @@ sealed interface LearningEvent {
     ) : LearningEvent {
         override val kind = LearningEventKind.ACTION
         override val title: String = prettyAction(action)
-        override val effect: String = buildString {
-            append("reward ")
-            append(signed(reward ?: 0.0))
-            genre?.let {
-                append(" · ")
-                append(prettyToken(it))
+        override val effect: String =
+            buildString {
+                append("reward ")
+                append(signed(reward ?: 0.0))
+                genre?.let {
+                    append(" · ")
+                    append(prettyToken(it))
+                }
+                if (listenSeconds > 0) {
+                    append(" · ")
+                    append(formatSeconds(listenSeconds))
+                }
             }
-            if (listenSeconds > 0) {
-                append(" · ")
-                append(formatSeconds(listenSeconds))
-            }
-        }
     }
 
     /** A taste facet's evidence and affinity moved. */
@@ -166,16 +167,17 @@ sealed interface LearningEvent {
         override val kind = LearningEventKind.FACET
         val affinityDelta: Double = affinityAfter - affinityBefore
         override val title: String = "Taste · ${facetType.name.lowercase()}"
-        override val effect: String = buildString {
-            append(prettyToken(key))
-            append("  ")
-            append(format2(affinityBefore))
-            append(" → ")
-            append(format2(affinityAfter))
-            append(" (")
-            append(signed(affinityDelta))
-            append(")")
-        }
+        override val effect: String =
+            buildString {
+                append(prettyToken(key))
+                append("  ")
+                append(format2(affinityBefore))
+                append(" → ")
+                append(format2(affinityAfter))
+                append(" (")
+                append(signed(affinityDelta))
+                append(")")
+            }
     }
 
     /** An impression was resolved into a bandit update (or no matching impression was found). */
@@ -196,29 +198,30 @@ sealed interface LearningEvent {
     ) : LearningEvent {
         override val kind = LearningEventKind.RESOLUTION
         override val title: String = if (matched) "Model update · ${prettyToken(objective)}" else "No impression matched"
-        override val effect: String = if (matched) {
-            buildString {
-                append("#")
-                append(updateCountBefore)
-                append(" → #")
-                append(updateCountAfter)
-                append(" · blend ")
-                append(percent(blendBefore))
-                append(" → ")
-                append(percent(blendAfter))
-                val where = entryPoint?.let { prettyEntryPoint(it) } ?: surface?.let { prettyToken(it) }
-                where?.let {
-                    append(" · ")
-                    append(it)
+        override val effect: String =
+            if (matched) {
+                buildString {
+                    append("#")
+                    append(updateCountBefore)
+                    append(" → #")
+                    append(updateCountAfter)
+                    append(" · blend ")
+                    append(percent(blendBefore))
+                    append(" → ")
+                    append(percent(blendAfter))
+                    val where = entryPoint?.let { prettyEntryPoint(it) } ?: surface?.let { prettyToken(it) }
+                    where?.let {
+                        append(" · ")
+                        append(it)
+                    }
+                    exposureAgeMillis?.let {
+                        append(" · after ")
+                        append(formatDuration(it))
+                    }
                 }
-                exposureAgeMillis?.let {
-                    append(" · after ")
-                    append(formatDuration(it))
-                }
+            } else {
+                "reward ${signed(reward ?: 0.0)} had no waiting impression to attach to"
             }
-        } else {
-            "reward ${signed(reward ?: 0.0)} had no waiting impression to attach to"
-        }
     }
 
     /** A duplicate action inside the dedup window was dropped before it could affect anything. */
@@ -249,26 +252,31 @@ sealed interface LearningEvent {
 
     companion object {
         internal fun prettyAction(action: RankingAction): String =
-            action.name.lowercase().split('_').joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+            action.name
+                .lowercase()
+                .split('_')
+                .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
 
         internal fun prettyToken(raw: String): String =
-            raw.trim().lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+            raw
+                .trim()
+                .lowercase()
+                .replace('_', ' ')
+                .replaceFirstChar(Char::titlecase)
 
-        internal fun prettyEntryPoint(raw: String): String =
-            raw.removePrefix("home_adaptive_").replace('_', ' ').trim()
+        internal fun prettyEntryPoint(raw: String): String = raw.removePrefix("home_adaptive_").replace('_', ' ').trim()
 
-        internal fun signed(value: Double): String =
-            (if (value >= 0) "+" else "") + format2(value)
+        internal fun signed(value: Double): String = (if (value >= 0) "+" else "") + format2(value)
 
         internal fun format2(value: Double): String = String.format(Locale.US, "%.2f", value)
 
-        internal fun percent(value: Double): String =
-            String.format(Locale.US, "%d%%", (value * 100).toInt())
+        internal fun percent(value: Double): String = String.format(Locale.US, "%d%%", (value * 100).toInt())
 
-        internal fun formatSeconds(seconds: Long): String = when {
-            seconds < 60 -> "${seconds}s"
-            else -> "${seconds / 60}m ${seconds % 60}s"
-        }
+        internal fun formatSeconds(seconds: Long): String =
+            when {
+                seconds < 60 -> "${seconds}s"
+                else -> "${seconds / 60}m ${seconds % 60}s"
+            }
 
         internal fun relativeAge(ageMillis: Long): String {
             val minutes = ageMillis / 60_000L

@@ -39,6 +39,7 @@ fun BecauseYouLikeSection(
     onPodcastClick: (Podcast) -> Unit,
     onChangePodcastClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onFeedback: ((episodeId: String, podcastId: String, genre: String?, RecommendationFeedbackAction) -> Unit)? = null,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -127,6 +128,17 @@ fun BecauseYouLikeSection(
                         PodcastCard(
                             podcast = suggestedPodcast,
                             onClick = { onPodcastClick(suggestedPodcast) },
+                            onFeedback =
+                                onFeedback?.let { fb ->
+                                    { action ->
+                                        fb(
+                                            suggestedPodcast.latestEpisode?.id.orEmpty(),
+                                            suggestedPodcast.id,
+                                            suggestedPodcast.genre,
+                                            action,
+                                        )
+                                    }
+                                },
                             modifier = Modifier.width(140.dp),
                         )
                     }
@@ -164,6 +176,10 @@ fun BecauseYouLikeSection(
                             podcast = parentPodcast,
                             episode = episode,
                             onClick = { onEpisodeClick(episode, parentPodcast) },
+                            onFeedback =
+                                onFeedback?.let { fb ->
+                                    { action -> fb(episode.id, parentPodcast.id, parentPodcast.genre, action) }
+                                },
                             modifier = Modifier.width(140.dp),
                         )
                     }

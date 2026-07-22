@@ -1,24 +1,24 @@
 package cx.aswin.boxlore.core.network.model
 
-import kotlinx.serialization.Serializable
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Chapter
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class SyncRequest(
-    val ids: List<String>
+    val ids: List<String>,
 )
 
 @Serializable
 data class SyncResponse(
     val items: List<SyncItem> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
 )
 
 @Serializable
 data class SyncItem(
     val id: String,
-    val latestEpisode: EpisodeItem? = null
+    val latestEpisode: EpisodeItem? = null,
 )
 
 @Serializable
@@ -26,12 +26,12 @@ data class FeedbackRequest(
     val category: String,
     val message: String,
     val appVersion: String,
-    val email: String? = null
+    val email: String? = null,
 )
 
 @Serializable
 data class FeedbackResponse(
-    val success: Boolean
+    val success: Boolean,
 )
 
 @Serializable
@@ -40,7 +40,7 @@ data class RecommendationsRequest(
     val interests: List<String> = emptyList(),
     val country: String? = null,
     val subscribedPodcastIds: List<String> = emptyList(),
-    val subscribedGenres: List<String> = emptyList()
+    val subscribedGenres: List<String> = emptyList(),
 )
 
 @Serializable
@@ -94,7 +94,7 @@ data class HistoryItem(
     val progressMs: Long? = null,
     val isCompleted: Boolean? = null,
     val isLiked: Boolean? = null,
-    val episodeDescription: String? = null
+    val episodeDescription: String? = null,
 )
 
 @Serializable
@@ -301,13 +301,12 @@ data class BecauseYouLikeRequest(
     val podcastTitle: String,
     val podcastDescription: String,
     val excludePodcastId: String? = null,
-    val country: String? = null
+    val country: String? = null,
 )
 
 @Serializable
 data class BecauseYouLikeResponse(
     val status: String,
     val podcasts: List<TrendingFeed> = emptyList(),
-    val episodes: List<EpisodeItem> = emptyList()
+    val episodes: List<EpisodeItem> = emptyList(),
 )
-

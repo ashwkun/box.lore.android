@@ -1,5 +1,6 @@
 package cx.aswin.boxlore.core.catalog
 
+import cx.aswin.boxlore.core.catalog.home.recommendationLanguagesForCountry
 import cx.aswin.boxlore.core.model.Episode
 
 import cx.aswin.boxlore.core.catalog.BuildConfig
@@ -15,7 +16,9 @@ internal fun PodcastRepository.fetchRecommendationV2(
     if (seeds.isEmpty() && boundedInterests.isEmpty()) return null
     val request = cx.aswin.boxlore.core.network.model.RecommendationsV2Request(
         country = country?.lowercase()?.takeIf { it.length in 2..3 } ?: "us",
-        languages = listOf("en"),
+        // Was English-only regardless of listener region; mirrors the Home candidates
+        // pipeline's region→language mapping instead of hardcoding "en".
+        languages = recommendationLanguagesForCountry(country),
         seeds = seeds,
         interests = boundedInterests,
         subscribedPodcastIds = subscribedPodcastIds.mapNotNull(String::toLongOrNull)

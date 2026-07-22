@@ -56,6 +56,7 @@ import cx.aswin.boxlore.core.model.EpisodeStatus
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.components.ChangeRecommendationPodcastSheet
 import cx.aswin.boxlore.feature.home.components.LocalLastSeenEpisodes
+import cx.aswin.boxlore.feature.home.components.RecommendationFeedbackAction
 import cx.aswin.boxlore.feature.home.components.TopControlBar
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -126,6 +127,12 @@ data class HomeFeedCallbacks(
     val onDismissBriefing: () -> Unit,
     val onDismissBriefingForever: () -> Unit,
     val onFeedbackClick: () -> Unit,
+    val onRecommendationFeedback: (
+        episodeId: String,
+        podcastId: String,
+        genre: String?,
+        action: RecommendationFeedbackAction,
+    ) -> Unit,
 )
 
 @androidx.compose.runtime.Stable
@@ -158,6 +165,7 @@ fun HomeRoute(
     rankingFeedbackRepository: cx.aswin.boxlore.core.ranking.RankingFeedbackRepository,
     localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
+    homePersonalizationCoordinator: cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator,
     connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
@@ -195,6 +203,7 @@ fun HomeRoute(
                             rankingFeedback = rankingFeedbackRepository,
                             localCatalog = localCatalog,
                             userPreferencesRepository = userPreferencesRepository,
+                            homePersonalizationCoordinator = homePersonalizationCoordinator,
                             connectivityStatus = connectivityStatus,
                         ),
                 ),
@@ -285,6 +294,9 @@ fun HomeRoute(
                         onDismissBriefing = viewModel::dismissBriefingForToday,
                         onDismissBriefingForever = viewModel::dismissBriefingForever,
                         onFeedbackClick = viewModel::triggerFeedback,
+                        onRecommendationFeedback = { episodeId, podcastId, genre, action ->
+                            viewModel.onRecommendationFeedback(episodeId, podcastId, genre, action)
+                        },
                     ),
                 onNavigateToSettings = onNavigateToSettings,
                 onForceReviewPrompt = viewModel::forceReviewPrompt,
@@ -387,6 +399,10 @@ private fun HomeScreenFeedContent(
                 isRecommendationsLoading = uiState.isRecommendationsLoading,
                 isRecommendationsFallback = uiState.isRecommendationsFallback,
                 onChangePodcastClick = onChangePodcastClick,
+                tasteSectionTitle = uiState.tasteSectionTitle,
+                tasteSectionSubtitle = uiState.tasteSectionSubtitle,
+                activeMission = uiState.activeMission,
+                missionEpisodes = StableEpisodeList(uiState.missionEpisodes),
             ),
         loadingState =
             PodcastFeedLoadingState(

@@ -85,6 +85,7 @@ internal fun androidx.navigation.NavGraphBuilder.addHomeDestination(w: NavGraphW
             rankingFeedbackRepository = container.rankingFeedbackRepository,
             localCatalog = container.localCatalogPort,
             userPreferencesRepository = userPrefs,
+            homePersonalizationCoordinator = container.homePersonalizationCoordinator,
             connectivityStatus = container.connectivityStatus,
             navController = navController,
             onPodcastClick = { podcast, entryPointStr, genreStr, depthVal ->

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ITunesSearchResponse(
     val resultCount: Int,
-    val results: List<ITunesPodcastDto>
+    val results: List<ITunesPodcastDto>,
 )
 
 @Serializable
@@ -16,5 +16,5 @@ data class ITunesPodcastDto(
     @SerialName("artistName") val artist: String,
     @SerialName("artworkUrl600") val artworkUrl: String?,
     @SerialName("feedUrl") val feedUrl: String?,
-    @SerialName("primaryGenreName") val genre: String?
+    @SerialName("primaryGenreName") val genre: String?,
 )

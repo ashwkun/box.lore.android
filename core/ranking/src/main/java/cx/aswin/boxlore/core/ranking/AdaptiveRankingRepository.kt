@@ -2,20 +2,23 @@ package cx.aswin.boxlore.core.ranking
 
 import android.content.Context
 import androidx.room.withTransaction
-import cx.aswin.boxlore.core.ranking.database.AdaptiveModelEntity
-import cx.aswin.boxlore.core.ranking.database.AdaptiveRankingDatabase
-import cx.aswin.boxlore.core.ranking.database.PreferenceFacetEntity
-import cx.aswin.boxlore.core.ranking.database.RankingExposureEntity
 import cx.aswin.boxlore.core.model.PodcastGenres
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.max
+import cx.aswin.boxlore.core.model.RankingExposureHealthTelemetry
+import cx.aswin.boxlore.core.ranking.database.AdaptiveModelEntity
+import cx.aswin.boxlore.core.ranking.database.AdaptiveRankingDatabase
+import cx.aswin.boxlore.core.ranking.database.HardShowExclusionEntity
+import cx.aswin.boxlore.core.ranking.database.PreferenceFacetEntity
+import cx.aswin.boxlore.core.ranking.database.RankingExposureEntity
+import cx.aswin.boxlore.core.ranking.database.RankingOutcomeEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.max
 
 data class RankingExposure(
     val episodeId: String,
@@ -27,6 +30,11 @@ data class RankingExposure(
     val entryPoint: String? = null,
     val online: Boolean,
     val shownAt: Long = System.currentTimeMillis(),
+    val requestId: String? = null,
+    val placement: String? = null,
+    val rankPosition: Int? = null,
+    val retrievalReason: String? = null,
+    val revision: String? = null,
 )
 
 data class RankingDebugSnapshot(
@@ -84,11 +92,19 @@ data class PreferenceFacetKey(
     val key: String,
 )
 
+data class FacetConfidence(
+    val affinity: Double,
+    val evidence: Double,
+    val key: String = "",
+)
+
 data class AdaptiveRankingBackup(
-    val version: Int = 1,
+    val version: Int = 2,
     val models: List<AdaptiveModelEntity>? = emptyList(),
     val facets: List<PreferenceFacetEntity>? = emptyList(),
     val exposures: List<RankingExposureEntity>? = emptyList(),
+    val outcomes: List<RankingOutcomeEntity>? = emptyList(),
+    val hardExclusions: List<HardShowExclusionEntity>? = emptyList(),
 )
 
 class AdaptiveRankingRepository private constructor(
@@ -103,8 +119,8 @@ class AdaptiveRankingRepository private constructor(
         objective: RankingObjective,
         features: RankingFeatures,
         priorScore: Double,
-    ): RankingScore {
-        return objectiveLock(objective).withLock {
+    ): RankingScore =
+        objectiveLock(objective).withLock {
             model.score(
                 objective = objective,
                 features = features,
@@ -112,7 +128,6 @@ class AdaptiveRankingRepository private constructor(
                 state = loadState(objective),
             )
         }
-    }
 
     suspend fun scoreBatch(
         objective: RankingObjective,
@@ -150,6 +165,12 @@ class AdaptiveRankingRepository private constructor(
                 listenSeconds = 0,
                 entryPoint = exposure.entryPoint,
                 online = exposure.online,
+                requestId = exposure.requestId,
+                placement = exposure.placement,
+                rankPosition = exposure.rankPosition,
+                retrievalReason = exposure.retrievalReason,
+                revision = exposure.revision,
+                accumulatedReward = null,
             ),
         )
         val insertCount = exposureInsertCount.incrementAndGet()
@@ -179,36 +200,41 @@ class AdaptiveRankingRepository private constructor(
     ): Boolean {
         val exposure = dao.getExposure(exposureId) ?: return false
         if (exposure.resolvedAt != null) return false
-        val objective = runCatching { RankingObjective.valueOf(exposure.objective) }.getOrNull()
-            ?: return false
+        val objective =
+            runCatching { RankingObjective.valueOf(exposure.objective) }.getOrNull()
+                ?: return false
         if (exposure.featureSchemaVersion != RankingFeatureSchema.VERSION) return false
-        val features = runCatching {
-            RankingFeatures(
-                schemaVersion = exposure.featureSchemaVersion,
-                values = RankingSerialization.decode(
-                    exposure.featureVector,
-                    RankingFeatureSchema.dimension,
-                ),
-            )
-        }.getOrNull() ?: return false
+        val features =
+            runCatching {
+                RankingFeatures(
+                    schemaVersion = exposure.featureSchemaVersion,
+                    values =
+                        RankingSerialization.decode(
+                            exposure.featureVector,
+                            RankingFeatureSchema.dimension,
+                        ),
+                )
+            }.getOrNull() ?: return false
         return objectiveLock(objective).withLock {
             data class ResolveResult(
                 val previous: AdaptiveModelState,
                 val updated: AdaptiveModelState,
             )
-            val result = database.withTransaction {
-                val changed = dao.resolveExposure(
-                    exposureId = exposureId,
-                    resolvedAt = resolvedAt,
-                    reward = reward.coerceIn(-1.0, 1.0),
-                    listenSeconds = listenSeconds.coerceAtLeast(0),
-                )
-                if (changed == 0) return@withTransaction null
-                val previous = loadState(objective)
-                val updated = model.update(features, reward, previous)
-                dao.upsertModel(updated.toEntity(objective, resolvedAt))
-                ResolveResult(previous, updated)
-            } ?: return@withLock false
+            val result =
+                database.withTransaction {
+                    val changed =
+                        dao.resolveExposure(
+                            exposureId = exposureId,
+                            resolvedAt = resolvedAt,
+                            reward = reward.coerceIn(-1.0, 1.0),
+                            listenSeconds = listenSeconds.coerceAtLeast(0),
+                        )
+                    if (changed == 0) return@withTransaction null
+                    val previous = loadState(objective)
+                    val updated = model.update(features, reward, previous)
+                    dao.upsertModel(updated.toEntity(objective, resolvedAt))
+                    ResolveResult(previous, updated)
+                } ?: return@withLock false
             LearningEventLog.record { id, ts ->
                 LearningEvent.ExposureResolved(
                     id = id,
@@ -230,34 +256,173 @@ class AdaptiveRankingRepository private constructor(
         }
     }
 
+    /**
+     * Prefer exact-token resolution. Episode-latest matching remains only as a
+     * compatibility fallback when callers have not yet threaded the exposure id.
+     */
     suspend fun resolveLatestExposure(
         episodeId: String,
         reward: Double,
         listenSeconds: Long = 0,
         resolvedAt: Long = System.currentTimeMillis(),
     ): Boolean {
-        val exposure = dao.getLatestUnresolvedExposure(episodeId) ?: run {
-            LearningEventLog.record { id, ts ->
-                LearningEvent.ExposureResolved(
-                    id = id,
-                    timestamp = ts,
-                    objective = "",
-                    matched = false,
-                    entryPoint = null,
-                    surface = null,
-                    source = null,
-                    exposureAgeMillis = null,
-                    reward = reward.coerceIn(-1.0, 1.0),
-                    updateCountBefore = 0,
-                    updateCountAfter = 0,
-                    blendBefore = 0.0,
-                    blendAfter = 0.0,
-                )
+        val exposure =
+            dao.getLatestUnresolvedExposure(episodeId) ?: run {
+                LearningEventLog.record { id, ts ->
+                    LearningEvent.ExposureResolved(
+                        id = id,
+                        timestamp = ts,
+                        objective = "",
+                        matched = false,
+                        entryPoint = null,
+                        surface = null,
+                        source = null,
+                        exposureAgeMillis = null,
+                        reward = reward.coerceIn(-1.0, 1.0),
+                        updateCountBefore = 0,
+                        updateCountAfter = 0,
+                        blendBefore = 0.0,
+                        blendAfter = 0.0,
+                    )
+                }
+                return false
             }
-            return false
-        }
         return resolveExposure(exposure.exposureId, reward, listenSeconds, resolvedAt)
     }
+
+    /**
+     * Accumulates a non-final outcome against an exposure token without training the
+     * linear model twice. Call [finalizeExposureOutcomes] once the session ends.
+     */
+    suspend fun recordOutcome(
+        exposureId: String?,
+        episodeId: String,
+        podcastId: String,
+        action: RankingAction,
+        reward: Double,
+        listenSeconds: Long = 0,
+        now: Long = System.currentTimeMillis(),
+    ): String {
+        val outcomeId = UUID.randomUUID().toString()
+        val bounded = reward.coerceIn(-1.0, 1.0)
+        dao.upsertOutcome(
+            RankingOutcomeEntity(
+                outcomeId = outcomeId,
+                exposureId = exposureId?.takeIf { it.isNotBlank() },
+                episodeId = episodeId,
+                podcastId = podcastId,
+                action = action.name,
+                reward = bounded,
+                listenSeconds = listenSeconds.coerceAtLeast(0),
+                createdAt = now,
+                finalizedAt = null,
+            ),
+        )
+        if (!exposureId.isNullOrBlank()) {
+            val prior = dao.getExposure(exposureId)?.accumulatedReward ?: 0.0
+            dao.updateAccumulatedReward(
+                exposureId = exposureId,
+                accumulatedReward = (prior + bounded).coerceIn(-1.0, 1.0),
+                listenSeconds = listenSeconds.coerceAtLeast(0),
+            )
+        }
+        return outcomeId
+    }
+
+    /**
+     * Finalizes pending ledger rows for [exposureId] and trains the model once with the
+     * accumulated reward (or [fallbackReward] when no ledger rows exist).
+     */
+    suspend fun finalizeExposureOutcomes(
+        exposureId: String,
+        fallbackReward: Double,
+        listenSeconds: Long = 0,
+        resolvedAt: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val pending = dao.getOutcomesForExposure(exposureId).filter { it.finalizedAt == null }
+        val reward =
+            if (pending.isEmpty()) {
+                fallbackReward
+            } else {
+                pending.sumOf { it.reward }.coerceIn(-1.0, 1.0)
+            }
+        val listen =
+            pending.maxOfOrNull { it.listenSeconds }?.coerceAtLeast(listenSeconds)
+                ?: listenSeconds
+        val resolved = resolveExposure(exposureId, reward, listen, resolvedAt)
+        if (resolved) {
+            dao.finalizeOutcomesForExposure(exposureId, resolvedAt)
+        }
+        return resolved
+    }
+
+    suspend fun addHardShowExclusion(
+        podcastId: String,
+        reason: String,
+        sourceExposureId: String? = null,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        val normalized = podcastId.trim()
+        if (normalized.isEmpty()) return
+        dao.upsertHardExclusion(
+            HardShowExclusionEntity(
+                podcastId = normalized,
+                reason = reason.take(120),
+                createdAt = now,
+                sourceExposureId = sourceExposureId,
+            ),
+        )
+    }
+
+    suspend fun isHardExcluded(podcastId: String): Boolean {
+        val normalized = podcastId.trim()
+        if (normalized.isEmpty()) return false
+        return dao.getHardExclusion(normalized) != null
+    }
+
+    suspend fun hardExcludedPodcastIds(): Set<String> =
+        dao
+            .getHardExcludedPodcastIds()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+    /**
+     * Affinity plus total evidence so callers can require confidence before using a show
+     * as a Taste seed or Because You Like anchor.
+     */
+    suspend fun facetConfidence(
+        type: PreferenceFacetType,
+        key: String,
+        now: Long = System.currentTimeMillis(),
+    ): FacetConfidence {
+        val normalizedKey = key.normalizedFacetKey()
+        if (normalizedKey.isEmpty()) return FacetConfidence(affinity = 0.0, evidence = 0.0)
+        val facet =
+            dao.getFacet(type.name, normalizedKey)?.toFacet()
+                ?: return FacetConfidence(affinity = 0.0, evidence = 0.0)
+        val decayed = facet.decayed(now)
+        return FacetConfidence(
+            affinity = decayed.affinity(now),
+            evidence = decayed.positiveEvidence + decayed.negativeEvidence,
+        )
+    }
+
+    suspend fun topShowAffinities(
+        limit: Int = 20,
+        now: Long = System.currentTimeMillis(),
+    ): List<FacetConfidence> =
+        dao
+            .getFacetsByType(PreferenceFacetType.SHOW.name)
+            .map { entity ->
+                val facet = entity.toFacet().decayed(now)
+                FacetConfidence(
+                    key = entity.facetKey,
+                    affinity = facet.affinity(now),
+                    evidence = facet.positiveEvidence + facet.negativeEvidence,
+                )
+            }.sortedByDescending { it.affinity }
+            .take(limit.coerceAtLeast(0))
 
     suspend fun facetAffinity(
         type: PreferenceFacetType,
@@ -266,7 +431,8 @@ class AdaptiveRankingRepository private constructor(
     ): Double {
         val normalizedKey = key.normalizedFacetKey()
         if (normalizedKey.isEmpty()) return 0.0
-        return dao.getFacet(type.name, normalizedKey)
+        return dao
+            .getFacet(type.name, normalizedKey)
             ?.toFacet()
             ?.affinity(now)
             ?: 0.0
@@ -277,9 +443,10 @@ class AdaptiveRankingRepository private constructor(
         now: Long = System.currentTimeMillis(),
     ): Map<PreferenceFacetKey, Double> {
         if (keys.isEmpty()) return emptyMap()
-        val stored = dao.getAllFacets().associateBy { entity ->
-            entity.facetType to entity.facetKey
-        }
+        val stored =
+            dao.getAllFacets().associateBy { entity ->
+                entity.facetType to entity.facetKey
+            }
         return keys.associateWith { request ->
             stored[request.type.name to request.key.normalizedFacetKey()]
                 ?.toFacet()
@@ -292,9 +459,7 @@ class AdaptiveRankingRepository private constructor(
      * Returns only a bounded, decayed genre summary suitable for personalization requests.
      * Stored facet evidence and the underlying behavioral timeline never leave this repository.
      */
-    suspend fun genreAffinities(
-        now: Long = System.currentTimeMillis(),
-    ): Map<String, Double> {
+    suspend fun genreAffinities(now: Long = System.currentTimeMillis()): Map<String, Double> {
         val aggregate = mutableMapOf<String, Double>()
         dao.getFacetsByType(PreferenceFacetType.GENRE.name).forEach { entity ->
             val genre = PodcastGenres.canonicalize(entity.facetKey) ?: return@forEach
@@ -302,12 +467,13 @@ class AdaptiveRankingRepository private constructor(
             if (!affinity.isFinite()) return@forEach
             aggregate[genre] = aggregate.getOrDefault(genre, 0.0) + affinity
         }
-        return PodcastGenres.all.mapNotNull { genre ->
-            aggregate[genre]
-                ?.coerceIn(-1.0, 1.0)
-                ?.takeIf { kotlin.math.abs(it) >= MIN_EXPORTED_GENRE_AFFINITY }
-                ?.let { genre to it }
-        }.toMap()
+        return PodcastGenres.all
+            .mapNotNull { genre ->
+                aggregate[genre]
+                    ?.coerceIn(-1.0, 1.0)
+                    ?.takeIf { kotlin.math.abs(it) >= MIN_EXPORTED_GENRE_AFFINITY }
+                    ?.let { genre to it }
+            }.toMap()
     }
 
     suspend fun updateFacet(
@@ -317,13 +483,15 @@ class AdaptiveRankingRepository private constructor(
         now: Long = System.currentTimeMillis(),
     ) {
         // Placeholder genres like "Podcast" are missing-category defaults, not taste.
-        val normalizedKey = when (type) {
-            PreferenceFacetType.GENRE -> PodcastGenres.canonicalize(key) ?: return
-            else -> key.normalizedFacetKey()
-        }
+        val normalizedKey =
+            when (type) {
+                PreferenceFacetType.GENRE -> PodcastGenres.canonicalize(key) ?: return
+                else -> key.normalizedFacetKey()
+            }
         if (normalizedKey.isEmpty()) return
-        val existing = dao.getFacet(type.name, normalizedKey)?.toFacet()
-            ?: BayesianPreferenceFacet(updatedAt = now)
+        val existing =
+            dao.getFacet(type.name, normalizedKey)?.toFacet()
+                ?: BayesianPreferenceFacet(updatedAt = now)
         val updated = existing.update(reward, now)
         dao.upsertFacet(
             PreferenceFacetEntity(
@@ -379,14 +547,16 @@ class AdaptiveRankingRepository private constructor(
 
                 deleteKeys += entity.facetKey
                 aliasMerges++
-                val base = mergedCanonical[canonical]
-                    ?: byKey[canonical]?.toFacet()
-                    ?: BayesianPreferenceFacet(updatedAt = entity.updatedAt)
-                mergedCanonical[canonical] = BayesianPreferenceFacet(
-                    positiveEvidence = base.positiveEvidence + entity.positiveEvidence,
-                    negativeEvidence = base.negativeEvidence + entity.negativeEvidence,
-                    updatedAt = max(base.updatedAt, entity.updatedAt),
-                )
+                val base =
+                    mergedCanonical[canonical]
+                        ?: byKey[canonical]?.toFacet()
+                        ?: BayesianPreferenceFacet(updatedAt = entity.updatedAt)
+                mergedCanonical[canonical] =
+                    BayesianPreferenceFacet(
+                        positiveEvidence = base.positiveEvidence + entity.positiveEvidence,
+                        negativeEvidence = base.negativeEvidence + entity.negativeEvidence,
+                        updatedAt = max(base.updatedAt, entity.updatedAt),
+                    )
             }
 
             for ((canonical, facet) in mergedCanonical) {
@@ -409,7 +579,10 @@ class AdaptiveRankingRepository private constructor(
         recordGenreFacetPruned(mergedCount, removedCount)
     }
 
-    private fun recordGenreFacetPruned(mergedCount: Int, removedCount: Int) {
+    private fun recordGenreFacetPruned(
+        mergedCount: Int,
+        removedCount: Int,
+    ) {
         if (mergedCount == 0 && removedCount == 0) return
         LearningEventLog.record { id, ts ->
             LearningEvent.GenreFacetPruned(
@@ -423,18 +596,20 @@ class AdaptiveRankingRepository private constructor(
 
     suspend fun debugSnapshot(objective: RankingObjective): RankingDebugSnapshot {
         val state = loadState(objective)
-        val score = model.score(
-            objective = objective,
-            features = CandidateFeatureBuilder.build(CandidateSignals()),
-            priorScore = 0.0,
-            state = state,
-        )
+        val score =
+            model.score(
+                objective = objective,
+                features = CandidateFeatureBuilder.build(CandidateSignals()),
+                priorScore = 0.0,
+                state = state,
+            )
         return RankingDebugSnapshot(
             objective = objective,
             updateCount = state.updateCount,
             learnedBlend = score.learnedBlend,
-            explorationEnabled = score.explorationBonus > 0.0 ||
-                (objective.allowsExploration && state.updateCount >= 50),
+            explorationEnabled =
+                score.explorationBonus > 0.0 ||
+                    (objective.allowsExploration && state.updateCount >= 50),
             featureSchemaVersion = state.featureSchemaVersion,
         )
     }
@@ -442,113 +617,152 @@ class AdaptiveRankingRepository private constructor(
     /**
      * Rich local-only snapshot for the debug inspector. Never leave the device.
      */
-    suspend fun learnerInspectorSnapshot(
-        now: Long = System.currentTimeMillis(),
-    ): LearnerInspectorSnapshot = withContext(Dispatchers.Default) {
-        pruneNonCanonicalGenreFacets()
-        val objectives = RankingObjective.entries.map { debugSnapshot(it) }
-        val telemetry = aggregateTelemetry()
-        val facets = dao.getAllFacets().mapNotNull { entity ->
-            val type = runCatching { PreferenceFacetType.valueOf(entity.facetType) }.getOrNull()
-                ?: return@mapNotNull null
-            val facet = entity.toFacet()
-            LearnerFacetDebug(
-                type = type,
-                key = entity.facetKey,
-                affinity = facet.affinity(now),
-                positiveEvidence = facet.positiveEvidence,
-                negativeEvidence = facet.negativeEvidence,
-            )
-        }.sortedWith(
-            compareByDescending<LearnerFacetDebug> { kotlin.math.abs(it.affinity) }
-                .thenBy { it.type.name }
-                .thenBy { it.key },
-        )
-        val exposures = dao.getAllExposures()
-        // Prefer resolved outcomes in the pulse window. Home continuously inserts pending
-        // exposures, which otherwise bury likes/plays under a flat "pending" strip.
-        val sortedExposures = exposures.sortedByDescending(RankingExposureEntity::shownAt)
-        val recentResolved = sortedExposures.filter { it.resolvedAt != null }.take(16)
-        val recentPending = sortedExposures.filter { it.resolvedAt == null }.take(8)
-        val recentExposures = (recentResolved + recentPending)
-            .sortedByDescending(RankingExposureEntity::shownAt)
-            .distinctBy(RankingExposureEntity::exposureId)
-            .take(24)
-            .map { exposure ->
-                LearnerExposureDebug(
-                    episodeId = exposure.episodeId,
-                    podcastId = exposure.podcastId,
-                    objective = exposure.objective,
-                    surface = exposure.surface,
-                    source = exposure.source,
-                    entryPoint = exposure.entryPoint,
-                    reward = exposure.reward,
-                    listenSeconds = exposure.listenSeconds,
-                    shownAt = exposure.shownAt,
-                    resolved = exposure.resolvedAt != null,
+    suspend fun learnerInspectorSnapshot(now: Long = System.currentTimeMillis()): LearnerInspectorSnapshot =
+        withContext(Dispatchers.Default) {
+            pruneNonCanonicalGenreFacets()
+            val objectives = RankingObjective.entries.map { debugSnapshot(it) }
+            val telemetry = aggregateTelemetry()
+            val facets =
+                dao
+                    .getAllFacets()
+                    .mapNotNull { entity ->
+                        val type =
+                            runCatching { PreferenceFacetType.valueOf(entity.facetType) }.getOrNull()
+                                ?: return@mapNotNull null
+                        val facet = entity.toFacet()
+                        LearnerFacetDebug(
+                            type = type,
+                            key = entity.facetKey,
+                            affinity = facet.affinity(now),
+                            positiveEvidence = facet.positiveEvidence,
+                            negativeEvidence = facet.negativeEvidence,
+                        )
+                    }.sortedWith(
+                        compareByDescending<LearnerFacetDebug> { kotlin.math.abs(it.affinity) }
+                            .thenBy { it.type.name }
+                            .thenBy { it.key },
+                    )
+            val exposures = dao.getAllExposures()
+            // Prefer resolved outcomes in the pulse window. Home continuously inserts pending
+            // exposures, which otherwise bury likes/plays under a flat "pending" strip.
+            val sortedExposures = exposures.sortedByDescending(RankingExposureEntity::shownAt)
+            val recentResolved = sortedExposures.filter { it.resolvedAt != null }.take(16)
+            val recentPending = sortedExposures.filter { it.resolvedAt == null }.take(8)
+            val recentExposures =
+                (recentResolved + recentPending)
+                    .sortedByDescending(RankingExposureEntity::shownAt)
+                    .distinctBy(RankingExposureEntity::exposureId)
+                    .take(24)
+                    .map { exposure ->
+                        LearnerExposureDebug(
+                            episodeId = exposure.episodeId,
+                            podcastId = exposure.podcastId,
+                            objective = exposure.objective,
+                            surface = exposure.surface,
+                            source = exposure.source,
+                            entryPoint = exposure.entryPoint,
+                            reward = exposure.reward,
+                            listenSeconds = exposure.listenSeconds,
+                            shownAt = exposure.shownAt,
+                            resolved = exposure.resolvedAt != null,
+                        )
+                    }
+            val discoveryState = loadState(RankingObjective.DISCOVERY)
+            val theta =
+                multiply(
+                    discoveryState.inverseCovariance,
+                    discoveryState.rewardVector,
+                    discoveryState.dimension,
                 )
-            }
-        val discoveryState = loadState(RankingObjective.DISCOVERY)
-        val theta = multiply(
-            discoveryState.inverseCovariance,
-            discoveryState.rewardVector,
-            discoveryState.dimension,
-        )
-        val featureWeights = FeatureSlot.entries.map { slot ->
-            LearnerFeatureWeightDebug(slot = slot, weight = theta[slot.ordinal])
+            val featureWeights =
+                FeatureSlot.entries.map { slot ->
+                    LearnerFeatureWeightDebug(slot = slot, weight = theta[slot.ordinal])
+                }
+            val pending = exposures.count { it.resolvedAt == null }
+            val resolved = exposures.count { it.resolvedAt != null }
+            LearnerInspectorSnapshot(
+                objectives = objectives,
+                telemetry = telemetry,
+                facets = facets,
+                recentExposures = recentExposures,
+                featureWeights = featureWeights,
+                pendingExposureCount = pending,
+                resolvedExposureCount = resolved,
+                capturedAt = now,
+            )
         }
-        val pending = exposures.count { it.resolvedAt == null }
-        val resolved = exposures.count { it.resolvedAt != null }
-        LearnerInspectorSnapshot(
-            objectives = objectives,
-            telemetry = telemetry,
-            facets = facets,
-            recentExposures = recentExposures,
-            featureWeights = featureWeights,
-            pendingExposureCount = pending,
-            resolvedExposureCount = resolved,
-            capturedAt = now,
-        )
-    }
 
-    suspend fun aggregateTelemetry(): List<RankingAggregateTelemetry> {
-        return RankingObjective.entries.map { objective ->
+    /**
+     * Observational-only exact-exposure-token health for [surface] (see
+     * [RankingExposureHealthLogic]). Distinct from [aggregateTelemetry]: this reports
+     * attribution *plumbing* health (did outcomes actually reconnect to their impression?),
+     * not model learning stage.
+     */
+    suspend fun exposureResolutionDiagnostics(
+        surface: RankingSurface = RankingSurface.HOME,
+        now: Long = System.currentTimeMillis(),
+    ): RankingExposureHealthTelemetry =
+        RankingExposureHealthLogic.compute(
+            surface = surface,
+            raw =
+                RankingExposureHealthLogic.RawCounts(
+                    totalExposures = dao.countExposuresBySurface(surface.name),
+                    resolvedExposures = dao.countResolvedExposuresBySurface(surface.name),
+                    oldestPendingShownAt = dao.oldestPendingExposureShownAt(surface.name),
+                    totalOutcomes = dao.countAllOutcomes(),
+                    unmatchedOutcomes = dao.countUnmatchedOutcomes(),
+                ),
+            now = now,
+        )
+
+    suspend fun aggregateTelemetry(): List<RankingAggregateTelemetry> =
+        RankingObjective.entries.map { objective ->
             val state = loadState(objective)
             RankingAggregateTelemetry(
                 objective = objective.name,
                 rankerVersion = RankingFeatureSchema.VERSION,
-                learningStage = when {
-                    state.updateCount == 0L -> "cold_start"
-                    state.updateCount < 50L -> "learning"
-                    else -> "adaptive"
-                },
+                learningStage =
+                    when {
+                        state.updateCount == 0L -> "cold_start"
+                        state.updateCount < 50L -> "learning"
+                        else -> "adaptive"
+                    },
                 outcomeCountBucket = state.updateCount.toOutcomeCountBucket(),
                 explorationEligible = objective.allowsExploration && state.updateCount >= 50L,
             )
         }
-    }
 
-    suspend fun exportBackup(): AdaptiveRankingBackup {
-        return AdaptiveRankingBackup(
+    suspend fun exportBackup(): AdaptiveRankingBackup =
+        AdaptiveRankingBackup(
+            version = ADAPTIVE_BACKUP_VERSION,
             models = dao.getAllModels(),
             facets = dao.getAllFacets(),
             exposures = dao.getAllExposures(),
+            outcomes = dao.getAllOutcomes(),
+            hardExclusions = dao.getAllHardExclusions(),
         )
-    }
 
     suspend fun restoreBackup(backup: AdaptiveRankingBackup) {
-        require(backup.version == ADAPTIVE_BACKUP_VERSION) {
+        require(backup.version == ADAPTIVE_BACKUP_VERSION || backup.version == 1) {
             "Unsupported adaptive ranking backup version ${backup.version}"
         }
         val models = requireNotNull(backup.models) { "Adaptive model backup section is missing" }
         val facets = requireNotNull(backup.facets) { "Preference facet backup section is missing" }
         val exposures = requireNotNull(backup.exposures) { "Ranking exposure backup section is missing" }
+        val outcomes = backup.outcomes.orEmpty()
+        val hardExclusions = backup.hardExclusions.orEmpty()
         require(models.all(::isValidBackupModel)) { "Invalid adaptive model backup" }
         require(facets.all(::isValidBackupFacet)) { "Invalid preference facet backup" }
         require(exposures.size <= MAX_EXPOSURES && exposures.all(::isValidBackupExposure)) {
             "Invalid ranking exposure backup"
         }
-        dao.replaceAll(models, facets, exposures)
+        require(outcomes.size <= MAX_OUTCOMES && outcomes.all(::isValidBackupOutcome)) {
+            "Invalid ranking outcome backup"
+        }
+        require(hardExclusions.size <= MAX_HARD_EXCLUSIONS && hardExclusions.all(::isValidBackupHardExclusion)) {
+            "Invalid hard exclusion backup"
+        }
+        dao.replaceAll(models, facets, exposures, outcomes, hardExclusions)
         RankingShadowDiagnostics.clear()
     }
 
@@ -567,18 +781,21 @@ class AdaptiveRankingRepository private constructor(
             AdaptiveModelState(
                 featureSchemaVersion = entity.featureSchemaVersion,
                 dimension = entity.dimension,
-                covariance = RankingSerialization.decode(
-                    entity.covariance,
-                    entity.dimension * entity.dimension,
-                ),
-                inverseCovariance = RankingSerialization.decode(
-                    entity.inverseCovariance,
-                    entity.dimension * entity.dimension,
-                ),
-                rewardVector = RankingSerialization.decode(
-                    entity.rewardVector,
-                    entity.dimension,
-                ),
+                covariance =
+                    RankingSerialization.decode(
+                        entity.covariance,
+                        entity.dimension * entity.dimension,
+                    ),
+                inverseCovariance =
+                    RankingSerialization.decode(
+                        entity.inverseCovariance,
+                        entity.dimension * entity.dimension,
+                    ),
+                rewardVector =
+                    RankingSerialization.decode(
+                        entity.rewardVector,
+                        entity.dimension,
+                    ),
                 updateCount = entity.updateCount,
             )
         }.getOrElse { AdaptiveModelState() }
@@ -589,13 +806,13 @@ class AdaptiveRankingRepository private constructor(
         dao.pruneExposuresToCount(MAX_EXPOSURES)
     }
 
-    private fun objectiveLock(objective: RankingObjective): Mutex {
-        return objectiveLocks.getOrPut(objective) { Mutex() }
-    }
+    private fun objectiveLock(objective: RankingObjective): Mutex = objectiveLocks.getOrPut(objective) { Mutex() }
 
     companion object {
-        private const val ADAPTIVE_BACKUP_VERSION = 1
+        private const val ADAPTIVE_BACKUP_VERSION = 2
         private const val MAX_EXPOSURES = 1_000
+        private const val MAX_OUTCOMES = 2_000
+        private const val MAX_HARD_EXCLUSIONS = 500
         private const val EXPOSURE_PRUNE_INTERVAL = 25L
         private const val EXPOSURE_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1_000L
         private const val MIN_EXPORTED_GENRE_AFFINITY = 0.01
@@ -613,34 +830,34 @@ class AdaptiveRankingRepository private constructor(
         }
 
         /** Prefer AppContainer / SharedAppDependenciesHolder in production. */
-        fun getInstance(context: Context): AdaptiveRankingRepository {
-            return instance ?: synchronized(this) {
+        fun getInstance(context: Context): AdaptiveRankingRepository =
+            instance ?: synchronized(this) {
                 instance ?: create(context).also { instance = it }
             }
-        }
     }
 }
 
-private fun isValidBackupModel(model: AdaptiveModelEntity): Boolean {
-    return runCatching {
+private fun isValidBackupModel(model: AdaptiveModelEntity): Boolean =
+    runCatching {
         RankingObjective.valueOf(model.objective)
         model.featureSchemaVersion == RankingFeatureSchema.VERSION &&
             model.dimension == RankingFeatureSchema.dimension &&
             model.updateCount >= 0L &&
-            RankingSerialization.decode(
-                model.covariance,
-                model.dimension * model.dimension,
-            ).all(Double::isFinite) &&
-            RankingSerialization.decode(
-                model.inverseCovariance,
-                model.dimension * model.dimension,
-            ).all(Double::isFinite) &&
+            RankingSerialization
+                .decode(
+                    model.covariance,
+                    model.dimension * model.dimension,
+                ).all(Double::isFinite) &&
+            RankingSerialization
+                .decode(
+                    model.inverseCovariance,
+                    model.dimension * model.dimension,
+                ).all(Double::isFinite) &&
             RankingSerialization.decode(model.rewardVector, model.dimension).all(Double::isFinite)
     }.getOrDefault(false)
-}
 
-private fun isValidBackupFacet(facet: PreferenceFacetEntity): Boolean {
-    return runCatching {
+private fun isValidBackupFacet(facet: PreferenceFacetEntity): Boolean =
+    runCatching {
         PreferenceFacetType.valueOf(facet.facetType)
         facet.facetKey.isNotBlank() &&
             facet.facetKey.length <= 200 &&
@@ -649,10 +866,9 @@ private fun isValidBackupFacet(facet: PreferenceFacetEntity): Boolean {
             facet.negativeEvidence.isFinite() &&
             facet.negativeEvidence >= 0.0
     }.getOrDefault(false)
-}
 
-private fun isValidBackupExposure(exposure: RankingExposureEntity): Boolean {
-    return runCatching {
+private fun isValidBackupExposure(exposure: RankingExposureEntity): Boolean =
+    runCatching {
         RankingObjective.valueOf(exposure.objective)
         RankingSurface.valueOf(exposure.surface)
         CandidateSource.valueOf(exposure.source)
@@ -661,18 +877,33 @@ private fun isValidBackupExposure(exposure: RankingExposureEntity): Boolean {
             exposure.featureSchemaVersion == RankingFeatureSchema.VERSION &&
             exposure.listenSeconds >= 0L &&
             (exposure.reward == null || exposure.reward.isFinite()) &&
-            RankingSerialization.decode(
-                exposure.featureVector,
-                RankingFeatureSchema.dimension,
-            ).all(Double::isFinite)
+            RankingSerialization
+                .decode(
+                    exposure.featureVector,
+                    RankingFeatureSchema.dimension,
+                ).all(Double::isFinite)
     }.getOrDefault(false)
-}
+
+private fun isValidBackupOutcome(outcome: RankingOutcomeEntity): Boolean =
+    outcome.outcomeId.isNotBlank() &&
+        outcome.episodeId.isNotBlank() &&
+        outcome.podcastId.isNotBlank() &&
+        outcome.action.isNotBlank() &&
+        outcome.reward.isFinite() &&
+        outcome.listenSeconds >= 0L &&
+        outcome.createdAt > 0L
+
+private fun isValidBackupHardExclusion(exclusion: HardShowExclusionEntity): Boolean =
+    exclusion.podcastId.isNotBlank() &&
+        exclusion.podcastId.length <= 200 &&
+        exclusion.reason.isNotBlank() &&
+        exclusion.createdAt > 0L
 
 private fun AdaptiveModelState.toEntity(
     objective: RankingObjective,
     now: Long,
-): AdaptiveModelEntity {
-    return AdaptiveModelEntity(
+): AdaptiveModelEntity =
+    AdaptiveModelEntity(
         objective = objective.name,
         featureSchemaVersion = featureSchemaVersion,
         dimension = dimension,
@@ -682,24 +913,21 @@ private fun AdaptiveModelState.toEntity(
         updateCount = updateCount,
         updatedAt = now,
     )
-}
 
-private fun PreferenceFacetEntity.toFacet(): BayesianPreferenceFacet {
-    return BayesianPreferenceFacet(
+private fun PreferenceFacetEntity.toFacet(): BayesianPreferenceFacet =
+    BayesianPreferenceFacet(
         positiveEvidence = positiveEvidence,
         negativeEvidence = negativeEvidence,
         updatedAt = updatedAt,
     )
-}
 
-private fun String.normalizedFacetKey(): String {
-    return trim().lowercase().replace(Regex("\\s+"), " ").take(200)
-}
+private fun String.normalizedFacetKey(): String = trim().lowercase().replace(Regex("\\s+"), " ").take(200)
 
-private fun Long.toOutcomeCountBucket(): String = when {
-    this == 0L -> "0"
-    this < 10L -> "1_9"
-    this < 50L -> "10_49"
-    this < 200L -> "50_199"
-    else -> "200_plus"
-}
+private fun Long.toOutcomeCountBucket(): String =
+    when {
+        this == 0L -> "0"
+        this < 10L -> "1_9"
+        this < 50L -> "10_49"
+        this < 200L -> "50_199"
+        else -> "200_plus"
+    }

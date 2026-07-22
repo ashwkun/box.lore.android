@@ -1,6 +1,8 @@
 package cx.aswin.boxlore.core.analytics
 
+import cx.aswin.boxlore.core.model.HomeSlateQualityTelemetry
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
+import cx.aswin.boxlore.core.model.RankingExposureHealthTelemetry
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -316,6 +318,35 @@ class GlossaryAllEventsEmissionTest {
                 },
                 "proxy_fallback_triggered" to {
                     AnalyticsHelper.trackProxyFallbackTriggered("cdn.example.com", 320)
+                },
+                "home_slate_quality_snapshot" to {
+                    AnalyticsHelper.trackHomeSlateQualitySnapshot(
+                        HomeSlateQualityTelemetry(
+                            mode = "PERSONALIZED",
+                            algorithmVersion = "v3",
+                            fromCache = false,
+                            isFallback = false,
+                            requestedModuleCount = 4,
+                            nonEmptyModuleCount = 3,
+                            allocatedCandidateCount = 12,
+                            duplicateRatePercent = 10,
+                            noveltyRatePercent = 80,
+                            cacheAgeBucket = "not_cached",
+                            responseLatencyBucket = "300_999ms",
+                        ),
+                    )
+                },
+                "home_learning_attribution_health" to {
+                    AnalyticsHelper.trackHomeLearningAttributionHealth(
+                        RankingExposureHealthTelemetry(
+                            surface = "HOME",
+                            totalExposures = 100,
+                            resolutionRatePercent = 85,
+                            pendingExposureCount = 15,
+                            oldestPendingAgeBucket = "1_5h",
+                            unmatchedOutcomeRatePercent = 5,
+                        ),
+                    )
                 },
             )
     }

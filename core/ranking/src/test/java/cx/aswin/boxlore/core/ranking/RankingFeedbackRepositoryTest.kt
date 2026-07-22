@@ -237,4 +237,46 @@ class RankingFeedbackRepositoryTest {
 
             assertFalse(orphan.reset())
         }
+
+    @Test
+    fun recordActionWithExposureIdResolvesExactToken() =
+        runTest {
+            val first = feedback.recordExposure(exposureFor("ep-token", podcastId = "pod-t"))
+            feedback.recordExposure(exposureFor("ep-token", podcastId = "pod-t"))
+
+            feedback.recordAction(
+                target =
+                    FeedbackTarget(
+                        episodeId = "ep-token",
+                        podcastId = "pod-t",
+                        exposureId = first,
+                    ),
+                action = RankingAction.LIKE,
+            )
+
+            val rows = database.adaptiveRankingDao().getAllExposures()
+            assertEquals(1, rows.count { it.resolvedAt != null })
+            assertEquals(first, rows.single { it.resolvedAt != null }.exposureId)
+        }
+
+    @Test
+    fun hideShowAddsHardExclusion() =
+        runTest {
+            feedback.recordAction(
+                target = FeedbackTarget(episodeId = "ep-h", podcastId = "pod-hide"),
+                action = RankingAction.HIDE_SHOW,
+            )
+
+            assertTrue(adaptive.isHardExcluded("pod-hide"))
+            assertTrue(adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-hide") < 0.0)
+        }
+
+    @Test
+    fun manualAnchorSelectedUpdatesShowFacetWithoutExposure() =
+        runTest {
+            feedback.recordManualAnchorSelected("pod-anchor")
+
+            assertTrue(adaptive.facetAffinity(PreferenceFacetType.SHOW, "pod-anchor") > 0.0)
+            assertEquals(0, database.adaptiveRankingDao().getAllExposures().size)
+        }
 }

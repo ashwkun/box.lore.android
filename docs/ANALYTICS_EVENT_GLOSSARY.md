@@ -122,6 +122,10 @@ Launch enrichment (subscription bucket, onboarding status) goes on **person prop
 | `auto_chapters_lifecycle` | Chapters request/complete/fail | stage:string | episode_id:string; error_message:string | none |
 | `auto_transcript_lifecycle` | Transcript request/complete/fail | stage:string | episode_id:string; error_message:string | none |
 | `proxy_fallback_triggered` | Image load fell back to proxy | — | reason:string | none |
+| `home_slate_quality_snapshot` | Aggregate quality of one Home candidates-v1 slate load (candidate coverage, duplicate rate, novelty share, fallback state, cache age, response latency) | mode:string; algorithm_version:string; from_cache:bool; is_fallback:bool; requested_module_count:int; non_empty_module_count:int; allocated_candidate_count:int; duplicate_rate_percent:int; novelty_rate_percent:int; cache_age_bucket:string; response_latency_bucket:string | — | none |
+| `home_learning_attribution_health` | Exact-exposure-token resolution health for a ranking surface (default HOME): what fraction of shown exposures resolved, how old the oldest pending one is, and what fraction of outcomes had no token to attach to | surface:string; total_exposures:int; resolution_rate_percent:int; pending_exposure_count:int; oldest_pending_age_bucket:string; unmatched_outcome_rate_percent:int | — | none |
+
+**Phase D — quality-observability (Home candidates-v1):** `home_slate_quality_snapshot` and `home_learning_attribution_health` are **observational-only aggregates** — counts, rates, and buckets, never episode/podcast identifiers or titles. They feed dashboards, not hard kill switches; adaptive ranking rollout stays governed by `RankingRuntimeControls` / `RankingRolloutPolicy` (HOME-only by default). See [`docs/recommendation-system.md`](recommendation-system.md) for the pipeline these diagnostics observe.
 
 ## Person properties
 

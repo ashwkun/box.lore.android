@@ -8,6 +8,7 @@ The application module owns the Android app shell: `BoxLoreApplication`, `MainAc
 
 - `BoxLoreApplication.container` exposes the process-scoped `AppContainer`.
 - On startup, `BoxLoreApplication` configures `LearningEventLog` via `BoxcastPrefs.resolveLearnerLogEnabled`: on by default in debug when unset; **always off in release** unless the user has explicitly persisted an opt-in from the debug screen.
+- On startup, `BoxLoreApplication` also fires two fire-and-forget, once-per-launch diagnostics: `reportAdaptiveRankingStatus` (`adaptive_ranking_status` — learning stage per objective) and `reportHomeLearningAttributionHealth` (`home_learning_attribution_health` — HOME exact-exposure-token attribution plumbing health). Both are optional and swallow failures so they never destabilize startup; see [`docs/recommendation-system.md`](../docs/recommendation-system.md#quality-observability-diagnostics-dashboards-only).
 - `AppContainer` constructs the shared graph: database, network, RSS, ranking, catalog, playback, queue, downloads, prefs, and analytics dependencies.
 - Install attribution: `AppContainer` wires `InstallReferrerManager.onInstallReferrerResolved` → analytics person properties (`install_channel`). Catalog stays free of `:core:analytics`.
 - FCM (`BoxLoreFcmService`) owns notification_received / tap extras (`notification_type`, podcast/episode ids for snake+camel keys). Generic push intents propagate those extras so taps are not always `"push"`.

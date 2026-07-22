@@ -297,7 +297,7 @@ class AdaptiveRankingTest {
                 AdaptiveRankingBackup::class.java,
             )
 
-        assertEquals(1, restored.version)
+        assertEquals(2, restored.version)
         assertArrayEquals(model.covariance, restored.models!!.single().covariance)
         assertEquals(facet, restored.facets!!.single())
         assertArrayEquals(exposure.featureVector, restored.exposures!!.single().featureVector)

@@ -8,6 +8,7 @@ import cx.aswin.boxlore.core.catalog.RoomEpisodeOfflineLookup
 import cx.aswin.boxlore.core.catalog.RoomLocalCatalog
 import cx.aswin.boxlore.core.catalog.SharedAppDependencies
 import cx.aswin.boxlore.core.catalog.SubscriptionRepository
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator
 import cx.aswin.boxlore.core.catalog.ports.SmartDownloadSyncPort
 import cx.aswin.boxlore.core.catalog.privacy.ConsentManager
 import cx.aswin.boxlore.core.database.BoxLoreDatabase
@@ -114,6 +115,11 @@ class AppContainer(
             context = appContext,
             rssRepository = rssPodcastRepository,
         )
+    }
+
+    /** Home Taste / Because-You-Like / greeting mission slate loading — see feature/home README. */
+    val homePersonalizationCoordinator: HomePersonalizationCoordinator by lazy {
+        HomePersonalizationCoordinator(podcastRepository)
     }
 
     val queueRepository: QueueRepository by lazy {

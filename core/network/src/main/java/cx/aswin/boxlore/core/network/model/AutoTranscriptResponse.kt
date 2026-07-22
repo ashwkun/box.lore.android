@@ -1,7 +1,7 @@
 package cx.aswin.boxlore.core.network.model
 
-import kotlinx.serialization.Serializable
 import cx.aswin.boxlore.core.model.Chapter
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class AutoTranscriptResponse(
@@ -9,5 +9,5 @@ data class AutoTranscriptResponse(
     val srt: String? = null,
     val chapters: List<Chapter>? = null,
     val error: String? = null,
-    val limitLeft: Int? = null
+    val limitLeft: Int? = null,
 )

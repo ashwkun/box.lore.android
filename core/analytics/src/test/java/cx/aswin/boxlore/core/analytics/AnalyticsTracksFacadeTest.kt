@@ -1,6 +1,8 @@
 package cx.aswin.boxlore.core.analytics
 
+import cx.aswin.boxlore.core.model.HomeSlateQualityTelemetry
 import cx.aswin.boxlore.core.model.RankingAggregateTelemetry
+import cx.aswin.boxlore.core.model.RankingExposureHealthTelemetry
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -453,5 +455,63 @@ class AnalyticsTracksFacadeTest {
         assertEquals(2, events.size)
         assertEquals("empty", events[0].second["status"])
         assertEquals("discovery:warm", events[1].second["status"])
+    }
+
+    // ── quality-observability (Phase D) ───────────────────────────
+
+    @Test
+    fun homeSlateQualitySnapshotEvent() {
+        AnalyticsHelper.trackHomeSlateQualitySnapshot(
+            HomeSlateQualityTelemetry(
+                mode = "PERSONALIZED",
+                algorithmVersion = "v3",
+                fromCache = true,
+                isFallback = false,
+                requestedModuleCount = 4,
+                nonEmptyModuleCount = 3,
+                allocatedCandidateCount = 12,
+                duplicateRatePercent = 10,
+                noveltyRatePercent = 80,
+                cacheAgeBucket = "under_15m",
+                responseLatencyBucket = "300_999ms",
+            ),
+        )
+
+        assertTrue("home_slate_quality_snapshot" in names())
+        val props = firstProps("home_slate_quality_snapshot")
+        assertEquals("PERSONALIZED", props["mode"])
+        assertEquals("v3", props["algorithm_version"])
+        assertEquals(true, props["from_cache"])
+        assertEquals(false, props["is_fallback"])
+        assertEquals(4, props["requested_module_count"])
+        assertEquals(3, props["non_empty_module_count"])
+        assertEquals(12, props["allocated_candidate_count"])
+        assertEquals(10, props["duplicate_rate_percent"])
+        assertEquals(80, props["novelty_rate_percent"])
+        assertEquals("under_15m", props["cache_age_bucket"])
+        assertEquals("300_999ms", props["response_latency_bucket"])
+    }
+
+    @Test
+    fun homeLearningAttributionHealthEvent() {
+        AnalyticsHelper.trackHomeLearningAttributionHealth(
+            RankingExposureHealthTelemetry(
+                surface = "HOME",
+                totalExposures = 100,
+                resolutionRatePercent = 85,
+                pendingExposureCount = 15,
+                oldestPendingAgeBucket = "1_5h",
+                unmatchedOutcomeRatePercent = 5,
+            ),
+        )
+
+        assertTrue("home_learning_attribution_health" in names())
+        val props = firstProps("home_learning_attribution_health")
+        assertEquals("HOME", props["surface"])
+        assertEquals(100, props["total_exposures"])
+        assertEquals(85, props["resolution_rate_percent"])
+        assertEquals(15, props["pending_exposure_count"])
+        assertEquals("1_5h", props["oldest_pending_age_bucket"])
+        assertEquals(5, props["unmatched_outcome_rate_percent"])
     }
 }

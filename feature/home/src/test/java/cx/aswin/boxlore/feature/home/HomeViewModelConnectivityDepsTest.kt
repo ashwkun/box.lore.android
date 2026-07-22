@@ -40,6 +40,7 @@ class HomeViewModelConnectivityDepsTest {
             rankingFeedback = mock(),
             localCatalog = mock(),
             userPreferencesRepository = mock(),
+            homePersonalizationCoordinator = mock(),
             connectivityStatus = connectivityStatus,
         )
 }

@@ -1,67 +1,67 @@
 package cx.aswin.boxlore.core.network
 
-import cx.aswin.boxlore.core.network.model.EpisodesResponse
-import cx.aswin.boxlore.core.network.model.EpisodesPaginatedResponse
-import cx.aswin.boxlore.core.network.model.PodcastResponse
-import cx.aswin.boxlore.core.network.model.SearchResponse
-import cx.aswin.boxlore.core.network.model.TrendingResponse
-import cx.aswin.boxlore.core.network.model.SyncRequest
-import cx.aswin.boxlore.core.network.model.SyncResponse
-import cx.aswin.boxlore.core.network.model.RecommendationsRequest
+import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.network.model.BecauseYouLikeRequest
 import cx.aswin.boxlore.core.network.model.BecauseYouLikeResponse
-import cx.aswin.boxlore.core.network.model.SingleEpisodeResponse
-import cx.aswin.boxlore.core.network.model.FeedbackRequest
-import cx.aswin.boxlore.core.network.model.FeedbackResponse
-import cx.aswin.boxlore.core.network.model.OnboardingNextTurnRequest
-import cx.aswin.boxlore.core.network.model.OnboardingNextTurnResponse
-import cx.aswin.boxlore.core.network.model.OnboardingQuery
-import cx.aswin.boxlore.core.network.model.OnboardingCurriculumRequest
-import cx.aswin.boxlore.core.network.model.OnboardingCurriculumRowDto
-import cx.aswin.boxlore.core.network.model.OnboardingGenreSynthRequest
-import cx.aswin.boxlore.core.network.model.OnboardingSimilarShowsRequest
-import cx.aswin.boxlore.core.network.model.OnboardingSelectedShowDto
 import cx.aswin.boxlore.core.network.model.BootstrapRequest
 import cx.aswin.boxlore.core.network.model.BootstrapResponse
 import cx.aswin.boxlore.core.network.model.ContentCatalogResponse
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Request
 import cx.aswin.boxlore.core.network.model.ContentSectionsV1Response
+import cx.aswin.boxlore.core.network.model.CuratedCuriosityResponseDto
+import cx.aswin.boxlore.core.network.model.EpisodesPaginatedResponse
+import cx.aswin.boxlore.core.network.model.EpisodesResponse
+import cx.aswin.boxlore.core.network.model.FeedbackRequest
+import cx.aswin.boxlore.core.network.model.FeedbackResponse
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Request
+import cx.aswin.boxlore.core.network.model.HomeCandidatesV1Response
+import cx.aswin.boxlore.core.network.model.OnboardingCurriculumRequest
+import cx.aswin.boxlore.core.network.model.OnboardingCurriculumRowDto
+import cx.aswin.boxlore.core.network.model.OnboardingGenreSynthRequest
+import cx.aswin.boxlore.core.network.model.OnboardingNextTurnRequest
+import cx.aswin.boxlore.core.network.model.OnboardingNextTurnResponse
+import cx.aswin.boxlore.core.network.model.OnboardingQuery
+import cx.aswin.boxlore.core.network.model.OnboardingSimilarShowsRequest
+import cx.aswin.boxlore.core.network.model.PodcastResponse
+import cx.aswin.boxlore.core.network.model.RecommendationsRequest
 import cx.aswin.boxlore.core.network.model.RecommendationsV2Request
 import cx.aswin.boxlore.core.network.model.RecommendationsV2Response
-import cx.aswin.boxlore.core.network.model.CuratedCuriosityResponseDto
+import cx.aswin.boxlore.core.network.model.SearchResponse
+import cx.aswin.boxlore.core.network.model.SingleEpisodeResponse
+import cx.aswin.boxlore.core.network.model.SyncRequest
+import cx.aswin.boxlore.core.network.model.SyncResponse
+import cx.aswin.boxlore.core.network.model.TrendingResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
 import retrofit2.http.Header
-import retrofit2.http.Query
+import retrofit2.http.POST
 import retrofit2.http.Path
-import cx.aswin.boxlore.core.model.Briefing
+import retrofit2.http.Query
 
 /**
  * BoxCast API - Cloudflare Worker proxy for Podcast Index
  */
 interface BoxLoreApi {
-
     @GET("briefings/metadata/{region}")
     fun getBriefingMetadata(
         @Header("X-App-Key") publicKey: String,
-        @Path("region") region: String
+        @Path("region") region: String,
     ): retrofit2.Call<Briefing>
 
     @GET("curated/curiosity-v3")
     fun getCuratedCuriosity(
         @Header("X-App-Key") publicKey: String,
         @Query("page") page: Int? = 1,
-        @Query("cb") cacheBuster: String? = null
+        @Query("cb") cacheBuster: String? = null,
     ): retrofit2.Call<CuratedCuriosityResponseDto>
-    
+
     @GET("trending")
     fun getTrending(
         @Header("X-App-Key") publicKey: String,
         @Query("country") country: String? = "us",
         @Query("limit") limit: Int? = 50,
         @Query("cat") category: String? = null, // New: Genre Filter
-        @Query("offset") offset: Int? = 0
+        @Query("offset") offset: Int? = 0,
     ): retrofit2.Call<TrendingResponse>
 
     @GET("trending")
@@ -71,83 +71,83 @@ interface BoxLoreApi {
         @Query("country") country: String? = "us",
         @Query("limit") limit: Int? = 50,
         @Query("cat") category: String? = null, // New: Genre Filter
-        @Query("offset") offset: Int? = 0
+        @Query("offset") offset: Int? = 0,
     ): retrofit2.Call<okhttp3.ResponseBody>
 
     @GET("search")
     fun search(
         @Header("X-App-Key") publicKey: String,
-        @Query("q") query: String
+        @Query("q") query: String,
     ): retrofit2.Call<SearchResponse>
 
     @GET("search/semantic")
     fun searchSemantic(
         @Header("X-App-Key") publicKey: String,
         @Query("q") query: String,
-        @Query("country") country: String? = "us"
+        @Query("country") country: String? = "us",
     ): retrofit2.Call<EpisodesResponse>
 
     @GET("episodes")
     fun getEpisodes(
         @Header("X-App-Key") publicKey: String,
-        @Query("id") feedId: String
+        @Query("id") feedId: String,
     ): retrofit2.Call<EpisodesResponse>
-    
+
     @GET("episodes")
     fun getEpisodesPaginated(
         @Header("X-App-Key") publicKey: String,
         @Query("id") feedId: String,
         @Query("limit") limit: Int = 20,
         @Query("offset") offset: Int = 0,
-        @Query("sort") sort: String = "newest"
+        @Query("sort") sort: String = "newest",
     ): retrofit2.Call<EpisodesPaginatedResponse>
 
     @GET("episodes/search")
     fun searchEpisodes(
         @Header("X-App-Key") publicKey: String,
         @Query("id") feedId: String,
-        @Query("q") query: String
+        @Query("q") query: String,
     ): retrofit2.Call<EpisodesResponse>
 
     @GET("episode")
     fun getEpisode(
         @Header("X-App-Key") publicKey: String,
-        @Query("id") id: String
+        @Query("id") id: String,
     ): retrofit2.Call<SingleEpisodeResponse>
-    
+
     @GET("podcast")
     fun getPodcast(
         @Header("X-App-Key") publicKey: String,
         @Query("id") feedId: String? = null,
         @Query("url") feedUrl: String? = null,
         @Query("guid") feedGuid: String? = null,
-        @Query("itunesId") itunesId: String? = null
+        @Query("itunesId") itunesId: String? = null,
     ): retrofit2.Call<PodcastResponse>
-    
+
     @POST("sync")
     fun syncSubscriptions(
         @Header("X-App-Key") publicKey: String,
-        @Body request: SyncRequest
+        @Body request: SyncRequest,
     ): retrofit2.Call<SyncResponse>
 
     @POST("feedback")
     fun submitFeedback(
         @Header("X-App-Key") publicKey: String,
-        @Body request: FeedbackRequest
+        @Body request: FeedbackRequest,
     ): retrofit2.Call<FeedbackResponse>
 
     @GET("curated/vibe")
     fun getCuratedVibe(
         @Header("X-App-Key") publicKey: String,
         @Query("id") vibeId: String,
-        @Query("country") country: String? = null
+        @Query("country") country: String? = null,
     ): retrofit2.Call<TrendingResponse> // Reusing TrendingResponse structure (feeds list)
 
     @POST("recommendations")
     fun getPersonalizedRecommendations(
         @Header("X-App-Key") publicKey: String,
         @Header("X-Device-UUID") deviceUuid: String,
-        @Body request: RecommendationsRequest
+        @Body request: RecommendationsRequest,
     ): retrofit2.Call<EpisodesResponse>
 
     @POST("recommendations/v2")
@@ -170,16 +170,23 @@ interface BoxLoreApi {
         @Body request: ContentSectionsV1Request,
     ): ContentSectionsV1Response
 
+    @POST("home/candidates/v1")
+    suspend fun getHomeCandidatesV1(
+        @Header("X-App-Key") publicKey: String,
+        @Header("X-Device-UUID") deviceUuid: String,
+        @Body request: HomeCandidatesV1Request,
+    ): HomeCandidatesV1Response
+
     @POST("recommendations/because-you-like")
     fun getBecauseYouLikeRecommendations(
         @Header("X-App-Key") publicKey: String,
-        @Body request: BecauseYouLikeRequest
+        @Body request: BecauseYouLikeRequest,
     ): retrofit2.Call<BecauseYouLikeResponse>
 
     @POST("episodes/similar")
     fun getSimilarEpisodes(
         @Header("X-App-Key") publicKey: String,
-        @Body request: cx.aswin.boxlore.core.network.model.SimilarEpisodesRequest
+        @Body request: cx.aswin.boxlore.core.network.model.SimilarEpisodesRequest,
     ): retrofit2.Call<EpisodesResponse>
 
     @GET("podcast/meta")
@@ -188,7 +195,7 @@ interface BoxLoreApi {
         @Query("id") feedId: String? = null,
         @Query("url") feedUrl: String? = null,
         @Query("guid") feedGuid: String? = null,
-        @Query("itunesId") itunesId: String? = null
+        @Query("itunesId") itunesId: String? = null,
     ): retrofit2.Call<cx.aswin.boxlore.core.network.model.PodcastMetaResponse>
 
     @GET("api/transcript")
@@ -198,7 +205,7 @@ interface BoxLoreApi {
         @Query("episodeId") episodeId: String,
         @Query("audioUrl") audioUrl: String,
         @Query("transcriptUrl") transcriptUrl: String? = null,
-        @Query("checkOnly") checkOnly: Boolean? = null
+        @Query("checkOnly") checkOnly: Boolean? = null,
     ): retrofit2.Call<cx.aswin.boxlore.core.network.model.AutoTranscriptResponse>
 
     // --- AI ONBOARDING ---
@@ -206,43 +213,43 @@ interface BoxLoreApi {
     @POST("onboarding/next-turn")
     fun getOnboardingNextTurn(
         @Header("X-App-Key") publicKey: String,
-        @Body request: OnboardingNextTurnRequest
+        @Body request: OnboardingNextTurnRequest,
     ): retrofit2.Call<OnboardingNextTurnResponse>
 
     @POST("onboarding/synthesize")
     fun onboardingSynthesize(
         @Header("X-App-Key") publicKey: String,
-        @Body request: OnboardingNextTurnRequest
+        @Body request: OnboardingNextTurnRequest,
     ): retrofit2.Call<List<OnboardingQuery>>
 
     @POST("onboarding/curriculum")
     fun getOnboardingCurriculum(
         @Header("X-App-Key") publicKey: String,
-        @Body request: OnboardingCurriculumRequest
+        @Body request: OnboardingCurriculumRequest,
     ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
 
     @POST("onboarding/genre-synth")
     fun onboardingGenreSynth(
         @Header("X-App-Key") publicKey: String,
-        @Body request: OnboardingGenreSynthRequest
+        @Body request: OnboardingGenreSynthRequest,
     ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
 
     @POST("onboarding/similar-shows")
     fun getSimilarShows(
         @Header("X-App-Key") publicKey: String,
-        @Body request: OnboardingSimilarShowsRequest
+        @Body request: OnboardingSimilarShowsRequest,
     ): retrofit2.Call<List<OnboardingCurriculumRowDto>>
 
     @POST("home/bootstrap")
     fun getHomeBootstrap(
         @Header("X-App-Key") publicKey: String,
         @Header("X-Device-UUID") deviceUuid: String,
-        @Body request: BootstrapRequest
+        @Body request: BootstrapRequest,
     ): retrofit2.Call<BootstrapResponse>
 
     @GET("home/bootstrap")
     fun getHomeBootstrapGet(
         @Header("X-App-Key") publicKey: String,
-        @retrofit2.http.Query("country") country: String
+        @retrofit2.http.Query("country") country: String,
     ): retrofit2.Call<BootstrapResponse>
 }

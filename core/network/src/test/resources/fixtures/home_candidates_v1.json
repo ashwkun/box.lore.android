@@ -1,0 +1,68 @@
+{
+  "status": "true",
+  "contractVersion": 1,
+  "algorithmVersion": "home-candidates-v1.0",
+  "inventoryVersion": "sync-2026-07-21",
+  "catalogVersion": 3,
+  "requestId": "abc123def456",
+  "resolvedModules": ["taste", "because_you_like", "mission", "regional"],
+  "modules": {
+    "taste": [
+      {
+        "episodeId": "1001",
+        "podcastId": "2001",
+        "title": "Taste Episode",
+        "podcastTitle": "Taste Show",
+        "priorScore": 0.7,
+        "retrievalScore": 0.9,
+        "source": "seed_neighbors",
+        "reason": "adjacent",
+        "isNovel": true
+      }
+    ],
+    "becauseYouLike": [
+      {
+        "episodeId": "1002",
+        "podcastId": "2002",
+        "title": "BYL Episode",
+        "podcastTitle": "BYL Show",
+        "priorScore": 0.6,
+        "retrievalScore": 0.85,
+        "source": "anchor_neighbors",
+        "reason": "because_you_like",
+        "isNovel": true
+      }
+    ],
+    "mission": [
+      {
+        "episodeId": "1003",
+        "podcastId": "2003",
+        "title": "Mission Episode",
+        "podcastTitle": "Mission Show",
+        "priorScore": 0.4,
+        "retrievalScore": 0.7,
+        "source": "mission_fresh_drops",
+        "reason": "fresh_drops",
+        "isNovel": true
+      }
+    ],
+    "regional": [
+      {
+        "episodeId": "1004",
+        "podcastId": "2004",
+        "title": "Regional Episode",
+        "podcastTitle": "Regional Show",
+        "priorScore": 0.5,
+        "retrievalScore": 0.8,
+        "source": "region_popular",
+        "reason": "top_in_us",
+        "isNovel": false
+      }
+    ]
+  },
+  "calibratedPriors": {
+    "noveltyPreference": 0.4,
+    "seedCount": 3,
+    "seedVectorCount": 3
+  }
+}

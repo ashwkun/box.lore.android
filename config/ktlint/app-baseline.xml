@@ -11,13 +11,13 @@
         <error line="73" column="22" source="standard:multiline-expression-wrapping" />
         <error line="75" column="44" source="standard:trailing-comma-on-call-site" />
         <error line="96" column="86" source="standard:chain-method-continuation" />
-        <error line="125" column="64" source="standard:multiline-expression-wrapping" />
-        <error line="138" column="76" source="standard:chain-method-continuation" />
-        <error line="156" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="201" column="21" source="standard:chain-method-continuation" />
-        <error line="203" column="68" source="standard:chain-method-continuation" />
-        <error line="205" column="17" source="standard:chain-method-continuation" />
-        <error line="207" column="68" source="standard:chain-method-continuation" />
+        <error line="126" column="64" source="standard:multiline-expression-wrapping" />
+        <error line="139" column="76" source="standard:chain-method-continuation" />
+        <error line="157" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="228" column="21" source="standard:chain-method-continuation" />
+        <error line="230" column="68" source="standard:chain-method-continuation" />
+        <error line="232" column="17" source="standard:chain-method-continuation" />
+        <error line="234" column="68" source="standard:chain-method-continuation" />
     </file>
     <file name="src/main/java/cx/aswin/boxlore/LegacyWorkerFactory.kt">
         <error line="22" column="43" source="standard:trailing-comma-on-declaration-site" />

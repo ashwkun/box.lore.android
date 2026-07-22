@@ -9,6 +9,9 @@ Owns catalog orchestration: Podcast Index access through `PodcastRepository`, su
 - `PodcastRepository` coordinates Podcast Index calls, recommendation endpoints, content sections, and RSS delegation.
 - `SubscriptionRepository`, `ChapterRepository`, and `TranscriptRepository` expose catalog-adjacent data operations.
 - `content.ContentOrchestrator`, `GroupedContentSectionProvider`, `ContentContextEngine`, and related content contracts assemble personalized Home and discovery sections.
+- `home.HomePersonalizationCoordinator` retrieves `/home/candidates/v1` pools, applies ≥4h module caching via `PodcastRepository.getHomeCandidatesV1`, and allocates Taste / Because You Like / Mission with cross-section de-duplication. Mode, meaningful-play, and BYL anchor helpers live under `home/`.
+- `home.HomeSlateQualityLogic.compute` derives an **observational-only** quality aggregate (candidate coverage, duplicate rate, novelty share, fallback/cache/latency buckets) per slate load for the `home_slate_quality_snapshot` analytics event; catalog computes the bucketed value object (`:core:model`'s `HomeSlateQualityTelemetry`) but never calls `:core:analytics` itself — features track it.
+- `home.recommendationLanguagesForCountry(country)` maps a listener's region to an ordered language list for both `home/candidates/v1` and `recommendations/v2` requests, replacing hardcoded English-only language lists.
 - `backup.LibraryBackupManager` imports and exports library data, OPML, listening history, and ranking backup payloads.
 - `SharedAppDependencies` and `SharedAppDependenciesHolder` expose application-scoped instances to workers and services.
 - `InstallReferrerManager` parses Play Install Referrer deep links and exposes optional `onInstallReferrerResolved` (channel + raw referrer). `:app` wires that callback into analytics; catalog must not depend on `:core:analytics`.
@@ -38,12 +41,13 @@ src/main/java/cx/aswin/boxlore/core/catalog/
   InstallReferrerManager.kt
   backup/
   content/
+  home/
   crosspromo/
   ports/
   privacy/
 ```
 
-Main Kotlin files should remain below 1000 lines; extracted helpers keep repository mapping, network lookups, content cache, recommendations, and stream handling reviewable.
+Main Kotlin files should remain below 1000 lines; extracted helpers keep repository mapping, network lookups, content cache, recommendations, Home candidate coordination, and stream handling reviewable.
 
 ## Dependencies
 
@@ -61,6 +65,7 @@ Main Kotlin files should remain below 1000 lines; extracted helpers keep reposit
 
 - Main Room database identity is owned by `:core:database` and exposed through catalog APIs.
 - User preference and cache file names are owned by `:core:prefs` and catalog cache code.
+- In-process `PodcastRepository` caches include recommendations, Because You Like, and Home candidates (`≥4h` TTL for `home/candidates/v1`).
 - RSS podcast IDs and negative episode IDs are owned by `:core:rss`.
 - Backup JSON field names and backup version fields must remain restore-compatible.
 - Package root is `cx.aswin.boxlore.core.catalog`.
@@ -68,7 +73,7 @@ Main Kotlin files should remain below 1000 lines; extracted helpers keep reposit
 ## Testing notes
 
 - Unit tests live under `core/catalog/src/test`.
-- Existing coverage includes `PodcastRepositoryCatalogTest`, `InstallReferrerManager` channel derivation / attribution callback seams, content orchestration tests, content signal enrichment, grouped sections, recent section intent storage, cross-promotion detection, transcript behavior, and dependency-holder behavior.
+- Existing coverage includes `PodcastRepositoryCatalogTest`, `InstallReferrerManager` channel derivation / attribution callback seams, content orchestration tests, content signal enrichment, grouped sections, recent section intent storage, cross-promotion detection, transcript behavior, dependency-holder behavior, and Home personalization helpers (`HomeCandidatesRequestBuilderTest`, `HomePersonalizationLogicTest`, `HomeSlateQualityLogicTest`, `PodcastRepositoryRecommendationsLanguageTest`).
 - RSS ID and matcher tests live in `:core:rss`; smart-queue tests live in `:core:playback`.
 
 ```bash
@@ -86,6 +91,7 @@ Main Kotlin files should remain below 1000 lines; extracted helpers keep reposit
 
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
 - [`docs/TESTING.md`](../../docs/TESTING.md)
+- [`docs/recommendation-system.md`](../../docs/recommendation-system.md)
 - [`:core:rss` README](../rss/README.md)
 - [`:core:ranking` README](../ranking/README.md)
 - [`:core:prefs` README](../prefs/README.md)

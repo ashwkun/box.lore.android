@@ -130,6 +130,25 @@ class BoxcastPrefs(context: Context) {
         return isLearnerLogEnabled(default = true)
     }
 
+    // ── Home personalization rebuild ─────────────────────────────────────────
+
+    /**
+     * Destructive personalization reset (Home rebuild first-launch gate): drops the cached
+     * Taste / Because-You-Like slates so the next load re-fetches from
+     * [cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator] instead of painting a
+     * stale heuristic-era cache. Does not touch history, subscriptions, queue, or likes.
+     */
+    fun clearRecommendationCaches() {
+        prefs
+            .edit()
+            .remove(KEY_CACHED_RECOMMENDATIONS)
+            .remove(KEY_IS_RECOMMENDATIONS_FALLBACK)
+            .remove(KEY_CACHED_BYL_RECOMMENDATIONS)
+            .remove(KEY_CACHED_BYL_PODCASTS)
+            .remove(KEY_CACHED_BYL_PODCAST_ID)
+            .apply()
+    }
+
     companion object {
         /** Canonical SharedPreferences file name (migrated from `boxcast_prefs`). */
         const val PREFS_NAME = PrefsFileMigrator.Files.PREFS

@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,10 +26,12 @@ fun CuratedEpisodeCard(
     episode: Episode,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onFeedback: ((RecommendationFeedbackAction) -> Unit)? = null,
 ) {
     val isNew =
         episode.publishedDate > 0L &&
             (System.currentTimeMillis() / 1000L - episode.publishedDate) < 2 * 24 * 60 * 60L
+    var feedbackMenuExpanded by remember { mutableStateOf(false) }
 
     FeedMediaCard(
         imageUrl = (episode.imageUrl ?: "").ifEmpty { podcast.imageUrl },
@@ -33,6 +39,17 @@ fun CuratedEpisodeCard(
         subtitle = podcast.title,
         onClick = onClick,
         modifier = modifier,
+        onLongClick = onFeedback?.let { { feedbackMenuExpanded = true } },
+        onLongClickLabel = "More options for ${episode.title}",
+        feedbackMenu = {
+            if (onFeedback != null) {
+                RecommendationFeedbackMenu(
+                    expanded = feedbackMenuExpanded,
+                    onDismiss = { feedbackMenuExpanded = false },
+                    onAction = onFeedback,
+                )
+            }
+        },
         imageBadge = {
             if (isNew) {
                 Box(

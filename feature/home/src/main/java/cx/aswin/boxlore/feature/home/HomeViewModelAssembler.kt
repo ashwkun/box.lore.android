@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import cx.aswin.boxlore.core.downloads.DownloadRepository
 import cx.aswin.boxlore.core.catalog.EngagementPromptCoordinator
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator
 import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.catalog.PodcastRepository
 import cx.aswin.boxlore.core.rss.RssPodcastRepository
@@ -30,6 +31,7 @@ data class HomeViewModelDeps(
     val rankingFeedback: RankingFeedbackRepository,
     val localCatalog: LocalCatalogPort,
     val userPreferencesRepository: UserPreferencesRepository,
+    val homePersonalizationCoordinator: HomePersonalizationCoordinator,
     val connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
 )
 
@@ -52,6 +54,7 @@ object HomeViewModelAssembler {
             rankingFeedback = deps.rankingFeedback,
             localCatalog = deps.localCatalog,
             userPreferencesRepository = deps.userPreferencesRepository,
+            homePersonalizationCoordinator = deps.homePersonalizationCoordinator,
             connectivityStatus = deps.connectivityStatus,
         )
 

@@ -7,44 +7,44 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class OnboardingPart(
-    @SerialName("text") val text: String
+    @SerialName("text") val text: String,
 )
 
 @Serializable
 data class OnboardingHistoryEntry(
     @SerialName("role") val role: String, // "user" or "model"
-    @SerialName("parts") val parts: List<OnboardingPart>
+    @SerialName("parts") val parts: List<OnboardingPart>,
 )
 
 @Serializable
 data class OnboardingNextTurnRequest(
     @SerialName("history") val history: List<OnboardingHistoryEntry>,
-    @SerialName("maxTurns") val maxTurns: Int? = null
+    @SerialName("maxTurns") val maxTurns: Int? = null,
 )
 
 @Serializable
 data class OnboardingNextTurnResponse(
     @SerialName("assistantMessage") val assistantMessage: String,
     @SerialName("options") val options: List<String> = emptyList(),
-    @SerialName("searchSuggestion") val searchSuggestion: String? = null
+    @SerialName("searchSuggestion") val searchSuggestion: String? = null,
 )
 
 @Serializable
 data class OnboardingSynthesizeRequest(
-    @SerialName("history") val history: List<OnboardingHistoryEntry>
+    @SerialName("history") val history: List<OnboardingHistoryEntry>,
 )
 
 @Serializable
 data class OnboardingQuery(
     @SerialName("rowTitle") val rowTitle: String,
     @SerialName("searchQuery") val searchQuery: String,
-    @SerialName("popularSuggestions") val popularSuggestions: List<String> = emptyList()
+    @SerialName("popularSuggestions") val popularSuggestions: List<String> = emptyList(),
 )
 
 @Serializable
 data class OnboardingCurriculumRequest(
     @SerialName("queries") val queries: List<OnboardingQuery>,
-    @SerialName("country") val country: String? = null
+    @SerialName("country") val country: String? = null,
 )
 
 @Serializable
@@ -57,7 +57,7 @@ data class OnboardingCurriculumPodcastDto(
     @SerialName("artwork") val artwork: String? = null,
     @SerialName("language") val language: String? = null,
     @SerialName("categories") val categories: Map<String, String>? = null,
-    @SerialName("description") val description: String? = null
+    @SerialName("description") val description: String? = null,
 )
 
 @Serializable
@@ -71,28 +71,29 @@ data class OnboardingCurriculumEpisodeDto(
     @SerialName("feedImage") val feedImage: String? = null,
     @SerialName("feedId") val feedId: Long? = null,
     @SerialName("feedTitle") val feedTitle: String? = null,
-    @SerialName("description") val description: String? = null
+    @SerialName("description") val description: String? = null,
 )
 
 @Serializable
 data class OnboardingCurriculumRowDto(
     @SerialName("rowTitle") val rowTitle: String,
     @SerialName("podcasts") val podcasts: List<OnboardingCurriculumPodcastDto> = emptyList(),
-    @SerialName("episodes") val episodes: List<OnboardingCurriculumEpisodeDto> = emptyList()
+    @SerialName("episodes") val episodes: List<OnboardingCurriculumEpisodeDto> = emptyList(),
 )
 
 // Mapping extensions
 fun OnboardingCurriculumPodcastDto.toPodcast(): Podcast {
-    val cleanUrl = (this.artwork ?: this.image ?: "").let { url ->
-        if (url.startsWith("//")) "https:$url" else url
-    }
+    val cleanUrl =
+        (this.artwork ?: this.image ?: "").let { url ->
+            if (url.startsWith("//")) "https:$url" else url
+        }
     return Podcast(
         id = this.id.toString(),
         title = this.title,
         artist = this.author ?: "Unknown",
         imageUrl = cleanUrl,
         description = this.description,
-        genre = this.categories?.values?.firstOrNull() ?: "Podcast"
+        genre = this.categories?.values?.firstOrNull() ?: "Podcast",
     )
 }
 
@@ -109,7 +110,7 @@ fun OnboardingCurriculumEpisodeDto.toEpisode(): Episode {
         podcastTitle = this.feedTitle,
         podcastId = this.feedId?.toString(),
         duration = this.duration ?: 0,
-        publishedDate = this.datePublished ?: 0L
+        publishedDate = this.datePublished ?: 0L,
     )
 }
 
@@ -120,18 +121,17 @@ data class OnboardingGenreSynthRequest(
     @SerialName("activity") val activity: String,
     @SerialName("length") val length: String,
     @SerialName("country") val country: String? = null,
-    @SerialName("skipGemini") val skipGemini: Boolean = false
+    @SerialName("skipGemini") val skipGemini: Boolean = false,
 )
 
 @Serializable
 data class OnboardingSelectedShowDto(
     @SerialName("title") val title: String,
-    @SerialName("description") val description: String
+    @SerialName("description") val description: String,
 )
 
 @Serializable
 data class OnboardingSimilarShowsRequest(
     @SerialName("shows") val shows: List<OnboardingSelectedShowDto>,
-    @SerialName("country") val country: String? = null
+    @SerialName("country") val country: String? = null,
 )
-

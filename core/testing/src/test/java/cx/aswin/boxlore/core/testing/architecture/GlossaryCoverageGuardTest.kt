@@ -94,10 +94,11 @@ class GlossaryCoverageGuardTest {
         val text = file.readText()
         val phaseAUnionB = extractSetLiteral(text, "val PHASE_A_UNION_B")
         val phaseC = extractSetLiteral(text, "val PHASE_C")
+        val phaseD = extractSetLiteral(text, "val PHASE_D")
         require(phaseAUnionB.isNotEmpty() && phaseC.isNotEmpty()) {
             "Could not parse PHASE_A_UNION_B / PHASE_C from AnalyticsGlossary.kt"
         }
-        return phaseAUnionB + phaseC
+        return phaseAUnionB + phaseC + phaseD
     }
 
     private fun extractSetLiteral(

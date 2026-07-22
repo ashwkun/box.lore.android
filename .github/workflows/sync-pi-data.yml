@@ -62,11 +62,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: scripts/package-lock.json
 
+      # Key mirrors lib/config.js EMBED_MODEL (Xenova/bge-m3 - multilingual, not
+      # English-only) so a model change actually busts this cache instead of
+      # silently reusing stale weights under a mismatched name.
       - name: Cache embedding model
         uses: actions/cache@v6
         with:
           path: ./.cache
-          key: transformers-cache-bge-large-en-v1.5
+          key: transformers-cache-bge-m3
           restore-keys: |
             transformers-cache-
 

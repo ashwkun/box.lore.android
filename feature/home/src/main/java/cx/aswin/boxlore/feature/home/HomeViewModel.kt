@@ -13,6 +13,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.prefs.BoxcastPrefs
 import cx.aswin.boxlore.core.catalog.PodcastRepository
+import cx.aswin.boxlore.core.catalog.home.HomeDiscoveryMission
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationCoordinator
+import cx.aswin.boxlore.core.catalog.home.HomePersonalizationMode
 import cx.aswin.boxlore.core.catalog.content.AdaptiveContentCandidateRanker
 import cx.aswin.boxlore.core.catalog.content.ContentContextEngine
 import cx.aswin.boxlore.core.catalog.content.ContentOrchestrator
@@ -40,7 +43,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -49,7 +51,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-
 
 @Suppress("kotlin:S6310", "LongParameterList")
 class HomeViewModel(
@@ -65,6 +66,7 @@ class HomeViewModel(
     internal val rankingFeedback: RankingFeedbackRepository,
     internal val localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     internal val userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
+    internal val homePersonalizationCoordinator: HomePersonalizationCoordinator,
     internal val connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
 ) : AndroidViewModel(application) {
     val downloadedEpisodeIds: StateFlow<Set<String>> =
@@ -117,6 +119,24 @@ class HomeViewModel(
     internal val _isRecommendationsFallback = MutableStateFlow(true)
     internal val _adaptiveSections = MutableStateFlow<List<ContentSection>>(emptyList())
     internal val _isAdaptiveSectionsLoading = MutableStateFlow(true)
+
+    // --- Home personalization rebuild (Taste / BYL / greeting mission) ---
+    internal val _personalizationMode = MutableStateFlow(HomePersonalizationMode.REGIONAL)
+    internal val _activeMission = MutableStateFlow<HomeDiscoveryMission?>(null)
+    internal val _missionEpisodes = MutableStateFlow<List<Episode>>(emptyList())
+    internal val _locallyHiddenPodcastIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Bumped to force [observeHomePersonalization] to reallocate even when no other input changed. */
+    internal val _slateRevision = MutableStateFlow(0)
+
+    /** Episode id → exact ranking exposure token from the last slate load (see HomeViewModelSlate.kt). */
+    internal val episodeExposureIds = java.util.Collections.synchronizedMap(mutableMapOf<String, String>())
+    internal val exposureEntryPointBySurface =
+        mapOf(
+            "taste" to "home_taste",
+            "because_you_like" to "home_because_you_like",
+            "mission" to "home_mission",
+        )
 
     @Volatile
     internal var preferCachedAdaptiveSections: Boolean = false
@@ -254,6 +274,10 @@ class HomeViewModel(
     fun setOverriddenRecPodcast(podcastId: String?) {
         viewModelScope.launch {
             userPrefs.setOverriddenRecPodcastId(podcastId)
+            if (podcastId != null) {
+                // Deliberate manual pick — always wins over the automatic learner anchor.
+                rankingFeedback.recordManualAnchorSelected(podcastId)
+            }
         }
     }
 
@@ -322,27 +346,13 @@ class HomeViewModel(
         // Start oldest-sort serial episode resolution after a delay
         startOldestSortResolution()
 
-        // Observe overridden podcast ID and region, resolve favorite podcast, and fetch recommendations
+        // Home rebuild: taste / because-you-like / greeting mission all load together through
+        // HomePersonalizationCoordinator.loadSlate — see HomeViewModelSlate.kt.
+        observeHomePersonalization()
+
+        // Destructive personalization reset runs once, on the first launch of the rebuilt path.
         viewModelScope.launch {
-            combine(
-                userPrefs.overriddenRecPodcastIdStream,
-                userPrefs.regionStream,
-            ) { overriddenId, region ->
-                overriddenId to region
-            }.collectLatest { (overriddenId, region) ->
-                val activeSubs = subscriptionRepository.subscribedPodcasts.first()
-                val activeHistory = allHomeHistory.first()
-
-                val resolvedPodcast = resolveFavoritePodcast(overriddenId, activeSubs, activeHistory)
-                _seemsToLikePodcast.value = resolvedPodcast
-
-                if (resolvedPodcast != null) {
-                    fetchBecauseYouLikeRecommendations(resolvedPodcast, region)
-                } else {
-                    _becauseYouLikeRecommendations.value = emptyList()
-                    _becauseYouLikePodcasts.value = emptyList()
-                }
-            }
+            runFirstLaunchPersonalizationResetIfNeeded()
         }
     }
 
@@ -502,13 +512,17 @@ class HomeViewModel(
             ) {
                 playbackRepository.togglePlayPause()
             } else {
-                playbackRepository.playQueue(listOf(episode), podcast, 0, entryPoint)
+                val sourceContext = buildExposureSourceContext(episode.id, entryPoint)
+                playbackRepository.playQueue(
+                    episodes = listOf(episode),
+                    podcast = podcast,
+                    startIndex = 0,
+                    entryPoint = entryPoint,
+                    sourceContext = sourceContext,
+                )
             }
         }
     }
-
-
-
 
     init {
         observeSelectedPodcast()
@@ -532,16 +546,6 @@ class HomeViewModel(
                 }
         }
     }
-
-
-
-
-
-
-
-
-
-
 
     fun setRegion(region: String) {
         viewModelScope.launch {
@@ -756,4 +760,3 @@ class HomeViewModel(
         super.onCleared()
     }
 }
-

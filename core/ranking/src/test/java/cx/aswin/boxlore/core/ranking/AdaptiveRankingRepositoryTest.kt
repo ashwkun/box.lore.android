@@ -475,4 +475,112 @@ class AdaptiveRankingRepositoryTest {
                 likedScore.finalScore > otherScore.finalScore,
             )
         }
+
+    @Test
+    fun exactTokenResolveIgnoresNewerUnresolvedSibling() =
+        runTest {
+            val older =
+                repository.recordExposure(
+                    exposure(episodeId = "ep-token", podcastId = "pod-a", shownAt = 1_000L),
+                )
+            repository.recordExposure(
+                exposure(episodeId = "ep-token", podcastId = "pod-b", shownAt = 2_000L),
+            )
+
+            assertTrue(repository.resolveExposure(older, reward = 0.8, listenSeconds = 90))
+            val rows = database.adaptiveRankingDao().getAllExposures()
+            val resolved = rows.single { it.exposureId == older }
+            assertEquals(0.8, resolved.reward!!, 1e-9)
+            assertTrue(rows.any { it.exposureId != older && it.resolvedAt == null })
+        }
+
+    @Test
+    fun outcomeLedgerAccumulatesThenFinalizesOnce() =
+        runTest {
+            val id = repository.recordExposure(exposure(episodeId = "ep-ledger"))
+            repository.recordOutcome(
+                exposureId = id,
+                episodeId = "ep-ledger",
+                podcastId = "pod-1",
+                action = RankingAction.MEANINGFUL_PLAY,
+                reward = 0.3,
+                listenSeconds = 90,
+            )
+            repository.recordOutcome(
+                exposureId = id,
+                episodeId = "ep-ledger",
+                podcastId = "pod-1",
+                action = RankingAction.LIKE,
+                reward = 0.4,
+                listenSeconds = 120,
+            )
+            assertTrue(repository.finalizeExposureOutcomes(id, fallbackReward = 0.1, listenSeconds = 120))
+            assertFalse(repository.finalizeExposureOutcomes(id, fallbackReward = 0.9, listenSeconds = 120))
+            val exposure = database.adaptiveRankingDao().getExposure(id)!!
+            assertEquals(0.7, exposure.reward!!, 1e-9)
+        }
+
+    @Test
+    fun hardShowExclusionPersistsAndExports() =
+        runTest {
+            repository.addHardShowExclusion("pod-hide", reason = "hide_show")
+            assertTrue(repository.isHardExcluded("pod-hide"))
+            assertTrue("pod-hide" in repository.hardExcludedPodcastIds())
+
+            val backup = repository.exportBackup()
+            assertEquals(2, backup.version)
+            assertEquals(1, backup.hardExclusions!!.size)
+            repository.reset()
+            assertFalse(repository.isHardExcluded("pod-hide"))
+            repository.restoreBackup(backup)
+            assertTrue(repository.isHardExcluded("pod-hide"))
+        }
+
+    @Test
+    fun facetConfidenceRequiresEvidence() =
+        runTest {
+            val empty = repository.facetConfidence(PreferenceFacetType.SHOW, "pod-new")
+            assertEquals(0.0, empty.affinity, 0.0)
+            assertEquals(0.0, empty.evidence, 0.0)
+
+            repository.updateFacet(PreferenceFacetType.SHOW, "pod-new", reward = 1.0, now = 1_000L)
+            val learned = repository.facetConfidence(PreferenceFacetType.SHOW, "pod-new", now = 1_000L)
+            assertTrue(learned.affinity > 0.0)
+            assertTrue(learned.evidence > 0.0)
+        }
+
+    @Test
+    fun exposureResolutionDiagnosticsReportsPendingAndUnmatchedRates() =
+        runTest {
+            val resolvedId = repository.recordExposure(exposure(episodeId = "ep-resolved", shownAt = 1_000L))
+            repository.recordExposure(exposure(episodeId = "ep-pending", shownAt = 2_000L))
+            repository.resolveExposure(resolvedId, reward = 0.5, listenSeconds = 60, resolvedAt = 3_000L)
+            // Episode-latest fallback path: no exposure token to attach this outcome to.
+            repository.recordOutcome(
+                exposureId = null,
+                episodeId = "ep-unmatched",
+                podcastId = "pod-1",
+                action = RankingAction.MEANINGFUL_PLAY,
+                reward = 0.2,
+            )
+
+            val diagnostics = repository.exposureResolutionDiagnostics(RankingSurface.HOME, now = 9_000L)
+            assertEquals("HOME", diagnostics.surface)
+            assertEquals(2, diagnostics.totalExposures)
+            assertEquals(50, diagnostics.resolutionRatePercent)
+            assertEquals(1, diagnostics.pendingExposureCount)
+            assertEquals("under_1h", diagnostics.oldestPendingAgeBucket)
+            assertEquals(100, diagnostics.unmatchedOutcomeRatePercent)
+        }
+
+    @Test
+    fun exposureResolutionDiagnosticsForOtherSurfaceIsUnaffected() =
+        runTest {
+            repository.recordExposure(exposure(episodeId = "ep-home", shownAt = 1_000L))
+
+            val diagnostics = repository.exposureResolutionDiagnostics(RankingSurface.EXPLORE, now = 9_000L)
+            assertEquals(0, diagnostics.totalExposures)
+            assertEquals(100, diagnostics.resolutionRatePercent)
+            assertEquals("none_pending", diagnostics.oldestPendingAgeBucket)
+        }
 }

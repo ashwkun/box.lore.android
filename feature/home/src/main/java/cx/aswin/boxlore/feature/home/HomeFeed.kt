@@ -49,6 +49,10 @@ internal data class PodcastFeedRecommendationState(
     val isRecommendationsLoading: Boolean = true,
     val isRecommendationsFallback: Boolean = true,
     val onChangePodcastClick: () -> Unit = {},
+    val tasteSectionTitle: String = "",
+    val tasteSectionSubtitle: String = "",
+    val activeMission: cx.aswin.boxlore.core.catalog.home.HomeDiscoveryMission? = null,
+    val missionEpisodes: StableEpisodeList = StableEpisodeList(emptyList()),
 )
 
 @androidx.compose.runtime.Stable
@@ -98,6 +102,7 @@ internal fun PodcastFeed(
         dailyBriefingItem(feedState, playback, callbacks, context)
         curatedForYouItems(content, feedState, recommendationState, playback, callbacks, derivedState)
         discoveryGreetingItem(feedState, callbacks)
+        missionRailItems(recommendationState, callbacks)
         adaptiveFeedItems(content, layout, loadingState, callbacks)
         discoverFeedItems(feedState, derivedState, callbacks)
     }
