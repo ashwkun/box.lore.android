@@ -47,10 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import cx.aswin.boxlore.core.catalog.content.ContentSection
 import cx.aswin.boxlore.core.designsystem.theme.expressiveClickable
-import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
-import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.EpisodeStatus
 import cx.aswin.boxlore.core.model.Podcast
@@ -76,8 +73,8 @@ data class StableEpisodeList(
 )
 
 @androidx.compose.runtime.Stable
-data class StableContentSectionList(
-    val list: List<ContentSection>,
+data class StableEditorialRowList(
+    val list: List<HomeEditorialRow>,
 )
 
 @androidx.compose.runtime.Stable
@@ -109,7 +106,6 @@ data class HomeFeedCallbacks(
     val onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     val onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     val onEpisodeClick: ((Episode, Podcast, String?) -> Unit)?,
-    val onAdaptiveSectionVisible: (ContentSection, Set<String>) -> Unit,
     val onPlayClick: ((Podcast, android.os.Bundle?) -> Unit)?,
     val onNavigateToLibrary: (() -> Unit)?,
     val onNavigateToExplore: ((String?, String, String?) -> Unit)?,
@@ -153,12 +149,9 @@ fun HomeRoute(
     subscriptionRepository: cx.aswin.boxlore.core.catalog.SubscriptionRepository,
     downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
     rssPodcastRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
-    adaptiveRankingRepository: cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository,
     adaptiveCandidateScorer: cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer,
-    rankingFeedbackRepository: cx.aswin.boxlore.core.ranking.RankingFeedbackRepository,
     localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
-    connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
     onPodcastClick: (Podcast, String, String?, Int?) -> Unit,
     onHeroArrowClick: (SmartHeroItem, Int) -> Unit,
     onEpisodeClick: ((Episode, Podcast, String?) -> Unit)? = null, // Navigate to EpisodeInfo
@@ -190,12 +183,9 @@ fun HomeRoute(
                             subscriptionRepository = subscriptionRepository,
                             downloadRepository = downloadRepository,
                             rssRepository = rssPodcastRepository,
-                            adaptiveRankingRepository = adaptiveRankingRepository,
                             adaptiveScorer = adaptiveCandidateScorer,
-                            rankingFeedback = rankingFeedbackRepository,
                             localCatalog = localCatalog,
                             userPreferencesRepository = userPreferencesRepository,
-                            connectivityStatus = connectivityStatus,
                         ),
                 ),
         )
@@ -268,7 +258,6 @@ fun HomeRoute(
                         },
                         onHeroArrowClick = onHeroArrowClick,
                         onEpisodeClick = onEpisodeClick,
-                        onAdaptiveSectionVisible = viewModel::trackAdaptiveSectionVisible,
                         onPlayClick = onPlayClick,
                         onNavigateToLibrary = onNavigateToLibrary,
                         onNavigateToExplore = onNavigateToExplore,
@@ -365,7 +354,7 @@ private fun HomeScreenFeedContent(
                 heroItems = StableHeroList(uiState.heroItems),
                 latestItems = StablePodcastList(uiState.latestEpisodes),
                 subscribedItems = StablePodcastList(uiState.subscribedPodcasts),
-                adaptiveSections = StableContentSectionList(uiState.adaptiveSections),
+                editorialRows = StableEditorialRowList(uiState.editorialRows),
                 gridItems = StablePodcastList(uiState.discoverPodcasts),
                 recommendations = StableEpisodeList(uiState.recommendations),
                 selectedPodcastEpisodes = StableEpisodeList(uiState.selectedPodcastEpisodes),
@@ -390,7 +379,7 @@ private fun HomeScreenFeedContent(
             ),
         loadingState =
             PodcastFeedLoadingState(
-                isAdaptiveSectionsLoading = uiState.isAdaptiveSectionsLoading,
+                isEditorialRowsLoading = uiState.isEditorialRowsLoading,
                 isFilterLoading = uiState.isFilterLoading,
                 isSelectedPodcastLoading = uiState.isSelectedPodcastLoading,
                 isSelectedRssRefreshing = uiState.isSelectedRssRefreshing,

@@ -1,7 +1,6 @@
 package cx.aswin.boxlore.feature.home
 
 import cx.aswin.boxlore.core.catalog.content.ContentDaypart
-import cx.aswin.boxlore.core.catalog.content.ContentSection
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
@@ -33,7 +32,8 @@ data class HomeDataWrapper(
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
     val isBecauseYouLikeLoading: Boolean = false,
     val isRecommendationsFallback: Boolean = true,
-    val adaptiveSections: List<ContentSection> = emptyList(),
+    val editorialRows: List<HomeEditorialRow> = emptyList(),
+    val isEditorialRowsLoading: Boolean = true,
 )
 
 internal data class HomeCoreSlice(
@@ -67,20 +67,7 @@ internal data class HomeBecauseYouLikeSlice(
     val isRecommendationsFallback: Boolean,
 )
 
-internal data class AdaptiveContentTrigger(
-    val region: String,
-    val daypart: ContentDaypart,
-    val sectionDaypart: String,
-    val date: java.time.LocalDate,
-    val timezoneOffsetMinutes: Int,
-    val subscriptionIds: Set<String>,
-    /** Coarse bucket so per-episode history writes do not cancel in-flight section loads. */
-    val historyMaturityBucket: Int,
-)
-
 internal data class HomeClockContext(
     val daypart: ContentDaypart,
-    val sectionDaypart: String,
     val date: java.time.LocalDate,
-    val timezoneOffsetMinutes: Int,
 )

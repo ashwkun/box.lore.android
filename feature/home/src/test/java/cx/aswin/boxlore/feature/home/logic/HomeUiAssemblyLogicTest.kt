@@ -48,7 +48,7 @@ class HomeUiAssemblyLogicTest {
             resolvedSerial = emptyMap(),
             completedEpisodeIds = completedEpisodeIds,
             region = "us",
-            adaptiveSections = emptyList(),
+            editorialRows = emptyList(),
             previousStableOrder = null,
             podcastScores = emptyMap(),
             previousMixtape = previousMixtape,

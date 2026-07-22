@@ -57,7 +57,7 @@ class AppContainer(
     DownloadsDependencies {
     private val appContext = context.applicationContext
 
-    /** Process-scoped online/offline for Home adaptive content + NavHost. */
+    /** Process-scoped online/offline for NavHost offline UX. */
     val connectivityObserver: AndroidConnectivityObserver =
         AndroidConnectivityObserver(appContext).also { it.start() }
 

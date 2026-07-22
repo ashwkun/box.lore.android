@@ -19,6 +19,8 @@ The application module owns the Android app shell: `BoxLoreApplication`, `MainAc
 - `MainActivity` hosts theme, edge-to-edge setup, app update hooks, surveys, OPML import state, bottom navigation, and the player overlay.
 - `BoxLoreNavHost` owns app route registration and delegates screen bodies to feature modules.
 - Tab destinations in `NavGraphTabDestinations` wire Home / Explore / Learn / Library / player entry points to feature screens.
+- Home receives the shared catalog and ranking instances it actively uses; endpoint-backed
+  editorial rows are loaded inside `:feature:home` through that catalog instance.
 
 ## Internal structure
 

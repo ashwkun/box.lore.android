@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Single process-scoped connectivity observer (INTERNET capability).
- * Shared by [HomeViewModel] adaptive sections and NavHost offline UX.
+ * Shared by NavHost offline UX.
  */
 class AndroidConnectivityObserver(
     context: Context,

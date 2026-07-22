@@ -1,14 +1,10 @@
 package cx.aswin.boxlore.feature.home.logic
 
-import cx.aswin.boxlore.core.catalog.content.ContentCandidate
-import cx.aswin.boxlore.core.catalog.content.ContentIntent
-import cx.aswin.boxlore.core.catalog.content.ContentLayout
-import cx.aswin.boxlore.core.catalog.content.ContentSection
-import cx.aswin.boxlore.core.ranking.CandidateSource
-import cx.aswin.boxlore.core.ranking.RankingObjective
-import cx.aswin.boxlore.core.ranking.RankingSurface
+import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.core.testing.TestFixtures
 import cx.aswin.boxlore.feature.home.HeroType
+import cx.aswin.boxlore.feature.home.HomeEditorialIcon
+import cx.aswin.boxlore.feature.home.HomeEditorialRow
 import cx.aswin.boxlore.feature.home.SmartHeroItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -16,31 +12,22 @@ import org.junit.jupiter.api.Test
 
 class HomeDiscoveryLogicTest {
     @Test
-    fun `adaptive history maturity bucket maps count thresholds`() {
-        assertEquals(0, adaptiveHistoryMaturityBucket(0))
-        assertEquals(1, adaptiveHistoryMaturityBucket(4))
-        assertEquals(2, adaptiveHistoryMaturityBucket(14))
-        assertEquals(3, adaptiveHistoryMaturityBucket(29))
-        assertEquals(4, adaptiveHistoryMaturityBucket(30))
-    }
-
-    @Test
     fun `discover podcasts excluding returns null when trending is empty`() {
         assertNull(
             discoverPodcastsExcluding(
                 trending = emptyList(),
                 heroItems = emptyList(),
-                adaptiveSections = emptyList(),
+                editorialRows = emptyList(),
             ),
         )
     }
 
     @Test
-    fun `discover podcasts excluding filters hero and adaptive section podcasts`() {
+    fun `discover podcasts excluding filters hero and editorial row podcasts`() {
         val trending =
             listOf(
                 TestFixtures.podcast(id = "hero", title = "Hero"),
-                TestFixtures.podcast(id = "adaptive", title = "Adaptive"),
+                TestFixtures.podcast(id = "editorial", title = "Editorial"),
                 TestFixtures.podcast(id = "free", title = "Free"),
             )
         val heroItems =
@@ -51,19 +38,12 @@ class HomeDiscoveryLogicTest {
                     label = "Hero",
                 ),
             )
-        val adaptiveSections =
-            listOf(
-                contentSection(
-                    podcastId = "adaptive",
-                    sectionId = "section-1",
-                ),
-            )
 
         val result =
             discoverPodcastsExcluding(
                 trending = trending,
                 heroItems = heroItems,
-                adaptiveSections = adaptiveSections,
+                editorialRows = listOf(editorialRow(trending[1])),
             )
 
         assertEquals(listOf("free"), result?.map { it.id })
@@ -74,7 +54,7 @@ class HomeDiscoveryLogicTest {
         val trending =
             listOf(
                 TestFixtures.podcast(id = "hero", title = "Hero"),
-                TestFixtures.podcast(id = "adaptive", title = "Adaptive"),
+                TestFixtures.podcast(id = "editorial", title = "Editorial"),
             )
         val heroItems =
             listOf(
@@ -84,51 +64,23 @@ class HomeDiscoveryLogicTest {
                     label = "Hero",
                 ),
             )
-        val adaptiveSections =
-            listOf(
-                contentSection(
-                    podcastId = "adaptive",
-                    sectionId = "section-1",
-                ),
-            )
 
         val result =
             discoverPodcastsExcluding(
                 trending = trending,
                 heroItems = heroItems,
-                adaptiveSections = adaptiveSections,
+                editorialRows = listOf(editorialRow(trending[1])),
             )
 
         assertEquals(emptyList<String>(), result?.map { it.id })
     }
 
-    private fun contentSection(
-        podcastId: String,
-        sectionId: String,
-    ): ContentSection {
-        val podcast = TestFixtures.podcast(id = podcastId)
-        return ContentSection(
-            stableId = sectionId,
-            intent =
-                ContentIntent(
-                    id = sectionId,
-                    objective = RankingObjective.DISCOVERY,
-                    eligibleSurfaces = setOf(RankingSurface.HOME),
-                    title = "Section",
-                    layout = ContentLayout.PODCAST_RAIL,
-                ),
-            items =
-                listOf(
-                    ContentCandidate(
-                        id = "candidate-$podcastId",
-                        episode = null,
-                        podcast = podcast,
-                        source = CandidateSource.TRENDING,
-                        intentId = sectionId,
-                        retrievalScore = 1.0,
-                    ),
-                ),
-            utility = 1.0,
+    private fun editorialRow(podcast: Podcast): HomeEditorialRow =
+        HomeEditorialRow(
+            providerId = "science_explainer",
+            title = "Worth knowing",
+            subtitle = "Clear answers",
+            icon = HomeEditorialIcon.SCIENCE,
+            podcasts = listOf(podcast),
         )
-    }
 }

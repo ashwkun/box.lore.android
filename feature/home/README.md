@@ -7,6 +7,9 @@ Owns Home feed presentation, Settings screens, RSS-add UI, and local debug surfa
 ## Public API
 
 - `HomeRoute`, `HomeScreen`, `HomeFeed`, `HomeViewModel`, and `HomeViewModelAssembler` for the Home route.
+- The discovery area below the daypart greeting presents three editorial rows from the
+  catalog’s existing curated provider endpoint. Provider IDs remain internal; listener copy
+  uses concise editorial titles and never exposes backend terminology.
 - `settings.SettingsScreen`, `SettingsViewModel`, and `SettingsViewModelAssembler` for Settings.
 - `DebugScreen` and `DebugViewModel` for local learner and runtime diagnostics.
 - Extracted Home UI pieces such as `LibrarySectionRows`, `LibrarySection`, and section/card components.
@@ -20,11 +23,11 @@ src/main/java/cx/aswin/boxlore/feature/home/
   HomeScreen.kt
   HomeViewModel.kt
   HomeViewModelAssembler.kt
-  HomeViewModelAdaptive.kt
   HomeViewModelBecauseYouLike.kt
   HomeViewModelLoadData.kt
   HomeViewModelSelected.kt
   HomeViewModelSerial.kt
+  HomeFeedEditorialRows.kt
   HomeDataModels.kt
   HomeUiModels.kt
   DebugScreen.kt
@@ -36,6 +39,7 @@ src/main/java/cx/aswin/boxlore/feature/home/
     LibrarySectionRows.kt
     ...
   logic/
+    HomeEditorialRowsLogic.kt
   settings/
     SettingsScreen.kt
     SettingsViewModel.kt
@@ -58,6 +62,8 @@ Main Kotlin files should remain below 1000 lines; extracted Home feed, ViewModel
 - ViewModels are scoped by app navigation or Activity owners.
 - Repositories, ports, playback, downloads, prefs, and ranking dependencies are application-scoped instances supplied by app wiring.
 - Home surfaces emit glossary analytics through `:core:analytics` (no PostHog direct in the feature).
+- Daypart or region changes cancel the previous editorial-row load before painting the new
+  greeting’s results. Editorial rows load independently from personalized recommendations.
 - UI state is exposed through flows and collected by Compose on the main thread.
 - Network and database operations run through injected suspend APIs.
 
@@ -71,7 +77,8 @@ Main Kotlin files should remain below 1000 lines; extracted Home feed, ViewModel
 ## Testing notes
 
 - Unit tests live under `feature/home/src/test`.
-- Existing coverage includes Settings ViewModel tests, connectivity dependency coverage, Home listening-history formatting, discovery greeting, and pure Home logic helpers.
+- Existing coverage includes Settings ViewModel tests, Home listening-history formatting,
+  discovery greeting, editorial-row selection and de-duplication, and pure Home logic helpers.
 - Roborazzi goldens for settings dialogs are verified in merge CI (`:feature:home:verifyRoborazziDebug`).
 
 ```bash

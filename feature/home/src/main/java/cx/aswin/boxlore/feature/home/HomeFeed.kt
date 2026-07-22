@@ -25,7 +25,7 @@ internal data class PodcastFeedContent(
     val heroItems: StableHeroList,
     val latestItems: StablePodcastList,
     val subscribedItems: StablePodcastList,
-    val adaptiveSections: StableContentSectionList,
+    val editorialRows: StableEditorialRowList,
     val gridItems: StablePodcastList,
     val recommendations: StableEpisodeList,
     val selectedPodcastEpisodes: StableEpisodeList,
@@ -53,7 +53,7 @@ internal data class PodcastFeedRecommendationState(
 
 @androidx.compose.runtime.Stable
 internal data class PodcastFeedLoadingState(
-    val isAdaptiveSectionsLoading: Boolean = false,
+    val isEditorialRowsLoading: Boolean = false,
     val isFilterLoading: Boolean,
     val isSelectedPodcastLoading: Boolean = false,
     val isSelectedRssRefreshing: Boolean = false,
@@ -98,7 +98,7 @@ internal fun PodcastFeed(
         dailyBriefingItem(feedState, playback, callbacks, context)
         curatedForYouItems(content, feedState, recommendationState, playback, callbacks, derivedState)
         discoveryGreetingItem(feedState, callbacks)
-        adaptiveFeedItems(content, layout, loadingState, callbacks)
+        editorialFeedItems(content, loadingState, callbacks)
         discoverFeedItems(feedState, derivedState, callbacks)
     }
 }

@@ -13,19 +13,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cx.aswin.boxlore.core.prefs.BoxcastPrefs
 import cx.aswin.boxlore.core.catalog.PodcastRepository
-import cx.aswin.boxlore.core.catalog.content.AdaptiveContentCandidateRanker
 import cx.aswin.boxlore.core.catalog.content.ContentContextEngine
-import cx.aswin.boxlore.core.catalog.content.ContentOrchestrator
-import cx.aswin.boxlore.core.catalog.content.ContentSection
-import cx.aswin.boxlore.core.catalog.content.ContentSectionsDaypartResolver
-import cx.aswin.boxlore.core.catalog.content.RecentSectionIntentStore
-import cx.aswin.boxlore.core.catalog.content.ServerGroupedSectionProvider
-import cx.aswin.boxlore.core.catalog.content.ServerIntentCandidateProvider
 import cx.aswin.boxlore.core.ranking.AdaptiveCandidateScorer
-import cx.aswin.boxlore.core.ranking.AdaptiveRankingRepository
-import cx.aswin.boxlore.core.ranking.RankingFeedbackRepository
-import cx.aswin.boxlore.core.domain.ports.AlwaysOnlineConnectivity
-import cx.aswin.boxlore.core.domain.ports.ConnectivityStatusPort
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.Podcast
@@ -60,12 +49,9 @@ class HomeViewModel(
     internal val subscriptionRepository: cx.aswin.boxlore.core.catalog.SubscriptionRepository,
     internal val downloadRepository: cx.aswin.boxlore.core.downloads.DownloadRepository,
     internal val rssRepository: cx.aswin.boxlore.core.rss.RssPodcastRepository,
-    internal val adaptiveRankingRepository: AdaptiveRankingRepository,
     internal val adaptiveScorer: AdaptiveCandidateScorer,
-    internal val rankingFeedback: RankingFeedbackRepository,
     internal val localCatalog: cx.aswin.boxlore.core.domain.ports.LocalCatalogPort,
     internal val userPreferencesRepository: cx.aswin.boxlore.core.prefs.UserPreferencesRepository,
-    internal val connectivityStatus: ConnectivityStatusPort = AlwaysOnlineConnectivity,
 ) : AndroidViewModel(application) {
     val downloadedEpisodeIds: StateFlow<Set<String>> =
         downloadRepository.downloads
@@ -115,29 +101,17 @@ class HomeViewModel(
     internal val _becauseYouLikePodcasts = MutableStateFlow<List<Podcast>>(emptyList())
     internal val _isBecauseYouLikeLoading = MutableStateFlow(false)
     internal val _isRecommendationsFallback = MutableStateFlow(true)
-    internal val _adaptiveSections = MutableStateFlow<List<ContentSection>>(emptyList())
-    internal val _isAdaptiveSectionsLoading = MutableStateFlow(true)
+    internal val _editorialRows = MutableStateFlow<List<HomeEditorialRow>>(emptyList())
+    internal val _isEditorialRowsLoading = MutableStateFlow(true)
 
-    @Volatile
-    internal var preferCachedAdaptiveSections: Boolean = false
-    internal val adaptiveContentSessionId =
-        java.util.UUID
-            .randomUUID()
-            .toString()
-    internal val exposedAdaptiveCandidates = mutableSetOf<String>()
-    internal val exposedAdaptiveSectionIntents = mutableSetOf<String>()
-    internal val recentSectionIntentStore = RecentSectionIntentStore(application)
     internal val contentContextEngine = ContentContextEngine()
     internal val clockContextFlow: StateFlow<HomeClockContext> =
         callbackFlow {
             fun currentClockContext(): HomeClockContext {
                 val now = java.time.ZonedDateTime.now()
-                val localMinuteOfDay = now.toLocalTime().let { it.hour * 60 + it.minute }
                 return HomeClockContext(
                     daypart = contentContextEngine.currentDaypart(),
-                    sectionDaypart = ContentSectionsDaypartResolver.resolve(localMinuteOfDay),
                     date = now.toLocalDate(),
-                    timezoneOffsetMinutes = now.offset.totalSeconds / 60,
                 )
             }
             val receiver =
@@ -170,32 +144,14 @@ class HomeViewModel(
                 started = SharingStarted.Eagerly,
                 initialValue =
                     java.time.ZonedDateTime.now().let { now ->
-                        val time = now.toLocalTime()
                         HomeClockContext(
                             daypart = contentContextEngine.currentDaypart(),
-                            sectionDaypart = ContentSectionsDaypartResolver.resolve(time.hour * 60 + time.minute),
                             date = now.toLocalDate(),
-                            timezoneOffsetMinutes = now.offset.totalSeconds / 60,
                         )
                     },
             )
     internal val userPrefs = userPreferencesRepository
     internal val boxcastPrefs = BoxcastPrefs(application)
-    internal val contentOrchestrator =
-        ContentOrchestrator(
-            providers =
-                listOf(
-                    ServerIntentCandidateProvider(podcastRepository),
-                ),
-            groupedProviders =
-                listOf(
-                    ServerGroupedSectionProvider { loadPersonalizedDiscoverySections(it) },
-                ),
-            ranker =
-                AdaptiveContentCandidateRanker(adaptiveScorer) {
-                    playbackRepository.getAllHistory().first()
-                },
-        )
 
     internal val allHomeHistory: Flow<List<HomeListeningHistoryItem>> =
         playbackRepository
@@ -515,7 +471,6 @@ class HomeViewModel(
         manageFilterSelectionOnSubscriptionChange()
         observeDiscoveryGreeting()
         loadData()
-        loadAdaptiveContent()
         startBackgroundSync()
         eagerlyLoadNewSubscriptions()
     }
@@ -559,10 +514,9 @@ class HomeViewModel(
         viewModelScope.launch {
             val state = _uiState.value
             val podcast =
-                state.adaptiveSections
+                state.editorialRows
                     .asSequence()
-                    .flatMap { it.items.asSequence() }
-                    .map { it.podcast }
+                    .flatMap { it.podcasts.asSequence() }
                     .firstOrNull { it.id == podcastId }
                     ?: state.discoverPodcasts.find { it.id == podcastId }
                     ?: state.heroItems.find { it.podcast.id == podcastId }?.podcast

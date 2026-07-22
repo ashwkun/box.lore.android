@@ -14,9 +14,12 @@ import cx.aswin.boxlore.core.ranking.RankingSurface
 import cx.aswin.boxlore.core.database.toScorable
 import cx.aswin.boxlore.core.model.Podcast
 import cx.aswin.boxlore.feature.home.logic.HomeMixtapeCache
+import cx.aswin.boxlore.feature.home.logic.buildHomeEditorialRows
+import cx.aswin.boxlore.feature.home.logic.editorialRowDefinitionsFor
 import cx.aswin.boxlore.feature.home.logic.HomeUiAssemblyLogic
 import cx.aswin.boxlore.feature.home.logic.discoverPodcastsExcluding
 import cx.aswin.boxlore.feature.home.logic.toRecommendationPodcast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,6 +109,37 @@ internal fun HomeViewModel.loadData() {
                 activeRegion = region
 
                 val trendingState = MutableStateFlow<List<Podcast>>(emptyList())
+
+                // Curated editorial rows are independent from recommendations so a slow
+                // personalization request never leaves the greeting section empty.
+                _editorialRows.value = emptyList()
+                _isEditorialRowsLoading.value = true
+                launch {
+                    try {
+                        val definitions = editorialRowDefinitionsFor(daypart)
+                        val podcastsByProvider =
+                            podcastRepository.getCuratedVibes(
+                                vibeIds = definitions.map { it.providerId },
+                                country = region,
+                            )
+                        _editorialRows.value =
+                            buildHomeEditorialRows(
+                                daypart = daypart,
+                                podcastsByProvider = podcastsByProvider,
+                            )
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        android.util.Log.w(
+                            "HomeViewModel",
+                            "Curated Home rows failed for region=$region and daypart=$daypart",
+                            error,
+                        )
+                        _editorialRows.value = emptyList()
+                    } finally {
+                        _isEditorialRowsLoading.value = false
+                    }
+                }
 
                 // 1. Fast Bootstrap Call (Briefing & Trending)
                 val fastJob =
@@ -259,9 +293,13 @@ internal fun HomeViewModel.loadData() {
                             isRecommendationsFallback = becauseYouLike.isRecommendationsFallback,
                         )
                     },
-                    _adaptiveSections,
-                ) { wrapper, adaptiveSections ->
-                    wrapper.copy(adaptiveSections = adaptiveSections)
+                    _editorialRows,
+                    _isEditorialRowsLoading,
+                ) { wrapper, editorialRows, isEditorialRowsLoading ->
+                    wrapper.copy(
+                        editorialRows = editorialRows,
+                        isEditorialRowsLoading = isEditorialRowsLoading,
+                    )
                 }.debounce(100L).collect { wrapper ->
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         val allHistory = wrapper.history
@@ -398,7 +436,7 @@ internal fun HomeViewModel.loadData() {
                                 resolvedSerial = resolvedSerial,
                                 completedEpisodeIds = completedEpisodeIds,
                                 region = region,
-                                adaptiveSections = wrapper.adaptiveSections,
+                                editorialRows = wrapper.editorialRows,
                                 previousStableOrder = stablePodcastOrder,
                                 podcastScores = podScoresMap,
                                 previousMixtape = previousMixtape,
@@ -472,8 +510,8 @@ internal fun HomeViewModel.loadData() {
                                 becauseYouLikePodcasts = wrapper.becauseYouLikePodcasts,
                                 isBecauseYouLikeLoading = wrapper.isBecauseYouLikeLoading,
                                 isRecommendationsFallback = wrapper.isRecommendationsFallback,
-                                adaptiveSections = wrapper.adaptiveSections,
-                                isAdaptiveSectionsLoading = _isAdaptiveSectionsLoading.value,
+                                editorialRows = wrapper.editorialRows,
+                                isEditorialRowsLoading = wrapper.isEditorialRowsLoading,
                             )
                     }
                 }
@@ -492,7 +530,7 @@ internal fun HomeViewModel.loadData() {
                         discoverPodcastsExcluding(
                             trending = cachedForYouTrending,
                             heroItems = cachedHeroItems,
-                            adaptiveSections = _adaptiveSections.value,
+                            editorialRows = _editorialRows.value,
                         ).orEmpty()
 
                     _uiState.update {

@@ -2,7 +2,6 @@ package cx.aswin.boxlore.feature.home
 
 import androidx.compose.runtime.Immutable
 import cx.aswin.boxlore.core.catalog.content.ContentDaypart
-import cx.aswin.boxlore.core.catalog.content.ContentSection
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.EpisodeStatus
@@ -21,6 +20,31 @@ data class SmartHeroItem(
 )
 
 enum class HeroType { RESUME, RESUME_GRID, JUMP_BACK_IN, NEW_EPISODES_GRID, SPOTLIGHT }
+
+enum class HomeEditorialIcon {
+    HEADLINES,
+    UPLIFTING,
+    BUSINESS,
+    SCIENCE,
+    TECHNOLOGY,
+    CREATIVITY,
+    COMEDY,
+    SCREEN,
+    SPORTS,
+    TRUE_CRIME,
+    HISTORY,
+    MYSTERY,
+}
+
+@Immutable
+data class HomeEditorialRow(
+    /** Stable legacy provider ID; never shown in listener-facing copy. */
+    val providerId: String,
+    val title: String,
+    val subtitle: String,
+    val icon: HomeEditorialIcon,
+    val podcasts: List<Podcast>,
+)
 
 @Immutable
 data class HomeUiState(
@@ -50,8 +74,8 @@ data class HomeUiState(
     val becauseYouLikePodcasts: List<Podcast> = emptyList(),
     val isBecauseYouLikeLoading: Boolean = false,
     val isRecommendationsFallback: Boolean = true,
-    val adaptiveSections: List<ContentSection> = emptyList(),
-    val isAdaptiveSectionsLoading: Boolean = false,
+    val editorialRows: List<HomeEditorialRow> = emptyList(),
+    val isEditorialRowsLoading: Boolean = true,
 )
 
 /**

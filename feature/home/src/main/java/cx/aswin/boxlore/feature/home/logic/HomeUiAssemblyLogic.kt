@@ -2,11 +2,11 @@ package cx.aswin.boxlore.feature.home.logic
 
 import cx.aswin.boxlore.core.playback.MixtapeEngine
 import cx.aswin.boxlore.core.playback.PlaybackSession
-import cx.aswin.boxlore.core.catalog.content.ContentSection
 import cx.aswin.boxlore.core.model.Briefing
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.core.model.EpisodeStatus
 import cx.aswin.boxlore.core.model.Podcast
+import cx.aswin.boxlore.feature.home.HomeEditorialRow
 import cx.aswin.boxlore.feature.home.HomeListeningHistoryItem
 import cx.aswin.boxlore.feature.home.SmartHeroItem
 
@@ -50,7 +50,7 @@ internal object HomeUiAssemblyLogic {
         resolvedSerial: Map<String, Episode>,
         completedEpisodeIds: Set<String>,
         region: String,
-        adaptiveSections: List<ContentSection>,
+        editorialRows: List<HomeEditorialRow>,
         previousStableOrder: List<String>?,
         podcastScores: Map<String, Double>,
         previousMixtape: HomeMixtapeCache?,
@@ -128,7 +128,7 @@ internal object HomeUiAssemblyLogic {
             discoverPodcastsExcluding(
                 trending = trendingList,
                 heroItems = heroList,
-                adaptiveSections = adaptiveSections,
+                editorialRows = editorialRows,
             ).orEmpty()
 
         val episodePlaybackState =

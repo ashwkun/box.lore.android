@@ -309,81 +309,62 @@ fun YourShowsSkeleton(
     }
 }
 
+/** Three compact editorial rails shown while endpoint-backed Home rows load. */
 @Composable
-fun TimeBlockSkeleton() {
+fun EditorialRowsSkeleton(modifier: Modifier = Modifier) {
     val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
-    Column(modifier = Modifier.padding(bottom = 16.dp)) {
-        // Time Block Master Header
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .m3Shimmer(baseColor, highlightColor, shape = CircleShape),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                SkeletonBlock(width = 160.dp, height = 24.dp, baseColor = baseColor, highlightColor = highlightColor)
-                Spacer(modifier = Modifier.height(2.dp))
-                SkeletonBlock(width = 200.dp, height = 14.dp, baseColor = baseColor, highlightColor = highlightColor)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        AdaptiveRailsSkeleton(railCount = 2)
-    }
-}
-
-/** Placeholder rails under the discovery greeting while personalized sections load. */
-@Composable
-fun AdaptiveRailsSkeleton(
-    railCount: Int = 2,
-    modifier: Modifier = Modifier,
-) {
-    val baseColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-
-    Column(modifier = modifier.padding(bottom = 8.dp)) {
-        repeat(railCount) { railIndex ->
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                ) {
-                    SkeletonBlock(
-                        width = 140.dp,
-                        height = 18.dp,
-                        baseColor = baseColor,
-                        highlightColor = highlightColor,
+    Column(
+        modifier = modifier.padding(bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        repeat(3) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(36.dp)
+                                .clip(MaterialTheme.shapes.medium)
+                                .m3Shimmer(
+                                    baseColor,
+                                    highlightColor,
+                                    shape = MaterialTheme.shapes.medium,
+                                ),
                     )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SkeletonBlock(
+                            width = 132.dp,
+                            height = 17.dp,
+                            baseColor = baseColor,
+                            highlightColor = highlightColor,
+                        )
+                        SkeletonBlock(
+                            width = 210.dp,
+                            height = 12.dp,
+                            baseColor = baseColor,
+                            highlightColor = highlightColor,
+                        )
+                    }
                 }
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 0.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(4) {
                         Box(
                             modifier =
                                 Modifier
-                                    .width(140.dp)
-                                    .height(204.dp)
+                                    .width(156.dp)
+                                    .height(214.dp)
                                     .clip(MaterialTheme.shapes.large)
-                                    .m3Shimmer(baseColor, highlightColor, shape = MaterialTheme.shapes.large),
+                                    .m3Shimmer(
+                                        baseColor,
+                                        highlightColor,
+                                        shape = MaterialTheme.shapes.large,
+                                    ),
                         )
                     }
                 }
-            }
-            if (railIndex < railCount - 1) {
-                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
