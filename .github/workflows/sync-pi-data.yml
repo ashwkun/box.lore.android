@@ -152,6 +152,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # checkout@v7 stores the start-of-job App token in http.extraheader /
+          # includeIf credential helpers. That token expires after ~1h and
+          # overrides the refreshed token in the remote URL on long runs.
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          for key in $(git config --local --name-only --get-regexp '^includeIf\.gitdir:' || true); do
+            git config --local --unset-all "$key" || true
+          done
+          rm -f "${RUNNER_TEMP}"/git-credentials-*.config 2>/dev/null || true
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git add scripts/data/sync_cache.json scripts/data/db_cost_history.json scripts/data/db_cost_report.md
           if git diff --cached --quiet; then
@@ -224,6 +232,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # checkout@v7 stores the start-of-job App token in http.extraheader /
+          # includeIf credential helpers. That token expires after ~1h and
+          # overrides the refreshed token in the remote URL on long runs.
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          for key in $(git config --local --name-only --get-regexp '^includeIf\.gitdir:' || true); do
+            git config --local --unset-all "$key" || true
+          done
+          rm -f "${RUNNER_TEMP}"/git-credentials-*.config 2>/dev/null || true
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           # Stage and commit BEFORE any rebase: an up-front pull fails on the
           # unstaged sync_cache.json changes stage 6 just wrote. The push
