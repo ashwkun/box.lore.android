@@ -221,10 +221,7 @@ fun ExploreContent(
     }
     val displayList = if (state.isSearching) state.searchResults else state.trending
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val isRecommendationsFallback = remember {
-        cx.aswin.boxlore.core.prefs.BoxcastPrefs(context).isRecommendationsFallback()
-    }
+    val isRecommendationsFallback = state.isRecommendationsFallback
 
     if (state.selectedTab == 1 && state.recommendations.isNotEmpty()) {
         LaunchedEffect(state.recommendations) {
