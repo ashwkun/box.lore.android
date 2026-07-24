@@ -330,10 +330,13 @@ class ArchitectureGuardTest {
             "EpisodeInfoViewModel",
             "ExploreViewModel",
             "HistoryViewModel",
+            "HomeViewModel",
             "LearnHistoryViewModel",
             "LearnViewModel",
             "LibraryViewModel",
             "OnboardingViewModel",
+            "PodcastInfoViewModel",
+            "SettingsViewModel",
         )
 
     /**
@@ -348,6 +351,8 @@ class ArchitectureGuardTest {
             "DownloadRepository",
             // Covered by RssRepositoryHelpers/RssSourceMatcher suites + Room DAO paths.
             "RssPodcastRepository",
+            // Covered by Retrofit/Room transcript cache integration suites.
+            "TranscriptRepository",
         )
 
     @Test

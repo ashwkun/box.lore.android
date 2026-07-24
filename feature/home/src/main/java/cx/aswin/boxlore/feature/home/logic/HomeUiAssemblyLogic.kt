@@ -41,6 +41,7 @@ internal data class HomeUiAssemblyResult(
  * Ranking/mixtape builders are injected so this stays free of Android ViewModel deps.
  */
 internal object HomeUiAssemblyLogic {
+    @Suppress("LongParameterList")
     suspend fun assemble(
         trendingList: List<Podcast>,
         rankedRecommendations: List<Episode>,

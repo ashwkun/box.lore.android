@@ -23,7 +23,7 @@ Automated coverage focused on **hermetic JVM** for product logic (queue fill, ra
 | :--- | :--- | :--- | :--- |
 | JVM unit | `./gradlew testDebugUnitTest` | Logic / state bugs | WIP |
 | Architecture-as-code | `:core:testing` Konsist / scripts | Feature isolation, graph, allowlists, new-code tests | Done |
-| Static analysis | `./gradlew detekt`; `./gradlew ktlintCheck` | Style / quality beyond baselines | Done |
+| Static analysis | `./gradlew detekt` | Style / quality beyond baselines | Done |
 | Android lint | `./gradlew lintDebug` | Manifest / resource / API lint | Done |
 | Coverage (Kover) | `./gradlew :koverVerifyMerged` | Merged floor (ratchet toward 80%) | WIP |
 | Screenshots | `screenshots/baselines/` + Roborazzi verify | Visual regressions | Done |
