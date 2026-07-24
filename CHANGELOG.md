@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Hermetic cache encode/decode helpers for shared recommendations and corresponding unit tests ([#947](https://github.com/boxcreate/boxlore/pull/947)) <!-- impact:user-impact-medium -->
 ### Changed
+- Explore For You now hydrates from the shared BoxcastPrefs recommendations cache and refreshes via getHomeBootstrapData, removing the empty‑seed early‑return path ([#947](https://github.com/boxcreate/boxlore/pull/947)) <!-- impact:user-impact-medium -->
 - Add node test suite for CSV helpers; flatten CR/LF in Podcast Index dump export and make CSV import quote‑aware, skipping rows with mismatched field count ([#945](https://github.com/boxcreate/boxlore/pull/945)) <!-- impact:no-user-impact+backend-change -->
+### Fixed
+- For You blank state on fresh installs by sharing Home bootstrap recommendations via BoxcastPrefs cache ([#947](https://github.com/boxcreate/boxlore/pull/947)) <!-- impact:user-impact-medium -->
 ## [v0.0.11] - 2026-07-22
 
 ### Added

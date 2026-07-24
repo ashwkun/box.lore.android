@@ -55,9 +55,10 @@ The smart layer runs on a search index that is rebuilt daily and covers popular 
 
 <details open>
 <summary><b>🔮 Upcoming in the Next Release</b></summary>
-<p align="left">
-New features and improvements for the next release are currently in development.
-</p>
+<b>⚡ Improvements:</b>
+<ul align="left">
+<li>Explore For You now loads recommendations from cache, preventing blank screens on fresh installs <a href="https://github.com/boxcreate/boxlore/pull/947"><img src="https://img.shields.io/badge/PR-947-6750A4?style=flat-square" alt="PR #947" height="18"/></a></li>
+</ul>
 <p align="center"><sub><sub>AI-generated summary; may contain mistakes.<br/>Verify details in the <a href="CHANGELOG.md">changelog</a> and linked pull requests.</sub></sub></p>
 </details>
 
