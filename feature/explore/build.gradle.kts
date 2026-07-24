@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.kover)
 }
@@ -62,6 +63,8 @@ dependencies {
     implementation(projects.core.network)
     implementation(projects.core.analytics)
     implementation(projects.core.ranking)
+    implementation(projects.core.prefs)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

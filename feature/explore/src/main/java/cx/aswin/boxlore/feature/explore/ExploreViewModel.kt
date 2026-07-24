@@ -36,6 +36,7 @@ import cx.aswin.boxlore.core.playback.PlaybackRepository
 import cx.aswin.boxlore.core.playback.getHistoryForRecommendations
 import cx.aswin.boxlore.core.model.Episode
 import cx.aswin.boxlore.feature.explore.logic.ExploreBrowseLogic
+import cx.aswin.boxlore.feature.explore.logic.ExploreSharedRecommendationsLogic
 
 enum class SearchTab { SHOWS, EPISODES }
 
@@ -56,6 +57,7 @@ sealed interface ExploreUiState {
         val hasMore: Boolean = true,
         val selectedTab: Int = 1, // 0 for Trending, 1 for For You (default)
         val isRecommendationsLoading: Boolean = false,
+        val isRecommendationsFallback: Boolean = true,
         val searchTab: SearchTab = SearchTab.SHOWS,
         val semanticSearchResults: List<Episode> = emptyList(),
         val isSemanticLoading: Boolean = false,
@@ -84,6 +86,7 @@ private data class ExploreRecsSlice(
     val selectedTab: Int,
     val recommendations: List<Episode>,
     val isRecommendationsLoading: Boolean,
+    val isRecommendationsFallback: Boolean,
 )
 
 private data class ExploreSearchSlice(
@@ -119,6 +122,7 @@ class ExploreViewModel(
             isLoadingMore = false,
             selectedTab = if (initialCategory != null || initialTab == "trending") 0 else 1,
             isRecommendationsLoading = false,
+            isRecommendationsFallback = true,
             searchTab = SearchTab.SHOWS,
             semanticSearchResults = emptyList(),
             isSemanticLoading = false,
@@ -136,6 +140,7 @@ class ExploreViewModel(
     private val _selectedTab = MutableStateFlow(if (initialCategory != null || initialTab == "trending") 0 else 1)
     private val _recommendations = MutableStateFlow<List<Episode>>(emptyList())
     private val _isRecommendationsLoading = MutableStateFlow(false)
+    private val _isRecommendationsFallback = MutableStateFlow(true)
     private val _searchTab = MutableStateFlow(SearchTab.SHOWS)
     private val _semanticSearchResults = MutableStateFlow<List<Episode>>(emptyList())
     private val _isSemanticLoading = MutableStateFlow(false)
@@ -228,7 +233,16 @@ class ExploreViewModel(
                     _recommendations,
                     _isRecommendationsLoading,
                 ) { vibe, vibes, selectedTab, recommendations, isRecommendationsLoading ->
-                    ExploreRecsSlice(vibe, vibes, selectedTab, recommendations, isRecommendationsLoading)
+                    ExploreRecsSlice(
+                        vibe,
+                        vibes,
+                        selectedTab,
+                        recommendations,
+                        isRecommendationsLoading,
+                        isRecommendationsFallback = true,
+                    )
+                }.combine(_isRecommendationsFallback) { slice, isFallback ->
+                    slice.copy(isRecommendationsFallback = isFallback)
                 },
                 combine(
                     _searchTab,
@@ -257,6 +271,7 @@ class ExploreViewModel(
                     hasMore = loading.hasMore,
                     selectedTab = recs.selectedTab,
                     isRecommendationsLoading = recs.isRecommendationsLoading,
+                    isRecommendationsFallback = recs.isRecommendationsFallback,
                     searchTab = search.searchTab,
                     semanticSearchResults = search.semanticSearchResults,
                     isSemanticLoading = search.isSemanticLoading,
@@ -278,6 +293,22 @@ class ExploreViewModel(
                 category to region
             }.collectLatest { (category, region) ->
                 loadTrending(category, region)
+            }
+        }
+
+        // Hydrate For You from the shared Home/Explore BoxcastPrefs cache (same payload Home writes).
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val prefs = BoxcastPrefs(getApplication())
+                val cached = ExploreSharedRecommendationsLogic.decodeCachedRecommendationsJson(
+                    prefs.getCachedRecommendationsJson(),
+                )
+                if (cached.isNotEmpty()) {
+                    _recommendations.value = cached
+                }
+                _isRecommendationsFallback.value = prefs.isRecommendationsFallback()
+            } catch (e: Exception) {
+                android.util.Log.e("ExploreViewModel", "Failed to load shared recommendations cache", e)
             }
         }
 
@@ -665,32 +696,61 @@ class ExploreViewModel(
     fun fetchPersonalizedRecommendations() {
         viewModelScope.launch {
             _isRecommendationsLoading.value = true
+            val prefs = BoxcastPrefs(getApplication())
             try {
-                val interests = BoxcastPrefs(getApplication()).getUserGenres().toList()
+                // Prefer shared cache if we already have rows (Home often populated it).
+                if (_recommendations.value.isEmpty()) {
+                    val cached = ExploreSharedRecommendationsLogic.decodeCachedRecommendationsJson(
+                        prefs.getCachedRecommendationsJson(),
+                    )
+                    if (cached.isNotEmpty()) {
+                        _recommendations.value = cached
+                        _isRecommendationsFallback.value = prefs.isRecommendationsFallback()
+                    }
+                }
+
+                val interests = prefs.getUserGenres().toList()
                 val history = playbackRepository.getHistoryForRecommendations(15)
-                
+
                 val subscribedIds = subscriptionRepository.subscribedPodcastIds.first().toList()
                 val subscribedGenres = subscriptionRepository.subscribedPodcasts.first()
                     .mapNotNull { it.genre }
                     .distinct()
-                
+
                 val region = userPrefs.regionStream.first()
-                
-                android.util.Log.d("ExploreViewModel", "Fetching recommendations with history size: ${history.size}, interests: $interests, region: $region, subscribedCount: ${subscribedIds.size}")
-                val recs = podcastRepository.getPersonalizedRecommendations(
+
+                android.util.Log.d(
+                    "ExploreViewModel",
+                    "Refreshing shared bootstrap recommendations; history=${history.size}, interests=$interests, region=$region, subscribed=${subscribedIds.size}",
+                )
+                // Same catalog path as Home For You — includes popular-in-region when taste seeds are empty.
+                val bootstrapData = podcastRepository.getHomeBootstrapData(
+                    country = region,
+                    vibeIds = emptyList(),
                     history = history,
                     interests = interests,
-                    country = region,
                     subscribedPodcastIds = subscribedIds,
-                    subscribedGenres = subscribedGenres
+                    subscribedGenres = subscribedGenres,
                 )
-                android.util.Log.d("ExploreViewModel", "Fetched recommendations size: ${recs.size}")
-                val distinctRecs = recs
-                    .distinctBy { it.id }
-                    .distinctBy { it.title.lowercase().trim() }
+                val distinctRecs = ExploreSharedRecommendationsLogic.distinctRecommendations(
+                    bootstrapData.recommendations,
+                )
+                android.util.Log.d(
+                    "ExploreViewModel",
+                    "Shared recommendations size=${distinctRecs.size}, fallback=${bootstrapData.isRecommendationsFallback}",
+                )
                 _recommendations.value = distinctRecs
+                _isRecommendationsFallback.value = bootstrapData.isRecommendationsFallback
+                try {
+                    prefs.saveRecommendationsCache(
+                        ExploreSharedRecommendationsLogic.encodeRecommendationsJson(distinctRecs),
+                        bootstrapData.isRecommendationsFallback,
+                    )
+                } catch (ce: Exception) {
+                    android.util.Log.e("ExploreViewModel", "Failed to write shared recommendations cache", ce)
+                }
             } catch (e: Exception) {
-                android.util.Log.e("ExploreViewModel", "Failed to fetch personalized recommendations", e)
+                android.util.Log.e("ExploreViewModel", "Failed to fetch shared recommendations", e)
             } finally {
                 _isRecommendationsLoading.value = false
             }

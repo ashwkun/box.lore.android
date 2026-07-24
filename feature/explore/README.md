@@ -31,7 +31,7 @@ src/main/java/cx/aswin/boxlore/feature/explore/
 ## Dependencies
 
 - Project dependencies: `:core:designsystem`, `:core:catalog`, `:core:playback`, `:core:model`, `:core:network`, `:core:analytics`, `:core:ranking`, and `:core:prefs`.
-- Libraries: Compose, Navigation, Coil, lifecycle runtime/ViewModel Compose, Palette, Turbine and coroutines-test for tests.
+- Libraries: Compose, Navigation, Coil, lifecycle runtime/ViewModel Compose, Palette, kotlinx.serialization.json, Turbine and coroutines-test for tests.
 - Reverse-edge rule: feature modules must not depend on other feature modules.
 
 ## Threading / lifecycle
@@ -45,12 +45,13 @@ src/main/java/cx/aswin/boxlore/feature/explore/
 
 - This module owns no raw storage files.
 - Learn history and recommendation caches are accessed through `BoxcastPrefs` in `:core:prefs`.
+- Explore For You uses the **same** Home bootstrap recommendations payload: hydrate from `BoxcastPrefs` shared cache, refresh via `PodcastRepository.getHomeBootstrapData`, and write that cache back (taste or popular-in-region fallback). It does not call the standalone empty-seed `getPersonalizedRecommendations` path.
 - Network DTOs map to feature UI models before entering UI state.
 
 ## Testing notes
 
 - Unit tests live under `feature/explore/src/test`.
-- Existing coverage includes Learn pagination, Learn deck logic, and Explore browse logic.
+- Existing coverage includes Learn pagination, Learn deck logic, Explore browse logic, and shared recommendation cache helpers (`ExploreSharedRecommendationsLogicTest`).
 - Prefer fakes for repository and prefs dependencies when expanding ViewModel coverage.
 
 ```bash
