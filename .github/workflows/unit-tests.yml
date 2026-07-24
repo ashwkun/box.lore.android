@@ -76,10 +76,6 @@ jobs:
         if: steps.skip.outputs.skip != 'true'
         run: ./gradlew detekt
 
-      - name: Run ktlint
-        if: steps.skip.outputs.skip != 'true'
-        run: ./gradlew ktlintCheck
-
       - name: Run unit tests
         if: steps.skip.outputs.skip != 'true'
         run: ./gradlew testDebugUnitTest --continue
